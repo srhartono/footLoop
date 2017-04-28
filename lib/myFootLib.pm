@@ -1,47 +1,71 @@
-package foot;
+package myFootLib;
 
-use strict; use warnings; 
-#use Exporter;
-#our @ISA = qw(Exporter);
-
+use strict; use warnings;
 use vars qw(@EXPORT);
 use parent "Exporter";
 
-############### COLOR #############
-our $N      ="\e[0m";
-our $B      ="\e[1m";
-our $BL     ="\e[0;30m";
-our $BU     ="\e[0;34m";
-our $GN     ="\e[0;32m";
-our $YW     ="\e[1;33m";
-our $CY     ="\e[0;36m";
-our $RD     ="\e[0;31m";
-our $PR     ="\e[0;35m";
-our $BR     ="\e[0;33m";
-our $GR     ="\e[0;37m";
-our $WT     ="\e[0m";
-our $DGR    ="\e[1;30m";
-our $LBU    ="\e[1;34m";
-our $LGN    ="\e[1;32m";
-our $LCY    ="\e[1;36m";
-our $LRD    ="\e[1;31m";
-our $LPR    ="\e[1;35m";
-our $DIES   ="${LRD}!!!\t$N";
+our $N		="\e[0m";
+our $B		="\e[1m";
+our $BL		="\e[0;30m";
+our $BU		="\e[0;34m";
+our $GN		="\e[0;32m";
+our $YW		="\e[1;33m";
+our $CY		="\e[0;36m";
+our $RD		="\e[0;31m";
+our $PR		="\e[0;35m";
+our $BR		="\e[0;33m";
+our $GR		="\e[0;37m";
+our $WT		="\e[0m";
+our $DGR		="\e[1;30m";
+our $LBU		="\e[1;34m";
+our $LGN		="\e[1;32m";
+our $LCY		="\e[1;36m";
+our $LRD		="\e[1;31m";
+our $LPR		="\e[1;35m";
+our $DIES   ="$LRD!!!\t$N";
 
-our @EXPORT = qw(getFilename getFullpath parseExon checkBismarkIndex $DIES $N $B $BL $BU $GN $CY $RD $PR $BR $GR $YW $WT $DGR $LBU $LGN $LCY $LRD $LPR);
+our @EXPORT = qw(
+checkBismarkIndex
+getDate
+getFilename
+getFullpath
+parseExon
+intersect
+$DIES
+$N 
+$B
+$BL		 
+$BU			 
+$GN		 
+$CY			 
+$RD			 
+$PR		 
+$BR		 
+$GR
+$YW
+$WT
+$DGR
+$LBU
+$LGN
+$LCY
+$LRD
+$LPR
+);
+
+
 #################################
 
 sub checkBismarkIndex {
-	my ($geneIndexes, $outLog) = @_;
-	my $bismark_folder = "/home/mitochi/data/Bismark_indexes/footLoop/";
-	mkdir "/home/mitochi/data/" if not -d "/home/mitochi/data/";
-	mkdir "/home/mitochi/data/Bismark_indexes" if not -d "/home/mitochi/data/Bismark_indexes/";
-	mkdir "/home/mitochi/data/Bismark_indexes/footLoop/" if not -d "/home/mitochi/data/Bismark_indexes/footLoop";
+	my ($geneIndexes, $mainFolder, $outLog) = @_;
+	my $bismark_folder = "$mainFolder/Bismark_indexes/footLoop/";
+	mkdir "$mainFolder/" if not -d "$mainFolder/";
+	mkdir "$mainFolder/Bismark_indexes" if not -d "$mainFolder/Bismark_indexes/";
+	mkdir "$mainFolder/Bismark_indexes/footLoop/" if not -d "$mainFolder/Bismark_indexes/footLoop";
 	mkdir $bismark_folder if not -d $bismark_folder;
 	print $outLog "\n$LRD!!!$N FATAL ERROR: $geneIndexes is empty!\n" and die "\n" if -s $geneIndexes == 0;
 
 	my ($md1) = `md5sum $geneIndexes` =~ /^(\w+)[ ]+/;
-	$bismark_folder = "/home/mitochi/data/Bismark_indexes/footLoop/$md1";
+	$bismark_folder = "$mainFolder/Bismark_indexes/footLoop/$md1";
 	mkdir $bismark_folder if not -d $bismark_folder;
 	if (not -d $bismark_folder) {mkdir $bismark_folder; return(0, $bismark_folder);}
 	if (-d $bismark_folder and not -e "$bismark_folder/Bisulfite_Genome/md5sum.txt") {mkdir $bismark_folder; return(0, $bismark_folder);}
@@ -83,7 +107,7 @@ sub getFilename {
 	my (@names)   = split("\/", $fh);
 #	print "Names = @names\n";
 	my $fullname  = pop(@names);
-	my $folder    = @names != 1 ? join("\/", @names) : $names[0] =~ /^\.\.$/ ? "../" : "./";
+	my $folder    = @names != 1 ? join("\/", @names) : $names[0] =~ /^\.\.$/ ? "../" : $names[0] =~ /^\.\/$/ ? "./" : $names[0] =~ /^\w+/ ? "$names[0]/" : die "Can't extract folder from $fh :(\n";
 #	print "FOLDERZ = $folder\n";
 	my @names2    = split(".", $fullname);
 	my $shortname = $names2[0];
@@ -99,6 +123,7 @@ sub getFullpath {
 	my ($fh) = @_;
 	
 	my ($folder, $fullname) = getFilename($fh, "folderfull");
+#	print "fh = $fh\nFull name = $fullname.\n";
 #	print "FOLDER = $folder\n";
 	my $currdir = `pwd`; chomp($currdir);
 	chdir $folder if defined($folder) and -e $folder;
@@ -207,4 +232,3 @@ sub intersect {
 	return(1) if ($start2 >= $start1 and $start2 <= $end1);
 	return(0);
 }
-
