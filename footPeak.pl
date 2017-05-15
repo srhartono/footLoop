@@ -2,52 +2,101 @@
 
 use strict; use warnings; use Getopt::Std;
 use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_g $opt_i $opt_p $opt_x $opt_y $opt_d $opt_s $opt_k);
-getopts("vg:i:p:x:y:d:s:k:");
+use vars qw($opt_v $opt_g $opt_i $opt_p $opt_x $opt_y $opt_d $opt_s $opt_k $opt_K $opt_n);
+getopts("vg:i:p:x:y:d:s:k:K:n:");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/jeep/lib';
    push(@INC, $libPath);
 }
 use myFootLib; use FAlite;
+my $die = "\nDied at file$CY" . __FILE__ . "$N at line $LGN";
+my ($faFile, $indexFile, $peakFile, $x, $y, $min, $groupsize, $dist, $outDir) = ($opt_g, $opt_i, $opt_p, $opt_x, $opt_y, $opt_d, $opt_s, $opt_k, $opt_n);
+die "
+Usage: $YW$0$N -g$CY <genomic fasta>$N -i$LPR <UNMODIFIED geneIndexes.bed>$N -p$LGN <Peak file>$N
 
-my ($faFile, $indexFile, $peakFile, $x, $y, $min, $groupsize, $kmer) = ($opt_g, $opt_i, $opt_p, $opt_x, $opt_y, $opt_d, $opt_s, $opt_k);
-die "usage: $0 -g hg19.fa -i UNMODIFIED geneindexes.bed -p CALM3_pos75.txt
+${YW}Example: $YW$0$N -g$CY hg19.fa$N -i$LPR geneIndexes.bed$N -p$LGN CALM3_Pos75.txt$N
 
-Options (don't worry about this if you're just making length boxplots)
--x: left buffer (default: -10bp) 
--y: (right buffer) (default: +10bp)
--d: Maxmimum distance between 2 peaks (default: 150bp)
--s: Range of group size bin (default: 200bp)
--k: Kmer size +/- (default: 50bp)
+$LRD	========== !!IMPORTANT!! ========== $N
+1.	The format of the file from -p *has* to be: ${CY}GENE$N\_NNNDD.txt
+	NNN is Pos or Neg
+	DD is the percent threshold (e.g. 75)
+	If there's 'CG' after DD that's okay!
+	E.g.:$YW CALM3_pos75.txt or CALM3_NEG75.txt or CALM3_Pos75CG.txt$N
+
+2.	The GENE will  be used to extract gene from geneindexes.bed (case insensitive!)
+	So if in geneindexes.bed, the gene name is CALM and the file name is CALM3_pos40.txt,
+	this will >not< work as CALM is >not<the same as CALM3
+
+
+3.	Put -x and -y EXACTLY like what you used for footLoop.pl
+	e.g. in footLoop.pl you gave -100 left buffer and 100 right buffer
+	do this: -x -10 -y 10
+	${LRD}Without doing this, the result will be wrong!$N
+
+$LRD	=================================== $N
+
+${LGN}Options$N [default] 
+-x: Length of left 'buffer' in basepair [0]
+-y: Length of right 'buffer' in basepair [0]
+-d: Maxmimum distance between 2 peaks in basepair [150]
+-s: Range of group size bin in basepair [200]
+-k: Length of seequence to take from start/end of each peak [50]
+-K: [2] Kmer size; the 'k' of 'k'mer [-K 2 (AA/AT/AG/etc];
+	 -K 2 -> AA/AC/AG/AT/CA/CC/...
+	 -K 3 -> AAA/AAC/AAG/AAT/ACA/ACT/...
+	 -K 4 -> AAAA/AAAC/AAAG/AAAT/...
+
+${LGN}Determining cluster$N
+
+Example:
+
+...|100      |110      |120 ... |250
+...01234567${LGN}8${N}9012345678901234...901234${LGN}5${N}6789012345678....   <=$LGN this is position 1 at 0 means 100, 1 at 250 means 251$N
+-----------|         PEAK   ...      |-----------
+
+Above, peak begin at position 108 and end at position 255.
+
+-d of 150:
+Say there's another peak >> WITHIN SAME READ << that begins at position 280 and ending at position 500.
+This peak is 'too close' to the first peak as its beginning (280) is less than 150bp away from the first peak's end (255)
+Therefore these two peak -will be merged-
+New peak begin at 108 end at 500
+
+-s of 200:
+	beg of this peak = integer of (108/200) = 0
+	end of this peak = integer of (255/200) = 1
+
+The distance of this start/end bin with another peak's start/end bin determines its cluster.
+This means this peak will be -very- close with other peaks that also begin at bin 0 and end at bin 1
+It will be slightly further with peak begin at bin 0 and end at bin 2
+It will be weakly grouped with peak beginning at bin 0 and end at bin 99
+
+-k of 50:
+beg = 108-50 to 108+50 = 58 to 158
+mid = 108+50 to 255-50 = 158 to 205
+end = 255-50 to 255+50 = 205 to 305
 
 " unless defined $faFile and defined $indexFile and defined $peakFile and -e $faFile and -e $indexFile and -e $peakFile;
 
-$x = defined($x) ? $x : -10;
-$y = defined($y) ? $y : 10;
+my ($K) = defined ($opt_K) ? $opt_K : 2;
+die $die . __LINE__ . "$N: -K *must* be 2 or 3 or 4! (Currently:$LGN$K$N)\n\n" unless $K =~ /^[234]$/;
+my @kmer = @{make_kmer($K)};
+
+if (not -d $outDir) {
+	mkdir $outDir or die $die . __LINE__ . "$N: Cannot create directory (-n) $outDir: $!\n\n";
+}
+
+$x = defined($x) ? $x : 0;
+$y = defined($y) ? $y : 0;
 $min = defined($min) ? $min : 150;
 $groupsize = defined($groupsize) ? $groupsize : 200;
-$kmer = defined($kmer) ? $kmer : 50;
-print "X=$x, Y=$y\n";
-#fastafrombed
-system("bedtools_bed_change.pl -x $x -y $y -i $indexFile -o $indexFile\_$x\_$y.bed > /dev/null 2>&1");
+$dist = defined($dist) ? $dist : 50;
 
 # Get Real Coordinate of each Gene
 my %coor;
-my @LINE = `cat $indexFile\_$x\_$y.bed`;
-print "\n$YW Parsing index file $indexFile\_$x\_$y.bed$N\n";
-foreach my $line (@LINE) {
-	chomp($line);
-	my ($chr, $beg, $end, $name) = split("\t", $line);
-	print "\tParsed:Gene=$CY$name$N, COORD=$CY$chr\t$beg\t$end\t$name$N\n\n";
-	$coor{uc($name)}{chr} = $chr;
-	$coor{uc($name)}{beg} = $beg;
-	$coor{uc($name)}{end} = $end;
-}
+$faFile = parse_index($indexFile, $x, $y);
 
-system("fastaFromBed -fi $faFile -bed $indexFile\_$x\_$y.bed -fo $indexFile\_$x\_$y.fa -name");
-my $FA = $faFile;
-$faFile = "$indexFile\_$x\_$y.fa";
 # get seq from faFile
 open (my $in, "<", $faFile) or die;
 my %seq;
@@ -71,12 +120,10 @@ while (my $line = <$in>) {
 close $in;
 
 # process peak
-#my ($folder1, $fileName1) = mitochy::getFilename($peakFile, "folder");
-
 my %data; my $totalpeak = 0; my %end; my %bad;
 open (my $in1, "<", $peakFile) or die "Cannot read from $peakFile: $!\n";
 my ($gene) = $peakFile =~ /(\w+)_\w\w\w\d+(CG)?.txt/; 
-die "Died cannot ge gene from peakfile $peakFile\n" unless defined $gene;
+die "Died cannot get gene from peakfile $peakFile\n" unless defined $gene;
 $gene = uc($gene);
 my ($peakName) = $peakFile =~ /(\w+_\w\w\w\d+(CG)?).txt/; $gene = uc($gene);
 my $total = @{$seq{$gene}}; my $linecount = 0; my $peakcount = 0;
@@ -186,10 +233,10 @@ foreach my $indexBeg (sort {$a <=> $b} keys %final) {
 			my $end  = $final{$indexBeg}{$indexEnd}{$peak}{end};
 			my $badbeg  = $final{$indexBeg}{$indexEnd}{$peak}{badbeg};
 			my $badend  = $final{$indexBeg}{$indexEnd}{$peak}{badend};
-			my $beg0 = $beg - $kmer < 0 ? 0 : $beg - $kmer;
-			my $beg1 = $beg + $kmer > @seq-1 ? @seq-1 : $beg+$kmer;
-			my $end0 = $end - $kmer < 0 ? 0 : $end - $kmer;
-			my $end1 = $end + $kmer > @seq-1 ? @seq-1 : $end+$kmer;
+			my $beg0 = $beg - $dist < 0 ? 0 : $beg - $dist;
+			my $beg1 = $beg + $dist > @seq-1 ? @seq-1 : $beg+$dist;
+			my $end0 = $end - $dist < 0 ? 0 : $end - $dist;
+			my $end1 = $end + $dist > @seq-1 ? @seq-1 : $end+$dist;
 			my $begSeq = join("", @seq[$beg0..$beg1]);
 			my $endSeq = join("", @seq[$end0..$end1]);
 			die "beg0=$beg0; beg1=$beg1; end0=$end0; end1=$end1\n" if not defined $seq[$beg0] or not defined($seq[$beg1]);
@@ -198,10 +245,10 @@ foreach my $indexBeg (sort {$a <=> $b} keys %final) {
 	}
 }
 
-open (my $outLen, ">", "$peakName.len") or die;
-open (my $outOriginal, ">", "$peakName.original") or die;
+open (my $outLen, ">", "$outDir/$peakName.len") or die "Cannot write to $outDir/$peakName.len: $!\n";
+open (my $outOriginal, ">", "$outDir/$peakName.original") or die "Cannot write to $outDir/$peakName.original: $!\n";
 my $strand = $peakFile =~ /Pos/i ? "pos" : $peakFile =~ /Neg/i ? "neg" : die "Cannot determine strand for file $peakFile\n";
-open (my $out, ">", "$gene.prob");
+#open (my $out, ">", "$outDir/$gene.prob") or die "Cannot write to $outDir/$gene.prob: $!\n";
 my %kmer;
 my $countz = 0;
 foreach my $group (sort {$group{$b} <=> $group{$a} || $a cmp $b} keys %group) {
@@ -225,10 +272,10 @@ foreach my $group (sort {$group{$b} <=> $group{$a} || $a cmp $b} keys %group) {
 		print $outOriginal "$origChr\t$peakBeg\t$peakEnd\t$name\t$len\t$newstrand\n";
 		my $badbeg  = $final{$indexBeg}{$indexEnd}{$peak}{badbeg};
 		my $badend  = $final{$indexBeg}{$indexEnd}{$peak}{badend};
-		my $beg0 = $beg - $kmer < 0 ? 0 : $beg - $kmer;
-		my $beg1 = $beg + $kmer > @seq-1 ? @seq-1 : $beg+$kmer;
-		my $end0 = $end - $kmer < 0 ? 0 : $end - $kmer;
-		my $end1 = $end + $kmer > @seq-1 ? @seq-1 : $end+$kmer;
+		my $beg0 = $beg - $dist < 0 ? 0 : $beg - $dist;
+		my $beg1 = $beg + $dist > @seq-1 ? @seq-1 : $beg+$dist;
+		my $end0 = $end - $dist < 0 ? 0 : $end - $dist;
+		my $end1 = $end + $dist > @seq-1 ? @seq-1 : $end+$dist;
 		my $begSeq = $badbeg == 0 ? join("", @seq[$beg0..$beg1]) : "NA";
 		my $endSeq = $badend == 0 ? join("", @seq[$end0..$end1]) : "NA";
 		my $temp = $begSeq;
@@ -248,18 +295,22 @@ foreach my $group (sort {$group{$b} <=> $group{$a} || $a cmp $b} keys %group) {
 }
 close $outLen;
 
-print "\nOUTPUT:\n\t- Relative coordinate bed file: $LGN$peakName.len$N\n";
-print "\t- UCSC Original coordinate bed file: $LGN$peakName.original$N\n\n--------------------\nKMER:";
-#open (my $out1, ">", "$fileName1.out") or die "Cannot write to $fileName1.out: $!\n";
-#close $out1;
-my @seqs = qw(A C G T);
-print "type";
+print "\nOUTPUT:\n";
+print "\t- Relative coordinate bed file: $LGN$outDir/$peakName.len$N\n";
+print "\t- UCSC Original coordinate bed file: $LGN$outDir/$peakName.original$N\n";
+print "\t- Kmer odds ratio file: $LGN$outDir/$peakName.kmer$N\n";
+print "\n\n--------------------\nKMER:";
+print "\n\n--------------------\n";
+
+open (my $outKmer, ">", "$outDir/$peakName.kmer") or die "Cannot write to $outDir/$peakName.kmer: $!\n";
+my @seqs = @{make_kmer($K)};
+print $outKmer "type";
 foreach my $seq1(sort @seqs) {
 	foreach my $seq2 (sort @seqs) {
-		print "\t$seq1$seq2";
+		print $outKmer "\t$seq1$seq2";
 	}
 }
-print "\n";
+print $outKmer "\n";
 kmer(join("", @seq),"all");
 
 my @type = qw(beg mid end);
@@ -281,7 +332,7 @@ foreach my $type (@type[0..2]) {
 			$perc = $perc <= 2 ? "$LBU$perc$N" : $perc <= 5 ? "$LCY$perc$N" : $perc <= 7 ? "$N$perc$N" : $perc <= 10 ? "$YW$perc$N" : "$LRD$perc$N";
 			$percE = $percE <= 2 ? "$LBU$percE$N" : $percE <= 5 ? "$LCY$percE$N" : $percE <= 7 ? "$N$percE$N" : $percE <= 10 ? "$YW$percE$N" : "$LRD$percE$N";
 			$ratio = $ratio <= 0.5 ? "$LBU$ratio$N" : $ratio <= 0.9 ? "$LCY$ratio$N" : $ratio <= 1/0.9 ? "$N$ratio$N" : $ratio <= 1/0.5 ? "$YW$ratio$N" : "$LRD$ratio$N";
-#			print "\tcount=$count;total=$total;perc=$perc";
+#			print $outKmer "\tcount=$count;total=$total;perc=$perc";
 			$obs .= "\t$perc";
 #			$obs .= "\tcount=$count;total=$total;perc=$perc";
 			$exp .= "\t$percE" if $type eq "beg";
@@ -294,9 +345,9 @@ foreach my $type (@type[0..2]) {
 	$odd .= "\n";
 }
 
-print ">Observed:\n$obs\n\n";
-print ">Expected:\n$exp\n\n";
-print ">OddRatio:\n$odd\n\n";
+print $outKmer ">Observed:\n$obs\n\n";
+print $outKmer ">Expected:\n$exp\n\n";
+print $outKmer ">OddRatio:\n$odd\n\n";
 sub kmer {
 	my ($seq, $type) = @_;
 	$seq = uc($seq);
@@ -310,4 +361,55 @@ sub kmer {
 #		my $kmer = "$seqz[$i]$seqz[$i+1]";
 #		print "$type $kmer = $kmer{$type}{$kmer}\n";
 #	}
+}
+
+sub parse_index {
+	my ($indexFile, $leftBuf, $riteBuf) = @_;
+	system("bedtools_bed_change.pl -x $leftBuf -y $riteBuf -i $indexFile -o $indexFile\_$leftBuf\_$riteBuf.bed > /dev/null 2>&1");
+
+	my @LINE = `cat $indexFile\_$leftBuf\_$riteBuf.bed`;
+	print "\n$YW Parsing index file $indexFile\_$leftBuf\_$riteBuf.bed$N\n";
+	foreach my $line (@LINE) {
+		chomp($line);
+		my ($chr, $beg, $end, $name) = split("\t", $line);
+		print "\tParsed:Gene=$CY$name$N, COORD=$CY$chr\t$beg\t$end\t$name$N\n\n";
+		$coor{uc($name)}{chr} = $chr;
+		$coor{uc($name)}{beg} = $beg;
+		$coor{uc($name)}{end} = $end;
+	}
+	system("fastaFromBed -fi $faFile -bed $indexFile\_$leftBuf\_$riteBuf.bed -fo $indexFile\_$leftBuf\_$riteBuf.fa -name");
+	$faFile = "$indexFile\_$leftBuf\_$riteBuf.fa";
+	return($faFile);
+}
+
+sub make_kmer {
+	# Initialize Count tables. Don't mind the commented-out, these are for debug.
+	my ($order) = @_;
+	my @preword = qw(A C G T);
+	my @words = qw(A C G T);
+	for (my $i = 1; $i < $order; $i++) {
+		my @curr;
+		for (my $k = 0; $k < @preword; $k++) {
+			for (my $j = 0; $j < @words; $j++) {
+				push(@curr, "$preword[$k]$words[$j]");
+			}
+		}
+		@preword = @curr;
+	}
+	my $max = @preword > 9 ? 9 : @preword-1;
+	print "\nK=2; Kmer = " . join(",", @preword[0..$max]);
+	print "\n" if @preword <= 9;
+	print "..." . "(total =$LGN " . scalar(@preword) . "$N)\n\n" if @preword > 9;
+	return(\@preword);
+}
+
+__END__
+	my %count;
+	for (my $i = 0; $i < @preword; $i++) {
+		for (my $j = 0; $j < @words; $j++) {
+			$count{$preword[$i]}{$words[$j]} = 0;
+		}
+	}
+#	print "\n";
+	return %count;
 }

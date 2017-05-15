@@ -172,7 +172,7 @@ my %seq;
 print STDERR "\n${YW}2. Parsing in sequence for genes from sequence file $CY$seqFile$N\n";
 print $outLog "\n${YW}2. Parsing in sequence for genes from sequence file $CY$seqFile$N\n";
 open(my $SEQIN, "<", $seqFile) or die "\n$LRD!!!$N\tFATAL ERROR: Could not open $CY$seqFile$N: $!";
-my ($genez, $genez2);
+my ($genez);
 my $fasta = new FAlite($SEQIN);
 while (my $entry = $fasta->nextEntry()) {
 	my $genez = uc($entry->def);
@@ -187,9 +187,9 @@ while (my $entry = $fasta->nextEntry()) {
 	$seq{$genez}{used} = 0;
 	$seq{$genez}{pos} = 0;
 	$seq{$genez}{neg} = 0;
-	$seq{$genez}{orig} = $genez2;
-	print STDERR "\t\tgenez=$genez2 ($genez) Length=$seq{$genez}{len}\n";
-	print $outLog "\t\tgenez=$genez2 ($genez) Length=$seq{$genez}{len}\n";
+	$seq{$genez}{orig} = $genez;
+	print STDERR "\t\tgenez=$genez ($genez) Length=$seq{$genez}{len}\n";
+	print $outLog "\t\tgenez=$genez ($genez) Length=$seq{$genez}{len}\n";
 }
 close $SEQIN;
 print STDERR "\t${GN}SUCCESS$N: Sequence has been parsed from fasta file $CY$seqFile$N\n";
