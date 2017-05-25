@@ -306,9 +306,7 @@ open (my $outKmer, ">", "$outDir/$peakName.kmer") or die "Cannot write to $outDi
 my @seqs = @{make_kmer($K)};
 print $outKmer "type";
 foreach my $seq1(sort @seqs) {
-	foreach my $seq2 (sort @seqs) {
-		print $outKmer "\t$seq1$seq2";
-	}
+	print $outKmer "\t$seq1";
 }
 print $outKmer "\n";
 kmer(join("", @seq),"all");
@@ -320,25 +318,23 @@ foreach my $type (@type[0..2]) {
 	$exp .= "any" if $type eq "beg";
 	$odd .= "$type";
 	foreach my $seq1(sort @seqs) {
-		foreach my $seq2 (sort @seqs) {
-			my $kmer = "$seq1$seq2";
-			my $count = defined $kmer{$type}{$kmer} ? $kmer{$type}{$kmer} : 0;
-			my $total = defined $kmer{$type}{total} ? $kmer{$type}{total} : 0;
-			my $countE = defined $kmer{all}{$kmer} ? $kmer{all}{$kmer} : 0;
-			my $totalE = defined $kmer{all}{total} ? $kmer{all}{total} : 1;
-			my $perc  = int((1+$count*1000)/(1+$total))/10;
-			my $percE = int((1+$countE*1000)/(1+$totalE))/10;
-			my $ratio = $percE == 0 ? 0 : int(100*$perc / $percE)/100;
-			$perc = $perc <= 2 ? "$LBU$perc$N" : $perc <= 5 ? "$LCY$perc$N" : $perc <= 7 ? "$N$perc$N" : $perc <= 10 ? "$YW$perc$N" : "$LRD$perc$N";
-			$percE = $percE <= 2 ? "$LBU$percE$N" : $percE <= 5 ? "$LCY$percE$N" : $percE <= 7 ? "$N$percE$N" : $percE <= 10 ? "$YW$percE$N" : "$LRD$percE$N";
-			$ratio = $ratio <= 0.5 ? "$LBU$ratio$N" : $ratio <= 0.9 ? "$LCY$ratio$N" : $ratio <= 1/0.9 ? "$N$ratio$N" : $ratio <= 1/0.5 ? "$YW$ratio$N" : "$LRD$ratio$N";
-#			print $outKmer "\tcount=$count;total=$total;perc=$perc";
-			$obs .= "\t$perc";
-#			$obs .= "\tcount=$count;total=$total;perc=$perc";
-			$exp .= "\t$percE" if $type eq "beg";
-#			$exp .= "\tcount=$countE;total=$totalE;perc=$percE" if $type eq "beg";
-			$odd .= "\t$ratio";
-		}
+		my $kmer = "$seq1";
+		my $count = defined $kmer{$type}{$kmer} ? $kmer{$type}{$kmer} : 0;
+		my $total = defined $kmer{$type}{total} ? $kmer{$type}{total} : 0;
+		my $countE = defined $kmer{all}{$kmer} ? $kmer{all}{$kmer} : 0;
+		my $totalE = defined $kmer{all}{total} ? $kmer{all}{total} : 1;
+		my $perc  = int((1+$count*1000)/(1+$total))/10;
+		my $percE = int((1+$countE*1000)/(1+$totalE))/10;
+		my $ratio = $percE == 0 ? 0 : int(100*$perc / $percE)/100;
+		$perc = $perc <= 2 ? "$LBU$perc$N" : $perc <= 5 ? "$LCY$perc$N" : $perc <= 7 ? "$N$perc$N" : $perc <= 10 ? "$YW$perc$N" : "$LRD$perc$N";
+		$percE = $percE <= 2 ? "$LBU$percE$N" : $percE <= 5 ? "$LCY$percE$N" : $percE <= 7 ? "$N$percE$N" : $percE <= 10 ? "$YW$percE$N" : "$LRD$percE$N";
+		$ratio = $ratio <= 0.5 ? "$LBU$ratio$N" : $ratio <= 0.9 ? "$LCY$ratio$N" : $ratio <= 1/0.9 ? "$N$ratio$N" : $ratio <= 1/0.5 ? "$YW$ratio$N" : "$LRD$ratio$N";
+#		print $outKmer "\tcount=$count;total=$total;perc=$perc";
+		$obs .= "\t$perc";
+#		$obs .= "\tcount=$count;total=$total;perc=$perc";
+		$exp .= "\t$percE" if $type eq "beg";
+#		$exp .= "\tcount=$countE;total=$totalE;perc=$percE" if $type eq "beg";
+		$odd .= "\t$ratio";
 	}
 	$obs .= "\n";
 	$exp .= "\n" if $type eq "beg";
@@ -397,7 +393,7 @@ sub make_kmer {
 		@preword = @curr;
 	}
 	my $max = @preword > 9 ? 9 : @preword-1;
-	print "\nK=2; Kmer = " . join(",", @preword[0..$max]);
+	print "\nK=$K; Kmer = " . join(",", @preword[0..$max]);
 	print "\n" if @preword <= 9;
 	print "..." . "(total =$LGN " . scalar(@preword) . "$N)\n\n" if @preword > 9;
 	return(\@preword);
