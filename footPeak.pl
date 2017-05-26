@@ -348,8 +348,11 @@ sub kmer {
 	my ($seq, $type) = @_;
 	$seq = uc($seq);
 	my @seqz = split("", $seq);
-	for (my $i = 0; $i < @seqz-1; $i++) {
-		my $kmer = "$seqz[$i]$seqz[$i+1]";
+	for (my $i = 0; $i < @seqz-($K-1); $i++) {
+		my $kmer;
+		for (my $j = $i; $j < $i+$K; $j++) {
+			$kmer .= $seqz[$j];
+		}
 		$kmer{$type}{$kmer} ++;
 		$kmer{$type}{total} ++;
 	}
