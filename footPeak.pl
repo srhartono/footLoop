@@ -13,9 +13,9 @@ use myFootLib; use FAlite;
 my $die = "\nDied at file$CY" . __FILE__ . "$N at line $LGN";
 my ($faFile, $indexFile, $peakFile, $x, $y, $min, $groupsize, $dist, $outDir) = ($opt_g, $opt_i, $opt_p, $opt_x, $opt_y, $opt_d, $opt_s, $opt_k, $opt_n);
 die "
-Usage: $YW$0$N -g$CY <genomic fasta>$N -i$LPR <UNMODIFIED geneIndexes.bed>$N -p$LGN <Peak file>$N
+Usage: $YW$0$N -g$CY <genomic fasta>$N -i$LPR <UNMODIFIED geneIndexes.bed>$N -p$LGN <Peak file>$N -n$YW <Output Folder>$N
 
-${YW}Example: $YW$0$N -g$CY hg19.fa$N -i$LPR geneIndexes.bed$N -p$LGN CALM3_Pos75.txt$N
+${YW}Example: $YW$0$N -g$CY hg19.fa$N -i$LPR geneIndexes.bed$N -p$LGN CALM3_Pos75.txt$N -n$YW CALM3_Pos75_Out$N
 
 $LRD	========== !!IMPORTANT!! ========== $N
 1.	The format of the file from -p *has* to be: ${CY}GENE$N\_NNNDD.txt
