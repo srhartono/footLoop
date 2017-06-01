@@ -306,8 +306,8 @@ print "\nOUTPUT:\n";
 print "\t- Relative coordinate bed file: $LGN$outDir/$peakName.len$N\n";
 print "\t- UCSC Original coordinate bed file: $LGN$outDir/$peakName.original$N\n";
 print "\t- Kmer odds ratio file: $LGN$outDir/$peakName.kmer$N\n";
-print "\n\n--------------------\nKMER:";
-print "\n\n--------------------\n";
+#print "\n\n--------------------\nKMER:";
+#print "\n\n--------------------\n";
 
 open (my $outKmer, ">", "$outDir/$peakName.kmer") or die "Cannot write to $outDir/$peakName.kmer: $!\n";
 my @seqs = @{make_kmer($K)};
@@ -403,9 +403,9 @@ sub make_kmer {
 		@preword = @curr;
 	}
 	my $max = @preword > 9 ? 9 : @preword-1;
-	print "\nK=$K; Kmer = " . join(",", @preword[0..$max]);
-	print "\n" if @preword <= 9;
-	print "..." . "(total =$LGN " . scalar(@preword) . "$N)\n\n" if @preword > 9;
+	#print "\nK=$K; Kmer = " . join(",", @preword[0..$max]);
+	#print "\n" if @preword <= 9;
+	#print "..." . "(total =$LGN " . scalar(@preword) . "$N)\n\n" if @preword > 9;
 	return(\@preword);
 }
 
