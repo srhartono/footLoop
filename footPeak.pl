@@ -77,7 +77,7 @@ beg = 108-50 to 108+50 = 58 to 158
 mid = 108+50 to 255-50 = 158 to 205
 end = 255-50 to 255+50 = 205 to 305
 
-" unless defined $faFile and defined $indexFile and defined $peakFile and -e $faFile and -e $indexFile and -e $peakFile;
+" unless defined $faFile and defined $indexFile and defined $peakFile and -e $faFile and -e $indexFile and -e $peakFile and defined $outDir;
 
 my ($K) = defined ($opt_K) ? $opt_K : 2;
 die $die . __LINE__ . "$N: -K *must* be 2 or 3 or 4! (Currently:$LGN$K$N)\n\n" unless $K =~ /^[234]$/;
