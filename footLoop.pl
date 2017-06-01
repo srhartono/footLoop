@@ -5,11 +5,11 @@ use vars qw($opt_n $opt_t $opt_l $opt_r $opt_q $opt_s $opt_g $opt_c $opt_S $opt_
 getopts("n:t:l:r:q:s:g:ci:S:e:fHL:Fpx:y:h");
 
 BEGIN {
-	my $libPath = dirname(dirname abs_path $0) . '/jeep/lib';
+	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
 	push(@INC, $libPath);
 }
 use myFootLib; use FAlite;
-my $mainFolder = dirname(dirname abs_path $0) . "/jeep";
+my $mainFolder = dirname(dirname abs_path $0) . "/footLoop";
 
 sanityCheck();
 
