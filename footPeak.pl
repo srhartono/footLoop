@@ -6,7 +6,7 @@ use vars qw($opt_v $opt_g $opt_i $opt_p $opt_x $opt_y $opt_d $opt_s $opt_k $opt_
 getopts("vg:i:p:x:y:d:s:k:K:n:");
 
 BEGIN {
-   my $libPath = dirname(dirname abs_path $0) . '/jeep/lib';
+   my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
 }
 use myFootLib; use FAlite;
