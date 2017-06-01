@@ -2,8 +2,8 @@
 
 use strict; use warnings; use Getopt::Std;
 use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_g $opt_i $opt_p $opt_x $opt_y $opt_d $opt_s $opt_k $opt_K $opt_n);
-getopts("vg:i:p:x:y:d:s:k:K:n:");
+use vars qw($opt_v $opt_g $opt_i $opt_p $opt_x $opt_y $opt_d $opt_s $opt_k $opt_K $opt_n $opt_h);
+getopts("vg:i:p:x:y:d:s:k:K:n:h");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -12,7 +12,7 @@ BEGIN {
 use myFootLib; use FAlite;
 my $die = "\nDied at file$CY" . __FILE__ . "$N at line $LGN";
 my ($faFile, $indexFile, $peakFile, $x, $y, $min, $groupsize, $dist, $outDir) = ($opt_g, $opt_i, $opt_p, $opt_x, $opt_y, $opt_d, $opt_s, $opt_k, $opt_n);
-die "
+my $usage = "
 Usage: $YW$0$N -g$CY <genomic fasta>$N -i$LPR <UNMODIFIED geneIndexes.bed>$N -p$LGN <Peak file>$N -n$YW <Output Folder>$N
 
 ${YW}Example: $YW$0$N -g$CY hg19.fa$N -i$LPR geneIndexes.bed$N -p$LGN CALM3_Pos75.txt$N -n$YW CALM3_Pos75_Out$N
@@ -32,8 +32,12 @@ $LRD	========== !!IMPORTANT!! ========== $N
 3.	Put -x and -y EXACTLY like what you used for footLoop.pl
 	e.g. in footLoop.pl you gave -100 left buffer and 100 right buffer
 	do this: -x -10 -y 10
-	${LRD}Without doing this, the result will be wrong!$N
+	If you didn't specify -x and -y when doing footLoop.pl, then don't put anything here as well
 
+	${LRD}The result will be wrong if -x and -y isn't the same as what you used in footLoop.pl!$N
+";
+
+my $usage_long = "
 $LRD	=================================== $N
 
 ${LGN}Options$N [default] 
@@ -77,7 +81,10 @@ beg = 108-50 to 108+50 = 58 to 158
 mid = 108+50 to 255-50 = 158 to 205
 end = 255-50 to 255+50 = 205 to 305
 
-" unless defined $faFile and defined $indexFile and defined $peakFile and -e $faFile and -e $indexFile and -e $peakFile and defined $outDir;
+";
+
+die $usage . $usage_long if defined $opt_h;
+die $usage unless defined $faFile and defined $indexFile and defined $peakFile and -e $faFile and -e $indexFile and -e $peakFile and defined $outDir;
 
 my ($K) = defined ($opt_K) ? $opt_K : 2;
 die $die . __LINE__ . "$N: -K *must* be 2 or 3 or 4! (Currently:$LGN$K$N)\n\n" unless $K =~ /^[234]$/;
