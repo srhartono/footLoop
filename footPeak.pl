@@ -255,13 +255,14 @@ foreach my $indexBeg (sort {$a <=> $b} keys %final) {
 open (my $outLen, ">", "$outDir/$peakName.len") or die "Cannot write to $outDir/$peakName.len: $!\n";
 open (my $outOriginal, ">", "$outDir/$peakName.original") or die "Cannot write to $outDir/$peakName.original: $!\n";
 my $strand = $peakFile =~ /Pos/i ? "pos" : $peakFile =~ /Neg/i ? "neg" : die "Cannot determine strand for file $peakFile\n";
-#open (my $out, ">", "$outDir/$gene.prob") or die "Cannot write to $outDir/$gene.prob: $!\n";
+open (my $outz, ">", "$outDir/$gene.group") or die "Cannot write to $outDir/$gene.group: $!\n";
 my %kmer;
 my $countz = 0;
 foreach my $group (sort {$group{$b} <=> $group{$a} || $a cmp $b} keys %group) {
 	$countz ++;
-#	printf "Group=$countz (name=$group)\tTotalPeak=$group{$group}\tPercent=%.1f\n", $group{$group}/$totalPeak * 100;
 #	next if $group{$group} / $totalPeak * 100 < 5;
+	printf $outz "Group=$countz (name=$group)\tTotalPeak=$group{$group}\tPercent=%.1f\n", $group{$group}/$totalPeak * 100;
+	my ($begPrint, $midPrint, $endPrint) = ("","","");
 	my ($indexBeg, $indexEnd) = $group =~ /^(\d+)\.(\d+)$/;
 	foreach my $peak (sort {$a <=> $b} keys %{$final{$indexBeg}{$indexEnd}}) {
 		my $seq  = $final{$indexBeg}{$indexEnd}{$peak}{seq};
@@ -296,11 +297,16 @@ foreach my $group (sort {$group{$b} <=> $group{$a} || $a cmp $b} keys %group) {
 		kmer($begSeq, "beg");
 		kmer($endSeq, "end");
 		kmer($midSeq, "mid");
+		$begPrint .= "$gene\t$beg0\t$beg1\t$peak.beg\t0\t$newstrand\t$begSeq\n";
+		$midPrint .= "$gene\t$beg1\t$end0\t$peak.mid\t0\t$newstrand\t$midSeq\n";
+		$endPrint .= "$gene\t$end0\t$end1\t$peak.end\t0\t$newstrand\t$endSeq\n";
 		print "\n\n!!!!!!!!!!!!!!!!\nCONTACT STELLA THIS HAPPEN!!! AT: GENE $gene GROUP $group PEAK $peak SEQ $seq NAME $name beg0=$beg0; beg1=$beg1; end0=$end0; end1=$end1\n!!!!!!!!!!!!!!!!!!!!\n" if not defined $seq[$beg0] or not defined($seq[$beg1]);
 #		die "GROUP=$countz (name=$group)\tGENE=$gene\tGROUP=$indexBeg.$indexEnd\tBEG=$beg\tEND=$end\tPEAK=$peak\tNAME=$name\tbeg=$begSeq\tend=$endSeq\n";
 	}
+	print $outz "\n$begPrint$midPrint$endPrint";
 }
 close $outLen;
+close $outz;
 
 print "\nOUTPUT:\n";
 print "\t- Relative coordinate bed file: $LGN$outDir/$peakName.len$N\n";

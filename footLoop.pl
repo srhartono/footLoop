@@ -396,18 +396,19 @@ my $methylationNeg = $mydir . "methylationNeg" . ".txt";
 $methylationPos = $mydir . "methylationPos" . "CG.txt" if($opt_c);
 $methylationNeg = $mydir . "methylationNeg" . "CG.txt" if($opt_c);
 
+mkdir "~/sortTMP/" if not -d "~/sortTMP/";
 if(defined $opt_c and not defined $opt_f)
 {
 	print STDERR "${YW}6. Combine CHH and CHG (and CpG since -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
 	print $outLog "\n${YW}6. Combine CHH and CHG (and CpG since -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
-	system("cat $CPGpos $CHGpos $CHHpos | sort -n > $methylationPos");# if not -e $methylationPos or -s $methylationPos < 10;
-	system("cat $CPGneg $CHGneg $CHHneg | sort -n > $methylationNeg");# if not -e $methylationNeg or -s $methylationNeg < 10;
+	system("cat $CPGpos $CHGpos $CHHpos | sort -T ~/sortTMP/ -n > $methylationPos");# if not -e $methylationPos or -s $methylationPos < 10;
+	system("cat $CPGneg $CHGneg $CHHneg | sort -T ~/sortTMP/ -n > $methylationNeg");# if not -e $methylationNeg or -s $methylationNeg < 10;
 }
 elsif (not defined $opt_f) {#if (not defined($opt_f) or not -e $methylationPos or not -e $methylationNeg)
 	print STDERR "${YW}6. Combine CHH and CHG (not -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
 	print $outLog "\n${YW}6. Combine CHH and CHG (not -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
-	system("cat $CHGpos $CHHpos | sort -n > $methylationPos");# if not -e $methylationPos or -s $methylationPos < 10;
-	system("cat $CHGneg $CHHneg | sort -n > $methylationNeg");# if not -e $methylationNeg or -s $methylationNeg < 10;
+	system("cat $CHGpos $CHHpos | sort -T ~/sortTMP/ -n > $methylationPos");# if not -e $methylationPos or -s $methylationPos < 10;
+	system("cat $CHGneg $CHHneg | sort -T ~/sortTMP/ -n > $methylationNeg");# if not -e $methylationNeg or -s $methylationNeg < 10;
 }
 	#gets the position of each conversion (conversions=1; not converted=0)
 my %read; my %info; my %infoGene;
