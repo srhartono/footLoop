@@ -11,6 +11,7 @@ BEGIN {
 use myFootLib; use FAlite;
 my $mainFolder = dirname(dirname abs_path $0) . "/footLoop";
 
+my $homedir = $ENV{"HOME"};
 sanityCheck();
 
 #### Input ####
@@ -40,7 +41,7 @@ if (-e $outFolder) {
 	print "\n\n$LRD------------------------ WARNING --------------------------------$N\n";
 	print "\nOutput Folder ($CY-n$N) $CY$outFolder$N exists, continuing will overwrite this completely. Continue?\n\n(press$CY ENTER$N to continue or ${LGN}ctrl+c to cancel$N)
 	\n";
-	<STDIN>;
+#	<STDIN>;
 	#	if (-e $mysam and -S $mysam >= 10) {print "Expected samfile result $CY$mysam$N Exists! Are you sure you're overwriting results and not using SAM input option ($CY-S $mysam$N) instead?$N\n";<STDIN>;}
 }
 mkdir "$opt_n" if not -d "$opt_n";
@@ -371,14 +372,14 @@ my $bismarkOutput = $CHGpos;
 
 print STDERR "${YW}5. Running bismark_methylation_extractor on $CY$finalPositive$YW and $CY$finalNegative$N\n";
 print $outLog "${YW}5. Running bismark_methylation_extractor on $CY$finalPositive$YW and $CY$finalNegative$N\n";
-if (not $opt_f) {# and (not -e $bismarkOutput or -s $bismarkOutput <= 10))
+if (not defined $opt_f) {# and (not -e $bismarkOutput or -s $bismarkOutput <= 10))
 	system("bismark_methylation_extractor -s --comprehensive $finalPositive");
 	system("bismark_methylation_extractor -s --comprehensive $finalNegative");
 }
 print STDERR "\t${GN}SUCCESS$N: Output: 4-6 files of <CpG/CHG/CHH>$CY\_context_$finalPositive$N:\n";
 print $outLog "\t${GN}SUCCESS$N: Output: 4-6 files of <CpG/CHG/CHH>$CY\_context_$finalPositive$N:\n";
 for (my $i = 0; $i < @bismarkOutput; $i++) {
-	next if $opt_f;
+	next if defined $opt_f;
 	if (not -e $bismarkOutput[$i]) {
 		print $outLog "\t\t$bismarkOutput[$i]: has$LRD 0$N reads!\n"; system("touch $bismarkOutput[$i]") == 0 or die; next;
 	}
@@ -396,19 +397,18 @@ my $methylationNeg = $mydir . "methylationNeg" . ".txt";
 $methylationPos = $mydir . "methylationPos" . "CG.txt" if($opt_c);
 $methylationNeg = $mydir . "methylationNeg" . "CG.txt" if($opt_c);
 
-mkdir "~/sortTMP/" if not -d "~/sortTMP/";
 if(defined $opt_c and not defined $opt_f)
 {
 	print STDERR "${YW}6. Combine CHH and CHG (and CpG since -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
 	print $outLog "\n${YW}6. Combine CHH and CHG (and CpG since -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
-	system("cat $CPGpos $CHGpos $CHHpos | sort -T ~/sortTMP/ -n > $methylationPos");# if not -e $methylationPos or -s $methylationPos < 10;
-	system("cat $CPGneg $CHGneg $CHHneg | sort -T ~/sortTMP/ -n > $methylationNeg");# if not -e $methylationNeg or -s $methylationNeg < 10;
+	system("cat $CPGpos $CHGpos $CHHpos | sort -T $homedir/sortTMP/ -n > $methylationPos");# if not -e $methylationPos or -s $methylationPos < 10;
+	system("cat $CPGneg $CHGneg $CHHneg | sort -T $homedir/sortTMP/ -n > $methylationNeg");# if not -e $methylationNeg or -s $methylationNeg < 10;
 }
 elsif (not defined $opt_f) {#if (not defined($opt_f) or not -e $methylationPos or not -e $methylationNeg)
 	print STDERR "${YW}6. Combine CHH and CHG (not -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
 	print $outLog "\n${YW}6. Combine CHH and CHG (not -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
-	system("cat $CHGpos $CHHpos | sort -T ~/sortTMP/ -n > $methylationPos");# if not -e $methylationPos or -s $methylationPos < 10;
-	system("cat $CHGneg $CHHneg | sort -T ~/sortTMP/ -n > $methylationNeg");# if not -e $methylationNeg or -s $methylationNeg < 10;
+	system("cat $CHGpos $CHHpos | sort -T $homedir/sortTMP/ -n > $methylationPos");# if not -e $methylationPos or -s $methylationPos < 10;
+	system("cat $CHGneg $CHHneg | sort -T $homedir/sortTMP/ -n > $methylationNeg");# if not -e $methylationNeg or -s $methylationNeg < 10;
 }
 	#gets the position of each conversion (conversions=1; not converted=0)
 my %read; my %info; my %infoGene;
@@ -964,4 +964,9 @@ die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ####
 die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -i $opt_i DOES NOT EXIST\n\n${LRD}########## FATAL ERROR ##########\n$N$usage" if not -e ($opt_i);
 die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -g $opt_g DOES NOT EXIST\n\n${LRD}########## FATAL ERROR ##########\n$N$usage" if not -e ($opt_g);
 die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -S $CY$opt_S$N exists but seems to be empty!\n$N$usage" if defined($opt_S) and (not -e $opt_S or (-s $opt_S < 10));
+
+	if (not -d "$homedir/sortTMP/") {
+		system("mkdir $homedir/sortTMP/") == 0 or die "Failed to make directory $homedir/sortTMP/: $!\n";
+	}
+
 }
