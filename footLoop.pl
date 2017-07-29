@@ -12,6 +12,7 @@ use myFootLib; use FAlite;
 my $mainFolder = dirname(dirname abs_path $0) . "/footLoop";
 
 my $homedir = $ENV{"HOME"};
+my $sortTMP = "$homedir/sortTMP/";
 sanityCheck();
 
 #### Input ####
@@ -348,17 +349,28 @@ Low Quality = $seq{$gene}{lowq}
 ";
 }
 
-#sorts by number of CT conversions, takes top 1000, and removes the number of CT conversions in prepartion for methylation extractor
+
+my $finalPositive = "$mydir/PositiveFinal.txt";
+my $finalNegative = "$mydir/NegativeFinal.txt";
 print STDERR "${YW}4. Sorting $positive and $negative by number of CT conversions and removes the number of CT conversions in prepartion for methylation extractor\n";
 print $outLog "${YW}4. Sorting $positive and $negative by number of CT conversions and removes the number of CT conversions in prepartion for methylation extractor\n";
-my $finalPositive = "$mydir/PositiveFinal.txt";
-system("sort -k1,1rn $positive | cut -f 2- > $finalPositive");
-my ($finalPositiveLine) = `wc -l $finalPositive` =~ /^(\d+) /;
-
-my $finalNegative = "$mydir/NegativeFinal.txt";
-system("sort -k1,1rn $negative | cut -f 2- > $finalNegative");
-my ($finalNegativeLine) = `wc -l $finalNegative` =~ /^(\d+) /;
-print $outLog "\t${GN}SUCCESS$N: Output:\n\t\t- $CY$finalPositive$N ($finalPositiveLine reads used)\n\t\t- $CY$finalNegative$N ($finalNegativeLine reads used)\n\n";
+if ((not -e $finalPositive or not -e $finalNegative) and not defined $opt_f) {
+	#sorts by number of CT conversions, takes top 1000, and removes the number of CT conversions in prepartion for methylation extractor
+	print STDERR "${YW}4. Sorting $positive and $negative by number of CT conversions and removes the number of CT conversions in prepartion for methylation extractor\n";
+	print $outLog "${YW}4. Sorting $positive and $negative by number of CT conversions and removes the number of CT conversions in prepartion for methylation extractor\n";
+	system("sort -T $sortTMP -k1,1rn $positive | cut -f 2- > $finalPositive");
+	system("sort -T $sortTMP -k1,1rn $negative | cut -f 2- > $finalNegative");
+	my ($finalPositiveLine) = `wc -l $finalPositive` =~ /^(\d+) /;
+	my ($finalNegativeLine) = `wc -l $finalNegative` =~ /^(\d+) /;
+	print STDERR "\t${GN}SUCCESS$N: Output:\n\t\t- $CY$finalPositive$N ($finalPositiveLine reads used)\n\t\t- $CY$finalNegative$N ($finalNegativeLine reads used)\n\n";
+	print $outLog "\t${GN}SUCCESS$N: Output:\n\t\t- $CY$finalPositive$N ($finalPositiveLine reads used)\n\t\t- $CY$finalNegative$N ($finalNegativeLine reads used)\n\n";
+}
+else {
+	my ($finalPositiveLine) = `wc -l $finalPositive` =~ /^(\d+) /;
+	my ($finalNegativeLine) = `wc -l $finalNegative` =~ /^(\d+) /;
+	print STDERR "\t${GN}SUCCESS$N: Using previously made files:\n\t\t- $CY$finalPositive$N ($finalPositiveLine reads used)\n\t\t- $CY$finalNegative$N ($finalNegativeLine reads used)\n\n";
+	print $outLog "\t${GN}SUCCESS$N: Using previously made files:\n\t\t- ($CY$finalPositive$N ($finalPositiveLine reads used)\n\t\t- $CY$finalNegative$N ($finalNegativeLine reads used)\n\n";
+}
 
 #runs bismark methylation extractor on top 1000 reads of each strand
 my $CPGpos = $mydir . "CpG_context_" . "PositiveFinal.txt";
@@ -407,10 +419,24 @@ if(defined $opt_c and not defined $opt_f)
 elsif (not defined $opt_f) {#if (not defined($opt_f) or not -e $methylationPos or not -e $methylationNeg)
 	print STDERR "${YW}6. Combine CHH and CHG (not -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
 	print $outLog "\n${YW}6. Combine CHH and CHG (not -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
+	print "\t6a. cat $CHGpos $CHHpos | sort -T $homedir/sortTMP/ -n > $methylationPos\n";
 	system("cat $CHGpos $CHHpos | sort -T $homedir/sortTMP/ -n > $methylationPos");# if not -e $methylationPos or -s $methylationPos < 10;
+	print "\t6b. cat $CHGneg $CHHneg | sort -T $homedir/sortTMP/ -n > $methylationNeg\n";
 	system("cat $CHGneg $CHHneg | sort -T $homedir/sortTMP/ -n > $methylationNeg");# if not -e $methylationNeg or -s $methylationNeg < 10;
 }
-	#gets the position of each conversion (conversions=1; not converted=0)
+elsif (defined $opt_f) {
+	if (defined $opt_c) {
+		print STDERR "${YW}6. Combine CHH and CHG (and CpG since -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
+		print $outLog "\n${YW}6. Combine CHH and CHG (and CpG since -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
+	}
+	else {
+		print STDERR "${YW}6. Combine CHH and CHG (not -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
+		print $outLog "\n${YW}6. Combine CHH and CHG (not -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
+	}
+	print "\t${GN}SUCCESS$N: Using previously made files:\n\t\t- $CY$methylationPos$N\n\t\t- $CY$methylationNeg$N\n";
+}
+
+#gets the position of each conversion (conversions=1; not converted=0)
 my %read; my %info; my %infoGene;
 for (my $i = 0; $i < 2; $i++) {
 	my $analyzeFile = $i == 0 ? $methylationPos : $methylationNeg;
