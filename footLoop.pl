@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 # Version 160831_Fixed_PrintOutput at the same file (step 8)
 use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_n $opt_t $opt_l $opt_r $opt_q $opt_s $opt_g $opt_c $opt_S $opt_i $opt_e $opt_f $opt_H $opt_L $opt_F $opt_p $opt_x $opt_y $opt_h);
-getopts("n:t:l:r:q:s:g:ci:S:e:fHL:Fpx:y:h");
+use vars qw($opt_n $opt_t $opt_l $opt_r $opt_q $opt_s $opt_g $opt_c $opt_S $opt_i $opt_e $opt_f $opt_H $opt_L $opt_F $opt_p $opt_x $opt_y $opt_h $opt_1 $opt_4 $opt_6);
+getopts("n:t:l:r:q:s:g:ci:S:e:fHL:Fpx:y:h1:4:6:F");
 
 BEGIN {
 	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -352,9 +352,19 @@ Low Quality = $seq{$gene}{lowq}
 
 my $finalPositive = "$mydir/PositiveFinal.txt";
 my $finalNegative = "$mydir/NegativeFinal.txt";
+
 print STDERR "${YW}4. Sorting $positive and $negative by number of CT conversions and removes the number of CT conversions in prepartion for methylation extractor\n";
 print $outLog "${YW}4. Sorting $positive and $negative by number of CT conversions and removes the number of CT conversions in prepartion for methylation extractor\n";
-if ((not -e $finalPositive or not -e $finalNegative) and not defined $opt_f) {
+if (defined $opt_1 or defined $opt_4) {
+	my $dir4 = defined $opt_1 ? $opt_1 : $opt_4;
+	# If in new folder, finalPositive already exist, then die UNLESS -f is given
+	my ($finalPositiveLine) = `wc -l $finalPositive` =~ /^(\d+) /;
+	my ($finalNegativeLine) = `wc -l $finalNegative` =~ /^(\d+) /;
+	print STDERR "\t${GN}SUCCESS$N: Using previously made files in $dir4:\n\t\t- $CY$finalPositive$N ($finalPositiveLine reads used)\n\t\t- $CY$finalNegative$N ($finalNegativeLine reads used)\n\n";
+	print $outLog "\t${GN}SUCCESS$N: Using previously made files in $dir4:\n\t\t- ($CY$finalPositive$N ($finalPositiveLine reads used)\n\t\t- $CY$finalNegative$N ($finalNegativeLine reads used)\n\n";
+}
+elsif (not defined $opt_f or (defined $opt_f and (not -e $finalPositive or not -e $finalNegative))) {
+#(not -e $finalPositive or not -e $finalNegative) and not defined $opt_f) {
 	#sorts by number of CT conversions, takes top 1000, and removes the number of CT conversions in prepartion for methylation extractor
 	print STDERR "${YW}4. Sorting $positive and $negative by number of CT conversions and removes the number of CT conversions in prepartion for methylation extractor\n";
 	print $outLog "${YW}4. Sorting $positive and $negative by number of CT conversions and removes the number of CT conversions in prepartion for methylation extractor\n";
@@ -384,39 +394,57 @@ my $bismarkOutput = $CHGpos;
 
 print STDERR "${YW}5. Running bismark_methylation_extractor on $CY$finalPositive$YW and $CY$finalNegative$N\n";
 print $outLog "${YW}5. Running bismark_methylation_extractor on $CY$finalPositive$YW and $CY$finalNegative$N\n";
-if (not defined $opt_f) {# and (not -e $bismarkOutput or -s $bismarkOutput <= 10))
-	system("bismark_methylation_extractor -s --comprehensive $finalPositive");
-	system("bismark_methylation_extractor -s --comprehensive $finalNegative");
+if (defined $opt_1 or defined $opt_6) {
+	my ($dir) = defined $opt_1 ? $opt_1 : $opt_6;
+	print STDERR "\t\t${LGN}SUCCESS$N! Either -1 or -6 is given ($dir) and using previously made methylationPos.txt and methylationNeg.txt from there!\n";
 }
-print STDERR "\t${GN}SUCCESS$N: Output: 4-6 files of <CpG/CHG/CHH>$CY\_context_$finalPositive$N:\n";
-print $outLog "\t${GN}SUCCESS$N: Output: 4-6 files of <CpG/CHG/CHH>$CY\_context_$finalPositive$N:\n";
-for (my $i = 0; $i < @bismarkOutput; $i++) {
-	next if defined $opt_f;
-	if (not -e $bismarkOutput[$i]) {
-		print $outLog "\t\t$bismarkOutput[$i]: has$LRD 0$N reads!\n"; system("touch $bismarkOutput[$i]") == 0 or die; next;
+else {
+	if (not defined $opt_f) {# and (not -e $bismarkOutput or -s $bismarkOutput <= 10))
+		system("bismark_methylation_extractor -s --comprehensive $finalPositive");
+		system("bismark_methylation_extractor -s --comprehensive $finalNegative");
 	}
-	my ($linecount) = `wc -l $bismarkOutput[$i]` =~ /^(\d+) /;
-	my ($readnumber) = `unique_column.pl $bismarkOutput[$i] 1 | wc -l` =~ /^(\d+)$/;
-	print STDERR "\t\t- $bismarkOutput[$i]: has$LRD 0$N reads!\n" if $linecount == 0;
-	print STDERR "\t\t- $bismarkOutput[$i]: $CY$linecount$N total line and $CY$readnumber$N reads\n" if $linecount > 0;
-	print $outLog "\t\t- $bismarkOutput[$i]: has$LRD 0$N reads!\n" if $linecount == 0;
-	print $outLog "\t\t- $bismarkOutput[$i]: $CY$linecount$N total line and $CY$readnumber$N reads\n" if $linecount > 0;
+	print STDERR "\t${GN}SUCCESS$N: Output: 4-6 files of <CpG/CHG/CHH>$CY\_context_$finalPositive$N:\n";
+	print $outLog "\t${GN}SUCCESS$N: Output: 4-6 files of <CpG/CHG/CHH>$CY\_context_$finalPositive$N:\n";
+	for (my $i = 0; $i < @bismarkOutput; $i++) {
+		next if defined $opt_f;
+		if (not -e $bismarkOutput[$i]) {
+			print $outLog "\t\t$bismarkOutput[$i]: has$LRD 0$N reads!\n"; system("touch $bismarkOutput[$i]") == 0 or die; next;
+		}
+		my ($linecount) = `wc -l $bismarkOutput[$i]` =~ /^(\d+) /;
+		my ($readnumber) = `unique_column.pl $bismarkOutput[$i] 1 | wc -l` =~ /^(\d+)$/;
+		print STDERR "\t\t- $bismarkOutput[$i]: has$LRD 0$N reads!\n" if $linecount == 0;
+		print STDERR "\t\t- $bismarkOutput[$i]: $CY$linecount$N total line and $CY$readnumber$N reads\n" if $linecount > 0;
+		print $outLog "\t\t- $bismarkOutput[$i]: has$LRD 0$N reads!\n" if $linecount == 0;
+		print $outLog "\t\t- $bismarkOutput[$i]: $CY$linecount$N total line and $CY$readnumber$N reads\n" if $linecount > 0;
+	}
 }
 
 #pulls the CHH, CHG, and CpG sites together into methylationPos<gene>.txt and methylationNeg<gene>.txt (takes into account -c option)
 my $methylationPos = $mydir . "methylationPos" . ".txt";
 my $methylationNeg = $mydir . "methylationNeg" . ".txt";
-$methylationPos = $mydir . "methylationPos" . "CG.txt" if($opt_c);
-$methylationNeg = $mydir . "methylationNeg" . "CG.txt" if($opt_c);
+$methylationPos = $mydir . "methylationPos" . "CG.txt" if(defined $opt_c);
+$methylationNeg = $mydir . "methylationNeg" . "CG.txt" if(defined $opt_c);
 
-if(defined $opt_c and not defined $opt_f)
-{
+if (defined $opt_1 or defined $opt_6) {
+	my $dir6 = defined $opt_1 ? $opt_1 : $opt_6;
+	if (defined $opt_c) {
+		print STDERR "${YW}6. Combined CHH and CHG (and CpG since -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
+		print $outLog "\n${YW}6. Combined CHH and CHG (and CpG since -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
+	}
+	else {
+		print STDERR "${YW}6. Combined CHH and CHG (not -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
+		print $outLog "\n${YW}6. Combined CHH and CHG (not -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
+	}
+	print STDERR "\t${GN}SUCCESS$N: Using previously made files in $dir6:\n\t\t- $CY$methylationPos$N\n\t\t- $CY$methylationNeg$N\n";
+	print $outLog "\t${GN}SUCCESS$N: Using previously made files in $dir6:\n\t\t- $CY$methylationPos$N\n\t\t- $CY$methylationNeg$N\n";
+}
+elsif(defined $opt_c and (not defined $opt_f or (defined $opt_f and (not -e $methylationPos or not -e $methylationNeg)))) {#if (not defined($opt_f) or not -e $methylationPos or not -e $methylationNeg)
 	print STDERR "${YW}6. Combine CHH and CHG (and CpG since -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
 	print $outLog "\n${YW}6. Combine CHH and CHG (and CpG since -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
 	system("cat $CPGpos $CHGpos $CHHpos | sort -T $homedir/sortTMP/ -n > $methylationPos");# if not -e $methylationPos or -s $methylationPos < 10;
 	system("cat $CPGneg $CHGneg $CHHneg | sort -T $homedir/sortTMP/ -n > $methylationNeg");# if not -e $methylationNeg or -s $methylationNeg < 10;
 }
-elsif (not defined $opt_f) {#if (not defined($opt_f) or not -e $methylationPos or not -e $methylationNeg)
+elsif (not defined $opt_f or (defined $opt_f and (not -e $methylationPos or not -e $methylationNeg))) {#if (not defined($opt_f) or not -e $methylationPos or not -e $methylationNeg)
 	print STDERR "${YW}6. Combine CHH and CHG (not -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
 	print $outLog "\n${YW}6. Combine CHH and CHG (not -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
 	print "\t6a. cat $CHGpos $CHHpos | sort -T $homedir/sortTMP/ -n > $methylationPos\n";
@@ -956,6 +984,11 @@ e.g. seq is:$GN chr1 200 500 SEQ 0 -$N and$GN -x -100 -y 50$N becomes: chr1 150 
     Add \"p\" to make it percent of amplicon length
     e.g. 50p = 50% of amplicon length.
 
+If you want to re-use previously made files from step 4 and/or 6, use:
+-1: For both step 4 and step 6 (Positive/NegativeFinal.txt and methylationPos/Neg.txt)
+-4: For step 4 (Positive/NegativeFinal.txt)
+-6: For step 6 (methylationPos/Neg.txt)
+$LRD IF -1 is present, it'll override -4 and -6!
 -F: Force re-create SAM file
 -q: ${LGN}[0]$N q = map quality, where probability of (wrong) = 10^(q/-10). 
 However for something like R-loop footprint from pacbio, where most stuff will be weird (indel+converted), this score is kind of meaningless so use default (0)
@@ -995,4 +1028,60 @@ die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ####
 		system("mkdir $homedir/sortTMP/") == 0 or die "Failed to make directory $homedir/sortTMP/: $!\n";
 	}
 
+	my ($PositiveFinal, $NegativeFinal, $MethylationPos, $methylationNeg);
+
+	my $mydir = myFootLib::getFullpath("$opt_n") . "/";
+	if (defined $opt_1 or defined $opt_4) {
+		my $finalPositive = $mydir . "/PositiveFinal.txt";
+		my $finalNegative = $mydir . "/NegativeFinal.txt";
+		print "\tWarning: Step 4: either -1 or -4 is given, but $finalPositive and $finalNegative already exists! Moved these into $finalPositive.backup and $finalNegative.backup!\n" if (-e $finalPositive or -e $finalNegative);
+		system("/bin/mv $finalPositive $finalPositive.backup") == 0 or die "Failed to mv $finalPositive to $finalPositive.backup: $!\n" if -e "$finalPositive";
+		system("/bin/mv $finalNegative $finalNegative.backup") == 0 or die "Failed to mv $finalNegative to $finalNegative.backup: $!\n" if -e "$finalNegative";	
+
+		# Create symbolic link
+		my $dir4 = defined $opt_1 ? $opt_1 : $opt_4;
+		my $finalPositive2  = $dir4 . "/PositiveFinal.txt";
+		my $finalNegative2  = $dir4 . "/NegativeFinal.txt";
+		($finalPositive2) = myFootLib::getFullpath($finalPositive2);
+		($finalNegative2) = myFootLib::getFullpath($finalNegative2);
+	
+		system("ln -s $finalPositive2 $finalPositive") == 0 or die "\tFailed at step 4: Cannot create link of $finalPositive2 to $mydir: $!\n";
+		system("ln -s $finalNegative2 $finalNegative") == 0 or die "\tFailed at step 4: Cannot create link of $finalNegative2 to $mydir: $!\n";
+	}
+
+	if (defined $opt_1 or defined $opt_6) {
+		# If in new folder, finalPositive already exist, then die UNLESS -f is given
+		my $methylationPos = defined $opt_c ? $mydir . "/methylatioPosCG.txt" : $mydir . "/methylationPos.txt";
+		my $methylationNeg = defined $opt_c ? $mydir . "/methylatioNegCG.txt" : $mydir . "/methylationNeg.txt";
+		print "\tWarning: Step 6: either -1 or -6 is given, but $methylationPos and $methylationNeg already exists! Moved these into $methylationPos.backup and $methylationNeg.backup!\n" if (-e $methylationPos or -e $methylationNeg);
+		system("/bin/mv $methylationPos $methylationPos.backup") == 0 or die "Failed to move $methylationPos to $methylationPos.backup: $!\n" if -e "$methylationPos";
+		system("/bin/mv $methylationNeg $methylationNeg.backup") == 0 or die "Failed to move $methylationNeg to $methylationNeg.backup: $!\n" if -e "$methylationNeg";	
+
+		# Create symbolic link
+		my $dir6 = defined $opt_1 ? $opt_1 : $opt_6;
+		my $methylationPos2 = defined ($opt_c) ? $dir6 . "/methylationPosCG.txt" : $dir6 . "/methylationPos.txt";
+		my $methylationNeg2 = defined ($opt_c) ? $dir6 . "/methylationNegCG.txt" : $dir6 . "/methylationNeg.txt";
+		($methylationPos2) = myFootLib::getFullpath($methylationPos2);
+		($methylationNeg2) = myFootLib::getFullpath($methylationNeg2);
+		system("ln -s $methylationPos2 $mydir/") == 0 or die "\tFailed at step 6: Cannot create link of $methylationPos2 to $mydir: $!\n";
+		system("ln -s $methylationNeg2 $mydir/") == 0 or die "\tFailed at step 6: Cannot create link of $methylationNeg2 to $mydir: $!\n";
+	}
+}
+
+__END__
+
+	if (defined $opt_1 or defined $opt_4) {
+		my $dir4 = defined $opt_1 ? $opt_1 : $opt_4;
+		my $PositiveFinal  = $dir4 . "/PositiveFinal.txt";
+		my $NegativeFinal  = $dir4 . "/NegativeFinal.txt";
+		die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N" . "-1 or -4 is given ($dir4) but $PositiveFinal does not exist!\n" if not -e $PositiveFinal;
+		die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N" . "-1 or -4 is given ($dir4) but $NegativeFinal does not exist!\n" if not -e $NegativeFinal;
+	}
+	if (defined $opt_1 or defined $opt_6) {
+		my $dir6 = defined $opt_1 ? $opt_1 : $opt_6;
+		my $MethylationPos = $dir6 . "/methylationPos.txt";
+		my $MethylationNeg = $dir6 . "/methylationNeg.txt";
+		die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N" . "-1 or -6 is given ($dir6) but $MethylationPos does not exist!\n" if not -e $MethylationPos;
+		die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N" . "-1 or -6 is given ($dir6) but $MethylationNeg does not exist!\n" if not -e $MethylationNeg;		
+	}
 }
