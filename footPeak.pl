@@ -277,8 +277,8 @@ foreach my $group (sort {$group{$b} <=> $group{$a} || $a cmp $b} keys %group) {
 		my $end  = $final{$indexBeg}{$indexEnd}{$peak}{end};
 		my ($gene) = $name =~ /^(.+)\.SEQ_/;
 		my ($origChr, $origBeg, $origEnd) = ($coor{$gene}{chr}, $coor{$gene}{beg}, $coor{$gene}{end});
-		my $peakBeg = $origBeg + $beg - 1; $peakBeg = $beg if $peakBeg < $beg;
-		my $peakEnd = $origBeg + $end - 1; $peakEnd = $beg if $peakEnd < $beg;
+		my $peakBeg = $origBeg + $beg; $peakBeg = $origBeg if $peakBeg < $origBeg;
+		my $peakEnd = $origBeg + $end + 1; die "$peak: start ($peakBeg) is less than end ($peakEnd)\n" if $peakEnd < $peakBeg;
 		#die "Gene = $gene, name = $name, CHR=$origChr, BEG=$origBeg, END=$origEnd, beg = $beg, end = $end, peakBeg = $peakBeg, peakEnd = $peakEnd\n";
 		my $len = $end - $beg + 1;
 		my $newstrand = $strand eq "pos" ? "+" : $strand eq "neg" ? "-" : ".";
