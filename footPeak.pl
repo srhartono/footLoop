@@ -127,6 +127,12 @@ while (my $line = <$in>) {
 close $in;
 
 # process peak
+
+#PEAK	.......999..9.999.....{300 more dots}...999.999999........
+#           | P1| | P2 |                      | Peak 3  |         # if max non-9 buffer length is < 2
+#           |  Peak1   |                      | Peak 2  |         # if max non-9 buffer length is < 300
+#           |              Peak 1                       |         # if max non-9 buffer length is < 500
+
 my %data; my $totalpeak = 0; my %end; my %bad;
 open (my $in1, "<", $peakFile) or die "Cannot read from $peakFile: $!\n";
 my ($gene) = $peakFile =~ /(\w+)_\w\w\w\d+(CG)?.txt/; 
@@ -146,18 +152,17 @@ while (my $line = <$in1>) {
 	for (my $i = 0; $i < @val; $i++) {
 #		next if $val[$i] eq "";
 	#	print "DIED\n\n$line\n\nVal:" . join(" ", @val[@val-10..@val-1]) . "\n" and die if $val[$i] eq "";
+		# 1. Not currently at peak, and current is peak (9)
 		if ($peak == 0 and $val[$i] == 9) {
 			$peak = 1;
 			$totalpeak ++;#= (keys %data);
 			my $base = $seq{$gene}[$i]; die "Died i = $i name=$name total=${@val}\n" if not defined($base);
 			my $index = int($i / $groupsize);
-#			$data{$name}{$totalpeak}{beg} = $i;
-#			push(@{$data{$name}{$totalpeak}{seq}}, $base);
 			$data{$index}{$totalpeak}{beg} = $i;
 			$data{$index}{$totalpeak}{name} = $name;
 			$bad{$index}{$totalpeak}{beg} = 1 if $i <= 50;
-			for (my $j = $i - 500; $j < $i; $j++) {
-				next if $j < 0;
+			my $j0 = $i < 500 ? 0 : $i - 500;
+			for (my $j = $j0; $j < $i; $j++) {
 				last if $val[$j] == 0 or $val[$j] == 1 or $val[$j] == 2 or $val[$j] == 9;
 				$bad{$index}{$totalpeak}{beg} = 1 if $val[$j] == 6;
 				last if $val[$j] == 6;
@@ -165,19 +170,20 @@ while (my $line = <$in1>) {
 			push(@{$data{$index}{$totalpeak}{seq}}, $base);
 			$count = 0;
 ##			print "Peak $totalpeak: name $name: $base";
-			$beg = $i; $end = 0;
+			$beg = $i; $end = $i;
 			$peakcount ++;
 		}
+		# 2. Currently is peak (peak == 1) but value isn't 9 and total non-peak is equal to maximum buffer length, then peak is end
 		elsif ($peak == 1 and (($val[$i] != 9 and $count == $min) or $i == $total - 1 or $i == @val - 1)) {
 			my $base = $seq{$gene}[$i]; die "Died i = $i name=$name total=${@val}\n" if not defined($base);
 			my $index = int($beg / $groupsize);
-			$end = $i - $min;
+			#$end = $i - $min;
 			my $indexend = int($end/ $groupsize);
 			push(@{$data{$index}{$totalpeak}{seq}}, $base);
 			$bad{$index}{$totalpeak}{end} = 1 if $val[$end] == 6 or $i == $total - 1 or $i == @val - 1;
-##			print "$base";
 			$data{$index}{$totalpeak}{end} = $end;
-			for (my $j = $end; $j < $j + 500; $j++) {
+#			for (my $j = $end; $j < $j + 500; $j++) {
+			for (my $j = $end; $j < $end + 500; $j++) {
 				last if $j == @val - 1 or $j == $total - 1;
 				last if $val[$j] == 0 or $val[$j] == 1 or $val[$j] == 2 or $val[$j] == 9;
 				$bad{$index}{$totalpeak}{end} = 1 if $val[$j] == 6;
@@ -185,17 +191,17 @@ while (my $line = <$in1>) {
 			}
 			$end{$totalpeak} = $indexend;
 ##			print "\ni=$i indexBeg=$index indexEnd=$indexend Peak=$totalpeak name $name: BEG=$beg, END=$end\n\n";
-#			push(@{$data{$name}{$totalpeak}{seq}}, $base);
-#			$data{$name}{$totalpeak}{end} = $i;
 			$count = 0;
 			$peak = 0;
 			$beg = 0; $end = 0;
 		}
+		# 3. Currently is peak (peak == 1), but total non-peak length is less than required maximum non-peak length ($min)
 		elsif ($peak == 1 and $count < $min) {
 			my $base = $seq{$gene}[$i]; 
 			die "\nUndefined base at i=$i gene=$gene, total = $total\n\n" if not defined $base;
 			$count ++ if $val[$i] != 9;
 			$count = 0 if $val[$i] == 9;
+			$end = $i if $val[$i] == 9;
 			my $index = int($beg / $groupsize);
 			push(@{$data{$index}{$totalpeak}{seq}}, $base);
 ##			print "$base";
