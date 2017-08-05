@@ -43,7 +43,7 @@ $LRD	=================================== $N
 ${LGN}Options$N [default] 
 -x: Length of left 'buffer' in basepair [0]
 -y: Length of right 'buffer' in basepair [0]
--d: Maxmimum distance between 2 peaks in basepair [150]
+-d: Maxmimum distance between 2 peaks in basepair [100]
 -s: Range of group size bin in basepair [200]
 -k: Length of seequence to take from start/end of each peak [50]
 -K: [2] Kmer size; the 'k' of 'k'mer [-K 2 (AA/AT/AG/etc];
@@ -61,9 +61,9 @@ Example:
 
 Above, peak begin at position 108 and end at position 255.
 
--d of 150:
+-d of 100:
 Say there's another peak >> WITHIN SAME READ << that begins at position 280 and ending at position 500.
-This peak is 'too close' to the first peak as its beginning (280) is less than 150bp away from the first peak's end (255)
+This peak is 'too close' to the first peak as its beginning (280) is less than 100bp away from the first peak's end (255)
 Therefore these two peak -will be merged-
 New peak begin at 108 end at 500
 
@@ -96,7 +96,7 @@ if (not -d $outDir) {
 
 $x = defined($x) ? $x : 0;
 $y = defined($y) ? $y : 0;
-$min = defined($min) ? $min : 150;
+$min = defined($min) ? $min : 100;
 $groupsize = defined($groupsize) ? $groupsize : 200;
 $dist = defined($dist) ? $dist : 50;
 
