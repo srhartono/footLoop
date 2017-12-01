@@ -172,6 +172,8 @@ sub parse {
 		$line =~ s/["']//g;$line =~ s/^SEQ_//;
 		my ($name, @vals) = split ("\t", $line);
 		$name = "MYNUMBER.$gene.$name";
+		#my $begGTF;# = "$chr\tNA\texon\t$beg0\t$beg1\t0\t$strand\t0\tgene_id \"$name\"; transcript_id \"$name\"";
+		#my $endGTF;# = "$chr\tNA\texon\t$end0\t$end1\t0\t$strand\t0\tgene_id \"$name\"; transcript_id \"$name\"";
 		my $begGTF = "$chr\tNA\texon\t$beg0\t$beg1\t0\t$strand\t0\tgene_id \"$name\"; transcript_id \"$name\"";
 		my $endGTF = "$chr\tNA\texon\t$end0\t$end1\t0\t$strand\t0\tgene_id \"$name\"; transcript_id \"$name\"";
 		$peak{$peak}{print} .= "$begGTF\n";
@@ -180,6 +182,11 @@ sub parse {
 			next if $vals[$i] =~ /^[62]$/;
 			my $begPeak = $i + $beg + $bufferL;# 0 based
 			my $endPeak = $begPeak + 1;# 1 based
+
+			# first and last coordinate where the read has data
+			$begGTF = $begPeak if not defined $begGTF;
+			$endGTF = $endPeak;
+
 			$peak{$peak}{print} .= "$chr\tNA\texon\t$begPeak\t$endPeak\t0\t$strand\t0\tgene_id \"$name\"; transcript_id \"$name\"\n" if $vals[$i] =~ /^[9]$/;
 #			$peak{$peak}{print} .= "$chr\tNA\texon\t$begPeak\t$endPeak\t0\t$strand\t0\tgene_id \"$name\"; transcript_id \"$name\"\n" if $vals[$i] =~ /^[1]$/;
 			$peak{$peak}{print} .= "$chr\tNA\tCDS\t$begPeak\t$endPeak\t0\t$strand\t0\tgene_id \"$name\"; transcript_id \"$name\"\n" if $vals[$i] =~ /^[5]$/;
@@ -198,7 +205,11 @@ sub parse {
 				$peakMax  = $endPeak;
 			}
 		}
+		#my $begGTF0 = $begGTF; my $begGTF1 = $begGTF + 1;
+		#my $endGTF0 = $endGTF - 1; my $endGTF1 = $endGTF;
+		#$peak{$peak}{print} = "$chr\tNA\texon\t$begGTF0\t$begGTF1\t0\t$strand\t0\tgene_id \"$name\"; transcript_id \"$name\"\n" . $peak{$peak}{print};
 		$peak{$peak}{print} .= "$endGTF\n";
+		#$peak{$peak}{print} .= "$chr\tNA\texon\t$endGTF0\t$endGTF1\t0\t$strand\t0\tgene_id \"$name\"; transcript_id \"$name\"\n";
 		$peak{$peak}{begI} = $peakMinI;
 		$peak{$peak}{endI} = $peakMaxI;
 		$peak{$peak}{beg} = $peakMin;

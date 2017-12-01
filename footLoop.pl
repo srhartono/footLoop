@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 # Version 160831_Fixed_PrintOutput at the same file (step 8)
 use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_n $opt_t $opt_l $opt_r $opt_q $opt_s $opt_g $opt_c $opt_S $opt_i $opt_e $opt_f $opt_H $opt_L $opt_F $opt_p $opt_x $opt_y $opt_h $opt_1 $opt_4 $opt_6);
-getopts("n:t:l:r:q:s:g:ci:S:e:fHL:Fpx:y:h1:4:6:F");
+use vars qw($opt_n $opt_t $opt_l $opt_r $opt_q $opt_S $opt_s $opt_g $opt_c $opt_S $opt_i $opt_e $opt_f $opt_H $opt_L $opt_F $opt_p $opt_x $opt_y $opt_h $opt_1 $opt_4 $opt_6);
+getopts("n:t:l:r:q:s:g:ci:S:e:fHL:Fpx:y:h1:4:6:FS");
 
 BEGIN {
 	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -35,9 +35,12 @@ my ($x) = defined($opt_x) ? $opt_x : 0;
 my ($y) = defined($opt_y) ? $opt_y : 0;
 
 # Make directory
-my $mydir 		= myFootLib::getFullpath("$opt_n") . "/";
-my $outFolder  = $mydir;
+my $mydir = myFootLib::getFullpath("$opt_n") . "/";
+my @dir = split("/", $mydir);
+my $mydirname = $dir[@dir-1];
+   $mydirname = $dir[@dir-2] if not defined $mydirname or (defined $mydirname and $mydirname =~ /^[\s]*$/);
 
+my $outFolder  = $mydir;
 if (-e $outFolder) {
 	print "\n\n$LRD------------------------ WARNING --------------------------------$N\n";
 	print "\nOutput Folder ($CY-n$N) $CY$outFolder$N exists, continuing will overwrite this completely. Continue?\n\n(press$CY ENTER$N to continue or ${LGN}ctrl+c to cancel$N)
@@ -55,6 +58,7 @@ my $exonFileExists = defined($opt_e) ? "${GN}$opt_e$N" : "${LRD}FALSE$N";
 my @time = localtime(time); my $time = join("", @time);
 my $date = getDate();
 my ($md) = `md5sum $opt_i` =~ /^(\w+)[ ]+/;
+my $bismarkOption = (not defined $opt_S) ? "--bowtie2 --rdg 2,1 --rfg 2,1 --score_min L,0,-0.8" : "--bowtie2 --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3";
 print $outLog "\n${YW}0. Initializing... output directory = $CY$mydir$N\n";
 print $outLog "
 Date   : $date
@@ -73,6 +77,7 @@ ${YW}Input Parameters$N
 10. -L ${CY}MinRdLen$N  :$minReadLength
 11. -q ${CY}MinMapQ$N   :$opt_q
 12. -e ${CY}Exon$N      :$exonFileExists
+13. -S ${CY}Bismark$N   :$bismarkOption
 
 ";
 print STDERR "
@@ -92,6 +97,7 @@ ${YW}Input Parameters$N
 10. -L ${CY}MinRdLen$N  :$minReadLength
 11. -q ${CY}MinMapQ$N   :$opt_q
 12. -e ${CY}Exon$N      :$exonFileExists
+13. -S ${CY}Bismark$N   :$bismarkOption
 
 ";
 #runs bismark (output file will be pacbio.fastq_bismark_bt2.sam) only if it hasn't been ran previously
@@ -128,18 +134,20 @@ if ($bismark_folder_exist == 1) {#-d "$bismark_folder/Bisulfite_Genome/" and -e 
 if ($bismark_folder_exist == 0) {#not -d "$bismark_folder/Bisulfite_Genome" or $check == 0) {
 	print "bismark_genome_preparation --bowtie2 $bismark_folder && md5sum $geneIndexesFa > $bismark_folder/Bisulfite_Genome/md5sum.txt\n";
 	system("bismark_genome_preparation --bowtie2 $bismark_folder && md5sum $geneIndexesFa > $bismark_folder/Bisulfite_Genome/md5sum.txt") == 0 or die "Failed to run bismark genome preparation: $!\n";
-} 
+	exit;
+}
 else { 
-	print $outLog "\t${GN}SUCCESS$N: $CY$bismark_folder\/Bisulfite_Genome$N already exist and is used!\n"
+	print $outLog "\t${GN}SUCCESS$N: $CY$bismark_folder\/Bisulfite_Genome$N already exist and is used!\n";
+	#"\t${GN}SUCCESS$N: $CY$bismark_folder\/Bisulfite_Genome$N already exist and is used!\n";
 }
 if ($opt_F or (not -e "$mysam" or -s $mysam <= 10)) {
-	print "\t- Running$YW bismark$N --bowtie2 --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3 $bismark_folder $opt_r\n";
-	print $outLog "\t- Running$YW bismark$N --bowtie2 --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3 $bismark_folder $opt_r\n";
+	print "\t- Running$YW bismark$N $bismarkOption $bismark_folder $opt_r\n";
+	print $outLog "\t- Running$YW bismark$N $bismarkOption $bismark_folder $opt_r\n";
 	if ($opt_p) {
 		print $outLog "\t  Splitting $CY$opt_r$N by 1000 sequences!\n";
 		my $splitresult = `SplitFastq.pl -i $opt_r -o $outFolder -n 1000`; print $outLog "$splitresult\n";
 		print "\t  Running bismark in paralel!\n";
-		my $result = system("run_script_in_paralel2.pl -v \"bismark --bowtie2 --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3 $bismark_folder FILENAME > FILENAME.bismark.log 2>&1\" $outFolder .part 20");
+		my $result = system("run_script_in_paralel2.pl -v \"bismark $bismarkOption $bismark_folder FILENAME > FILENAME.bismark.log 2>&1\" $outFolder .part 20");
 		my ($readFilename) = myFootLib::getFilename($opt_r, "full");
 		my @partSam = <$outFolder/*.part_bismark*.sam>; my $totalPartSam = @partSam;
 		print "\t  All part.sam has been made (total = $totalPartSam). Now making $CY$mysam$N and then removing the part sam\n";
@@ -153,11 +161,11 @@ if ($opt_F or (not -e "$mysam" or -s $mysam <= 10)) {
 		}
 	}
 	else {
-		my $result = system("bismark --bowtie2 --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3 $bismark_folder $opt_r");
+		my $result = system("bismark $bismarkOption $bismark_folder $opt_r");
 		if ($result != 0) {
 			print $outLog "\t${LRD}Bisulfte_Genome seems to be corrupted so re-running:\n\t${YW}-bismark_genome_preparation$N --bowtie2 $bismark_folder\n";
 			system("bismark_genome_preparation --bowtie2 $bismark_folder") == 0 or die "Failed to run bismark genome preparation: $!\n";
-			system("bismark --bowtie2 --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3 $bismark_folder $opt_r") == 0 or die "$LRD!!!$N\tFailed to run bismark: $!\n";
+			system("bismark $bismarkOption $bismark_folder $opt_r") == 0 or die "$LRD!!!$N\tFailed to run bismark: $!\n";
 		}
 		print $outLog "\t${GN}SUCCESS$N: Output $mysam\n";
 		print STDERR "\t${GN}SUCCESS$N: Output $mysam\n";
@@ -171,11 +179,13 @@ else {
 #takes sequence of gene and splits into array of individual bases
 my $seqFile = $geneIndexesFa;
 my %seq;
+print "SEq=$seqFile\n";
 print STDERR "\n${YW}2. Parsing in sequence for genes from sequence file $CY$seqFile$N\n";
 print $outLog "\n${YW}2. Parsing in sequence for genes from sequence file $CY$seqFile$N\n";
 open(my $SEQIN, "<", $seqFile) or die "\n$LRD!!!$N\tFATAL ERROR: Could not open $CY$seqFile$N: $!";
 my ($genez);
 my $fasta = new FAlite($SEQIN);
+my %lotsOfC;
 while (my $entry = $fasta->nextEntry()) {
 	my $genez = uc($entry->def);
 	my $seqz = uc($entry->seq);
@@ -192,7 +202,42 @@ while (my $entry = $fasta->nextEntry()) {
 	$seq{$genez}{orig} = $genez;
 	print STDERR "\t\tgenez=$genez ($genez) Length=$seq{$genez}{len}\n";
 	print $outLog "\t\tgenez=$genez ($genez) Length=$seq{$genez}{len}\n";
+
+	my $seqz2 = join("", @{$seq{$genez}{seq}});
+	while ($seqz2 =~ /(C){10,99}/g) {
+		my ($prev, $curr, $next) = ($`, $&, $');
+		my ($curr_C) = length($curr);
+		my ($next_C) = $next =~ /^(C+)[ACTN]*$/;
+		$next_C = defined $next_C ? length($next_C) : 0;
+		my ($beg_C) = defined $prev ? length($prev) : 0;
+		my ($end_C) = $curr_C + $next_C + $beg_C;
+		my $length = $curr_C + $next_C;
+		($prev) = $prev =~ /^.*(\w{10})$/ if length($prev) > 10; $prev = "NA" if not defined $prev;
+		($next) = $next =~ /^(\w{10}).*$/ if length($next) > 10; $next = "NA" if not defined $next;
+		print "$genez: $beg_C to $end_C ($length)\n\tPREV=$prev\n\tCURR=$curr\n\tNEXT=$next\n";
+		$lotsOfC{$genez} .= "$beg_C,$end_C;";
+	}
+
+	$seqz2 = join("", @{$seq{$genez}{seq}});
+	while ($seqz2 =~ /(G){10,99}/g) {
+		my ($prev, $curr, $next) = ($`, $&, $');
+		my ($curr_C) = length($curr);
+		my ($next_C) = $next =~ /^(C+)[ACTN]*$/;
+		$next_C = defined $next_C ? length($next_C) : 0;
+		my ($beg_C) = defined $prev ? length($prev) : 0;
+		my ($end_C) = $curr_C + $next_C + $beg_C;
+		my $length = $curr_C + $next_C;
+		($prev) = $prev =~ /^.*(\w{10})$/ if length($prev) > 10; $prev = "NA" if not defined $prev;
+		($next) = $next =~ /^(\w{10}).*$/ if length($next) > 10; $next = "NA" if not defined $next;
+		print "$genez: $beg_C to $end_C ($length)\n\tPREV=$prev\n\tCURR=$curr\n\tNEXT=$next\n";
+		$lotsOfC{$genez} .= "$beg_C,$end_C;";
+	}
 }
+foreach my $genez (keys %lotsOfC) {
+	$lotsOfC{$genez} =~ s/;$//;
+	print "$genez\t$lotsOfC{$genez}\n";
+}
+
 close $SEQIN;
 print STDERR "\t${GN}SUCCESS$N: Sequence has been parsed from fasta file $CY$seqFile$N\n";
 print $outLog "\t${GN}SUCCESS$N: Sequence has been parsed from fasta file $CY$seqFile$N\n";
@@ -267,7 +312,8 @@ while(my $line = <$sam>) {
 	my ($read) = $fullReadName =~ /^.+\/(\d+)\/\d+/i;
 	($read) = $fullReadName =~ /^.+\/(\d+)\/ccs/i if not defined($read);
 	($read) = $fullReadName if not defined($read);
-	$read = "SEQ_$read";
+	my ($readDate) = $fullReadName =~ /^(m\d+_\d+_\d+)_/; $readDate = $fullReadName if not defined $readDate;
+	$read = "SEQ_$readDate\_$read";
 	
 	# (EXTRA) This below is to show the user an example of parsed line and tells user if it's parsed every 20k read.
 	my ($readname) = length($fullReadName) >= 20 ? $fullReadName =~ /(.{20})$/ : $fullReadName; $readname = "..." . $readname  if length($fullReadName) >= 20;
@@ -463,6 +509,8 @@ elsif (defined $opt_f) {
 	}
 	print "\t${GN}SUCCESS$N: Using previously made files:\n\t\t- $CY$methylationPos$N\n\t\t- $CY$methylationNeg$N\n";
 }
+
+# Get the position of 10 or more consecutive Cs
 
 #gets the position of each conversion (conversions=1; not converted=0)
 my %read; my %info; my %infoGene;
@@ -705,6 +753,7 @@ foreach my $gene (sort keys %seq) {
 				my @peak; my $ispeak = 0;
 				for (my $i = 0; $i < @fields - $minPeakLength; $i++)
 				{
+				#	print "8. GENE=$gene: name=$name, Doing Peak Call!\n" if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
 					$peak{$name}{length} ++ if $fields[$i] =~ /^[1459]$/;
 					my $chunk = join("", @fields[$i..($i+$minPeakLength)]);
 					# calculate % conv from start to end, where end is minPeakLength (e.g. 100 then 1 to 100)
@@ -715,15 +764,25 @@ foreach my $gene (sort keys %seq) {
 					# if % conv is more than thershold, then turn 1 (conv C) into 9 and 4 (conv C in CpG) into 5
 					my ($conC)    = $chunk =~ tr/1459/1459/;
 					my ($nonConC) = $chunk =~ tr/03/03/;
+					
 					my $conPer = $conC + $nonConC >= 5 ? $conC / ($conC + $nonConC) : 0;
 					if($conPer >= $opt_t)
 					{
-						$ispeak = 1;
-						$peak[$i] = 1; # from i to i + minPeakLength is a peak
-						for(my $j = $i; $j < $i + $minPeakLength; $j++)
-						{
-							$fields[$j] = 9 if $fields[$j] == 1;
-							$fields[$j] = 5 if $fields[$j] == 4;
+						my $checkPeak = 0;
+#= CUT1
+#= CUT1
+						if ($checkPeak == 0) {
+							$ispeak = 1;
+							$peak[$i] = 1; # from i to i + minPeakLength is a peak
+							for(my $j = $i; $j < $i + $minPeakLength; $j++)
+							{
+								$fields[$j] = 9 if $fields[$j] == 1;
+								$fields[$j] = 5 if $fields[$j] == 4;
+							}
+						}
+						else {
+							$peak[$i] = 0;
+							$ispeak = 0;
 						}
 					}
 					else {
@@ -754,9 +813,9 @@ foreach my $gene (sort keys %seq) {
 			{
 				#last if $peak{$name}{peak} == 0 and $nopeak > 1000;
 				#$peak{$name}{field} =~ tr/19/91/;
-				print $FINALPOS "$name\t$peak{$name}{field}\n" if $strand == 0 and $peak{$name}{peak} == 1;
+				print $FINALPOS "$name\t$peak{$name}{field}\n"        if $strand == 0 and $peak{$name}{peak} == 1;
 				print $FINALPOS_NOPEAK "$name\t$peak{$name}{field}\n" if $strand == 0 and $peak{$name}{peak} == 0;
-				print $FINALNEG "$name\t$peak{$name}{field}\n" if $strand == 1 and $peak{$name}{peak} == 1;
+				print $FINALNEG "$name\t$peak{$name}{field}\n"        if $strand == 1 and $peak{$name}{peak} == 1;
 				print $FINALNEG_NOPEAK "$name\t$peak{$name}{field}\n" if $strand == 1 and $peak{$name}{peak} == 0;
 				$peakcount ++ if $peak{$name}{peak} != 0;
 				$nopeak ++ if $peak{$name}{peak} == 0;
@@ -770,6 +829,10 @@ foreach my $gene (sort keys %seq) {
 		close $FINALPOS_NOPEAK;
 		close $FINALNEG_NOPEAK;
 #	}	
+	# Do edge clearing
+	my $lotsOfC = defined $lotsOfC{$gene} ? $lotsOfC{$gene} : "";
+	system("footLoop_addition.pl $finalPos \"$lotsOfC\"") == 0 or print "Cannot do footLoop_addition.pl $finalPos: $!\n";
+
 	my ($finalPosLine) = `wc -l $finalPos` =~ /^(\d+) /;
 	my ($finalNegLine) = `wc -l $finalNeg` =~ /^(\d+) /;
 	
@@ -777,6 +840,8 @@ foreach my $gene (sort keys %seq) {
 	print $outLog "\n\t${GN}SUCCESS$N: Gene $CY$gene$N Output:\n\t\t- $CY$finalPos$N ($finalPosLine reads)\n\t\t- $CY$finalNeg$N ($finalNegLine reads)\n\n";
 	print $outReport "\n\t${GN}SUCCESS$N: Gene $CY$gene$N Output:\n\t\t- $CY$finalPos$N ($finalPosLine reads)\n\t\t- $CY$finalNeg$N ($finalNegLine reads)\n\n";
 	print STDERR "\t${GN}SUCCESS$N: Gene $CY$gene$N Output:\n\t\t- $CY$finalPos$N ($finalPosLine reads)\n\t\t- $CY$finalNeg$N ($finalNegLine reads)\n\n";
+
+
 	
 	#makes heatmaps for positive and negative strand
 	
@@ -789,15 +854,23 @@ foreach my $gene (sort keys %seq) {
 	#6= no data (grey)
 	#9= converted C in R-loop (red) # not exist
 	my $threshold = $opt_t * 100;
-	my $finalPosPDF = $mydir . "$gene\_Pos" . ($opt_t*100) . ".png";
-	my $finalNegPDF = $mydir . "$gene\_Neg" . ($opt_t*100) . ".png";
-	$finalPosPDF = $mydir . "$gene\_Pos" . ($opt_t*100) . "CG.png" if($opt_c);
-	$finalNegPDF = $mydir . "$gene\_Neg" . ($opt_t*100) . "CG.png" if($opt_c);
-	my $finalPosPDF_NOPEAK = $mydir . "$gene\_Pos" . ($opt_t*100) . "_NOPEAK.png";
-	my $finalNegPDF_NOPEAK = $mydir . "$gene\_Neg" . ($opt_t*100) . "_NOPEAK.png";
-	$finalPosPDF_NOPEAK = $mydir . "$gene\_Pos" . ($opt_t*100) . "_NOPEAK_CG.png" if($opt_c);
-	$finalNegPDF_NOPEAK = $mydir . "$gene\_Neg" . ($opt_t*100) . "_NOPEAK_CG.png" if($opt_c);
-	my $Rscript = "$mydir/$gene\_MakeHeatmap.R";
+	my $finalPosPDF = $mydir . "$mydirname\_$gene\_Pos" . ($opt_t*100) . ".pdf";
+	my $finalNegPDF = $mydir . "$mydirname\_$gene\_Neg" . ($opt_t*100) . ".pdf";
+	$finalPosPDF = $mydir . "$mydirname\_$gene\_Pos" . ($opt_t*100) . "CG.pdf" if($opt_c);
+	$finalNegPDF = $mydir . "$mydirname\_$gene\_Neg" . ($opt_t*100) . "CG.pdf" if($opt_c);
+	my $finalPosPDF_NOPEAK = $mydir . "$mydirname\_$gene\_Pos" . ($opt_t*100) . "_NOPEAK.pdf";
+	my $finalNegPDF_NOPEAK = $mydir . "$mydirname\_$gene\_Neg" . ($opt_t*100) . "_NOPEAK.pdf";
+	$finalPosPDF_NOPEAK = $mydir . "$mydirname\_$gene\_Pos" . ($opt_t*100) . "_NOPEAK_CG.pdf" if($opt_c);
+	$finalNegPDF_NOPEAK = $mydir . "$mydirname\_$gene\_Neg" . ($opt_t*100) . "_NOPEAK_CG.pdf" if($opt_c);
+	my $finalPosPNG = $mydir . "$mydirname\_$gene\_Pos" . ($opt_t*100) . ".png";
+	my $finalNegPNG = $mydir . "$mydirname\_$gene\_Neg" . ($opt_t*100) . ".png";
+	$finalPosPNG = $mydir . "$mydirname\_$gene\_Pos" . ($opt_t*100) . "CG.png" if($opt_c);
+	$finalNegPNG = $mydir . "$mydirname\_$gene\_Neg" . ($opt_t*100) . "CG.png" if($opt_c);
+	my $finalPosPNG_NOPEAK = $mydir . "$mydirname\_$gene\_Pos" . ($opt_t*100) . "_NOPEAK.png";
+	my $finalNegPNG_NOPEAK = $mydir . "$mydirname\_$gene\_Neg" . ($opt_t*100) . "_NOPEAK.png";
+	$finalPosPNG_NOPEAK = $mydir . "$mydirname\_$gene\_Pos" . ($opt_t*100) . "_NOPEAK_CG.png" if($opt_c);
+	$finalNegPNG_NOPEAK = $mydir . "$mydirname\_$gene\_Neg" . ($opt_t*100) . "_NOPEAK_CG.png" if($opt_c);
+	my $Rscript = "$mydir/$mydirname\_$gene\_MakeHeatmap.R";
 	open(my $out, ">", $Rscript) or die "Can't print to $Rscript: $!\n";
 
 	# Breaks and color for R script
@@ -839,17 +912,25 @@ foreach my $gene (sort keys %seq) {
 		#Sequence
 		$seqR
 
+
 		# print peak
 		files = c(\"$finalPos\",\"$finalNeg\",\"$finalPos_NOPEAK\",\"$finalNeg_NOPEAK\")
+		PDFout = c(\"$finalPosPDF\",\"$finalNegPDF\",\"$finalPosPDF_NOPEAK\",\"$finalNegPDF_NOPEAK\")
+		PNGout = c(\"$finalPosPNG\",\"$finalNegPNG\",\"$finalPosPNG_NOPEAK\",\"$finalNegPNG_NOPEAK\")
+		PEAKS = paste(files,\".PEAKS\",sep=\"\")
+
 		info = file.info(files)
 		files = rownames(info[info\$size != 0, ])
 		for (i in 1:length(files)) 
 		{
 			if (file.exists(files[i])) 
 			{
-				df = read.table(files[i], sep=\"\\t\", row.names=1)
+				myclust = TRUE
+				if(length(grep(\"_NOPEAK\", files[i])) != 0) {
+					myclust = FALSE
+				}
 				
-				rownames(df) = gsub(\"^SEQ_(\\\\w+)\$\",\"\\\\1\",rownames(df),perl=T)
+				df = read.table(files[i],row.names=1,sep=\"\\t\")
 				if (i > 2 & dim(df)[1] > 1000) {
 					df = df[seq(1,1000),]
 				}
@@ -859,41 +940,65 @@ foreach my $gene (sort keys %seq) {
 					df[2,] = df[1,]
 				}
 				if (length(df) > 0) {
-					pdf(paste(files[i],\"_$threshold.pdf\",sep=\"\"))
-					#if (dim(df)[1] < 1000) {
-					heatmap.3(
-					x=df,
-					dendrogram=\"none\",
-					Rowv=TRUE, Colv=FALSE,
-					labRow=TRUE,labCol=FALSE,
-					sideRow=2,
-					cexRow=0.2,
-					ColIndividualColors=seq,
-					breaks=$breaks,
-					color.FUN=function(x) $colors,
-					main=files[i],
-					sub=paste(\"(\",dim(df)[1],\" peaks)\",sep=\"\"),
-					cex.main = 0.5
-					)
-					dev.off()
 
-					png(paste(files[i],\"_$threshold.png\",sep=\"\"),height=2000,width=2000)
-					#if (dim(df)[1] < 1000) {
-					heatmap.3(
-					x=df,
-					dendrogram=\"none\",
-					Rowv=TRUE, Colv=FALSE,
-					labRow=TRUE,labCol=FALSE,
-					sideRow=2,
-					cexRow=0.2,
-					ColIndividualColors=seq,
-					breaks=$breaks,
-					color.FUN=function(x) $colors,
-					main=files[i],
-					sub=paste(\"(\",dim(df)[1],\" peaks)\",sep=\"\"),
-					cex.main = 0.5
-					)
-					dev.off()
+               rownames(df) = gsub(\"^SEQ_(\\\\w+)\$\",\"\\\\1\",rownames(df),perl=T)
+               ### Main ###
+               library(ggplot2)
+               library(reshape2)
+               library(grid)
+               h = hclust(d=dist(df))
+               df = df[h\$order,]
+               colnames(df) = seq(1,dim(df)[2])
+               df\$y = seq(1,dim(df)[1])
+               df\$id = rownames(df)
+               dm = melt(df,id.vars=c(\"id\",\"y\"))
+               colnames(dm) = c(\"id\",\"y\",\"x\",\"value\")
+               dm\$x = as.numeric(as.character(dm\$x))
+               dm\$y = as.numeric(as.character(dm\$y))
+               dm\$value = as.factor(as.character(dm\$value))
+
+					if (file.exists(PEAKS[i])) {
+  	            	mypeaks = read.table(PEAKS[i]);
+   	            colnames(mypeaks) = c(\"id\",\"x\",\"xend\")
+      	         mydf = data.frame(id=rownames(df), y=df\$y)
+         	      mypeaks = merge(mypeaks, mydf, by=\"id\")
+					} else {
+						mypeaks=NULL
+					}
+				
+               p = ggplot(dm,aes(x,y)) +
+                   geom_tile(aes(fill=value)) + coord_fixed(ratio=4) +
+                   scale_fill_manual(values=c(\"0\"=\"cornsilk\",\"1\"=\"green4\",\"2\"=\"white\",\"3\"=\"peachpuff\",\"4\"=\"seagreen4\",\"5\"=\"maroon4\",\"6\"=\"grey\",\"9\"=\"red4\")) +
+                   scale_x_continuous(expand = c(0,0)) + scale_y_continuous(expand = c(0,0)) +
+                   theme(line = element_blank(),
+                         axis.text = element_blank(),
+                         axis.title = element_blank()
+                   ) +
+                   ggtitle(paste(\"(\",dim(df)[1],\" peaks)\",sep=\"\")) 
+
+					if (length(mypeaks) > 0) {
+						p = p + geom_rect(data=mypeaks,aes(xmin=mypeaks\$x,xmax=mypeaks\$xend,ymin=mypeaks\$y-0.5,ymax=mypeaks\$y+0.5),color=rgb(1,0,0),size=0.2,fill=NA); #+
+								#geom_text(data=mypeaks,aes(x=mypeaks\$xend, y=mypeaks\$y, label=mypeaks\$id))
+					}
+
+               gt <- ggplot_gtable(ggplot_build(p))
+               ge <- subset(gt\$layout, name == \"panel\")
+
+               ### PNG ###
+
+               print(paste(\"    \",i,\"B. Doing PNG of \",files[i],sep=\"\"))
+               png(PNGout[i],height=4*2*dim(df)[1],width=2*dim(df)[2])
+               grid.draw(gt[ge\$t:ge\$b, ge\$l:ge\$r])
+               dev.off()
+
+
+
+               ### PNG ###
+               print(paste(i, \". Doing pdf of \",files[i],sep=\"\"))
+               pdf(PDFout[i])#,height=4*2*dim(df)[1],width=2*dim(df)[2]/4)
+               grid.draw(gt[ge\$t:ge\$b, ge\$l:ge\$r])
+               dev.off()
+               
 				}
 			}
 		}
@@ -951,6 +1056,10 @@ sub sanityCheck {
 
 my $usage = "\nUsage: $YW$0$N ${GN}[options]$N [-r $CY<read.fq>$N OR -S $CY<read.bismark.sam>$N -n $PR<output folder>$N -g $GN<genome.fa>$N -i $YW<geneCoordinates.bed>$N
 
+$LGN-S$N to use bismark option stringent.
+   stringent: --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3
+   default:   --rdg 2,1 --rfg 2,1 --score_min L,0,-0.8
+
 Example:
 $YW$0$N -r ${CY}example/pacbio12ccs.fq$N -n ${PR}myoutput$N -g$GN example/hg19.fa.fa$N -i$YW example/pacbio12index.bed$N -x -10 -y 10
 
@@ -958,6 +1067,9 @@ ${LGN}Options [default]:$N
 -x $LGN<Left pad [0]>$N -y $LGN<Right pad [0]>$N -t $LGN<threshold [0.65]>$N -l $LGN<min peak length [100]>$N -L $LGN<min READ length [500]>$N -q $LGN<min map quality [0]>$N
 
 $LRD IMPORTANT!! If you see a lot of 'Chromosomal sequence could not be extracted for..' ADD -x -10 -y 10!$N
+
+(..continued; Use -H to display longer help!)
+
 ";
 
 my $usage_long = "$usage
@@ -1031,6 +1143,9 @@ die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ####
 	my ($PositiveFinal, $NegativeFinal, $MethylationPos, $methylationNeg);
 
 	my $mydir = myFootLib::getFullpath("$opt_n") . "/";
+	my @dir = split("/", $mydir);
+	my $mydirname = $dir[@dir-1];
+	   $mydirname = $dir[@dir-2] if not defined $mydirname or (defined $mydirname and $mydirname =~ /^[\s]*$/);
 	if (defined $opt_1 or defined $opt_4) {
 		my $finalPositive = $mydir . "/PositiveFinal.txt";
 		my $finalNegative = $mydir . "/NegativeFinal.txt";
@@ -1085,3 +1200,72 @@ __END__
 		die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N" . "-1 or -6 is given ($dir6) but $MethylationNeg does not exist!\n" if not -e $MethylationNeg;		
 	}
 }
+
+__END__
+Nov2017
+
+					pdf(paste(files[i],\"_$threshold.pdf\",sep=\"\"))
+					heatmap.3(
+					x=df,
+					dendrogram=\"none\",
+					Rowv=myclust, Colv=FALSE,
+					labRow=TRUE,labCol=FALSE,
+					sideRow=2,
+					cexRow=0.2,
+					ColIndividualColors=seq,
+					breaks=$breaks,
+					color.FUN=function(x) $colors,
+					main=files[i],
+					sub=paste(\"(\",dim(df)[1],\" peaks)\",sep=\"\"),
+					cex.main = 0.5
+					)
+					dev.off()
+
+					print(paste(\"   \",i,\"B. Doing PNG of \",files[i],sep=\"\"))
+					png(paste(files[i],\"_$threshold.png\",sep=\"\"),height=2000,width=2000)
+					heatmap.3(
+					x=df,
+					dendrogram=\"none\",
+					Rowv=myclust, Colv=FALSE,
+					labRow=TRUE,labCol=FALSE,
+					sideRow=2,
+					cexRow=0.2,
+					ColIndividualColors=seq,
+					breaks=$breaks,
+					color.FUN=function(x) $colors,
+					main=files[i],
+					sub=paste(\"(\",dim(df)[1],\" peaks)\",sep=\"\"),
+					cex.main = 0.5
+					)
+
+					dev.off()
+
+
+__END__
+#CUT1
+#AIRN_PFC53_REVERSE      1275-1287
+#AIRN_PFC53_REVERSE      1372-1382
+#AIRN_PFC53_REVERSE      1490-1507
+
+						#print "CHUNK\t$chunk\n" if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
+						my ($begPeak, $begPeak2) = $chunk =~ /^([023678]*)(1|4|5|9)/;
+						#print "Begpeak\t$begPeak\n" if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
+						$begPeak = defined $begPeak ? length($begPeak) + $i + 1 : $i + 1;
+						my ($temp1, $temp2, $midPeak, $temp3, $temp4) = $chunk =~ /^([023678]*)(1|4|5|9)(.+)(1|4|5|9)([023678]*)$/;
+						$midPeak = "undefined!\n" if not defined $midPeak;
+						#print "Midpeak\t$midPeak\n" if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
+						my $printPeak = "$midPeak";
+						my ($endPeak, $endPeak2, $endPeak3) = $chunk =~ /^(.*)(1|4|5|9)([023678]*)$/;
+						#print "endpeak\t$endPeak\n" if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
+						$endPeak = defined $endPeak ? length($endPeak) + $i + 1 : $i + 1;
+						my $checkPeak = 0;
+						#print "\tGENE=$gene has peak! (conv = $conPer > threshold=$opt_t), checking at beg=$LGN$begPeak$N, end=$LCY$endPeak$N\n" if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
+						foreach my $beg_C (sort keys %{$lotsOfC{$gene}}) {
+							my $end_C = $lotsOfC{$gene}{$beg_C};
+							if (($begPeak >= $beg_C and $begPeak <= $end_C) or ($endPeak >= $beg_C and $endPeak <= $end_C)) {
+								$printPeak .= "\tgene=$gene begPeak=$begPeak endPeak=$endPeak is within $beg_C-$end_C\n";# if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
+								$checkPeak = 1; last;
+							}
+						}
+#						die if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
+#CUT1
