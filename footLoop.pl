@@ -931,9 +931,11 @@ foreach my $gene (sort keys %seq) {
 			my %RBox;
 			foreach my $lines (sort @{$box->{$genez}}) {
 				my ($chr, $beg, $end, $geneBox) = split("\t", $lines);
-				my $beg2 = $geneIndex{$genez};
-				$beg -= $beg2;
-				$end -= $beg2;
+				#my $beg2 = $geneIndex{$genez};
+				#if ($beg > $beg2) {
+				#	$beg -= $beg2;
+				#	$end -= $beg2;
+				#}
 				push(@{$RBox{name}}, $geneBox);
 				push(@{$RBox{beg}}, $beg);
 				push(@{$RBox{end}}, $end);
@@ -944,9 +946,23 @@ foreach my $gene (sort keys %seq) {
 				my $RBoxbeg = "RBoxbeg = c(" . join(",", @{$RBox{beg}}) . ")";
 				my $RBoxend = "RBoxend = c(" . join(",", @{$RBox{end}}) . ")";
 				$RBox = "
+					mydm_xmin = min(dm\$x)
+					mydm_xmax = max(dm\$x)
 					$RBoxname
 					$RBoxbeg
 					$RBoxend
+					if (length(RBoxbeg[RBoxbeg < mydm_xmin]) > 0) {
+						RBoxbeg[RBoxbeg < mydm_xmin] = mydm_xmin
+					}
+					if (length(RBoxbeg[RBoxbeg > mydm_xmax]) > 0) {
+						RBoxbeg[RBoxbeg > mydm_xmax] = mydm_xmax
+					}
+					if (length(RBoxend[RBoxend < mydm_xmin]) > 0) {
+						RBoxend[RBoxend < mydm_xmin] = mydm_xmin
+					}
+					if (length(RBoxend[RBoxend > mydm_xmax]) > 0) {
+						RBoxend[RBoxend > mydm_xmax] = mydm_xmax
+					}
 					RBox = data.frame(name=RBoxname,my_xmin=RBoxbeg,my_xmax=RBoxend, my_ymin=min(dm\$y),my_ymax = max(dm\$y))
 				";
 		
