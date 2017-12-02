@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 # Version 160831_Fixed_PrintOutput at the same file (step 8)
 use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_n $opt_t $opt_l $opt_r $opt_q $opt_S $opt_s $opt_g $opt_c $opt_S $opt_i $opt_e $opt_f $opt_H $opt_L $opt_F $opt_p $opt_x $opt_y $opt_h $opt_1 $opt_4 $opt_6);
-getopts("n:t:l:r:q:s:g:ci:S:e:fHL:Fpx:y:h1:4:6:FS");
+use vars qw($opt_n $opt_t $opt_l $opt_r $opt_q $opt_S $opt_s $opt_g $opt_c $opt_S $opt_i $opt_e $opt_f $opt_H $opt_L $opt_F $opt_p $opt_x $opt_y $opt_h $opt_1 $opt_4 $opt_6 $opt_B);
+getopts("n:t:l:r:q:s:g:ci:S:e:fHL:Fpx:y:h1:4:6:FSB:");
 
 BEGIN {
 	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -13,7 +13,7 @@ my $mainFolder = dirname(dirname abs_path $0) . "/footLoop";
 
 my $homedir = $ENV{"HOME"};
 my $sortTMP = "$homedir/sortTMP/";
-sanityCheck();
+my $box = sanityCheck();
 
 #### Input ####
 $opt_i = myFootLib::getFullpath($opt_i);
@@ -104,9 +104,24 @@ ${YW}Input Parameters$N
 
 
 my $geneIndexes   = $opt_i; die "\n$LRD!!!\t$N$opt_i doesn't exist!\n\n" if not defined($geneIndexes);
-system("bedtools_bed_change.pl -m -x $x -y $y -i $geneIndexes -o $geneIndexes\_$x\_$y\_bp.bed") == 0 or die "Failed to get +/- 100bp of $geneIndexes!\n";
+if ($x eq 0 and $y eq 0) {
+	system("cp $geneIndexes $geneIndexes\_$x\_$y\_bp.bed") == 0 or die "Failed to copy $geneIndexes to $geneIndexes\_$x\_$y\_bp.bed: $!\n";
+}
+else {
+	system("bedtools_bed_change.pl -m -x $x -y $y -i $geneIndexes -o $geneIndexes\_$x\_$y\_bp.bed") == 0 or die "Failed to get (beg $x, end $y) bp of $geneIndexes!\n";
+}
 $geneIndexes = "$geneIndexes\_$x\_$y\_bp.bed";
 my ($bismark_folder_exist, $bismark_folder) = checkBismarkIndex($geneIndexes, $mainFolder, $outLog);
+my %geneIndex;
+open (my $geneIndexIn, "<", $geneIndexes) or die "Cannot read from $geneIndexes: $!\n";
+while (my $line = <$geneIndexIn>) {
+	chomp($line);
+	my ($chr, $beg, $end, $gene) = split("\t", $line);
+	$gene = uc($gene);
+	print "file=$geneIndexes. geneIndex gene=$gene,beg=$beg\n";
+	$geneIndex{$gene} = $beg;
+}
+close $geneIndexIn;
 my $geneIndexesFa = "$bismark_folder\/geneIndexes.fa";
 
 print STDERR "\n${YW}1. Getting fasta sequence from $geneIndexes into $CY$geneIndexesFa$N\n";
@@ -234,10 +249,16 @@ while (my $entry = $fasta->nextEntry()) {
 	}
 }
 foreach my $genez (keys %lotsOfC) {
+	$genez = uc($genez);
 	$lotsOfC{$genez} =~ s/;$//;
 	print "$genez\t$lotsOfC{$genez}\n";
+	my $beg2 = $geneIndex{$genez};
+	foreach my $lines (@{$box->{$genez}}) {
+		print "GENEZ = $genez, lines = $lines\n";
+	}
+	print "genez=$genez,beg=$beg2\n";
 }
-
+#push(@{$box{$chr}}, "$chr\t$beg\t$end\t$gene\t$val\t$strand$others");
 close $SEQIN;
 print STDERR "\t${GN}SUCCESS$N: Sequence has been parsed from fasta file $CY$seqFile$N\n";
 print $outLog "\t${GN}SUCCESS$N: Sequence has been parsed from fasta file $CY$seqFile$N\n";
@@ -265,8 +286,8 @@ my $samFile = $mysam;
 my $positive = "$mydir/Positive.3";
 my $negative = "$mydir/Negative.3";
 my $notusedfile = "$mydir/NOTUSED.3";
-print STDERR "${YW}3. Parsing sam file $CY$samFile$YW and getting only high quality reads\n";
-print $outLog "${YW}3. Parsing sam file $CY$samFile$YW and getting only high quality reads\n";
+print STDERR "${YW}3. Parsing sam file $CY$samFile$N and getting only high quality reads\n";
+print $outLog "${YW}3. Parsing sam file $CY$samFile$N and getting only high quality reads\n";
 open(my $positiveReads, ">", $positive) or die "Could not open $positive: $!";
 open(my $negativeReads, ">", $negative) or die "Could not open $negative: $!";
 open(my $notused, ">", $notusedfile) or die "Cannot open $notusedfile: $!\n";
@@ -399,8 +420,8 @@ Low Quality = $seq{$gene}{lowq}
 my $finalPositive = "$mydir/PositiveFinal.txt";
 my $finalNegative = "$mydir/NegativeFinal.txt";
 
-print STDERR "${YW}4. Sorting $positive and $negative by number of CT conversions and removes the number of CT conversions in prepartion for methylation extractor\n";
-print $outLog "${YW}4. Sorting $positive and $negative by number of CT conversions and removes the number of CT conversions in prepartion for methylation extractor\n";
+print STDERR "${YW}4. Sorting $LPR$positive$YW and $CY$negative$YW by number of CT conversions and removes the number of CT conversions in prepartion for methylation extractor\n";
+print $outLog "${YW}4. Sorting $LPR$positive$YW and $CY$negative$YW by number of CT conversions and removes the number of CT conversions in prepartion for methylation extractor\n";
 if (defined $opt_1 or defined $opt_4) {
 	my $dir4 = defined $opt_1 ? $opt_1 : $opt_4;
 	# If in new folder, finalPositive already exist, then die UNLESS -f is given
@@ -903,6 +924,36 @@ foreach my $gene (sort keys %seq) {
 		$seqR .= $s == @seq - 1 ? ")" : ",";
 	}
 	
+	my $genez = uc($gene);
+	my $RBox = ""; my $RBoxPlot = "";
+	if (defined $box) {
+		if (defined $box->{$genez}) {
+			my %RBox;
+			foreach my $lines (sort @{$box->{$genez}}) {
+				my ($chr, $beg, $end, $geneBox) = split("\t", $lines);
+				my $beg2 = $geneIndex{$genez};
+				$beg -= $beg2;
+				$end -= $beg2;
+				push(@{$RBox{name}}, $geneBox);
+				push(@{$RBox{beg}}, $beg);
+				push(@{$RBox{end}}, $end);
+				print "\t$geneBox, beg=$beg, end=$end\n";
+			}
+			if (defined $RBox{name}) {
+				my $RBoxname = "RBoxname = c(\"" . join("\",\"", @{$RBox{name}}) . "\")";
+				my $RBoxbeg = "RBoxbeg = c(" . join(",", @{$RBox{beg}}) . ")";
+				my $RBoxend = "RBoxend = c(" . join(",", @{$RBox{end}}) . ")";
+				$RBox = "
+					$RBoxname
+					$RBoxbeg
+					$RBoxend
+					RBox = data.frame(name=RBoxname,my_xmin=RBoxbeg,my_xmax=RBoxend, my_ymin=min(dm\$y),my_ymax = max(dm\$y))
+				";
+		
+				$RBoxPlot = "+ geom_rect(data=RBox,aes(x=RBox\$my_xmin,y=RBox\$my_ymin,xmin=RBox\$my_xmin,xmax=RBox\$my_xmax,ymin=RBox\$my_ymin+0.5,ymax=RBox\$my_ymax-0.5),size=2,fill=NA,color=\"black\")";
+			}
+		}
+	}
 	print $out "
 
 		.libPaths()
@@ -966,6 +1017,12 @@ foreach my $gene (sort keys %seq) {
 						mypeaks=NULL
 					}
 				
+####### R BOX
+
+				$RBox
+
+#############
+
                p = ggplot(dm,aes(x,y)) +
                    geom_tile(aes(fill=value)) + coord_fixed(ratio=4) +
                    scale_fill_manual(values=c(\"0\"=\"cornsilk\",\"1\"=\"green4\",\"2\"=\"white\",\"3\"=\"peachpuff\",\"4\"=\"seagreen4\",\"5\"=\"maroon4\",\"6\"=\"grey\",\"9\"=\"red4\")) +
@@ -973,8 +1030,8 @@ foreach my $gene (sort keys %seq) {
                    theme(line = element_blank(),
                          axis.text = element_blank(),
                          axis.title = element_blank()
-                   ) +
-                   ggtitle(paste(\"(\",dim(df)[1],\" peaks)\",sep=\"\")) 
+                   ) + ggtitle(paste(\"(\",dim(df)[1],\" peaks)\",sep=\"\")) $RBoxPlot
+################# R BOX PLOT
 
 					if (length(mypeaks) > 0) {
 						p = p + geom_rect(data=mypeaks,aes(xmin=mypeaks\$x,xmax=mypeaks\$xend,ymin=mypeaks\$y-0.5,ymax=mypeaks\$y+0.5),color=rgb(1,0,0),size=0.2,fill=NA); #+
@@ -1181,6 +1238,27 @@ die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ####
 		system("ln -s $methylationPos2 $mydir/") == 0 or die "\tFailed at step 6: Cannot create link of $methylationPos2 to $mydir: $!\n";
 		system("ln -s $methylationNeg2 $mydir/") == 0 or die "\tFailed at step 6: Cannot create link of $methylationNeg2 to $mydir: $!\n";
 	}
+	my %box; 
+	if (defined $opt_B) {
+		my $boxFile = $opt_B;
+		die "\n${LRD}ERROR!$N: $LCY-B$N <boxfile.bed> does not exist!\n" if not -e $boxFile;
+		my @lines = `cat $boxFile`;
+		die "\n${LRD}ERROR!$N: $LCY-B$N <boxfile.bed> is empty!!\n" if @lines == 0;
+		my $lineCount = 0;
+		foreach my $line (@lines) {
+			chomp($line);
+			next if $line =~ /^\#/;
+			my ($chr, $beg, $end, $gene, $val, $strand, @others) = split("\t", $line);
+			$lineCount ++;
+			$gene = "GENE_$lineCount" if not defined $gene;
+			$strand = "+" if not defined $strand;
+			$val = 0 if not defined $val;
+			my $others = @others == 0 ? "" : "\t" . join("\t", @others);
+			$chr=uc($chr);
+			push(@{$box{$chr}}, "$chr\t$beg\t$end\t$gene\t$val\t$strand$others");
+		}
+	}
+	return(\%box);
 }
 
 __END__
