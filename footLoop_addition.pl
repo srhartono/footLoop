@@ -4,7 +4,7 @@ use strict; use warnings; use mitochy; use Getopt::Std; use FAlite;
 use vars qw($opt_v $opt_x $opt_R);
 getopts("vxR");
 
-my ($folders, $lotsOfC) = @ARGV;
+my ($folders, $mygene, $lotsOfC) = @ARGV;
 die "\nusage: $YW$0$N $CY<input1_Pos50.txt>$N\n\n" unless @ARGV;
 my %bad;
 if (defined $lotsOfC) {
@@ -31,11 +31,14 @@ $total{Neg}{peak} = 0; $total{Neg}{nopeak} = 0; $total{Neg}{total} = 0;
 my $type = "Pos";
 my $log2 = "";
 print STDERR "Folder $YW$folder$N: Processing files related to $LCY$input1$N\n";
-open (my $outLog, ">", "$folder/0_RESULTS.TXT") if not defined $opt_x;
-open (my $outLog2, ">", "$folder/1_RESULTS_EXTRA.TXT") if not defined $opt_x;
+open (my $outLog, ">", "$folder/0_RESULTS\_$mygene.TXT") if not defined $opt_x;
+open (my $outLog2, ">", "$folder/1_RESULTS_EXTRA\_$mygene.TXT") if not defined $opt_x;
 for (my $h = 0; $h < 2; $h++) {
 	my $peakFile   = $input1; $peakFile   =~ s/_NOPEAK.txt/.txt/ if $peakFile =~ /_NOPEAK.txt/;
 	my $nopeakFile = $input1; $nopeakFile =~ s/.txt$/_NOPEAK.txt/ if $nopeakFile !~ /_NOPEAK.txt/;
+	if ($peakFile =~ /CG.txt/) {
+		$nopeakFile =~ s/CG_NOPEAK.txt/_NOPEAK_CG.txt/;
+	}
 	if (not defined $opt_x) {
 		$peakFile =~ s/_Neg/_Pos/ if $h == 0;
 		$peakFile =~ s/_Pos/_Neg/ if $h == 1;
@@ -103,11 +106,15 @@ for (my $h = 0; $h < 2; $h++) {
 
 	open (my $out1, ">", "$folder1/$peakfileName.out") or die "Cannot write to $peakfileName.out: $!\n";
 	open (my $out2, ">", "$folder1/$nopeakfileName.out") or die "Cannot write to $nopeakfileName.out: $!\n";
-	foreach my $val (sort @{$data{peak}}) {
-		print $out1 "$val\n";
+	if (defined $data{peak}) {
+		foreach my $val (sort @{$data{peak}}) {
+			print $out1 "$val\n";
+		}
 	}
-	foreach my $val (sort @{$data{nopeak}}) {
-		print $out2 "$val\n";
+	if (defined $data{nopeak}) {
+		foreach my $val (sort @{$data{nopeak}}) {
+			print $out2 "$val\n";
+		}
 	}
 	
 	close $out1;
@@ -176,14 +183,14 @@ if (not defined $opt_x) {
 	   $foldershort = $folder[@folder-2] if not defined ($foldershort) or (defined $foldershort and $foldershort =~ /^[\s]*$/);
 	my $fileNamePos = $fileName; $fileName =~ s/Neg/Pos/g if $fileName =~ /Neg/;
 	my $fileNameNeg = $fileName; $fileName =~ s/Pos/Neg/g if $fileName =~ /Pos/;
-	print $outLog "#folder\tfilename\tStrand\ttotal\tpeak.perc\n";
-	print $outLog "$foldershort\t$fileNamePos\t$total{Pos}{total}\t$total{Pos}{peak}\n";
-	print $outLog "$foldershort\t$fileNameNeg\t$total{Neg}{total}\t$total{Neg}{peak}\n";
+	print $outLog "#folder\tfilename\tGene\tStrand\ttotal\tpeak.perc\n";
+	print $outLog "$foldershort\t$fileNamePos\t$mygene\tPos\t$total{Pos}{total}\t$total{Pos}{peak}\n";
+	print $outLog "$foldershort\t$fileNameNeg\t$mygene\tNeg\t$total{Neg}{total}\t$total{Neg}{peak}\n";
 	print $outLog2 "$log2";
 	close $outLog;
 	close $outLog2;
 }
-system("cat $folder/0_RESULTS.TXT") if not defined $opt_x;
+system("cat $folder/0_RESULTS\_$mygene.TXT") if not defined $opt_x;
 print STDERR "\tcd $folder && run_Rscript.pl *MakeHeatmap.R\n";
 system("cd $folder && run_Rscript.pl *MakeHeatmap.R") if not defined $opt_x and defined $opt_R;
 

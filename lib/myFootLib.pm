@@ -95,7 +95,6 @@ sub getDate {
 
 sub getFilename {
 	my ($fh, $type) = @_;
-	
 	# Split folder and fullname, e.g. $fh = "folder1/folder2/filename.txt.bed"
 	# @names    = (folder1,folder2,filename.txt.bed)
 	# $fullname = "filename.txt.bed"
@@ -110,8 +109,7 @@ sub getFilename {
 	my $folder    = @names != 1 ? join("\/", @names) : $names[0] =~ /^\.\.$/ ? "../" : $names[0] eq "." ? "./" : $names[0] =~ /^\.\/$/ ? "./" : $names[0] =~ /^\w+/ ? "$names[0]/" : die "Can't extract folder from $fh :( (names = @names)\n";
 #	print "FOLDERZ = $folder\n";
 	my @names2    = split(".", $fullname);
-	my $shortname = $names2[0];
-	
+	my $shortname = @names2 == 0 ? $fullname : $names2[0];
 	return($shortname)                      if not defined($type);
 	return($folder, $fullname)              if $type eq "folderfull";
 	return($folder, $shortname)             if $type eq "folder";

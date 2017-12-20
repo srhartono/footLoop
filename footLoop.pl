@@ -1,9 +1,9 @@
 #!/usr/bin/perl
 # Version 160831_Fixed_PrintOutput at the same file (step 8)
 use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_n $opt_t $opt_l $opt_r $opt_q $opt_S $opt_s $opt_g $opt_c $opt_S $opt_i $opt_e $opt_f $opt_H $opt_L $opt_F $opt_p $opt_x $opt_y $opt_h $opt_1 $opt_4 $opt_6 $opt_B);
-getopts("n:t:l:r:q:s:g:ci:S:e:fHL:Fpx:y:h1:4:6:FSB:");
-
+use vars qw($opt_n $opt_t $opt_l $opt_r $opt_q $opt_Z $opt_s $opt_g $opt_c $opt_S $opt_i $opt_e $opt_f $opt_H $opt_L $opt_F $opt_p $opt_x $opt_y $opt_h $opt_1 $opt_4 $opt_6 $opt_B $opt_T $opt_D);
+getopts("n:t:l:r:q:s:g:ci:S:e:fHL:Fpx:y:h1:4:6:FZB:TD");
+my %opts = ("n" => $opt_n, "t" => $opt_t, "l" => $opt_l, "r" => $opt_r, "q" => $opt_q, "Z" => $opt_Z, "s" => $opt_s, "g" => $opt_g, "c" => $opt_c, "S" => $opt_S, "i" => $opt_i, "e" => $opt_e, "f" => $opt_f, "H" => $opt_H, "L" => $opt_L, "F" => $opt_F, "p" => $opt_p, "x" => $opt_x, "y" => $opt_y, "h" => $opt_h, "1" => $opt_1,"4" => $opt_4,"6" => $opt_6,"B" => $opt_B, "T" => $opt_T, "D" => $opt_D,);
 BEGIN {
 	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
 	push(@INC, $libPath);
@@ -13,6 +13,20 @@ my $mainFolder = dirname(dirname abs_path $0) . "/footLoop";
 
 my $homedir = $ENV{"HOME"};
 my $sortTMP = "$homedir/sortTMP/";
+my @resFiles = <$opt_n/0_RESULTS*.TXT> if defined $opt_n;
+if (defined $opt_n and -d $opt_n and not defined $opt_D) {
+	if (@resFiles != 0) {
+		my $resFileCheck = 0;
+		foreach my $resFile (@resFiles) {
+			$resFileCheck = 1 if -s $resFile > 0;
+		}
+		print "-d $LGN$opt_n$N $resFiles[0] already exist!\n" if $resFileCheck == 1;
+		exit 0 if $resFileCheck == 1;
+	}
+	else {
+		print "Doing becuase result files 0_RESULTS*.TXT does not exist!\n";
+	}
+}
 my $box = sanityCheck();
 
 #### Input ####
@@ -53,16 +67,24 @@ mkdir $mydir if not -d $mydir;
 chdir $mydir;
 my $logFile = "$mydir/logFile.txt";
 open(my $outLog, '>', $logFile);
+my $optPrint = "$YW$0$N";
+foreach my $opts (sort keys %opts) {
+	my $val = defined $opts{$opts} ? $opts{$opts} : "NA";
+	next if not defined $opts{$opts};
+	$optPrint .= " -$opts $val";
+}
+
 my $mysam2 = "$mysam"; $mysam2 .= " $GN(will be generated)$N" if not defined($opt_S);
 my $exonFileExists = defined($opt_e) ? "${GN}$opt_e$N" : "${LRD}FALSE$N";
 my @time = localtime(time); my $time = join("", @time);
 my $date = getDate();
 my ($md) = `md5sum $opt_i` =~ /^(\w+)[ ]+/;
-my $bismarkOption = (not defined $opt_S) ? "--bowtie2 --rdg 2,1 --rfg 2,1 --score_min L,0,-0.8" : "--bowtie2 --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3";
+my $bismarkOption = (defined $opt_Z) ? "--bowtie2 --rdg 2,1 --rfg 2,1 --score_min L,0,-0.8" : "--bowtie2 --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3";
 print $outLog "\n${YW}0. Initializing... output directory = $CY$mydir$N\n";
 print $outLog "
-Date   : $date
-Run ID : $time
+Date       : $date
+Run ID     : $time
+Run script : $optPrint
 
 ${YW}Input Parameters$N
 1.  -n ${CY}Out Dir$N   :$mydir
@@ -70,7 +92,7 @@ ${YW}Input Parameters$N
 3.  -S ${CY}SAM$N       :$mysam2
 4.  -i ${CY}Index$N     :$opt_i (if padding added, will be $opt_i\_$x\_$y\_bp.bed)
 5.  -g ${CY}Genome$N    :$opt_g
-6.  -s ${CY}Seq$N       :$mainFolder/Bismark_indexes/footLoop/$md/geneIndexes.fa
+6.  -s ${CY}Seq$N       :NA
 7.  -c ${CY}UseCpG?$N   :$usecpg
 8.  -t ${CY}Threshold$N :$opt_t
 9.  -l ${CY}MinPkLen$N  :$minPeakLength
@@ -90,7 +112,7 @@ ${YW}Input Parameters$N
 3.  -S ${CY}SAM$N       :$mysam2
 4.  -i ${CY}Index$N     :$opt_i (if padding added, will be $opt_i\_$x\_$y\_bp.bed)
 5.  -g ${CY}Genome$N    :$opt_g
-6.  -s ${CY}Seq$N       :$mainFolder/Bismark_indexes/footLoop/$md/geneIndexes.fa
+6.  -s ${CY}Seq$N       :NA
 7.  -c ${CY}UseCpG?$N   :$usecpg
 8.  -t ${CY}Threshold$N :$opt_t
 9.  -l ${CY}MinPkLen$N  :$minPeakLength
@@ -104,13 +126,15 @@ ${YW}Input Parameters$N
 
 
 my $geneIndexes   = $opt_i; die "\n$LRD!!!\t$N$opt_i doesn't exist!\n\n" if not defined($geneIndexes);
+my ($geneIndexesName) = getFilename($geneIndexes);
+print "GENE indexes=$geneIndexes, name = $geneIndexesName\n";
 if ($x eq 0 and $y eq 0) {
-	system("cp $geneIndexes $geneIndexes\_$x\_$y\_bp.bed") == 0 or die "Failed to copy $geneIndexes to $geneIndexes\_$x\_$y\_bp.bed: $!\n";
+	system("/bin/cp $geneIndexes $mydir/$geneIndexesName\_$x\_$y\_bp.bed") == 0 or die "Failed to copy $geneIndexes to $mydir/$geneIndexesName\_$x\_$y\_bp.bed: $!\n";
 }
 else {
-	system("bedtools_bed_change.pl -m -x $x -y $y -i $geneIndexes -o $geneIndexes\_$x\_$y\_bp.bed") == 0 or die "Failed to get (beg $x, end $y) bp of $geneIndexes!\n";
+	system("bedtools_bed_change.pl -m -x $x -y $y -i $geneIndexes -o $mydir/$geneIndexesName\_$x\_$y\_bp.bed") == 0 or die "Failed to get (beg $x, end $y) bp of $geneIndexes!\n";
 }
-$geneIndexes = "$geneIndexes\_$x\_$y\_bp.bed";
+$geneIndexes = "$mydir/$geneIndexesName\_$x\_$y\_bp.bed";
 my ($bismark_folder_exist, $bismark_folder) = checkBismarkIndex($geneIndexes, $mainFolder, $outLog);
 my %geneIndex;
 open (my $geneIndexIn, "<", $geneIndexes) or die "Cannot read from $geneIndexes: $!\n";
@@ -279,10 +303,22 @@ if ($opt_e) {
 	}
 }
 
-
-
+my $thres = $opt_t * 100; my $checkSam = 1;
+$checkSam = 0 if not -e "$mysam.fixed";
+if (-e "$mysam.fixed") {
+	my ($samLineCount2) = linecount("$mysam.fixed");
+	my ($samLineCount1) = linecount($mysam);
+	$checkSam = 0 if $samLineCount1 - 50 > $samLineCount2;
+}
+if ($checkSam == 0) {
+	print STDERR "footLoop_2_sam_to_peak.pl -f $mydir -t $thres\n";
+	print $outLog "footLoop_2_sam_to_peak.pl -f $mydir -t $thres\n";
+	die "BAD\n";
+	system("footLoop_2_sam_to_peak.pl -f $mydir -t $thres") == 0 or die "Failed to run footLoop_2_sam_to_peak.pl -f $mydir -t $thres: $!\n";
+}
+#die "Checksam is good!\n";
 # File description, open files, etc
-my $samFile = $mysam;
+my $samFile = "$mysam.fixed";
 my $positive = "$mydir/Positive.3";
 my $negative = "$mydir/Negative.3";
 my $notusedfile = "$mydir/NOTUSED.3";
@@ -416,7 +452,7 @@ Low Quality = $seq{$gene}{lowq}
 ";
 }
 
-
+=comment
 my $finalPositive = "$mydir/PositiveFinal.txt";
 my $finalNegative = "$mydir/NegativeFinal.txt";
 
@@ -492,6 +528,8 @@ my $methylationNeg = $mydir . "methylationNeg" . ".txt";
 $methylationPos = $mydir . "methylationPos" . "CG.txt" if(defined $opt_c);
 $methylationNeg = $mydir . "methylationNeg" . "CG.txt" if(defined $opt_c);
 
+
+
 if (defined $opt_1 or defined $opt_6) {
 	my $dir6 = defined $opt_1 ? $opt_1 : $opt_6;
 	if (defined $opt_c) {
@@ -562,7 +600,9 @@ for (my $i = 0; $i < 2; $i++) {
 		my ($read) = $fullReadName =~ /^.+\/(\d+)\/\d+/i;
 		($read) = $fullReadName =~ /^.+\/(\d+)\/ccs/i if not defined($read);
 		($read) = $fullReadName if not defined($read);
-		$read = "SEQ_$read";
+		my ($readDate) = $fullReadName =~ /^(m\d+_\d+_\d+)_/; $readDate = $fullReadName if not defined $readDate;
+		$read = "SEQ_$readDate\_$read";
+
 		my ($readname) = length($fullReadName) > 20 ? $fullReadName =~ /(.{20})$/ : $fullReadName; $readname = "..." . $readname;
 		my ($name, $junk, $gene, $pos, $conv) = @fields; $pos = $pos - 1;
 		$gene = uc($gene);
@@ -583,7 +623,11 @@ for (my $i = 0; $i < 2; $i++) {
 	
 print STDERR "\t${GN}SUCCESS$N: Done parsing methylationPos and methylationNeg files!\n";
 print $outLog "\n\t${GN}SUCCESS$N: Done parsing methylationPos and methylationNeg files!\n";
+
+
+=cut
 	
+my %read; my %info; my %infoGene;
 print STDERR "${YW}7. Converting each gene's sequence position and methylation data\n$N";
 print $outLog "${YW}7. Converting each gene's sequence position and methylation data\n$N";
 
@@ -713,6 +757,7 @@ if ($opt_H) {
 print $outLog "${YW}8. determines which regions of conversion are R-loops based on conversion threshold$N\n";
 print STDERR "${YW}8. determines which regions of conversion are R-loops based on conversion threshold$N\n";
 
+open (my $outReport, ">", "$mydir/foot.report") or die "Cannot write to $mydir/foot.report: $!\n";
 foreach my $gene (sort keys %seq) {
 	my @seq = @{$seq{$gene}{seq}};
 	my $finalPos = $mydir . "$gene\_Pos" . ($opt_t*100) . ".txt";
@@ -852,12 +897,12 @@ foreach my $gene (sort keys %seq) {
 #	}	
 	# Do edge clearing
 	my $lotsOfC = defined $lotsOfC{$gene} ? $lotsOfC{$gene} : "";
-	system("footLoop_addition.pl $finalPos \"$lotsOfC\"") == 0 or print "Cannot do footLoop_addition.pl $finalPos: $!\n";
-
+	my $ucgene = uc($gene);
+	system("footLoop_addition.pl $finalPos $ucgene \"$lotsOfC\"") == 0 or print "Cannot do footLoop_addition.pl $ucgene $finalPos: $!\n";
+	print $outLog "\tfootLoop_addition.pl $finalPos $ucgene \"$lotsOfC\"\n";
 	my ($finalPosLine) = `wc -l $finalPos` =~ /^(\d+) /;
 	my ($finalNegLine) = `wc -l $finalNeg` =~ /^(\d+) /;
 	
-	open (my $outReport, ">", "$mydir/foot.report") or die "Cannot write to $mydir/foot.report: $!\n";
 	print $outLog "\n\t${GN}SUCCESS$N: Gene $CY$gene$N Output:\n\t\t- $CY$finalPos$N ($finalPosLine reads)\n\t\t- $CY$finalNeg$N ($finalNegLine reads)\n\n";
 	print $outReport "\n\t${GN}SUCCESS$N: Gene $CY$gene$N Output:\n\t\t- $CY$finalPos$N ($finalPosLine reads)\n\t\t- $CY$finalNeg$N ($finalNegLine reads)\n\n";
 	print STDERR "\t${GN}SUCCESS$N: Gene $CY$gene$N Output:\n\t\t- $CY$finalPos$N ($finalPosLine reads)\n\t\t- $CY$finalNeg$N ($finalNegLine reads)\n\n";
@@ -924,6 +969,10 @@ foreach my $gene (sort keys %seq) {
 		$seqR .= $s == @seq - 1 ? ")" : ",";
 	}
 	
+	my $labelz = "";
+	if (defined $opt_T) {
+		$labelz .= "p = p + geom_text(aes(x=min(dm\$x),label=id),hjust=0)";
+	}
 	my $genez = uc($gene);
 	my $RBox = ""; my $RBoxPlot = "";
 	if (defined $box) {
@@ -1053,6 +1102,10 @@ foreach my $gene (sort keys %seq) {
 						p = p + geom_rect(data=mypeaks,aes(xmin=mypeaks\$x,xmax=mypeaks\$xend,ymin=mypeaks\$y-0.5,ymax=mypeaks\$y+0.5),color=rgb(1,0,0),size=0.2,fill=NA); #+
 								#geom_text(data=mypeaks,aes(x=mypeaks\$xend, y=mypeaks\$y, label=mypeaks\$id))
 					}
+					
+					if (length(df) < 100) {
+						$labelz
+					}
 
                gt <- ggplot_gtable(ggplot_build(p))
                ge <- subset(gt\$layout, name == \"panel\")
@@ -1083,7 +1136,7 @@ foreach my $gene (sort keys %seq) {
 	system($cmd) if -e $Rscript and -s $Rscript > 10;
 	system("rm Rplots.pdf") if -e "Rplots.pdf";
 }
-
+close $outReport;
 print STDERR "\n${LPR}If there is not PDF made from step (8) then it's due to too low number of read/peak$N\n\n";
 #sub getDate {
 #	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time); $year += 1900;
@@ -1092,6 +1145,12 @@ print STDERR "\n${LPR}If there is not PDF made from step (8) then it's due to to
 #	my $timenow = $hour * 3600 + $min * 60 + $sec;
 #	return($date);
 #}
+
+sub linecount {
+   my ($input1) = @_;
+   my ($linecount) = `wc -l $input1` =~ /^(\d+)/;
+   return $linecount;
+}
 
 sub convert_seq {
 	my @seq = @{$_[0]};
@@ -1129,9 +1188,12 @@ sub sanityCheck {
 
 my $usage = "\nUsage: $YW$0$N ${GN}[options]$N [-r $CY<read.fq>$N OR -S $CY<read.bismark.sam>$N -n $PR<output folder>$N -g $GN<genome.fa>$N -i $YW<geneCoordinates.bed>$N
 
-$LGN-S$N to use bismark option stringent.
-   stringent: --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3
-   default:   --rdg 2,1 --rfg 2,1 --score_min L,0,-0.8
+$LGN-Z$N: Make mapping parameters not stringent. 
+Bismark uses bowtie2 mapping parameters:
+- stringent (default) formula: --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3
+- not stringent (-Z)  formula: --rdg 2,1 --rfg 2,1 --score_min L,0,-0.8
+
+Use -H for longer explanation about bismark parameters above.
 
 Example:
 $YW$0$N -r ${CY}example/pacbio12ccs.fq$N -n ${PR}myoutput$N -g$GN example/hg19.fa.fa$N -i$YW example/pacbio12index.bed$N -x -10 -y 10
@@ -1192,6 +1254,34 @@ $CY$0$N ${YW}-r example/pacbio12ccs.fq$N -n ${CY}myoutput$N -g$CY example/hg19.f
 If you have SAM file, use -S instead of -r (everything is the same as above except$YW yellow$N):
 $CY$0$N ${YW}-S example/pacbio12ccs.bismark.sam$N -n ${CY}myoutput$N -g$CY example/hg19.fa.fa$N -i$CY example/pacbio12index.bed$N -p -t ${CY}0.65$N -L$CY 500$N -l$CY 250$N 
 
+
+
+###### BISMARK (BOWTIE2) PARAMETERS
+(bowtie2 in bismark)
+--rdg <int1>,<int2>      Sets the read gap open (<int1>) and extend (<int2>) penalties. A read gap of length N gets a penalty
+                         of <int1> + N * <int2>. Default: 5, 3.
+
+--rfg <int1>,<int2>      Sets the reference gap open (<int1>) and extend (<int2>) penalties. A reference gap of length N gets
+                         a penalty of <int1> + N * <int2>. Default: 5, 3.
+
+--score_min <func>       Sets a function governing the minimum alignment score needed for an alignment to be considered
+                         \"valid\" (i.e. good enough to report). This is a function of read length. For instance, specifying
+                         L,0,-0.2 sets the minimum-score function f to f(x) = 0 + -0.2 * x, where x is the read length.
+                         See also: setting function options at http://bowtie-bio.sourceforge.net/bowtie2. The default is
+                         L,0,-0.2.
+(bowtie2)
+  --ma <int>         match bonus (0 for --end-to-end, 2 for --local) 
+  --mp <int>         max penalty for mismatch; lower qual = lower penalty (6)
+  --np <int>         penalty for non-A/C/G/Ts in read/ref (1)
+
+Stringent         : --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3
+Not stringent (-Z): --rdg 2,1 --rfg 2,1 --score_min L,0,-0.8
+--rdg 5,3: read gap of length N penalty = 5+3N (stringent) or 2+N (not stringent)
+--rfg 5,3: ref. gap of length N penalty = 5+3N (stringent) or 2+N (not stringent)
+--score_min: minimum threshold of a read with length of L: -0.3L (stringent) or -0.8L (not stringent)
+
+pFC53_small.bed (from PCB14) is 2500bp long, with 531 C. 
+All converted Cs and a 5\% mismatches (0.05*(2500-531)) and 1\% gap= 100bp mismatches
 ";
 
 die "\n$usage\n" if defined $opt_h;
