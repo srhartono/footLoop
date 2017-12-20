@@ -31,6 +31,10 @@ getFilename
 getFullpath
 parseExon
 intersect
+ex
+def
+makedir
+linecount
 $DIES
 $N 
 $B
@@ -229,4 +233,62 @@ sub intersect {
 	return(1) if ($start1 >= $start2 and $start1 <= $end2);
 	return(1) if ($start2 >= $start1 and $start2 <= $end1);
 	return(0);
+}
+
+sub linecount {
+   my ($input1) = @_;
+   my ($linecount) = `wc -l $input1` =~ /^(\d+)/;
+   return $linecount;
+}
+sub makedir {
+   my ($folder) = @_;
+	my $log = "";
+   #$folder = getFullpath($folder);
+   my @folders = split("/", $folder);
+   die if @folders == 0;
+   my $curr_folder = "";
+   $log .= "FOLDER $LCY$folder$N is already exist!\n" and return $log if -e $folder;
+   for (my $i = 0; $i < @folders; $i++) {
+      $curr_folder .= "$folders[$i]/";
+      next if $curr_folder =~ /^\/$/;
+      next if $curr_folder =~ /^(\/|\/home\/)$/;
+      $log .= "$i: Undefined folder to add. Current folder=$LGN$curr_folder$N\n" and return $log if not defined $folders[$i];
+      next if -d $curr_folder or -e $curr_folder;
+      system("mkdir $curr_folder") == 0 or die "Failed to mkdir $curr_folder: $!\n";
+      $log .= "$i. $curr_folder\n";
+   }
+   $log .= "FOLDER $LGN$curr_folder$N is made!\n" if -e $curr_folder;
+   return ($log);
+}
+
+sub ex { # 0 means it's not exists (bad)
+   my $files = $_[0];
+   return 0 if not defined $files;
+   if ($files =~ /^ARRAY/) {
+      my @files = @{$files} if defined $files;
+      return 0 if def(\@files) == 0;
+      my @ex;
+      for (my $i = 0; $i < @files; $i++) {
+#        print "\t$i: $files[$i]\n";
+         push(@ex, "$i. $files[$i]") if not -e $files[$i] and not -d $files[$i];
+      }
+   #  print "Files not exists:\n-" . join("\n-", @ex) . "\n" if @ex != 0 and defined $verb;
+      return 1 if @ex == 0;
+      return 0;
+   }
+   return 1;
+}
+sub def {
+   my $files = $_[0];
+   return 0 if not defined $files;
+   if ($files =~ /^ARRAY/) {
+      my @files = @{$files} if defined $files;
+      my @def;
+      for (my $i = 0; $i < @files; $i++) {
+         push(@def, $i) if not defined $files[$i];
+      }
+      return 1 if @def == 0;
+      return 0;
+   }
+   return 1;
 }

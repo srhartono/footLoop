@@ -335,14 +335,22 @@ open(my $sam, $samFile) or die "$LRD!!!$N\tFATAL ERROR: Could not open $samFile:
 my $linecount = 0; my %count; ($count{total}, $count{used}, $count{diffgene}, $count{lowq}, $count{badlength}) = (0,0,0,0,0);
 my %readz;
 
-open (my $outcigar, ">", "$mydir/CIGAR.tsv");
+# Open the .orig files
+foreach my $genez (sort keys %seq) {
+	my $outTXTFile = $mydir . "/$genez.orig";
+	my $outTXTFileCG = $mydir . "/$genez\_CG.orig";
+	open ($seq{$genez}{outTXT}, ">", $outTXTFile);
+	open ($seq{$genez}{outTXTCG}, ">", $outTXTFileCG);
+}
+
+#open (my $outcigar, ">", "$mydir/CIGAR.tsv");
 #loops through each read and writes high quality reads into two separate files <gene>Positive.txt and <gene>Negative.txt
 while(my $line = <$sam>) {
 	$linecount ++;
 	chomp($line);
 	
 	my @fields = split("\t", $line); #line is tab separated, first column is read name, the rest is value
-	print "$linecount: Non-sam read detected as total column is less than 6; skipped. Read = $CY$line$N\n" and next if @fields < 6;
+	print $outLog "$linecount: Non-sam read detected as total column is less than 6; skipped. Read = $CY$line$N\n" and next if @fields < 6;
 	my $cigar = $fields[5];
 	my $seqs = $fields[9];
 	my $fullReadName = $fields[0];
@@ -359,18 +367,24 @@ while(my $line = <$sam>) {
 	my $seqsLen = length($seqs);
 	#die "cigar\t$cigar\ncigarLen\t$cigarLen\nseq\t$seqs\nseqLen\t$seqsLen\n";
 	my $gene = uc($chrom);
+	my $genez = $gene;
+	die if not defined $seq{$genez};
+	my $outTXT = {$seq{$genez}{outTXT}};
+	my $outTXTCG = {$seq{$genez}{outTXTCG}};
+
 	next if not defined($seq{$gene});
 	my $cigarPerc = int($cigarLen / $seqsLen * 10000)/100;
-	print $outcigar "$fullReadName\t$gene\t$cigarLen\t$seqsLen\t$cigarPerc\n";
+	#print $outcigar "$fullReadName\t$gene\t$cigarLen\t$seqsLen\t$cigarPerc\n";
 	next if $cigarPerc < 75;
 	#discounts the first 4 lines of information at the top of the .sam file
 	
 	# (EXTRA) This below is to shorten read name. Unique read name is the number between last number or behind ccs. If can't be found just use the whole read name.
-	my ($read) = $fullReadName =~ /^.+\/(\d+)\/\d+/i;
-	($read) = $fullReadName =~ /^.+\/(\d+)\/ccs/i if not defined($read);
-	($read) = $fullReadName if not defined($read);
-	my ($readDate) = $fullReadName =~ /^(m\d+_\d+_\d+)_/; $readDate = $fullReadName if not defined $readDate;
-	$read = "SEQ_$readDate\_$read";
+	$read = $fullReadName;
+	#my ($read) = $fullReadName =~ /^.+\/(\d+)\/\d+/i;
+	#($read) = $fullReadName =~ /^.+\/(\d+)\/ccs/i if not defined($read);
+	#($read) = $fullReadName if not defined($read);
+	#my ($readDate) = $fullReadName =~ /^(m\d+_\d+_\d+)_/; $readDate = $fullReadName if not defined $readDate;
+	#$read = "SEQ_$readDate\_$read";
 	
 	# (EXTRA) This below is to show the user an example of parsed line and tells user if it's parsed every 20k read.
 	my ($readname) = length($fullReadName) >= 20 ? $fullReadName =~ /(.{20})$/ : $fullReadName; $readname = "..." . $readname  if length($fullReadName) >= 20;

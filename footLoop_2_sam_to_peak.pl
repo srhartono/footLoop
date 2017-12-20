@@ -1,9 +1,14 @@
 #!/usr/bin/perl
 
-use strict; use warnings; use mitochy; use Getopt::Std; use FAlite;
+use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
 use vars qw($opt_v $opt_s $opt_i $opt_g $opt_f $opt_S $opt_c $opt_C $opt_t);
 getopts("s:i:g:f:S:cCt:");
+BEGIN {
+   my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
+   push(@INC, $libPath);
+}
 
+use myFootLib;
 my ($folder) = $opt_f;
 die "\nusage: $YW$0$N $LGN-t threshold [0-100]$N $CY-f [folder of -n footLop.pl]$N\n\n" unless ex([$opt_s,$opt_S,$opt_i,$opt_g]) == 1 or ex($opt_f) == 1;
 my $logFile = "$folder/logFile.txt";
@@ -32,11 +37,11 @@ foreach my $gene (sort keys %{$genez}) {
 	$out{$gene}{OUTNEG} = $outNeg;
 	$out{$gene}{OUTPOSCG} = $outPosCG;
 	$out{$gene}{OUTNEGCG} = $outNegCG;
-	open (my $outz, ">", $out{$gene}{OUTPOS}) or die "Cannot write to $out{$gene}{OUTPOS}: $!\n";
-	open (my $outz2, ">", $out{$gene}{OUTNEG}) or die "Cannot write to $out{$gene}{OUTNEG}: $!\n";
-	open (my $outz3, ">", $out{$gene}{OUTPOSCG}) or die "Cannot write to $out{$gene}{OUTPOSCG}: $!\n";
-	open (my $outz4, ">", $out{$gene}{OUTNEGCG}) or die "Cannot write to $out{$gene}{OUTNEGCG}: $!\n";
-	close $outz; close $outz2; close $outz3; close $outz4;
+	#open (my $outz, ">", $out{$gene}{OUTPOS}) or die "Cannot write to $out{$gene}{OUTPOS}: $!\n";
+	#open (my $outz2, ">", $out{$gene}{OUTNEG}) or die "Cannot write to $out{$gene}{OUTNEG}: $!\n";
+	#open (my $outz3, ">", $out{$gene}{OUTPOSCG}) or die "Cannot write to $out{$gene}{OUTPOSCG}: $!\n";
+	#open (my $outz4, ">", $out{$gene}{OUTNEGCG}) or die "Cannot write to $out{$gene}{OUTNEGCG}: $!\n";
+	#close $outz; close $outz2; close $outz3; close $outz4;
 	print "$gene: $outPos\n";
 }
 my %data; my $cons; my %strand;
@@ -100,6 +105,12 @@ while (my $line = <$in1>) {
 	}
 	#print "BEFORE: CT=$CT, GA=$GA\n" if $tempstrand ne $strand;
 	my ($VAL2, $VALCG2);
+	my	($cons_CT) = det_C_type($ref3, $seq3, $con3, 0, $seqborder0, $seqborder1);
+	my	($cons_GA) = det_C_type($ref3, $seq3, $con3, 16, $seqborder0, $seqborder1);
+	
+	next;
+###################### END ######################
+
 	my	($myc4) = det_C_type($ref3, $seq3, $con3, $tempstrand, $seqborder0, $seqborder1);
 	if ($tempstrand ne $strand) {
 		($CT, $GA) = (0,0);
@@ -251,6 +262,7 @@ while (my $line = <$in1>) {
 	$beg00 = defined $beg00 ? length($beg00) : 0;
 	$end00 = defined $end00 ? length($end00) + $beg00 : 0;
 	$cons3 = "";
+	my $cons4;
 #	print "diff\n" if $strand ne $tempstrand;
 	for (my $i = 0; $i < @{$ref2}; $i++) {
 		if ($ref2->[$i] ne "-") {
@@ -281,7 +293,8 @@ while (my $line = <$in1>) {
 	$cons3 =~ s/[\-]/./g;
 	#my ($read, $tempstrand, $chr, $pos, $mapq, $cigar, $junk1, $junk2, $junk3, $seqs, $qual, $junk4, $junk5, $converted) = split("\t", $line);
 	$others = $tempstrand eq 0 ? "XR:Z:CT\tXG:Z:CT" : "XR:Z:CT\tXG:Z:GA";
-	print $outsam "$read\t$tempstrand\t$chr\t$pos\t$mapq\t$cigar\t$junk1\t$junk2\t$junk3\t$seqs\t$qual\t$junk4\t$junk5\tXM:Z:$cons3$others\n";
+#	print $outsam "$read\t$tempstrand\t$chr\t$pos\t$mapq\t$cigar\t$junk1\t$junk2\t$junk3\t$seqs\t$qual\t$junk4\t$junk5\tXM:Z:$cons3$others\n";
+	print $outsam "$read\t$tempstrand\t$cons3\n";
 #	last if $strand ne $tempstrand;
 #	last if $linecount > 200;
 }
