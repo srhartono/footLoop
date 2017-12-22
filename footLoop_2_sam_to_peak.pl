@@ -15,14 +15,14 @@ my $logFile = "$folder/logFile.txt";
 
 print "Logfile = $LRD$logFile$N\n"; my ($samFile, $seqFile, $genez, $threshold) = parse_logFile($logFile); $threshold = 100 * $threshold if $threshold < 1; $samFile = $opt_s if (ex($opt_S) == 1); $seqFile = $opt_s if (ex($opt_s) == 1); 
 $threshold = $opt_t if defined $opt_t;
-check_file($samFile, "sam"); check_file($seqFile, "seq"); my ($folder1, $fileName1) = mitochy::getFilename($samFile, "folder"); 
+check_file($samFile, "sam"); check_file($seqFile, "seq"); my ($folder1, $fileName1) = getFilename($samFile, "folder"); 
 my %refs = %{parse_seqFile($seqFile)}; 
-print "Here\n";
+#print "Here\n";
 foreach my $chr (sort keys %refs) {
 	#print "GENES_ $chr\n";
 	$genez->{$chr} = @{$refs{$chr}};
 }
-print "here2\n";
+#print "here2\n";
 #155 3M 27I 3M ... 4I 1M 6I 4M:   16 204 GAT-----------GCGAGTAGAGCAGTCGAACATGAGCTGACTCAGGTCACCGA     GCTACGATGTGATGCTTGCACAAGTGATCCA 
 #324 6M 10I 3M ... 3M 2I 1M 2I 4M: 0 204  GCAGTC--------GAACATGTAGCTGACTCAGGTCACCGATGTACGGGCCAGAT    GCTACGATGTGATGCTTGCACAAGTGATCCA
 #XR:Z:CT XG:Z:GA
@@ -42,24 +42,38 @@ foreach my $gene (sort keys %{$genez}) {
 	#open (my $outz3, ">", $out{$gene}{OUTPOSCG}) or die "Cannot write to $out{$gene}{OUTPOSCG}: $!\n";
 	#open (my $outz4, ">", $out{$gene}{OUTNEGCG}) or die "Cannot write to $out{$gene}{OUTNEGCG}: $!\n";
 	#close $outz; close $outz2; close $outz3; close $outz4;
-	print "$gene: $outPos\n";
+#	print "$gene: $outPos\n";
 }
 my %data; my $cons; my %strand;
 my $linecount = 0; my $REF;
 my ($samFolder, $samName) = getFilename($samFile, "folderfull");
 my $debugFile = "$folder/debug.txt";
-my $outSam = "$samName.fixed";
+my $outSam = "$samFile.fixed";
 open (my $outsam, ">", $outSam) or die "Cannot write to $outSam: $!\n";
 open (my $outdebug, ">", $debugFile) or die "Cannot write to $debugFile: $!\n";
-print "Processing $samFile\n";
+#print "Processing $samFile\n";
+open (my $in2, "cut -f2,3 $samFile|") or die "Cannot read from $samFile: $!\n";
+while (my $line = <$in2>) {
+	chomp($line);
+	my @arr = split("\t", $line);
+	next if @arr == 0;
+	next if $arr[0] !~ /^\d+$/;
+	$linecount ++;
+	#print "Parsed $linecount\n" if $linecount % 1000 == 0;
+	my ($strand, $chr) = @arr;
+	next if $strand eq 4;
+	die "Can't find gene $chr in $seqFile!\n" if not defined $refs{uc($chr)};
+	next;
+}
+$linecount = 0;
 open (my $in1, "<", $samFile) or die "Cannot read from $samFile: $!\n";
 while (my $line = <$in1>) {
 	chomp($line);
 	my @arr = split("\t", $line);
 	next if @arr < 6;
 	$linecount ++;
-	print "Parsed $linecount\n" if $linecount % 1000 == 0;
-	my ($read, $strand, $chr, $pos, $mapq, $cigar, $junk1, $junk2, $junk3, $seqs, $qual, $junk4, $junk5, $converted, @others) = split("\t", $line);
+	print "Parsed $linecount\n" if $linecount % 10 == 0;
+	my ($read, $strand, $chr, $pos, $mapq, $cigar, $junk1, $junk2, $junk3, $seqs, $qual, $junk4, $junk5, $converted, @others) = @arr;
 	my $others = join("\t", @others); $others = @others == 0 ? "" : "\t$others";
 	my @ref1 = defined $refs{uc($chr)} ? @{$refs{uc($chr)}} : die "Can't find gene $chr in $seqFile!\n";
 	my ($ref2, $seq2, $con2, $myc2, $poz, $seqborder0, $seqborder1) = parse($line, \@ref1);
@@ -68,11 +82,11 @@ while (my $line = <$in1>) {
 	$REF = $ref2 if not defined $REF;
 	my %poz = %{$poz};
 	my @seq1 = split("", $seqs);
-	if (defined $opt_C) {
-		last if $linecount > 50; 
-		($cons) = make_consensus($ref2, $seq2, $seqborder0, $seqborder1, $cons);
-#		next;
-	}
+#	if (defined $opt_C) {
+#		last if $linecount > 50; 
+#		($cons) = make_consensus($ref2, $seq2, $seqborder0, $seqborder1, $cons);
+##		next;
+#	}
 
 	my %bad = %{get_bad_region($ref2, $seq2, $seqborder0, $seqborder1)};
 	my %count; my $max = @{$ref2};
@@ -105,9 +119,84 @@ while (my $line = <$in1>) {
 	}
 	#print "BEFORE: CT=$CT, GA=$GA\n" if $tempstrand ne $strand;
 	my ($VAL2, $VALCG2);
-	my	($cons_CT) = det_C_type($ref3, $seq3, $con3, 0, $seqborder0, $seqborder1);
-	my	($cons_GA) = det_C_type($ref3, $seq3, $con3, 16, $seqborder0, $seqborder1);
-	
+	my	($CTcons, $GAcons) = det_C_type($ref3, $seq3, $con3, 0, $seqborder0, $seqborder1);
+	$CTcons =~ s/[\- ]/./g;
+	$GAcons =~ s/[\- ]/./g;
+	my ($CT0, $GA0, $CT1, $GA1, $CC0, $GG0, $CC1, $GG1) = (0,0,0,0,0,0,0,0);
+	my ($refPrint, $seqPrint, $CTPrint,$CTPrint2);#$GAPrint, $GAPrint2);
+	for (my $i = 0; $i < @{$ref3}; $i++) {
+		my $ref = $ref3->[$i];
+		my $seq = $seq3->[$i];
+		my $CT;#  = ($bad3->[$i] ne " " and "$ref$seq" =~ /^(CT|GA)$/) ? "N" : $CTcons->[$i];
+		#my $GA  = ($bad3->[$i] ne " " and "$ref$seq" =~ /^(CT|GA)$/) ? "N" : $GAcons->[$i];
+		my $CTval;
+		if ($ref ne "G") {
+		 	$CT = ($bad3->[$i] ne " " and "$ref$seq" =~ /^(CT|GA)$/) ? "M" : $CTcons->[$i];
+			$CTval = $CT eq " "       ? "-"  : $CT eq "."       ? $ref     : $CT =~ /^[Mm]$/ ? $CT : 
+						$CT =~ /^[Z]$/   ? "Z"  : $CT =~ /^[z]$/   ? "z"      : $CT eq "-" ? "-" : 
+						$CT =~ /^[XHU]$/ ? $ref : $CT =~ /^[xhu]$/ ? lc($ref) : die "Cannot determine CT=$CT\n";
+		}
+		elsif ($ref ne "C") {
+		 	$CT = ($bad3->[$i] ne " " and "$ref$seq" =~ /^(CT|GA)$/) ? "N" : $GAcons->[$i];
+			$CTval = $CT eq " "       ? "-"  : $CT eq "."       ? $ref     : $CT =~ /^[Nn]$/ ? $CT : 
+						$CT =~ /^[Z]$/   ? "Z"  : $CT =~ /^[z]$/   ? "z"      : $CT eq "-" ? "-" : 
+						$CT =~ /^[XHU]$/ ? $ref : $CT =~ /^[xhu]$/ ? lc($ref) : die "Cannot determine GA=$CT\n";
+		}
+#		my $GAval = $GA eq " "       ? "-"  : $GA eq "."       ? $ref     : $GA =~ /^[Nn]$/ ? $GA : 
+#						$GA =~ /^[Z]$/   ? "Z"  : $GA =~ /^[z]$/   ? "z"      : $GA eq "-" ? "-" : 
+#						$GA =~ /^[XHU]$/ ? $ref : $GA =~ /^[xhu]$/ ? lc($ref) : die "Cannot determine GA=$GA\n";
+
+		if ("$ref$seq" =~ /^(CT|CC|GG|GA)$/) {
+			$CC0 ++ if "$ref$seq" eq "CC"; 
+			$GG0 ++ if "$ref$seq" eq "GG"; 
+			$CT0 ++ if "$ref$seq" eq "CT"; 
+			$GA0 ++ if "$ref$seq" eq "GA";
+			if ($bad3->[$i] eq " ") {
+				my $left = $i - 5 < 0 ? 0 : $i - 5;
+				my $rite = $i + 5 >= @{$ref3} ? @{$ref3} - 1: $i + 5;
+				my $chunk = join("", @{$seq3}[$left..$rite]);
+				if ($chunk !~ /\-/) {
+					$CT1 ++ if "$ref$seq" eq "CT";
+					$GA1 ++ if "$ref$seq" eq "GA";
+					$CC1 ++ if "$ref$seq" eq "CC"; 
+					$GG1 ++ if "$ref$seq" eq "GG"; 
+					$ref = color($ref) if "$ref$seq" !~ /^(CC|GG)$/;
+					$seq = color($seq) if "$ref$seq" !~ /^(CC|GG)$/;
+				}
+			}
+		}
+		$refPrint .= $ref;
+		$seqPrint .= $seq;
+		$CTPrint .= $CT;
+#		$GAPrint .= $GA;
+		$CTPrint2 .= $CTval;
+#		$GAPrint2 .= $GAval;
+		#my $CTval = $CT eq " " ? 6 : $CT eq "Z" ? 3 : $CT eq "z" ? 4 : $CT =~ /^[XHU]$/ ? 0 : $CT =~ /^[xhu]$/ ? 1 : ($CT ne "B" and $SEQTEMP->[$i] ne "-") ? 2 : $CT;
+		#my $valcg = $CT eq "." ? 6 : $CT eq "Z" ? 3 : $CT eq "z" ? 9 : $CT =~ /[XHU]/ ? 0 : $CT =~ /[xhu]/ ? 9 : ($CT ne "B" and $SEQTEMP->[$i] ne "-") ? 2 : $CT;
+		#my $val = $CT eq "." ? 6 : $CT =~ /[XHZU]/ ? 0 : $CT =~ /[xhzu]/ ? 9 : ($SEQTEMP->[$i] ne "-" and $CT ne "B") ? 2 : $CT;
+	}
+	#my @refPrint = split("", $refPrint);
+	#my @CTPrint2 = split("", $CTPrint2);
+	#($CTPrint2) = fix_position(\@refPrint, \@CTPrint2, $seqborder0, $seqborder1, $read);
+	my $newstrand = $CT1 > $GA1 ? 0 : $GA1 > $CT1 ? 16 : $strand;
+	print $outdebug ">$read,$chr,OldStrand=$strand,NewStrand=$newstrand,CT0=$CT0,CC0=$CC0,GA0=$GA0,GG0=$GG0,CT1=$CT1,CC1=$CC1,GA1=$GA1,GG1=$GG1\n";
+#	print $outdebug join("", @{$ref2}) . "\n";
+#	print $outdebug join("", @ref1) . "\n";
+#	print $outdebug join("", @{$ref3}) . "\n";
+	print $outdebug "$refPrint\n";
+	print $outdebug "$seqPrint\n";
+	print $outdebug "$CTPrint\n";
+#	print $outdebug "$GAPrint\n";
+	print $outdebug "$CTPrint2\n";
+#	print $outdebug "$GAPrint2\n";
+	print $outsam "$read\t$newstrand\t$chr\t$CTPrint2\t$CT0,$CC0,$GA0,$GG0,$CT1,$CC1,$GA1,$GG1\n";
+#	print $outsam "$read\t$newstrand\t$chr\t$CTPrint2\t$GAPrint2\t$CT0,$CC0,$GA0,$GG0,$CT1,$CC1,$GA1,$GG1\n";
+#	print join("", @{$ref3}) . "\n";
+#	print join("", @{$seq3}) . "\n";
+#	print join("", @{$CTcons}) . "\n";
+#	print join("", @{$GAcons}) . "\n";
+
+	#exit 0 if $linecount > 100;
 	next;
 ###################### END ######################
 
@@ -142,34 +231,25 @@ while (my $line = <$in1>) {
 	}
 	my $output = $tempstrand == 0 ? $out{$chr}{OUTPOS} : $tempstrand == 16 ? $out{$chr}{OUTNEG} : die "Cannot determine tempstrand ($tempstrand)\n";
 	my $outputCG = $tempstrand == 0 ? $out{$chr}{OUTPOSCG} : $tempstrand == 16 ? $out{$chr}{OUTNEGCG} : die "Cannot determine tempstrand ($tempstrand)\n";
-	open (my $out, ">>", $output) or die "Cannot write to $output: $!\n";
-	open (my $outCG, ">>", $outputCG) or die "Cannot write to $outputCG: $!\n";
-	#print $out $read . " CT=$CT,GA=$GA,$strand->$tempstrand" . " " .  join("", @{$myc4}) . "\n";
-	print $out "\"$read,CT=$CT,GA=$GA,$strand,$tempstrand\"\t" . join("\t", @{$VAL}) . "\n" if $tempstrand eq $strand;
-	print $out "\"$read,CT=$CT,GA=$GA,$strand,$tempstrand\"\t" . join("\t", @{$VAL2}) . "\n" if $tempstrand ne $strand;
-	#print $outCG $read . " CT=$CT,GA=$GA,$strand->$tempstrand" . " " .  join("", @{$myc4}) . "\n";
-	print $outCG "\"$read,CT=$CT,GA=$GA,$strand,$tempstrand\"\t" . join("\t", @{$VALCG}) . "\n" if $tempstrand eq $strand;
-	print $outCG "\"$read,CT=$CT,GA=$GA,$strand,$tempstrand\"\t" . join("\t", @{$VALCG2}) . "\n" if $tempstrand ne $strand;
-#	if ($tempstrand ne $strand) {
-	#	print $read . "\tCT=$CT,GA=$GA,$strand->$tempstrand" . "\t" .  join("", @{$myc4}) . "\n";
-	#	print $read . "\tCT=$CT,GA=$GA,$strand->$tempstrand" . "\t" .  join("", @{$VAL2}) . "\n";
-	#	print $read . "\tCT=$CT,GA=$GA,$strand->$tempstrand" . "\t" .  join("", @{$myc4}) . "\n";
-	#	print $read . "\tCT=$CT,GA=$GA,$strand->$tempstrand" . "\t" .  join("", @{$VALCG2}) . "\n";
-	#	die;
-#	}
-	print $outdebug "\n$YW$read$N\t$strand\t$pos\n";
-	print $outdebug "NOCG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$ref3}) . "\n";
-	print $outdebug "NOCG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$seq3}) . "\n";
-	print $outdebug "NOCG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$myc4}) . "\n";
-	print $outdebug "NOCG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$bad3}) . "\n";
-	print $outdebug "NOCG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$VAL}) . "\n";
-	print $outdebug "NOCG\t" . "CT=$CT, GA=$GA\n";
-	print $outdebug "CG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$ref3}) . "\n";
-	print $outdebug "CG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$seq3}) . "\n";
-	print $outdebug "CG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$myc4}) . "\n";
-	print $outdebug "CG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$bad3}) . "\n";
-	print $outdebug "CG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$VALCG}) . "\n";
-	print $outdebug "CG\t" . "CT=$CT, GA=$GA\n";
+	#open (my $out, ">>", $output) or die "Cannot write to $output: $!\n";
+	#open (my $outCG, ">>", $outputCG) or die "Cannot write to $outputCG: $!\n";
+	#print $out "\"$read,CT=$CT,GA=$GA,$strand,$tempstrand\"\t" . join("\t", @{$VAL}) . "\n" if $tempstrand eq $strand;
+	#print $out "\"$read,CT=$CT,GA=$GA,$strand,$tempstrand\"\t" . join("\t", @{$VAL2}) . "\n" if $tempstrand ne $strand;
+	#print $outCG "\"$read,CT=$CT,GA=$GA,$strand,$tempstrand\"\t" . join("\t", @{$VALCG}) . "\n" if $tempstrand eq $strand;
+	#print $outCG "\"$read,CT=$CT,GA=$GA,$strand,$tempstrand\"\t" . join("\t", @{$VALCG2}) . "\n" if $tempstrand ne $strand;
+	#print $outdebug "\n$YW$read$N\t$strand\t$pos\n";
+	#print $outdebug "NOCG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$ref3}) . "\n";
+	#print $outdebug "NOCG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$seq3}) . "\n";
+	#print $outdebug "NOCG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$myc4}) . "\n";
+	#print $outdebug "NOCG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$bad3}) . "\n";
+	#print $outdebug "NOCG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$VAL}) . "\n";
+	#print $outdebug "NOCG\t" . "CT=$CT, GA=$GA\n";
+	#print $outdebug "CG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$ref3}) . "\n";
+	#print $outdebug "CG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$seq3}) . "\n";
+	#print $outdebug "CG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$myc4}) . "\n";
+	#print $outdebug "CG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$bad3}) . "\n";
+	#print $outdebug "CG\t" . $read . "\t$strand->$tempstrand" . "\t" .  join("", @{$VALCG}) . "\n";
+	#print $outdebug "CG\t" . "CT=$CT, GA=$GA\n";
 	$strand{$strand}{'same'} ++ if $strand eq $tempstrand;
 	$strand{$strand}{'diff'} ++ if $strand ne $tempstrand;
 	my $div = $CT+$GA == 0 ? 0 : int($CT/($CT+$GA)*1000+0.5)/10;
@@ -228,34 +308,34 @@ while (my $line = <$in1>) {
 		$bad3->[$i] = $ref2->[$i] ne "-" ? $bad2->[$i] : " ";
 	}
 	if ($linecount >= 0) {
-		print $outdebug ">$read\t$strand\t$pos\n";
-		print $outdebug "BEFORE\n";
-		print $outdebug join("", @{$ref2}) . "\n";	
-		print $outdebug join("", @{$seq2}) . "\n";	
-		print $outdebug join("", @{$con2}) . "\n";	
-		print $outdebug join("", @{$myc2}) . "\n";	
-		print $outdebug join("", @{$bad2}) . "\n";	
-		print $outdebug "AFTER\n";
-		print $outdebug join("", @{$ref3}) . "\n";	
-		print $outdebug join("", @{$seq3}) . "\n";	
-		print $outdebug join("", @{$con3}) . "\n";	
-		print $outdebug join("", @{$myc3}) . "\n";	
-		print $outdebug join("", @{$bad3}) . "\n";	
+		#print $outdebug ">$read\t$strand\t$pos\n";
+		#print $outdebug "BEFORE\n";
+		#print $outdebug join("", @{$ref2}) . "\n";	
+		#print $outdebug join("", @{$seq2}) . "\n";	
+		#print $outdebug join("", @{$con2}) . "\n";	
+		#print $outdebug join("", @{$myc2}) . "\n";	
+		#print $outdebug join("", @{$bad2}) . "\n";	
+		#print $outdebug "AFTER\n";
+		#print $outdebug join("", @{$ref3}) . "\n";	
+		#print $outdebug join("", @{$seq3}) . "\n";	
+		#print $outdebug join("", @{$con3}) . "\n";	
+		#print $outdebug join("", @{$myc3}) . "\n";	
+		#print $outdebug join("", @{$bad3}) . "\n";	
 		foreach my $dinuc (sort keys %count) {
 			next if $dinuc =~ /bad/ and $dinuc !~ /\-/; next if $dinuc =~ /(seq|ref)/;
 			my ($nuc1, $nuc2) = split("", $dinuc);
 			my $tot1 = $nuc1 eq "G" ? $count{Gref} : $nuc1 eq "C" ? $count{Cref} : 0;
 			my $tot2 = $nuc2 eq "G" ? $count{Gseq} : $nuc2 eq "C" ? $count{Cseq} : 0;
 			my $bad = defined $count{$dinuc . "bad"} ? $count{$dinuc . "bad"} : 0;
-			print $outdebug "$dinuc: $LGN$count{$dinuc}$N+$LRD$bad$N (total ref=$LCY$tot1$N, total seq=$LPR$tot2$N)\n";
-#			print $out "$dinuc: $LGN$count{$dinuc}$N+$LRD$bad$N (total ref=$LCY$tot1$N, total seq=$LPR$tot2$N)\n";# if $dinuc =~ /(CT|GA)/;
-#			print $outCG "$dinuc: $LGN$count{$dinuc}$N+$LRD$bad$N (total ref=$LCY$tot1$N, total seq=$LPR$tot2$N)\n";# if $dinuc =~ /(CT|GA)/;
+			#print $outdebug "$dinuc: $LGN$count{$dinuc}$N+$LRD$bad$N (total ref=$LCY$tot1$N, total seq=$LPR$tot2$N)\n";
+#			#print $out "$dinuc: $LGN$count{$dinuc}$N+$LRD$bad$N (total ref=$LCY$tot1$N, total seq=$LPR$tot2$N)\n";# if $dinuc =~ /(CT|GA)/;
+#			#print $outCG "$dinuc: $LGN$count{$dinuc}$N+$LRD$bad$N (total ref=$LCY$tot1$N, total seq=$LPR$tot2$N)\n";# if $dinuc =~ /(CT|GA)/;
 		}
 	}
-	#print $out "\n"; 
-	close $out;
-	#print $outCG "\n"; 
-	close $outCG;
+	##print $out "\n"; 
+	#close $out;
+	##print $outCG "\n"; 
+	#close $outCG;
 	($ref3, $seq3, $con3, $myc3, $bad3) = ();
 	my $cons3 = join("", @{$con2}); my ($beg00, $end00) = $cons3 =~ /^([\-]+)([A-Z\.]+.+[A-Z\.])[\-]+$/;
 	#print "BEG=$beg00\nEND=$end00\n";
@@ -280,21 +360,21 @@ while (my $line = <$in1>) {
 			push(@{$bad3}, $bad2->[$i]);
 		}
 	}
-		print $outdebug "AFTER2\n";
-		print $outdebug join("", @{$ref3}) . "\n";	
-		print $outdebug join("", @{$seq3}) . "\n";	
-		print $outdebug join("", @{$con3}) . "\n";	
-		print $outdebug join("", @{$myc3}) . "\n";	
-		print $outdebug join("", @{$bad3}) . "\n";	
-	print $outdebug "strand=$strand, new strand=$tempstrand\n";# if $strand ne $tempstrand;
+		#print $outdebug "AFTER2\n";
+		#print $outdebug join("", @{$ref3}) . "\n";	
+		#print $outdebug join("", @{$seq3}) . "\n";	
+		#print $outdebug join("", @{$con3}) . "\n";	
+		#print $outdebug join("", @{$myc3}) . "\n";	
+		#print $outdebug join("", @{$bad3}) . "\n";	
+	#print $outdebug "strand=$strand, new strand=$tempstrand\n";# if $strand ne $tempstrand;
 	$cons3 = join("", @{$con3}); $cons3 =~ s/[ ]+//g;
 	$cons3 =~ s/^[\-]+//g;
 	$cons3 =~ s/[\-]+$//g;
 	$cons3 =~ s/[\-]/./g;
 	#my ($read, $tempstrand, $chr, $pos, $mapq, $cigar, $junk1, $junk2, $junk3, $seqs, $qual, $junk4, $junk5, $converted) = split("\t", $line);
 	$others = $tempstrand eq 0 ? "XR:Z:CT\tXG:Z:CT" : "XR:Z:CT\tXG:Z:GA";
-#	print $outsam "$read\t$tempstrand\t$chr\t$pos\t$mapq\t$cigar\t$junk1\t$junk2\t$junk3\t$seqs\t$qual\t$junk4\t$junk5\tXM:Z:$cons3$others\n";
-	print $outsam "$read\t$tempstrand\t$cons3\n";
+#	#print $outsam "$read\t$tempstrand\t$chr\t$pos\t$mapq\t$cigar\t$junk1\t$junk2\t$junk3\t$seqs\t$qual\t$junk4\t$junk5\tXM:Z:$cons3$others\n";
+	#print $outsam "$read\t$tempstrand\t$cons3\n";
 #	last if $strand ne $tempstrand;
 #	last if $linecount > 200;
 }
@@ -308,19 +388,19 @@ foreach my $strand (sort keys %strand) {
 		my $CT = $strand{$strand}{CT}{$type};
 		my ($mean, $meanse, $tmm, $tmmse) = (0,0,0,0);
 		if (defined $CT) {
-			$tmm = int(1000*mitochy::tmm(@{$CT})+0.5)/1000;
-			$mean = int(1000*mitochy::mean(@{$CT})+0.5)/1000;
-			$tmmse = int(1000*mitochy::tmmse(@{$CT})+0.5)/1000;
-			$meanse = int(1000*mitochy::se(@{$CT})+0.5)/1000;
+			$tmm = int(1000*tmm(@{$CT})+0.5)/1000;
+			$mean = int(1000*mean(@{$CT})+0.5)/1000;
+			$tmmse = int(1000*tmmse(@{$CT})+0.5)/1000;
+			$meanse = int(1000*se(@{$CT})+0.5)/1000;
 		}
 		print "CT=tmm=$tmm +/- $tmmse;mean=$mean +/- $meanse, ";
 		my $tot = $strand{$strand}{tot}{$type}; 
 		($mean, $meanse, $tmm, $tmmse) = (0,0,0,0);
 		if (defined $tot) {
-			$tmm = int(1000*mitochy::tmm(@{$tot})+0.5)/1000;
-			$mean = int(1000*mitochy::mean(@{$tot})+0.5)/1000;
-			$tmmse = int(1000*mitochy::tmmse(@{$tot})+0.5)/1000;
-			$meanse = int(1000*mitochy::se(@{$tot})+0.5)/1000;
+			$tmm = int(1000*tmm(@{$tot})+0.5)/1000;
+			$mean = int(1000*mean(@{$tot})+0.5)/1000;
+			$tmmse = int(1000*tmmse(@{$tot})+0.5)/1000;
+			$meanse = int(1000*se(@{$tot})+0.5)/1000;
 		}
 		print "tot=tmm=$tmm +/- $tmmse;mean=$mean +/- $meanse\n";
 	}
@@ -409,6 +489,43 @@ if (defined $opt_C) {
 		print "$i: total=$cons2{$i}{total} (> $total) / $linecount\n$cons2{$i}{cons}\n$cons2{$i}{tots}\n\n";# if $total < $cons2{$i}{total};
 	}
 }
+
+sub fix_position {
+	my ($refs, $seqs, $seqborder0, $seqborder1, $read) = @_;
+	my @seq = qw(A C G T);
+	for (my $i = 0; $i < 4; $i++) {
+		my $ref = join("", @{$refs});
+		while ($ref =~ /[$seq[$i]]{2,9999}/g) {
+			#ACGTAAAATC
+			#0123456789
+			#    b   e
+			#1234567890
+			my ($prev, $curr, $next) = ($`, $&, $');
+			my $lenprev = defined $prev ? length($prev) : 0;
+			my $lencurr = defined $curr ? length($curr) : 0;
+			my $lennext = defined $next ? length($next) : 0;
+			next if $lenprev < $seqborder0;
+			next if $lenprev + $lencurr >= $seqborder1;
+			my ($beg, $end) = ($lenprev, $lenprev+$lencurr);
+			my $seq = join("", @{$seqs}[$beg..$end-1]);
+			my ($bad) = $seq =~ tr/\-/-/; $bad = 0 if not defined $bad;
+			my $good = $seq; $good =~ s/\-//g;
+			$bad = join("", ("-") x $bad);
+#			print "$seq[$i] CURR: $curr\n" if $read =~ /\/606\//;
+#			print "$seq[$i] SEQ0: $seq\n" if $read =~ /\/606\//;
+			my $note = $seq eq $curr ? 1 : $seq =~ /^[\-$seq[$i]]+$/ ? 2 : 3;
+			$seq = $seq eq $curr ? $seq : $seq =~ /^[\-$seq[$i]]+$/ ? $curr : $good . $bad;
+			my @tempseq  = split("", $seq);
+			@{$seqs}[$beg..$end-1] = @tempseq;
+#			print "$seq[$i] SEQ$note: $seq\n\n" if $read =~ /\/606\//;
+		}
+	}
+#	exit 0;
+	my $seq = join("", @{$seqs});
+	return($seq);
+}
+
+
 
 sub parse_seqFile {
    my ($seqFile) = @_;
@@ -500,7 +617,7 @@ sub parse_logFile {
 					my ($gene, $length) = $line[$j] =~ /^.+genez=(.+) \(.+\) Length=(\d+)$/;
 					die if not defined $gene or not defined $length;
 					$genez->{$gene} = $length;
-					print "parse_logFile: parsed gene=$LCY$gene$N=\n";
+	#				print "parse_logFile: parsed gene=$LCY$gene$N=\n";
 				}
 			}
 			($threshold) = $line =~ /^\d+\.[ ]+\-t .+Threshold.+[ ]:(\-?\d+\.?\d*)$/ if $line =~ /^\d+\.[ ]+\-t .+Threshold.+[ ]:(\-?\d+\.?\d*)$/;
@@ -564,7 +681,7 @@ sub parse {
 	my @con;
 	my %pos;
 	my @seq = split("",$seqs);
-	my ($num, $alp, $lengthseq) = mitochy::parse_cigar($cigar); die if not defined $num;
+	my ($num, $alp, $lengthseq) = parse_cigar($cigar); die if not defined $num;
 	my @num  = @{$num}; my @alp = @{$alp};
 	my @ref0 = @refs[0..$pos-2];
 	my @ref = @refs[$pos-1..@refs-1];
@@ -584,98 +701,109 @@ sub parse {
 		}
 	}
 	my $refend = $refpos - $insref;
-	print "$read\t$strand\t$pos\n";
-#	print join("", (@ref0, @{$ref})) . "\n";
-#	print join("", (("-") x ($pos-1))) . join("", @{$seq}) . join("", (("-")x($lengthref-$refend))) . "\n";
-#	print join("", (("-") x ($pos-1))) . join("", @{$con}) . join("", (("-")x($lengthref-$refend))) . "\n";
+	#print "$read\t$strand\t$pos\n";
+#	#print join("", (@ref0, @{$ref})) . "\n";
+#	#print join("", (("-") x ($pos-1))) . join("", @{$seq}) . join("", (("-")x($lengthref-$refend))) . "\n";
+#	#print join("", (("-") x ($pos-1))) . join("", @{$con}) . join("", (("-")x($lengthref-$refend))) . "\n";
 	@ref = (@ref0, @{$ref});
 	my $seqborder0 = $pos-1;
 	my $seqborder1 = $pos - 1 + @{$seq};
 	@seq = ((("-") x ($pos-1)), @{$seq}, (("-")x($lengthref-$refend)));
 	@con = ((("-") x ($pos-1)), @{$con}, (("-")x($lengthref-$refend)));
 	my ($myc, $printbug) = det_C_type(\@ref, \@seq, \@con, $strand, $seqborder0, $seqborder1);
-#	print join("", @{$myc}) . "\n";
-#	print "\n";
-	#die if $strand eq 0;
-#	print "$printbug\n";
+#	#print join("", @{$myc}) . "\n";
+#	#print "\n";
+	##die if $strand eq 0;
+#	#print "$printbug\n";
 	return(\@ref, \@seq, \@con, $myc, \%pos, $seqborder0, $seqborder1);
 }
 #-X CHG -H CHH -Z CG upper = non conv
 sub det_C_type {
 	my ($ref, $seq, $con, $strand, $seqborder0, $seqborder1) = @_;
-	my @data;
+	my @data1; my @data2;
 	my $printbug = "";
-	my ($nuc1, $nuc2, $convert) = $strand eq 0 ? ("C","G","T") : ("G","C","A");
-	for (my $i = 0; $i < @{$ref}; $i++) {
-		$printbug .= join("", (" ")x($i)) . $ref->[$i] if $i >= 230 and $i <= 280;
-		if ($ref->[$i] ne $nuc1) {
-			$data[$i] = " ";
-		}
-		else {
-			if (not defined $data[$i]) {
-				$data[$i] = "H";
-				$printbug .= " (0: H)" if $i >= 230 and $i <= 280;
+#	my ($nuc1, $nuc2, $convert) = $strand eq 0 ? ("C","G","T") : ("G","C","A");
+	for (my $h = 0; $h < 2; $h++) {
+		$strand = $h == 0 ? 0 : 16;
+		my @data;
+		my ($nuc1, $nuc2, $convert) = $h == 0  ? ("C","G","T") : ("G","C","A");
+	
+		for (my $i = 0; $i < @{$ref}; $i++) {
+			#$printbug .= join("", (" ")x($i)) . $ref->[$i] if $i >= 230 and $i <= 280;
+			if ($ref->[$i] ne $nuc1) {
+#SPACE		#$data[$i] = " ";
+				$data[$i] = ".";
 			}
-		}
-#		$data[$i] = "H" if $ref->[$i] eq $nuc1 and not defined $data[$i];
-		my ($len1, $len2, $next1, $next2) = (@{$ref}-2, @{$ref}-3);
-		for (my $j = $i+1; $j < @{$ref}-1; $j++) {
-			$len1 = $j; 
-			$next1 = $ref->[$j] if $ref->[$j] ne "-";
-			$printbug .= "." if $ref->[$j] eq "-" and $i >= 230 and $i <= 280;
-			$printbug .= "$ref->[$j]" if $ref->[$j] ne "-" and $i >= 230 and $i <= 280;
-			last if defined $next1;
-		}
-		for (my $j = $len1+1; $j < @{$ref}-2; $j++) {
-			$len2 = $j; 
-			$next2 = $ref->[$j] if $ref->[$j] ne "-";
-			$printbug .= "." if $ref->[$j] eq "-" and $i >= 230 and $i <= 280;
-			$printbug .= "$LGN$ref->[$j]$N" if $ref->[$j] ne "-" and $i >= 230 and $i <= 280;
-			last if defined $next2;
-		}
-		my ($pos1, $pos2) = $strand eq 0 ? ($i,$i) : ($len1,$len2); #pos1 = C>G<, #pos2 = CH>G<
-		if ($i < @{$ref}-1) {
-			my $dinuc = $ref->[$i] . $ref->[$len1];
-			$data[$pos1] = "Z" if $dinuc eq "CG"; 
-			$printbug .= " ($pos1: Z)" if $dinuc eq "CG" and $i >= 230 and $i <= 280;
-			$printbug .= " ($pos1: NOTCG)" if $dinuc ne "CG" and $i >= 230 and $i <= 280;
-		}
-		if ($i < @{$ref}-2) {
-			my $dinuc = $ref->[$i] . $ref->[$len1];
-			my $trinuc = $dinuc . $ref->[$len2];
-			$printbug .= ">$data[$pos2]<" if defined $data[$pos2] and $i >= 230 and $i <= 280;
-			$printbug .= ">UNDEF $trinuc<" if not defined $data[$pos2] and $i >= 230 and $i <= 280;
-#			if (((defined $data[$pos2] and $data[$pos2] eq "H") or 
-			if (not defined $data[$pos2] and $trinuc =~ /C[GACTNU]G/) {
-				$data[$pos2] = "X";
+			else {
+				if (not defined $data[$i]) {
+					$data[$i] = "H";
+					#$printbug .= " (0: H)" if $i >= 230 and $i <= 280;
+				}
 			}
-			elsif ($dinuc ne "CG" and $trinuc =~ /C[ACTNUG]G/ and (not defined $data[$pos2] or (defined $data[$pos2] and $data[$pos2] ne "Z"))) {
-				$data[$pos2] = "X";
-				$printbug .= "$pos2: (X)" if $i >= 230 and $i <= 280;
+	#		$data[$i] = "H" if $ref->[$i] eq $nuc1 and not defined $data[$i];
+			my ($len1, $len2, $next1, $next2) = (@{$ref}-2, @{$ref}-3);
+			for (my $j = $i+1; $j < @{$ref}-1; $j++) {
+				$len1 = $j; 
+				$next1 = $ref->[$j] if $ref->[$j] ne "-";
+				#$printbug .= "." if $ref->[$j] eq "-" and $i >= 230 and $i <= 280;
+				#$printbug .= "$ref->[$j]" if $ref->[$j] ne "-" and $i >= 230 and $i <= 280;
+				last if defined $next1;
 			}
-			$printbug .= " ($pos2: NOTCHG)" if $i >= 230 and $i <= 280 and (not defined $data[$pos2] or $data[$pos2] ne "X");
+			for (my $j = $len1+1; $j < @{$ref}-2; $j++) {
+				$len2 = $j; 
+				$next2 = $ref->[$j] if $ref->[$j] ne "-";
+				#$printbug .= "." if $ref->[$j] eq "-" and $i >= 230 and $i <= 280;
+				#$printbug .= "$LGN$ref->[$j]$N" if $ref->[$j] ne "-" and $i >= 230 and $i <= 280;
+				last if defined $next2;
+			}
+			my ($pos1, $pos2) = $strand eq 0 ? ($i,$i) : ($len1,$len2); #pos1 = C>G<, #pos2 = CH>G<
+			if ($i < @{$ref}-1) {
+				my $dinuc = $ref->[$i] . $ref->[$len1];
+				$data[$pos1] = "Z" if $dinuc eq "CG"; 
+				#$printbug .= " ($pos1: Z)" if $dinuc eq "CG" and $i >= 230 and $i <= 280;
+				#$printbug .= " ($pos1: NOTCG)" if $dinuc ne "CG" and $i >= 230 and $i <= 280;
+			}
+			if ($i < @{$ref}-2) {
+				my $dinuc = $ref->[$i] . $ref->[$len1];
+				my $trinuc = $dinuc . $ref->[$len2];
+				#$printbug .= ">$data[$pos2]<" if defined $data[$pos2] and $i >= 230 and $i <= 280;
+				#$printbug .= ">UNDEF $trinuc<" if not defined $data[$pos2] and $i >= 230 and $i <= 280;
+	#			if (((defined $data[$pos2] and $data[$pos2] eq "H") or 
+				if (not defined $data[$pos2] and $trinuc =~ /C[GACTNU]G/) {
+					$data[$pos2] = "X";
+				}
+				elsif ($dinuc ne "CG" and $trinuc =~ /C[ACTNUG]G/ and (not defined $data[$pos2] or (defined $data[$pos2] and $data[$pos2] ne "Z"))) {
+					$data[$pos2] = "X";
+					#$printbug .= "$pos2: (X)" if $i >= 230 and $i <= 280;
+				}
+				#$printbug .= " ($pos2: NOTCHG)" if $i >= 230 and $i <= 280 and (not defined $data[$pos2] or $data[$pos2] ne "X");
+			}
+			#$printbug .= "\n" if $i >= 230 and $i <= 280;
 		}
-		$printbug .= "\n" if $i >= 230 and $i <= 280;
+		for (my $i = 0; $i < @{$ref}; $i++) {
+#SPACE			#if ($i < $seqborder0 or $i >= $seqborder1) {$data[$i] = " "; next}
+			if ($i < $seqborder0 or $i >= $seqborder1) {$data[$i] = " "; next}
+			if ($i >= $seqborder0 and $i < $seqborder1 and $seq->[$i] eq "-") {$data[$i] = "-"; next}
+			if ($ref->[$i] . $seq->[$i] eq $nuc1 . $convert) { #CT or #GA
+				$data[$i] = lc($data[$i]);
+			}
+			elsif ($ref->[$i] . $seq->[$i] eq $nuc1 . $nuc1) { # GG or CC
+				$data[$i] = ($data[$i]);
+			} 
+			else {
+				$data[$i] = ($ref->[$i] eq $nuc1 and $seq->[$i] ne $convert and $data[$i] eq "Z") ? "Z" : ($nuc1 eq "C" and $ref->[$i] eq $nuc1) ? "m" : ($nuc1 eq "G" and $ref->[$i] eq $nuc1) ? "n" : $data[$i];
+			}
+			if ($data[$i] ne $con->[$i]) {
+				#$data[$i] = $LRD . $data[$i] . $N;
+			}
+			#print "$i-2 to $i+2: " . join("", @{$ref}[$i-2..$i+2]) . "\n" if not defined $data[$i];
+			die if not defined $data[$i];
+		}
+		if ($h == 0) {@data1 = @data};
+		if ($h == 1) {@data2 = @data};
 	}
-	for (my $i = 0; $i < @{$ref}; $i++) {
-		if ($i < $seqborder0 or $i >= $seqborder1) {$data[$i] = " "; next}
-		if ($ref->[$i] . $seq->[$i] eq $nuc1 . $convert) {
-			$data[$i] = lc($data[$i]);
-		}
-		elsif ($ref->[$i] . $seq->[$i] eq $nuc1 . $nuc1) {
-			$data[$i] = ($data[$i]);
-		}
-		else {
-			$data[$i] = ($ref->[$i] eq $nuc1 and $seq->[$i] ne $convert and $data[$i] eq "Z") ? "c" : $ref->[$i] eq $nuc1 ? "n" : $data[$i];
-		}
-		if ($data[$i] ne $con->[$i]) {
-			#$data[$i] = $LRD . $data[$i] . $N;
-		}
-		#print "$i-2 to $i+2: " . join("", @{$ref}[$i-2..$i+2]) . "\n" if not defined $data[$i];
-		die if not defined $data[$i];
-	}
-	$printbug = "";
-	return(\@data, $printbug);
+	#$printbug = "";
+	return(\@data1, \@data2, $printbug);
 }
 sub ins {
 	my ($arr, $pos, $ins, $type) = @_;
@@ -710,6 +838,26 @@ sub getConv {
 	return(\@converted);
 
 }
+
+sub colorseq {
+   my ($seq) = @_;
+   my @seq = split("", $seq);
+   foreach my $seq2 (@seq[0..@seq-1]) {
+      print color($seq2);
+   }
+   print "\n";
+}
+
+sub color {
+   my ($nuc) = @_;
+   $nuc = $nuc eq "A" ? "$LRD$nuc$N" : $nuc eq "G" ? "$LGN$nuc$N" : $nuc eq "C" ? "$YW$nuc$N" : $nuc eq "T" ? "$LCY$nuc$N" : "$LPR$nuc$N";
+   return $nuc;
+}
+
+
+
+
+
 __END__
 	my ($converted) = $arr[13] =~ /^.+:([\.A-Z]+)$/i; my $length2 = length($converted);
 	my ($X) = $converted =~ tr/X/X/;
@@ -866,14 +1014,14 @@ __END__
 }
 close $in1;
 
-my ($conv) = mitochy::tmm(@{$data{conv}});
-my ($nonc) = mitochy::tmm(@{$data{nonc}});
-my ($notc) = mitochy::tmm(@{$data{notc}});
-my ($totl) = mitochy::tmm(@{$data{totl}});
+my ($conv) = tmm(@{$data{conv}});
+my ($nonc) = tmm(@{$data{nonc}});
+my ($notc) = tmm(@{$data{notc}});
+my ($totl) = tmm(@{$data{totl}});
 foreach my $cig (sort keys %data) {
 	my $cigar2 = $cig eq "M" ? "Mat" : $cig eq "m" ? "Mis" : $cig eq "D" ? "Del" : $cig eq "I" ? "Ins" : "UNK";
 	next if length($cig) > 1;
-	my ($tmm) = mitochy::tmm(@{$data{$cig}});
+	my ($tmm) = tmm(@{$data{$cig}});
 	my $num = int($tmm / 100 * $totl * 10 +0.5)/10;
 	$tmm = int($tmm * 10+0.5)/10;
 	print "$cig\t$tmm ($num)\n";

@@ -303,22 +303,23 @@ if ($opt_e) {
 	}
 }
 
-my $thres = $opt_t * 100; my $checkSam = 1;
+my $checkSam = 1;
 $checkSam = 0 if not -e "$mysam.fixed";
 if (-e "$mysam.fixed") {
 	my ($samLineCount2) = linecount("$mysam.fixed");
 	my ($samLineCount1) = linecount($mysam);
 	$checkSam = 0 if $samLineCount1 - 50 > $samLineCount2;
 }
+$checkSam = 0;
 if ($checkSam == 0) {
-	print STDERR "footLoop_2_sam_to_peak.pl -f $mydir -t $thres\n";
-	print $outLog "footLoop_2_sam_to_peak.pl -f $mydir -t $thres\n";
-	die "BAD\n";
-	system("footLoop_2_sam_to_peak.pl -f $mydir -t $thres") == 0 or die "Failed to run footLoop_2_sam_to_peak.pl -f $mydir -t $thres: $!\n";
+	print STDERR "footLoop_2_sam_to_peak.pl -f $mydir\n";
+	print $outLog "footLoop_2_sam_to_peak.pl -f $mydir\n";
+	system("footLoop_2_sam_to_peak.pl -f $mydir") == 0 or die "Failed to run footLoop_2_sam_to_peak.pl -f $mydir: $!\n";
 }
+
 #die "Checksam is good!\n";
 # File description, open files, etc
-my $samFile = "$mysam.fixed";
+my $samFile = "$mysam";
 my $positive = "$mydir/Positive.3";
 my $negative = "$mydir/Negative.3";
 my $notusedfile = "$mydir/NOTUSED.3";
@@ -335,13 +336,6 @@ open(my $sam, $samFile) or die "$LRD!!!$N\tFATAL ERROR: Could not open $samFile:
 my $linecount = 0; my %count; ($count{total}, $count{used}, $count{diffgene}, $count{lowq}, $count{badlength}) = (0,0,0,0,0);
 my %readz;
 
-# Open the .orig files
-foreach my $genez (sort keys %seq) {
-	my $outTXTFile = $mydir . "/$genez.orig";
-	my $outTXTFileCG = $mydir . "/$genez\_CG.orig";
-	open ($seq{$genez}{outTXT}, ">", $outTXTFile);
-	open ($seq{$genez}{outTXTCG}, ">", $outTXTFileCG);
-}
 
 #open (my $outcigar, ">", "$mydir/CIGAR.tsv");
 #loops through each read and writes high quality reads into two separate files <gene>Positive.txt and <gene>Negative.txt
@@ -369,8 +363,6 @@ while(my $line = <$sam>) {
 	my $gene = uc($chrom);
 	my $genez = $gene;
 	die if not defined $seq{$genez};
-	my $outTXT = {$seq{$genez}{outTXT}};
-	my $outTXTCG = {$seq{$genez}{outTXTCG}};
 
 	next if not defined($seq{$gene});
 	my $cigarPerc = int($cigarLen / $seqsLen * 10000)/100;
@@ -379,7 +371,7 @@ while(my $line = <$sam>) {
 	#discounts the first 4 lines of information at the top of the .sam file
 	
 	# (EXTRA) This below is to shorten read name. Unique read name is the number between last number or behind ccs. If can't be found just use the whole read name.
-	$read = $fullReadName;
+	my $read = $fullReadName;
 	#my ($read) = $fullReadName =~ /^.+\/(\d+)\/\d+/i;
 	#($read) = $fullReadName =~ /^.+\/(\d+)\/ccs/i if not defined($read);
 	#($read) = $fullReadName if not defined($read);
@@ -426,22 +418,73 @@ while(my $line = <$sam>) {
 	#writes positive reads into <gene>Positive.txt and negative reads into <gene>Negative.txt
 	if($readStrand == 0 || $readStrand == 16)
 	{
-		my $to_be_printed = "$CT\t$line\n";
-		$readStrand == 0 ? print $positiveReads $to_be_printed : print $negativeReads $to_be_printed;
-		$readz{$read} ++;
-		$count{used} ++;
-		$seq{$gene}{used} ++;
-		$seq{$gene}{pos} ++ if $readStrand == 0;
-		$seq{$gene}{neg} ++ if $readStrand == 16;
+		#my $to_be_printed = "$CT\t$line\n";
+		#$readStrand == 0 ? print $positiveReads $to_be_printed : print $negativeReads $to_be_printed;
+		$seq{$gene}{read}{$read} = $readStrand;
 	}
 }
 
-my $passedFilterP = `wc -l < $positive`; chomp($passedFilterP);
-my $passedFilterN = `wc -l < $negative`; chomp($passedFilterN);
-
 print STDERR "\t${GN}SUCCESS$N: Total=$count{total}, used=$count{used}, Low Map Quality=$count{lowq}, Too short=$count{badlength}\n";
 print $outLog "\n\t${GN}SUCCESS$N: Total=$count{total}, used=$count{used}, Low Map Quality=$count{lowq}, Too short=$count{badlength}\n";
-print $outLog "\tOutputs are two separate files:\n\t\t- $CY$positive$N ($passedFilterP reads used)\n\t\t- $CY$negative$N ($passedFilterN reads used)\n\n";
+
+# print from insamfix
+# Open the .orig files
+makedir("$mydir/0_orig/") if not -d "$mydir/0_orig/";
+foreach my $genez (sort keys %seq) {
+	my $outTXTFilePos  = $mydir . "0_orig/$genez\_Pos.orig";
+	my $outTXTFileNeg  = $mydir . "0_orig/$genez\_Neg.orig";
+#	my $outTXTFilePosR = $mydir . "0_orig/$genez\_RevPos.orig";
+#	my $outTXTFileNegR = $mydir . "0_orig/$genez\_RevNeg.orig";
+	open ($seq{$genez}{outTXTPos}, ">", $outTXTFilePos);
+	open ($seq{$genez}{outTXTNeg}, ">", $outTXTFileNeg);
+#	open ($seq{$genez}{outTXTRevPos}, ">", $outTXTRevFilePos);
+#	open ($seq{$genez}{outTXTRevNeg}, ">", $outTXTRevFileNeg);
+}
+
+my $skipped = 0; my ($passedFilterP, $passedFilterN) = (0,0);
+open (my $inSamFix, "<", "$mysam.fixed") or die;
+while (my $line = <$inSamFix>) {
+	chomp($line);
+	my ($read, $strand, $genez, $pos, $info) = split("\t", $line);
+	my ($CT0, $CC0, $GA0, $GG0, $CT1, $CC1, $GA1, $GG1) = split(",", $info);
+	if (not defined $seq{$genez} or not defined $info) {
+		print $outLog "\tERROR in $LCY$mysam.fixed$N: gene=$genez but \$seq{\$genez} is not defined!line=\n$line\n\n" if not defined $seq{$genez};
+		print $outLog "\tERROR in $LCY$mysam.fixed$N: gene=$genez and seq genez is $seq{$genez} but info is not defined!line=\n$line\n\n" if defined $seq{$genez} and not defined $info;
+		$skipped ++;
+		next;
+	}
+	if (not defined $seq{$genez}{read}{$read}) {
+		next;
+	}
+	my $oldStrand = $seq{$genez}{read}{$read};
+	print {$seq{$genez}{outTXTPos}} "$read\tFP\t$pos\n" if $strand eq 0;
+	print {$seq{$genez}{outTXTNeg}} "$read\tFN\t$pos\n" if $strand eq 16;
+#	print {$seq{$genez}{outTXTPos}} "$read\tFP\t$pos\n" . join("", split("", $pos)) . "\n" if $strand eq 0;
+#	print {$seq{$genez}{outTXTNeg}} "$read\tFN\t$pos\n" . join("", split("", $pos)) . "\n" if $strand eq 16;
+	#print {$seq{$genez}{outTXTRevPos}} "$read RP " . join(" ", split("", $neg)) . "\n" if $strand eq 0;
+	#print {$seq{$genez}{outTXTRevNeg}} "$read RN " . join(" ", split("", $pos)) . "\n" if $strand eq 16;
+	$seq{$genez}{pos} ++ if $strand == 0;
+	$seq{$genez}{neg} ++ if $strand == 16;
+	$passedFilterP ++ if $strand == 0;
+	$passedFilterN ++ if $strand == 16;
+	$count{used} ++;
+	$seq{$genez}{used} ++;
+	$seq{$genez}{posneg} ++ if $strand eq 16 and $oldStrand eq 0;
+	$seq{$genez}{negpos} ++ if $strand eq 0 and $oldStrand eq 16;
+}
+close $inSamFix;
+print $outLog "\t$LCY$mysam.fixed$N: skipped = $LGN$skipped$N\n";
+
+###########
+=comment
+      my $CTval = $CT eq " "       ? "-"  : $CT eq "."       ? $ref     : $CT =~ /^[Nn]$/ ? $CT :
+                  $CT =~ /^[Z]$/   ? "Z"  : $CT =~ /^[z]$/   ? "z"      : $CT eq "-" ? "-" :
+                  $CT =~ /^[XHU]$/ ? $ref : $CT =~ /^[xhu]$/ ? lc($ref) : die "Cannot determine CT=$CT\n";
+
+      my $GAval = $GA eq " "       ? "-"  : $GA eq "."       ? $ref     : $GA =~ /^[Nn]$/ ? $GA :
+                  $GA =~ /^[Z]$/   ? "Z"  : $GA =~ /^[z]$/   ? "z"      : $GA eq "-" ? "-" :
+                  $GA =~ /^[XHU]$/ ? $ref : $GA =~ /^[xhu]$/ ? lc($ref) : die "Cannot determine GA=$GA\n";
+=cut
 
 print $outLog "
 Reads that passed filters:
@@ -452,19 +495,28 @@ Total   : $count{total};
 Per Gene:
 ";
 
-foreach my $gene (keys %seq)
+foreach my $gene (sort keys %seq)
 {
+my @key = qw(posneg negpos pos neg used total badlength lowq orig);
+foreach my $key (@key) {
+	$seq{$gene}{$key} = 0 if not defined $seq{$gene}{$key};
+}
 my $gene2 = $seq{$gene}{orig};
 print $outLog "
 - $gene (original name = $gene2):
-Positive    = $seq{$gene}{pos}
-Negative    = $seq{$gene}{neg}
+Positive    = $seq{$gene}{pos} (neg->pos = $seq{$gene}{negpos})
+Negative    = $seq{$gene}{neg} (pos->neg = $seq{$gene}{posneg})
 Used        = $seq{$gene}{used}
 Total       = $seq{$gene}{total}
 Too Short   = $seq{$gene}{badlength}
 Low Quality = $seq{$gene}{lowq}
 ";
 }
+
+##########################################
+
+
+
 
 =comment
 my $finalPositive = "$mydir/PositiveFinal.txt";
@@ -639,7 +691,6 @@ print STDERR "\t${GN}SUCCESS$N: Done parsing methylationPos and methylationNeg f
 print $outLog "\n\t${GN}SUCCESS$N: Done parsing methylationPos and methylationNeg files!\n";
 
 
-=cut
 	
 my %read; my %info; my %infoGene;
 print STDERR "${YW}7. Converting each gene's sequence position and methylation data\n$N";
@@ -770,6 +821,8 @@ if ($opt_H) {
 }
 print $outLog "${YW}8. determines which regions of conversion are R-loops based on conversion threshold$N\n";
 print STDERR "${YW}8. determines which regions of conversion are R-loops based on conversion threshold$N\n";
+
+=cut
 
 open (my $outReport, ">", "$mydir/foot.report") or die "Cannot write to $mydir/foot.report: $!\n";
 foreach my $gene (sort keys %seq) {

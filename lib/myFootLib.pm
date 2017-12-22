@@ -35,6 +35,14 @@ ex
 def
 makedir
 linecount
+mean
+median
+sd
+se
+tmm
+tmmsd
+tmmse
+parse_cigar
 $DIES
 $N 
 $B
@@ -291,4 +299,106 @@ sub def {
       return 0;
    }
    return 1;
+}
+
+sub median {
+   my (@value) = @_;
+   return "NA" if not defined($value[0]) or @value == 0;
+   return(quartile(\@value, 0.5));
+   #     return($value[0]) if @value == 1;
+   #     @value = sort {$a <=> $b} (@value);
+   #     my $median = 0.5*($value[int(@value/2)]+$value[int(@value/2)+1]) if @value % 2 == 0;
+   #$median = $value[int(@value/2)+1] if @value % 2 != 0;
+   #     return($median);
+}
+sub mean {
+       my (@value) = @_;
+   return(0) if @value == 0;
+   my $mean = 0;
+   for (my $i =0 ; $i < @value; $i++) {
+      $mean += $value[$i] / @value;
+   }
+        return($mean);
+}
+sub tmm {
+   my (@value) = @_;
+   return(0) if @value == 0;
+   my $mean = 0;
+   @value = sort {$a <=> $b} @value;
+   my $perc = int(0.05*@value);
+   for (my $i = $perc; $i < @value-$perc; $i++) {
+      $mean += $value[$i] / (@value-2*$perc);
+   }
+   return($mean);
+}
+sub tmmsd {
+        my (@value) = @_;
+   my $mean = tmm(@value);
+   return(0) if @value <= 1;
+   my $total = @value;
+   my $sd = 0;
+   #print "VALUE @value\nMEAN $mean\n";
+   @value = sort {$a <=> $b} @value;
+   my $perc = int(0.05*@value+0.5);
+   for (my $i = $perc; $i < @value-$perc; $i++) {
+      $sd += (($value[$i] - $mean)**2) / (@value-2*$perc-1);
+   }
+   $sd = sqrt($sd);
+   return($sd);
+}
+sub tmmse {
+        my (@value) = @_;
+   my $sd = sd(@value);
+   my $perc = int(0.05*@value+0.5);
+   my $total = @value - 2*$perc - 1;
+   $total = 1 if $total == 0;
+   my $se = $sd/sqrt($total);
+   return($se);
+}
+sub sd {
+        my (@value) = @_;
+   my $mean = mean(@value);
+   return(0) if @value <= 1;
+   my $total = @value;
+   $total = 1 if $total == 0;
+   my $sd = 0;
+   #print "VALUE @value\nMEAN $mean\n";
+   for (my $i = 0; $i < @value; $i++) {
+      $sd += (($value[$i] - $mean)**2) / (@value-1);
+   }
+   $sd = sqrt($sd);
+   return($sd);
+}
+sub se {
+        my (@value) = @_;
+   my $sd = sd(@value);
+   my $total = @value;
+   $total = 1 if $total == 0;
+   my $se = $sd/sqrt($total);
+   return($se);
+}
+sub sum {
+   my (@value) = @_;
+   return(0) if @value == 0;
+   if (@value == 1 and $value[0] eq 'ARRAY') {
+      @value = @{$value[0]};
+   }
+   my $sum = 0;
+   for (my $i =0 ; $i < @value; $i++) {
+      $sum += $value[$i];
+   }
+   return($sum);
+}
+
+sub parse_cigar {
+   my ($cigar) = @_;
+   my @num = split("[A-Z]+", $cigar);
+   my @alp = split("[0-9]+", $cigar);
+   shift(@alp);
+   my $length = 0;
+   for (my $i = 0; $i < @num; $i++) {
+      die "Died alp $i isn't I/D/M/N ($alp[$i]) at cigar:\n$cigar\n" if $alp[$i] !~ /^[IDMN]+$/;
+      $length += $num[$i] if $alp[$i] ne "I";
+   }
+   return(\@num, \@alp, $length);
 }
