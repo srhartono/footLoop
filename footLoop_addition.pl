@@ -337,6 +337,69 @@ sub parse_peak {
 	#die "$print\n" if $totalpeak == 1;# or $name eq "SEQ_100022";
 	return ($name, \@val2, $totalpeak, $peak2{peak});
 }
+
+sub find_lots_of_C {
+my ($seqFile, $geneIndex, $box) = @_; #$geneIndexesFa;
+my %geneIndex = %{$geneIndex};
+my %seq;
+print "SEq=$seqFile\n";
+print STDERR "\n${YW}2. Parsing in sequence for genes from sequence file $CY$seqFile$N\n";
+print $outLog "\n${YW}2. Parsing in sequence for genes from sequence file $CY$seqFile$N\n";
+open(my $SEQIN, "<", $seqFile) or die "\n$LRD!!!$N\tFATAL ERROR: Could not open $CY$seqFile$N: $!";
+my $fasta = new FAlite($SEQIN);
+my %lotsOfC;
+
+while (my $entry = $fasta->nextEntry()) {
+   my $gene = uc($entry->def);
+   my $seqz = uc($entry->seq);
+   $gene =~ s/^>//;
+   print STDERR "\t\tgenez=$gene ($gene) Length=$seq{$gene}{len}\n";
+   print $outLog "\t\tgenez=$gene ($gene) Length=$seq{$gene}{len}\n";
+
+   my $seqz2 = join("", @{$seq{$gene}{seq}});
+   while ($seqz2 =~ /(C){10,99}/g) {
+      my ($prev, $curr, $next) = ($`, $&, $');
+      my ($curr_C) = length($curr);
+      my ($next_C) = $next =~ /^(C+)[ACTN]*$/;
+      $next_C = defined $next_C ? length($next_C) : 0;
+      my ($beg_C) = defined $prev ? length($prev) : 0;
+      my ($end_C) = $curr_C + $next_C + $beg_C;
+      my $length = $curr_C + $next_C;
+      ($prev) = $prev =~ /^.*(\w{10})$/ if length($prev) > 10; $prev = "NA" if not defined $prev;
+      ($next) = $next =~ /^(\w{10}).*$/ if length($next) > 10; $next = "NA" if not defined $next;
+      print "$gene: $beg_C to $end_C ($length)\n\tPREV=$prev\n\tCURR=$curr\n\tNEXT=$next\n";
+      $lotsOfC{$gene} .= "$beg_C,$end_C;";
+   }
+
+   $seqz2 = join("", @{$seq{$gene}{seq}});
+   while ($seqz2 =~ /(G){10,99}/g) {
+      my ($prev, $curr, $next) = ($`, $&, $');
+      my ($curr_C) = length($curr);
+      my ($next_C) = $next =~ /^(C+)[ACTN]*$/;
+      $next_C = defined $next_C ? length($next_C) : 0;
+      my ($beg_C) = defined $prev ? length($prev) : 0;
+      my ($end_C) = $curr_C + $next_C + $beg_C;
+      my $length = $curr_C + $next_C;
+      ($prev) = $prev =~ /^.*(\w{10})$/ if length($prev) > 10; $prev = "NA" if not defined $prev;
+      ($next) = $next =~ /^(\w{10}).*$/ if length($next) > 10; $next = "NA" if not defined $next;
+      print "$gene: $beg_C to $end_C ($length)\n\tPREV=$prev\n\tCURR=$curr\n\tNEXT=$next\n";
+      $lotsOfC{$gene} .= "$beg_C,$end_C;";
+   }
+}
+foreach my $gene (keys %lotsOfC) {
+   $gene = uc($gene);
+   $lotsOfC{$gene} =~ s/;$//;
+   print "$gene\t$lotsOfC{$gene}\n";
+   my $beg2 = $geneIndex{$gene};
+   foreach my $lines (@{$box->{$gene}}) {
+      print "GENEZ = $gene, lines = $lines\n";
+   }
+   print "genez=$gene,beg=$beg2\n";
+}
+#push
+
+}
+
 __END__
 # 0 = not converted
 # 1 = converted C
@@ -352,4 +415,7 @@ __END__
 # 11 = Nucleotide C
 # 12 = Nucleotide T
 # 13 = Nucleotide G
+
+
+
 

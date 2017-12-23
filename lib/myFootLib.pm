@@ -25,6 +25,8 @@ our $LPR		="\e[1;35m";
 our $DIES   ="$LRD!!!\t$N";
 
 our @EXPORT = qw(
+getFullpathAll
+myeval
 checkBismarkIndex
 getDate
 getFilename
@@ -391,7 +393,7 @@ sub sum {
 }
 
 sub parse_cigar {
-   my ($cigar) = @_;
+   my ($cigar, $type) = @_;
    my @num = split("[A-Z]+", $cigar);
    my @alp = split("[0-9]+", $cigar);
    shift(@alp);
@@ -400,5 +402,43 @@ sub parse_cigar {
       die "Died alp $i isn't I/D/M/N ($alp[$i]) at cigar:\n$cigar\n" if $alp[$i] !~ /^[IDMN]+$/;
       $length += $num[$i] if $alp[$i] ne "I";
    }
+	return $length if defined $type and $type =~ /len/i;
+	return(\@num, \@alp) if defined $type and ($type =~ /num/i or $type =~ /alp/i or $type =~ /cig/);
    return(\@num, \@alp, $length);
+}
+
+sub myeval {
+	my ($var) = @_;
+	my $count = 0;
+	my $print = "";
+	if ($var =~ /^ARRAY/) {
+		for (my $i = 0; $i < @{$var}; $i++) {
+			$count ++;
+			my $val = defined ($var->[$i]) ? $var->[$i] : "VALUE_UNDEF";
+			$print .= "myeval ARRAY \%var failed at i=$LGN$'i'$N, value='$val'\n" if not defined $var->[$i];
+			$count ++ if not defined $var->[$i];
+		}
+	}
+	elsif ($var =~ /^HASH/) {
+		foreach my $key (sort keys %{$var}) {
+			my $key2 = defined ($key) ? $key : "KEY_UNDEF";
+			my $val = defined ($var->{$key}) ? $var->{$key} : "VALUE_UNDEF";
+			$print .= "myeval HASH \%var failed at key='$key2', value='$val'\n" if not defined $key or not defined $var->{$key};
+			$count ++ if not defined $key or not defined $var->{$key};
+		}
+	}
+	else {
+		my $val = defined ($var) ? $var : "VALUE_UNDEF";
+		$print .= "myeval SCALAR \$var failed at value='$val'\n" if not defined $var;
+		$count ++ if not defined $var;
+	}
+	return ($count, $print);
+}
+
+sub getFullpathAll {
+   my @arr = @_;
+   for (my $i = 0; $i < @arr; $i++) {
+      $arr[$i] = getFullpath($arr[$i]);
+   }
+   return(@arr);
 }

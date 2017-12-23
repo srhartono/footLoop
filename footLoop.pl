@@ -1,160 +1,63 @@
 #!/usr/bin/perl
 # Version 160831_Fixed_PrintOutput at the same file (step 8)
 use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_n $opt_t $opt_l $opt_r $opt_q $opt_Z $opt_s $opt_g $opt_c $opt_S $opt_i $opt_e $opt_f $opt_H $opt_L $opt_F $opt_p $opt_x $opt_y $opt_h $opt_1 $opt_4 $opt_6 $opt_B $opt_T $opt_D);
-getopts("n:t:l:r:q:s:g:ci:S:e:fHL:Fpx:y:h1:4:6:FZB:TD");
-my %opts = ("n" => $opt_n, "t" => $opt_t, "l" => $opt_l, "r" => $opt_r, "q" => $opt_q, "Z" => $opt_Z, "s" => $opt_s, "g" => $opt_g, "c" => $opt_c, "S" => $opt_S, "i" => $opt_i, "e" => $opt_e, "f" => $opt_f, "H" => $opt_H, "L" => $opt_L, "F" => $opt_F, "p" => $opt_p, "x" => $opt_x, "y" => $opt_y, "h" => $opt_h, "1" => $opt_1,"4" => $opt_4,"6" => $opt_6,"B" => $opt_B, "T" => $opt_T, "D" => $opt_D,);
+use vars   qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f);
+my @opts = qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f);
+getopts("r:g:i:n:L:x:y:pq:ZhHFf");
 BEGIN {
 	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
 	push(@INC, $libPath);
 }
 use myFootLib; use FAlite;
-my $mainFolder = dirname(dirname abs_path $0) . "/footLoop";
-
 my $homedir = $ENV{"HOME"};
-my $sortTMP = "$homedir/sortTMP/";
-my @resFiles = <$opt_n/0_RESULTS*.TXT> if defined $opt_n;
-if (defined $opt_n and -d $opt_n and not defined $opt_D) {
-	if (@resFiles != 0) {
-		my $resFileCheck = 0;
-		foreach my $resFile (@resFiles) {
-			$resFileCheck = 1 if -s $resFile > 0;
-		}
-		print "-d $LGN$opt_n$N $resFiles[0] already exist!\n" if $resFileCheck == 1;
-		exit 0 if $resFileCheck == 1;
-	}
-	else {
-		print "Doing becuase result files 0_RESULTS*.TXT does not exist!\n";
-	}
-}
-my $box = sanityCheck();
+my $footLoopDir = dirname(dirname abs_path $0) . "/footLoop";
 
-#### Input ####
-$opt_i = myFootLib::getFullpath($opt_i);
-#my ($mainFolder, $junkz) = getFilename($0, "folderfull");
-$opt_g = myFootLib::getFullpath($opt_g);
-$opt_r = myFootLib::getFullpath($opt_r) if defined($opt_r); 
-my ($readname) = myFootLib::getFullpath("$opt_n") . "/" . myFootLib::getFilename($opt_r,'full') . "\_bismark_bt2.sam" if defined($opt_r);
-my $mysam   = defined($opt_S) ? myFootLib::getFullpath($opt_S) : $readname;
-$opt_t = defined($opt_t) ? $opt_t : 0.65;
-my $minPeakLength = defined($opt_l) ? $opt_l : 100;
-my $minReadLength = defined($opt_L) ? $opt_L : 50;
-($minReadLength) = $minReadLength =~ /^(.+)p$/i if $minReadLength =~ /p$/i;
+###################
+# 0. Check Sanity #
+##################
 
-$opt_q = defined($opt_q) ? $opt_q : 0;
-my $myread = defined($opt_r) ? $opt_r : "${LRD}FALSE$N (Sam File Given)";
-my $usecpg = $opt_c ? "${LGN}TRUE$N" : "${LRD}FALSE$N (Don't Use C from CpG)";
-my $exonFile  = defined($opt_e) ? myFootLib::getFullpath($opt_e) : "${LRD}FALSE$N (exon file not given)";
-my ($x) = defined($opt_x) ? $opt_x : 0;
-my ($y) = defined($opt_y) ? $opt_y : 0;
+sanityCheck();
+
+###################
+# 1. Define Input #
+###################
+my %opts = ("r" => $opt_r, "g" => $opt_g, "i" => $opt_i, "n" => $opt_n, "L" => $opt_L, "x" => $opt_x, "y" => $opt_y, "p" => $opt_p, "q" => $opt_q, "Z" => $opt_Z);
+my ($readFile, $genomeFile, $geneIndexesFile, $outDir) = getFullpathAll($opt_r, $opt_g, $opt_i, $opt_n);
+my $minMapQ  = (not defined($opt_q)) ? 0 : $opt_q;
+my $minReadL = (not defined($opt_L)) ? 50 : $$opt_L =~ /p$/i ? $$opt_L =~ /^(.+)p$/i : $opt_L;
+my $bufferL  = (not defined($opt_x)) ? 0 : $opt_x;
+my $bufferR  = (not defined($opt_y)) ? 0 : $opt_y;
+my $x = defined($opt_x) ? $opt_x : 0;
+my $y = defined($opt_y) ? $opt_y : 0;
+my $readName = getFilename($readFile, "full");
+my $bismarkOpt = (defined $opt_Z) ? "--bowtie2 --rdg 2,1 --rfg 2,1 --score_min L,0,-0.8" : "--bowtie2 --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3";
+my $mysam = ($readFile =~ /.f(ast)?q(.gz)?$/) ? $outDir .  "/$readName\_bismark_bt2.sam" : $readFile;
+my $uuid = getuuid();
+my $date = getDate();
 
 # Make directory
-my $mydir = myFootLib::getFullpath("$opt_n") . "/";
-my @dir = split("/", $mydir);
-my $mydirname = $dir[@dir-1];
-   $mydirname = $dir[@dir-2] if not defined $mydirname or (defined $mydirname and $mydirname =~ /^[\s]*$/);
+makedir($outDir);
 
-my $outFolder  = $mydir;
-if (-e $outFolder) {
-	print "\n\n$LRD------------------------ WARNING --------------------------------$N\n";
-	print "\nOutput Folder ($CY-n$N) $CY$outFolder$N exists, continuing will overwrite this completely. Continue?\n\n(press$CY ENTER$N to continue or ${LGN}ctrl+c to cancel$N)
-	\n";
-#	<STDIN>;
-	#	if (-e $mysam and -S $mysam >= 10) {print "Expected samfile result $CY$mysam$N Exists! Are you sure you're overwriting results and not using SAM input option ($CY-S $mysam$N) instead?$N\n";<STDIN>;}
-}
-mkdir "$opt_n" if not -d "$opt_n";
-mkdir $mydir if not -d $mydir;
-chdir $mydir;
-my $logFile = "$mydir/logFile.txt";
+# Make log file
+my $logFile = "$outDir/logFile.txt";
 open(my $outLog, '>', $logFile);
-my $optPrint = "$YW$0$N";
-foreach my $opts (sort keys %opts) {
-	my $val = defined $opts{$opts} ? $opts{$opts} : "NA";
-	next if not defined $opts{$opts};
-	$optPrint .= " -$opts $val";
-}
 
-my $mysam2 = "$mysam"; $mysam2 .= " $GN(will be generated)$N" if not defined($opt_S);
-my $exonFileExists = defined($opt_e) ? "${GN}$opt_e$N" : "${LRD}FALSE$N";
-my @time = localtime(time); my $time = join("", @time);
-my $date = getDate();
-my ($md) = `md5sum $opt_i` =~ /^(\w+)[ ]+/;
-my $bismarkOption = (defined $opt_Z) ? "--bowtie2 --rdg 2,1 --rfg 2,1 --score_min L,0,-0.8" : "--bowtie2 --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3";
-print $outLog "\n${YW}0. Initializing... output directory = $CY$mydir$N\n";
-print $outLog "
-Date       : $date
-Run ID     : $time
-Run script : $optPrint
+# Record all options
+record_options(\%opts, $outLog);
 
-${YW}Input Parameters$N
-1.  -n ${CY}Out Dir$N   :$mydir
-2.  -r ${CY}Read$N      :$myread
-3.  -S ${CY}SAM$N       :$mysam2
-4.  -i ${CY}Index$N     :$opt_i (if padding added, will be $opt_i\_$x\_$y\_bp.bed)
-5.  -g ${CY}Genome$N    :$opt_g
-6.  -s ${CY}Seq$N       :NA
-7.  -c ${CY}UseCpG?$N   :$usecpg
-8.  -t ${CY}Threshold$N :$opt_t
-9.  -l ${CY}MinPkLen$N  :$minPeakLength
-10. -L ${CY}MinRdLen$N  :$minReadLength
-11. -q ${CY}MinMapQ$N   :$opt_q
-12. -e ${CY}Exon$N      :$exonFileExists
-13. -S ${CY}Bismark$N   :$bismarkOption
+###################
+# 2. Runs Bismark #
+###################
 
-";
-print STDERR "
-Date   : $date
-Run ID : $time
+check_if_result_exist("$outDir/0_orig/.GOOD", $outLog);
 
-${YW}Input Parameters$N
-1.  -n ${CY}Out Dir$N   :$mydir
-2.  -r ${CY}Read$N      :$myread
-3.  -S ${CY}SAM$N       :$mysam2
-4.  -i ${CY}Index$N     :$opt_i (if padding added, will be $opt_i\_$x\_$y\_bp.bed)
-5.  -g ${CY}Genome$N    :$opt_g
-6.  -s ${CY}Seq$N       :NA
-7.  -c ${CY}UseCpG?$N   :$usecpg
-8.  -t ${CY}Threshold$N :$opt_t
-9.  -l ${CY}MinPkLen$N  :$minPeakLength
-10. -L ${CY}MinRdLen$N  :$minReadLength
-11. -q ${CY}MinMapQ$N   :$opt_q
-12. -e ${CY}Exon$N      :$exonFileExists
-13. -S ${CY}Bismark$N   :$bismarkOption
-
-";
-#runs bismark (output file will be pacbio.fastq_bismark_bt2.sam) only if it hasn't been ran previously
-
-
-my $geneIndexes   = $opt_i; die "\n$LRD!!!\t$N$opt_i doesn't exist!\n\n" if not defined($geneIndexes);
-my ($geneIndexesName) = getFilename($geneIndexes);
-print "GENE indexes=$geneIndexes, name = $geneIndexesName\n";
-if ($x eq 0 and $y eq 0) {
-	system("/bin/cp $geneIndexes $mydir/$geneIndexesName\_$x\_$y\_bp.bed") == 0 or die "Failed to copy $geneIndexes to $mydir/$geneIndexesName\_$x\_$y\_bp.bed: $!\n";
-}
-else {
-	system("bedtools_bed_change.pl -m -x $x -y $y -i $geneIndexes -o $mydir/$geneIndexesName\_$x\_$y\_bp.bed") == 0 or die "Failed to get (beg $x, end $y) bp of $geneIndexes!\n";
-}
-$geneIndexes = "$mydir/$geneIndexesName\_$x\_$y\_bp.bed";
-my ($bismark_folder_exist, $bismark_folder) = checkBismarkIndex($geneIndexes, $mainFolder, $outLog);
-my %geneIndex;
-open (my $geneIndexIn, "<", $geneIndexes) or die "Cannot read from $geneIndexes: $!\n";
-while (my $line = <$geneIndexIn>) {
-	chomp($line);
-	my ($chr, $beg, $end, $gene) = split("\t", $line);
-	$gene = uc($gene);
-	print "file=$geneIndexes. geneIndex gene=$gene,beg=$beg\n";
-	$geneIndex{$gene} = $beg;
-}
-close $geneIndexIn;
+$geneIndexesFile = get_geneIndexes_fasta($geneIndexesFile);
 my $geneIndexesFa = "$bismark_folder\/geneIndexes.fa";
+#my ($bismark_folder_exist, $bismark_folder) = checkBismarkIndex($geneIndexesFile, $footLoopDir, $outLog);
 
-print STDERR "\n${YW}1. Getting fasta sequence from $geneIndexes into $CY$geneIndexesFa$N\n";
-print $outLog "\n${YW}1. Getting fasta sequence from $geneIndexes into $CY$geneIndexesFa$N\n";
-if ($bismark_folder_exist == 0) {
-	print $outLog "\t- Running ${YW}bedtools getfasta$N -fi $opt_g -bed $geneIndexes -fo $geneIndexesFa -name\n";
-	system("fastaFromBed -fi $opt_g -bed $geneIndexes -fo $geneIndexesFa -name") == 0 ? print $outLog "\t${GN}SUCCESS$N: Output: $CY$geneIndexesFa$N\n" : die "Failed to run bedtools: $!\n";
-	system("perl -pi -e 'tr/acgtn/ACGTN/' $geneIndexesFa") == 0 or die "\n$LRD!!!$N\tFailed to convert atgc into ATGC\n";
-}
+# Get gene names from $geneIndexesFile
+my %geneIndexes = parse_geneIndexesFile($geneIndexesFile);
+
 
 print $outLog "\n${YW}1b. Running$CY bismark$YW (output file will be$CY pacbio.fastq_bismark_bt2.sam$YW) only if it hasn't been ran previously$N\n";
 print $outLog "\t- Running$YW bismark_genome_preparation$N --bowtie2 $bismark_folder\n";
@@ -180,13 +83,13 @@ else {
 	#"\t${GN}SUCCESS$N: $CY$bismark_folder\/Bisulfite_Genome$N already exist and is used!\n";
 }
 if ($opt_F or (not -e "$mysam" or -s $mysam <= 10)) {
-	print "\t- Running$YW bismark$N $bismarkOption $bismark_folder $opt_r\n";
-	print $outLog "\t- Running$YW bismark$N $bismarkOption $bismark_folder $opt_r\n";
+	print "\t- Running$YW bismark$N $bismarkOpt $bismark_folder $opt_r\n";
+	print $outLog "\t- Running$YW bismark$N $bismarkOpt $bismark_folder $opt_r\n";
 	if ($opt_p) {
 		print $outLog "\t  Splitting $CY$opt_r$N by 1000 sequences!\n";
 		my $splitresult = `SplitFastq.pl -i $opt_r -o $outFolder -n 1000`; print $outLog "$splitresult\n";
 		print "\t  Running bismark in paralel!\n";
-		my $result = system("run_script_in_paralel2.pl -v \"bismark $bismarkOption $bismark_folder FILENAME > FILENAME.bismark.log 2>&1\" $outFolder .part 20");
+		my $result = system("run_script_in_paralel2.pl -v \"bismark $bismarkOpt $bismark_folder FILENAME > FILENAME.bismark.log 2>&1\" $outFolder .part 20");
 		my ($readFilename) = myFootLib::getFilename($opt_r, "full");
 		my @partSam = <$outFolder/*.part_bismark*.sam>; my $totalPartSam = @partSam;
 		print "\t  All part.sam has been made (total = $totalPartSam). Now making $CY$mysam$N and then removing the part sam\n";
@@ -200,11 +103,11 @@ if ($opt_F or (not -e "$mysam" or -s $mysam <= 10)) {
 		}
 	}
 	else {
-		my $result = system("bismark $bismarkOption $bismark_folder $opt_r");
+		my $result = system("bismark $bismarkOpt $bismark_folder $opt_r");
 		if ($result != 0) {
 			print $outLog "\t${LRD}Bisulfte_Genome seems to be corrupted so re-running:\n\t${YW}-bismark_genome_preparation$N --bowtie2 $bismark_folder\n";
 			system("bismark_genome_preparation --bowtie2 $bismark_folder") == 0 or die "Failed to run bismark genome preparation: $!\n";
-			system("bismark $bismarkOption $bismark_folder $opt_r") == 0 or die "$LRD!!!$N\tFailed to run bismark: $!\n";
+			system("bismark $bismarkOpt $bismark_folder $opt_r") == 0 or die "$LRD!!!$N\tFailed to run bismark: $!\n";
 		}
 		print $outLog "\t${GN}SUCCESS$N: Output $mysam\n";
 		print STDERR "\t${GN}SUCCESS$N: Output $mysam\n";
@@ -222,65 +125,23 @@ print "SEq=$seqFile\n";
 print STDERR "\n${YW}2. Parsing in sequence for genes from sequence file $CY$seqFile$N\n";
 print $outLog "\n${YW}2. Parsing in sequence for genes from sequence file $CY$seqFile$N\n";
 open(my $SEQIN, "<", $seqFile) or die "\n$LRD!!!$N\tFATAL ERROR: Could not open $CY$seqFile$N: $!";
-my ($genez);
 my $fasta = new FAlite($SEQIN);
-my %lotsOfC;
 while (my $entry = $fasta->nextEntry()) {
-	my $genez = uc($entry->def);
+	my $gene = uc($entry->def);
 	my $seqz = uc($entry->seq);
-	$genez =~ s/^>//;
-	@{$seq{$genez}{seq}} = split("", $seqz);
-	$seq{$genez}{len} = @{$seq{$genez}{seq}};
-	$seq{$genez}{exp} = (defined $opt_L and $opt_L =~ /p$/i) ? int(0.5+$seq{$genez}{len} * $minReadLength / 100) : $minReadLength;
-	$seq{$genez}{total} = 0;
-	$seq{$genez}{badlength} = 0;
-	$seq{$genez}{lowq} = 0;
-	$seq{$genez}{used} = 0;
-	$seq{$genez}{pos} = 0;
-	$seq{$genez}{neg} = 0;
-	$seq{$genez}{orig} = $genez;
-	print STDERR "\t\tgenez=$genez ($genez) Length=$seq{$genez}{len}\n";
-	print $outLog "\t\tgenez=$genez ($genez) Length=$seq{$genez}{len}\n";
-
-	my $seqz2 = join("", @{$seq{$genez}{seq}});
-	while ($seqz2 =~ /(C){10,99}/g) {
-		my ($prev, $curr, $next) = ($`, $&, $');
-		my ($curr_C) = length($curr);
-		my ($next_C) = $next =~ /^(C+)[ACTN]*$/;
-		$next_C = defined $next_C ? length($next_C) : 0;
-		my ($beg_C) = defined $prev ? length($prev) : 0;
-		my ($end_C) = $curr_C + $next_C + $beg_C;
-		my $length = $curr_C + $next_C;
-		($prev) = $prev =~ /^.*(\w{10})$/ if length($prev) > 10; $prev = "NA" if not defined $prev;
-		($next) = $next =~ /^(\w{10}).*$/ if length($next) > 10; $next = "NA" if not defined $next;
-		print "$genez: $beg_C to $end_C ($length)\n\tPREV=$prev\n\tCURR=$curr\n\tNEXT=$next\n";
-		$lotsOfC{$genez} .= "$beg_C,$end_C;";
-	}
-
-	$seqz2 = join("", @{$seq{$genez}{seq}});
-	while ($seqz2 =~ /(G){10,99}/g) {
-		my ($prev, $curr, $next) = ($`, $&, $');
-		my ($curr_C) = length($curr);
-		my ($next_C) = $next =~ /^(C+)[ACTN]*$/;
-		$next_C = defined $next_C ? length($next_C) : 0;
-		my ($beg_C) = defined $prev ? length($prev) : 0;
-		my ($end_C) = $curr_C + $next_C + $beg_C;
-		my $length = $curr_C + $next_C;
-		($prev) = $prev =~ /^.*(\w{10})$/ if length($prev) > 10; $prev = "NA" if not defined $prev;
-		($next) = $next =~ /^(\w{10}).*$/ if length($next) > 10; $next = "NA" if not defined $next;
-		print "$genez: $beg_C to $end_C ($length)\n\tPREV=$prev\n\tCURR=$curr\n\tNEXT=$next\n";
-		$lotsOfC{$genez} .= "$beg_C,$end_C;";
-	}
-}
-foreach my $genez (keys %lotsOfC) {
-	$genez = uc($genez);
-	$lotsOfC{$genez} =~ s/;$//;
-	print "$genez\t$lotsOfC{$genez}\n";
-	my $beg2 = $geneIndex{$genez};
-	foreach my $lines (@{$box->{$genez}}) {
-		print "GENEZ = $genez, lines = $lines\n";
-	}
-	print "genez=$genez,beg=$beg2\n";
+	$gene =~ s/^>//;
+	@{$seq{$gene}{seq}} = split("", $seqz);
+	$seq{$gene}{len} = @{$seq{$gene}{seq}};
+	$seq{$gene}{exp} = (defined $opt_L and $opt_L =~ /p$/i) ? int(0.5+$seq{$gene}{len} * $minReadL / 100) : $minReadL;
+	$seq{$gene}{total} = 0;
+	$seq{$gene}{badlength} = 0;
+	$seq{$gene}{lowq} = 0;
+	$seq{$gene}{used} = 0;
+	$seq{$gene}{pos} = 0;
+	$seq{$gene}{neg} = 0;
+	$seq{$gene}{orig} = $gene;
+	print STDERR "\t\tgenez=$gene ($gene) Length=$seq{$gene}{len}\n";
+	print $outLog "\t\tgenez=$gene ($gene) Length=$seq{$gene}{len}\n";
 }
 #push(@{$box{$chr}}, "$chr\t$beg\t$end\t$gene\t$val\t$strand$others");
 close $SEQIN;
@@ -294,7 +155,7 @@ if ($opt_e) {
 	print $outLog "\t${BR}2a. Parsing in exon intron data from $CY$exonFile$N:\n";
 	foreach my $gene (sort keys %seq) {
 		next if -e "$outFolder/exon/$gene.exon"; # DELETE THIS
-		my ($genepos) = `grep -i -P \"\\t$gene\\t\" $geneIndexes`; chomp($genepos);
+		my ($genepos) = `grep -i -P \"\\t$gene\\t\" $geneIndexesFile`; chomp($genepos);
 		my $length_seq = $seq{$gene}{len};
 		print $outLog "\n$LRD!!!$N\tWARNING: No sequence for gene $CY$gene$N is found in -s $CY$seqFile$N!\n\n" if $length_seq == 0;
 		myFootLib::parseExon($exonFile, $genepos, $gene, $outFolder, $length_seq);
@@ -312,17 +173,17 @@ if (-e "$mysam.fixed") {
 }
 $checkSam = 0;
 if ($checkSam == 0) {
-	print STDERR "footLoop_2_sam_to_peak.pl -f $mydir\n";
-	print $outLog "footLoop_2_sam_to_peak.pl -f $mydir\n";
-	system("footLoop_2_sam_to_peak.pl -f $mydir") == 0 or die "Failed to run footLoop_2_sam_to_peak.pl -f $mydir: $!\n";
+	print STDERR "footLoop_2_sam_to_peak.pl -f $outDir\n";
+	print $outLog "footLoop_2_sam_to_peak.pl -f $outDir\n";
+	system("footLoop_2_sam_to_peak.pl -f $outDir") == 0 or die "Failed to run footLoop_2_sam_to_peak.pl -f $outDir: $!\n";
 }
 
 #die "Checksam is good!\n";
 # File description, open files, etc
 my $samFile = "$mysam";
-my $positive = "$mydir/Positive.3";
-my $negative = "$mydir/Negative.3";
-my $notusedfile = "$mydir/NOTUSED.3";
+my $positive = "$outDir/Positive.3";
+my $negative = "$outDir/Negative.3";
+my $notusedfile = "$outDir/NOTUSED.3";
 print STDERR "${YW}3. Parsing sam file $CY$samFile$N and getting only high quality reads\n";
 print $outLog "${YW}3. Parsing sam file $CY$samFile$N and getting only high quality reads\n";
 open(my $positiveReads, ">", $positive) or die "Could not open $positive: $!";
@@ -336,50 +197,44 @@ open(my $sam, $samFile) or die "$LRD!!!$N\tFATAL ERROR: Could not open $samFile:
 my $linecount = 0; my %count; ($count{total}, $count{used}, $count{diffgene}, $count{lowq}, $count{badlength}) = (0,0,0,0,0);
 my %readz;
 
+#####################
+# A. Parse Sam File #
+#####################
+# Loops through each read and writes high quality reads into two separate files <gene>Positive.txt and <gene>Negative.txt
 
-#open (my $outcigar, ">", "$mydir/CIGAR.tsv");
-#loops through each read and writes high quality reads into two separate files <gene>Positive.txt and <gene>Negative.txt
 while(my $line = <$sam>) {
 	$linecount ++;
 	chomp($line);
 	
-	my @fields = split("\t", $line); #line is tab separated, first column is read name, the rest is value
-	print $outLog "$linecount: Non-sam read detected as total column is less than 6; skipped. Read = $CY$line$N\n" and next if @fields < 6;
-	my $cigar = $fields[5];
-	my $seqs = $fields[9];
-	my $fullReadName = $fields[0];
-	my $chrom = $fields[2];
-	my $mapQ = $fields[4];
-	my $readPos = $fields[3];
-	my $readStrand = $fields[1];
-	my $readMethCall = $fields[13];
-	my $cigarLen = 0;
-	while ($cigar =~ /\d+M/g) {
-		my ($cigarMatch) = $& =~ /^(\d+)M$/;
-		$cigarLen += $cigarMatch;
-	}
-	my $seqsLen = length($seqs);
-	#die "cigar\t$cigar\ncigarLen\t$cigarLen\nseq\t$seqs\nseqLen\t$seqsLen\n";
-	my $gene = uc($chrom);
-	my $genez = $gene;
-	die if not defined $seq{$genez};
+	#####################
+	# 1. Parse sam line #
+	#####################
+	my @arr = split("\t", $line);
 
+	# a. Total column must be 14 or skipped (e.g. sam header)
+	print $outLog "$LGN$linecount$N: SAM header detected (#column < 14). LINE:\n\t$line\n" and next if @arr < 14;
+	
+	my ($eval, $evalPrint) = myeval(\@arr);
+	my ($read, $readStrand, $chrom, $readPos, $mapQ, $cigar, $junk1, $junk2, $junk3, $seqs, $qual, $tags, $junk4, $readMethCall) = @arr;
+	my $cigarLen = parse_cigar($cigar, "len");
+	my $seqsLen  = length($seqs);
+	my $gene     = uc($chrom);
+
+	print $outLog "$LGN$linecount$N: read $LCY$read$N is mapped to gene $LGN$gene$N is not in geneIndexes! LINE:\n\t$line\n" if not defined $seq{$gene};
 	next if not defined($seq{$gene});
+
 	my $cigarPerc = int($cigarLen / $seqsLen * 10000)/100;
-	#print $outcigar "$fullReadName\t$gene\t$cigarLen\t$seqsLen\t$cigarPerc\n";
 	next if $cigarPerc < 75;
-	#discounts the first 4 lines of information at the top of the .sam file
 	
 	# (EXTRA) This below is to shorten read name. Unique read name is the number between last number or behind ccs. If can't be found just use the whole read name.
-	my $read = $fullReadName;
-	#my ($read) = $fullReadName =~ /^.+\/(\d+)\/\d+/i;
-	#($read) = $fullReadName =~ /^.+\/(\d+)\/ccs/i if not defined($read);
-	#($read) = $fullReadName if not defined($read);
-	#my ($readDate) = $fullReadName =~ /^(m\d+_\d+_\d+)_/; $readDate = $fullReadName if not defined $readDate;
+	#my ($read) = $read =~ /^.+\/(\d+)\/\d+/i;
+	#($read) = $read =~ /^.+\/(\d+)\/ccs/i if not defined($read);
+	#($read) = $read if not defined($read);
+	#my ($readDate) = $read =~ /^(m\d+_\d+_\d+)_/; $readDate = $read if not defined $readDate;
 	#$read = "SEQ_$readDate\_$read";
 	
 	# (EXTRA) This below is to show the user an example of parsed line and tells user if it's parsed every 20k read.
-	my ($readname) = length($fullReadName) >= 20 ? $fullReadName =~ /(.{20})$/ : $fullReadName; $readname = "..." . $readname  if length($fullReadName) >= 20;
+	my ($readname) = length($read) >= 20 ? $read =~ /(.{20})$/ : $read; $readname = "..." . $readname  if length($read) >= 20;
 	$count{total} ++;
 	$seq{$gene}{total} ++;
 	print $outLog "\tExample at read $count{total}: name=$CY$readname$N\tstrand=$CY$readStrand$N\tchr/gene=$CY$chrom$N\tpos=$CY$readPos$N\tmapQ=$CY$mapQ$N\n\n" if $count{total} == 1;
@@ -429,12 +284,12 @@ print $outLog "\n\t${GN}SUCCESS$N: Total=$count{total}, used=$count{used}, Low M
 
 # print from insamfix
 # Open the .orig files
-makedir("$mydir/0_orig/") if not -d "$mydir/0_orig/";
+makedir("$outDir/0_orig/") if not -d "$outDir/0_orig/";
 foreach my $genez (sort keys %seq) {
-	my $outTXTFilePos  = $mydir . "0_orig/$genez\_Pos.orig";
-	my $outTXTFileNeg  = $mydir . "0_orig/$genez\_Neg.orig";
-#	my $outTXTFilePosR = $mydir . "0_orig/$genez\_RevPos.orig";
-#	my $outTXTFileNegR = $mydir . "0_orig/$genez\_RevNeg.orig";
+	my $outTXTFilePos  = $outDir . "0_orig/$genez\_Pos.orig";
+	my $outTXTFileNeg  = $outDir . "0_orig/$genez\_Neg.orig";
+#	my $outTXTFilePosR = $outDir . "0_orig/$genez\_RevPos.orig";
+#	my $outTXTFileNegR = $outDir . "0_orig/$genez\_RevNeg.orig";
 	open ($seq{$genez}{outTXTPos}, ">", $outTXTFilePos);
 	open ($seq{$genez}{outTXTNeg}, ">", $outTXTFileNeg);
 #	open ($seq{$genez}{outTXTRevPos}, ">", $outTXTRevFilePos);
@@ -459,10 +314,6 @@ while (my $line = <$inSamFix>) {
 	my $oldStrand = $seq{$genez}{read}{$read};
 	print {$seq{$genez}{outTXTPos}} "$read\tFP\t$pos\n" if $strand eq 0;
 	print {$seq{$genez}{outTXTNeg}} "$read\tFN\t$pos\n" if $strand eq 16;
-#	print {$seq{$genez}{outTXTPos}} "$read\tFP\t$pos\n" . join("", split("", $pos)) . "\n" if $strand eq 0;
-#	print {$seq{$genez}{outTXTNeg}} "$read\tFN\t$pos\n" . join("", split("", $pos)) . "\n" if $strand eq 16;
-	#print {$seq{$genez}{outTXTRevPos}} "$read RP " . join(" ", split("", $neg)) . "\n" if $strand eq 0;
-	#print {$seq{$genez}{outTXTRevNeg}} "$read RN " . join(" ", split("", $pos)) . "\n" if $strand eq 16;
 	$seq{$genez}{pos} ++ if $strand == 0;
 	$seq{$genez}{neg} ++ if $strand == 16;
 	$passedFilterP ++ if $strand == 0;
@@ -515,454 +366,15 @@ Low Quality = $seq{$gene}{lowq}
 
 ##########################################
 
-
-
-
 =comment
-my $finalPositive = "$mydir/PositiveFinal.txt";
-my $finalNegative = "$mydir/NegativeFinal.txt";
-
-print STDERR "${YW}4. Sorting $LPR$positive$YW and $CY$negative$YW by number of CT conversions and removes the number of CT conversions in prepartion for methylation extractor\n";
-print $outLog "${YW}4. Sorting $LPR$positive$YW and $CY$negative$YW by number of CT conversions and removes the number of CT conversions in prepartion for methylation extractor\n";
-if (defined $opt_1 or defined $opt_4) {
-	my $dir4 = defined $opt_1 ? $opt_1 : $opt_4;
-	# If in new folder, finalPositive already exist, then die UNLESS -f is given
-	my ($finalPositiveLine) = `wc -l $finalPositive` =~ /^(\d+) /;
-	my ($finalNegativeLine) = `wc -l $finalNegative` =~ /^(\d+) /;
-	print STDERR "\t${GN}SUCCESS$N: Using previously made files in $dir4:\n\t\t- $CY$finalPositive$N ($finalPositiveLine reads used)\n\t\t- $CY$finalNegative$N ($finalNegativeLine reads used)\n\n";
-	print $outLog "\t${GN}SUCCESS$N: Using previously made files in $dir4:\n\t\t- ($CY$finalPositive$N ($finalPositiveLine reads used)\n\t\t- $CY$finalNegative$N ($finalNegativeLine reads used)\n\n";
-}
-elsif (not defined $opt_f or (defined $opt_f and (not -e $finalPositive or not -e $finalNegative))) {
-#(not -e $finalPositive or not -e $finalNegative) and not defined $opt_f) {
-	#sorts by number of CT conversions, takes top 1000, and removes the number of CT conversions in prepartion for methylation extractor
-	print STDERR "${YW}4. Sorting $positive and $negative by number of CT conversions and removes the number of CT conversions in prepartion for methylation extractor\n";
-	print $outLog "${YW}4. Sorting $positive and $negative by number of CT conversions and removes the number of CT conversions in prepartion for methylation extractor\n";
-	system("sort -T $sortTMP -k1,1rn $positive | cut -f 2- > $finalPositive");
-	system("sort -T $sortTMP -k1,1rn $negative | cut -f 2- > $finalNegative");
-	my ($finalPositiveLine) = `wc -l $finalPositive` =~ /^(\d+) /;
-	my ($finalNegativeLine) = `wc -l $finalNegative` =~ /^(\d+) /;
-	print STDERR "\t${GN}SUCCESS$N: Output:\n\t\t- $CY$finalPositive$N ($finalPositiveLine reads used)\n\t\t- $CY$finalNegative$N ($finalNegativeLine reads used)\n\n";
-	print $outLog "\t${GN}SUCCESS$N: Output:\n\t\t- $CY$finalPositive$N ($finalPositiveLine reads used)\n\t\t- $CY$finalNegative$N ($finalNegativeLine reads used)\n\n";
-}
-else {
-	my ($finalPositiveLine) = `wc -l $finalPositive` =~ /^(\d+) /;
-	my ($finalNegativeLine) = `wc -l $finalNegative` =~ /^(\d+) /;
-	print STDERR "\t${GN}SUCCESS$N: Using previously made files:\n\t\t- $CY$finalPositive$N ($finalPositiveLine reads used)\n\t\t- $CY$finalNegative$N ($finalNegativeLine reads used)\n\n";
-	print $outLog "\t${GN}SUCCESS$N: Using previously made files:\n\t\t- ($CY$finalPositive$N ($finalPositiveLine reads used)\n\t\t- $CY$finalNegative$N ($finalNegativeLine reads used)\n\n";
-}
-
-#runs bismark methylation extractor on top 1000 reads of each strand
-my $CPGpos = $mydir . "CpG_context_" . "PositiveFinal.txt";
-my $CPGneg = $mydir . "CpG_context_" . "NegativeFinal.txt";
-my $CHGpos = $mydir . "CHG_context_" . "PositiveFinal.txt";
-my $CHGneg = $mydir . "CHG_context_" . "NegativeFinal.txt";
-my $CHHpos = $mydir . "CHH_context_" . "PositiveFinal.txt";
-my $CHHneg = $mydir . "CHH_context_" . "NegativeFinal.txt";
-my @bismarkOutput = ($CPGpos, $CPGneg, $CHGpos, $CHGneg, $CHHpos, $CHHneg);
-my $bismarkOutput = $CHGpos;
-
-print STDERR "${YW}5. Running bismark_methylation_extractor on $CY$finalPositive$YW and $CY$finalNegative$N\n";
-print $outLog "${YW}5. Running bismark_methylation_extractor on $CY$finalPositive$YW and $CY$finalNegative$N\n";
-if (defined $opt_1 or defined $opt_6) {
-	my ($dir) = defined $opt_1 ? $opt_1 : $opt_6;
-	print STDERR "\t\t${LGN}SUCCESS$N! Either -1 or -6 is given ($dir) and using previously made methylationPos.txt and methylationNeg.txt from there!\n";
-}
-else {
-	if (not defined $opt_f) {# and (not -e $bismarkOutput or -s $bismarkOutput <= 10))
-		system("bismark_methylation_extractor -s --comprehensive $finalPositive");
-		system("bismark_methylation_extractor -s --comprehensive $finalNegative");
-	}
-	print STDERR "\t${GN}SUCCESS$N: Output: 4-6 files of <CpG/CHG/CHH>$CY\_context_$finalPositive$N:\n";
-	print $outLog "\t${GN}SUCCESS$N: Output: 4-6 files of <CpG/CHG/CHH>$CY\_context_$finalPositive$N:\n";
-	for (my $i = 0; $i < @bismarkOutput; $i++) {
-		next if defined $opt_f;
-		if (not -e $bismarkOutput[$i]) {
-			print $outLog "\t\t$bismarkOutput[$i]: has$LRD 0$N reads!\n"; system("touch $bismarkOutput[$i]") == 0 or die; next;
-		}
-		my ($linecount) = `wc -l $bismarkOutput[$i]` =~ /^(\d+) /;
-		my ($readnumber) = `unique_column.pl $bismarkOutput[$i] 1 | wc -l` =~ /^(\d+)$/;
-		print STDERR "\t\t- $bismarkOutput[$i]: has$LRD 0$N reads!\n" if $linecount == 0;
-		print STDERR "\t\t- $bismarkOutput[$i]: $CY$linecount$N total line and $CY$readnumber$N reads\n" if $linecount > 0;
-		print $outLog "\t\t- $bismarkOutput[$i]: has$LRD 0$N reads!\n" if $linecount == 0;
-		print $outLog "\t\t- $bismarkOutput[$i]: $CY$linecount$N total line and $CY$readnumber$N reads\n" if $linecount > 0;
-	}
-}
-
-#pulls the CHH, CHG, and CpG sites together into methylationPos<gene>.txt and methylationNeg<gene>.txt (takes into account -c option)
-my $methylationPos = $mydir . "methylationPos" . ".txt";
-my $methylationNeg = $mydir . "methylationNeg" . ".txt";
-$methylationPos = $mydir . "methylationPos" . "CG.txt" if(defined $opt_c);
-$methylationNeg = $mydir . "methylationNeg" . "CG.txt" if(defined $opt_c);
-
-
-
-if (defined $opt_1 or defined $opt_6) {
-	my $dir6 = defined $opt_1 ? $opt_1 : $opt_6;
-	if (defined $opt_c) {
-		print STDERR "${YW}6. Combined CHH and CHG (and CpG since -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
-		print $outLog "\n${YW}6. Combined CHH and CHG (and CpG since -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
-	}
-	else {
-		print STDERR "${YW}6. Combined CHH and CHG (not -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
-		print $outLog "\n${YW}6. Combined CHH and CHG (not -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
-	}
-	print STDERR "\t${GN}SUCCESS$N: Using previously made files in $dir6:\n\t\t- $CY$methylationPos$N\n\t\t- $CY$methylationNeg$N\n";
-	print $outLog "\t${GN}SUCCESS$N: Using previously made files in $dir6:\n\t\t- $CY$methylationPos$N\n\t\t- $CY$methylationNeg$N\n";
-}
-elsif(defined $opt_c and (not defined $opt_f or (defined $opt_f and (not -e $methylationPos or not -e $methylationNeg)))) {#if (not defined($opt_f) or not -e $methylationPos or not -e $methylationNeg)
-	print STDERR "${YW}6. Combine CHH and CHG (and CpG since -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
-	print $outLog "\n${YW}6. Combine CHH and CHG (and CpG since -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
-	system("cat $CPGpos $CHGpos $CHHpos | sort -T $homedir/sortTMP/ -n > $methylationPos");# if not -e $methylationPos or -s $methylationPos < 10;
-	system("cat $CPGneg $CHGneg $CHHneg | sort -T $homedir/sortTMP/ -n > $methylationNeg");# if not -e $methylationNeg or -s $methylationNeg < 10;
-}
-elsif (not defined $opt_f or (defined $opt_f and (not -e $methylationPos or not -e $methylationNeg))) {#if (not defined($opt_f) or not -e $methylationPos or not -e $methylationNeg)
-	print STDERR "${YW}6. Combine CHH and CHG (not -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
-	print $outLog "\n${YW}6. Combine CHH and CHG (not -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
-	print "\t6a. cat $CHGpos $CHHpos | sort -T $homedir/sortTMP/ -n > $methylationPos\n";
-	system("cat $CHGpos $CHHpos | sort -T $homedir/sortTMP/ -n > $methylationPos");# if not -e $methylationPos or -s $methylationPos < 10;
-	print "\t6b. cat $CHGneg $CHHneg | sort -T $homedir/sortTMP/ -n > $methylationNeg\n";
-	system("cat $CHGneg $CHHneg | sort -T $homedir/sortTMP/ -n > $methylationNeg");# if not -e $methylationNeg or -s $methylationNeg < 10;
-}
-elsif (defined $opt_f) {
-	if (defined $opt_c) {
-		print STDERR "${YW}6. Combine CHH and CHG (and CpG since -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
-		print $outLog "\n${YW}6. Combine CHH and CHG (and CpG since -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
-	}
-	else {
-		print STDERR "${YW}6. Combine CHH and CHG (not -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
-		print $outLog "\n${YW}6. Combine CHH and CHG (not -c) sites together into$CY methylationPos<gene>.txt$YW and$CY methylationNeg<gene>.txt$N\n";
-	}
-	print "\t${GN}SUCCESS$N: Using previously made files:\n\t\t- $CY$methylationPos$N\n\t\t- $CY$methylationNeg$N\n";
-}
-
-# Get the position of 10 or more consecutive Cs
-
-#gets the position of each conversion (conversions=1; not converted=0)
-my %read; my %info; my %infoGene;
-for (my $i = 0; $i < 2; $i++) {
-	my $analyzeFile = $i == 0 ? $methylationPos : $methylationNeg;
-	
-	print $outLog "\t6.$i. Parsing $CY$analyzeFile$N\n";
-	print "\t6.$i. Parsing $CY$analyzeFile$N\n";
-	open(my $analyze, $analyzeFile) or die "$LRD!!!$N\tFATAL ERROR: Could not open $analyzeFile: $!";
-	
-	# Initialize array @read which are zeroes with length of @seq
-	my $linecount = 0;
-#DELETE
-	my $tempgene;
-	while(my $line = <$analyze>) {
-		chomp($line);
-		print "Done $linecount\n" if $linecount % 1000000 == 0;
-		$linecount ++;
-		next if $line  =~ /^Bismark/;
-		my @fields = split("\t", $line);
-		my $cigar = $fields[5];
-		my $seqs = $fields[9];
-		my $fullReadName = $fields[0];
-		my $chrom = $fields[2];
-		my $readPos = $fields[3];
-		my $readStrand = $fields[1];
-		my $mapQ = $fields[4];
-		my ($read) = $fullReadName =~ /^.+\/(\d+)\/\d+/i;
-		($read) = $fullReadName =~ /^.+\/(\d+)\/ccs/i if not defined($read);
-		($read) = $fullReadName if not defined($read);
-		my ($readDate) = $fullReadName =~ /^(m\d+_\d+_\d+)_/; $readDate = $fullReadName if not defined $readDate;
-		$read = "SEQ_$readDate\_$read";
-
-		my ($readname) = length($fullReadName) > 20 ? $fullReadName =~ /(.{20})$/ : $fullReadName; $readname = "..." . $readname;
-		my ($name, $junk, $gene, $pos, $conv) = @fields; $pos = $pos - 1;
-		$gene = uc($gene);
-		#my @seq = defined $seqz ? @{$seqz} :  @{$seq{$gene}{seq}} if not defined $seqz; #@seq is the gene real sequence in + direction (even if the gene is - strand direction)
-		die "\n\n${LRD}ERROR 404: FATAL ERROR IMMEDIATELY CONTACT STELLA!$N\nREF NUCLEOTIDE IS NOT C (OR G if strand -) BUT THERE IS CONVERSION!!\ngene=$gene strand=$i (0=pos, 1=neg) read=$read pos=$pos conv=$conv value=$read{$gene}{$i}{$read}{$pos} seq(pos-1,pos,pos+1)=$seq{$gene}{seq}[$pos-1], $seq{$gene}{seq}[$pos], $seq{$gene}{seq}[$pos+1]\n" if not defined $seq{$gene}{seq}[$pos] or ($i == 0 and $seq{$gene}{seq}[$pos] !~ /C/i) or ($i == 1 and $seq{$gene}{seq}[$pos] !~ /G/);
-		$tempgene = $gene;
-		print $outLog "\tExample: name=$CY$readname$N, junk=$CY$readStrand$N, gene=$CY$chrom$N, pos=$CY$readPos$N, conv=$CY$mapQ$N\n" if not defined($read{$gene}{$i});
-		$read{$gene}{$i}{$read}{$pos} = $conv =~ /^[xzhu]$/ ? 1 : $conv =~ /^[XZHU]$/ ? 0 : die "$LRD!!!$N\tFATAL ERROR: conversion isn't x/z/h/u (case ins) ($CY$conv$N)in $CY$analyzeFile$N line:\n$line\n\n";
-#		if ($read eq "SEQ_100015") {
-#			print "gene=$gene strand=$i (0=pos, 1=neg) read=$read pos=$pos conv=$conv value=$read{$gene}{$i}{$read}{$pos} seq=$seq[$pos-1], $seq[$pos], $seq[$pos+1]\n";
-#		}
-		$infoGene{$gene}{$read}{min} = $pos if not defined($infoGene{$gene}{$read}{min}) or $infoGene{$gene}{$read}{min} > $pos;
-		$infoGene{$gene}{$read}{max} = $pos if not defined($infoGene{$gene}{$read}{max}) or $infoGene{$gene}{$read}{max} < $pos;
-	}
-	#print "Min = $infoGene{$tempgene}{SEQ_100015}{min}\n";
-	#print "Max = $infoGene{$tempgene}{SEQ_100015}{max}\n";
-}
-	
-print STDERR "\t${GN}SUCCESS$N: Done parsing methylationPos and methylationNeg files!\n";
-print $outLog "\n\t${GN}SUCCESS$N: Done parsing methylationPos and methylationNeg files!\n";
-
-
-	
-my %read; my %info; my %infoGene;
-print STDERR "${YW}7. Converting each gene's sequence position and methylation data\n$N";
-print $outLog "${YW}7. Converting each gene's sequence position and methylation data\n$N";
-
-open (my $SEQPOSOUT, ">", "$mydir/SEQ_GENE_POS.tsv") or die;
-open (my $SEQNEGOUT, ">", "$mydir/SEQ_GENE_NEG.tsv") or die;
-foreach my $gene (sort keys %seq) {
-#	next if defined("$mydir/SEQ_GENE_POS.tsv") and defined("$mydir/SEQ_GENE_NEG.tsv");
-	print $outLog "\t- Processing gene $CY$gene$N\n";
-	my $filePos = $opt_c ? "$mydir/$gene\_CG_POS" : "$mydir/$gene\_POS";
-	my $fileNeg = $opt_c ? "$mydir/$gene\_CG_NEG" : "$mydir/$gene\_NEG";
-	
-	my @seq = @{$seq{$gene}{seq}}; #@seq is the gene real sequence in + direction (even if the gene is - strand direction)
-	my %ref = %{convert_seq(\@seq)};
-	print $outLog "\tReal sequence: " . join("", @seq[0..50]) . " ...\n" if @seq > 50;
-	print $outLog "\tReal sequence: " . join("", @seq[0..@seq-1]) . " ...\n" if @seq <= 50;
-	open(my $FILEPOS, ">", "$filePos.tsv") or die "Could not open $filePos.tsv: $!";
-	open(my $FILENEG, ">", "$fileNeg.tsv") or die "Could not open $fileNeg.tsv: $!";
-	open(my $FILEPOSFA, ">", "$filePos.customfa") or die "Could not open $filePos.customfa: $!";
-	open(my $FILENEGFA, ">", "$fileNeg.customfa") or die "Could not open $fileNeg.customfa: $!";
-	print $FILEPOS "#READ   ";
-	print $FILENEG "#READ   ";
-	# print ref header
-	foreach my $strand (sort keys %{$read{$gene}}) {
-		for (my $i = 0; $i < @seq; $i++) {
-			my $ref = $ref{$strand}[$i];
-			print $FILEPOS "\t$ref" if $strand == 0;
-			print $FILENEG "\t$ref" if $strand == 1;
-			print $FILEPOS "\n" if $i == @seq - 1 and $strand == 0;
-			print $FILENEG "\n" if $i == @seq - 1 and $strand == 1;
-		}
-	}
-	my $totalReadStrand = (keys %{$read{$gene}});
-	print $outLog "\t\tGene=$gene, total strand = $totalReadStrand\n";
-	foreach my $strand (sort keys %{$read{$gene}}) {
-		$totalReadStrand = (keys %{$read{$gene}{$strand}});
-
-		print $outLog "\t\tGene=$gene, strand=$strand, has total read in strand = $totalReadStrand\n";
-		foreach my $name (sort keys %{$read{$gene}{$strand}}) {
-			my @value; my @fasta; my @hmmval; #valueJ=joined
-			for (my $i = 0; $i < @seq; $i++) {
-				my $currvalue = $read{$gene}{$strand}{$name}{$i};
-				my $ref = $ref{$strand}[$i];
-				
-				# B = border, C = C used, P = CpG used, N = Non C or CpG if not opt_c
-				# if at border, just put as no data (in case of C of CpG)
-				if ($i < $infoGene{$gene}{$name}{min} or $i > $infoGene{$gene}{$name}{max} or $ref eq "B") {
-					$value[$i] = 6; $hmmval[$i] = 0;#$value[$i];
-				}
-				elsif ($ref eq "N") {
-					$value[$i] = 2; $hmmval[$i] = 0;#$value[$i];
-				}
-				elsif ($ref eq "C") {
-#					$value[$i] = defined($currvalue) ? $currvalue : 6; $hmmval[$i] = $value[$i];
-					$value[$i] = defined($currvalue) ? $currvalue : 6; 
-					$hmmval[$i] = defined($currvalue) ? $currvalue : 0;#$value[$i];
-				}
-				elsif ($ref eq "P") {
-#					$value[$i] = defined($currvalue) ? $currvalue + 3 : 6; 
-					$value[$i] = defined($currvalue) ? $currvalue + 3 : 6; 
-					$hmmval[$i] = defined($currvalue) ? $currvalue : 0;
-				}
-				else {
-					die "\n\nSomething very wrong happened at read=$name, i=$i\n\n";
-				}
-			}
-#			for (my $i = 0; $i < @seq; $i+=50) {
-#				print "$i: ";
-#				for (my $j = 0; $j < 50; $j++) {
-#					printf "%d", $j / 10 if $j % 10 == 0;
-#					printf " " if $j % 10 != 0;
-#					print " " if $j != 49;
-#					print "\n" if $j == 49;
-#				}
-#				print "$i: @seq[$i..$i+50]\n" if $i < @seq - 50;
-#				print "$i: @value[$i..$i+50]\n" if $i < @seq - 50;
-#				print "$i: @seq[$i..@seq-1]\n" if $i >= @seq - 50;
-#				print "$i: @value[$i..@value-1]\n" if $i >= @seq - 50;
-#			}
-#			die "NAME = $name\n";
-			print $FILEPOS   "$name\t" . join("\t", @value) . "\n" if $strand == 0;
-			print $FILENEG   "$name\t" . join("\t", @value) . "\n" if $strand == 1;
-			print $FILEPOSFA ">$name\n" . join("", @hmmval) . "\n" if $strand == 0;
-			print $FILENEGFA ">$name\n" . join("", @hmmval) . "\n" if $strand == 1;
-		}
-	}
-	close $FILEPOS;
-	close $FILENEG;
-	
-	# To check: fastaFromBed -fi $geneIndexesFa -bed test.bed -fo test.fa && cat test.fa
-	# ALL MUST BE C
-	my ($filePosLine) = `wc -l $filePos.tsv` =~ /^(\d+) /;
-	my ($fileNegLine) = `wc -l $fileNeg.tsv` =~ /^(\d+) /;
-	print STDERR "\t${GN}SUCCESS$N: Done parsing $YW$gene$N Output:\n\t\t- $CY$filePos.tsv$N ($filePosLine reads)\n\t\t- $CY$fileNeg.tsv$N ($fileNegLine reads)\n";
-	print $outLog "\t${GN}SUCCESS$N: Done parsing $YW$gene$N Output:\n\t\t- $CY$filePos.tsv$N ($filePosLine reads)\n\t\t- $CY$fileNeg.tsv$N ($fileNegLine reads)\n\n";
-	#system("mv $filePos.tsv $fileNeg.tsv $filePos.customfa $fileNeg.customfa $filePos.trans $fileNeg.trans $mydir/");
-	my ($finalmd5) = -e "$filePos.tsv" ? "$filePos.tsv:" .`md5sum $filePos.tsv` : "md5sum $filePos.tsv DOES NOT EXIST!\n";
-	($finalmd5)    = -e "$fileNeg.tsv" ? "$fileNeg.tsv:" .`md5sum $fileNeg.tsv` : "md5sum $fileNeg.tsv DOES NOT EXIST!\n";
-	($finalmd5)    = -e "$filePos.customfa" ? "$filePos.customfa:" .`md5sum $filePos.customfa` : "md5sum $filePos.customfa DOES NOT EXIST!\n";
-	($finalmd5)    = -e "$fileNeg.customfa" ? "$fileNeg.customfa:" .`md5sum $fileNeg.customfa` : "md5sum $fileNeg.customfa DOES NOT EXIST!\n";
-	print $outLog "$finalmd5\n";
-}
-
-if ($opt_e) {
-	foreach my $gene (sort keys %seq) {		print $outLog "$mydir/exon/$gene.exon:" . `md5sum $mydir/exon/$gene.exon`;
-	}
-}
-my @seq;
-
-if ($opt_H) {
-	print "${YW}8a. Running HMM$N\n\n";
-	my $countGene = 1; my $totalGene = (keys %seq);
-	foreach my $gene (sort keys %seq) {
-		print "- (${LPR}$countGene/$totalGene$N)\tRunning HMM for gene: $CY$gene$N\n";
-		my $filePos = $opt_c ? "$mydir/$gene\_CG_POS" : "$mydir/$gene\_POS";
-		my $fileNeg = $opt_c ? "$mydir/$gene\_CG_NEG" : "$mydir/$gene\_NEG";
-		print "\tCommand:$CY Pacbio_Heatmap.pl -l $minPeakLength $filePos.tsv $time$N\n"; 
-		my $log1 = `Pacbio_Heatmap.pl -l 40 $filePos.tsv $time`; print $outLog "\nHMM:\n$log1\n";
-		$countGene ++;
-		if (-e "$filePos.HMMPEAK") {
-			system("fastaFromBed -fi $geneIndexesFa -bed $filePos.HMMPEAK.bed -fo $filePos.HMMPEAK.fa -name");
-		}
-		if (-e "$fileNeg.HMMPEAK") {
-			system("fastaFromBed -fi $geneIndexesFa -bed $fileNeg.HMMPEAK.bed -fo $fileNeg.HMMPEAK.fa -name");
-		}
-	}
-}
-print $outLog "${YW}8. determines which regions of conversion are R-loops based on conversion threshold$N\n";
-print STDERR "${YW}8. determines which regions of conversion are R-loops based on conversion threshold$N\n";
-
-=cut
-
-open (my $outReport, ">", "$mydir/foot.report") or die "Cannot write to $mydir/foot.report: $!\n";
 foreach my $gene (sort keys %seq) {
 	my @seq = @{$seq{$gene}{seq}};
-	my $finalPos = $mydir . "$gene\_Pos" . ($opt_t*100) . ".txt";
-	my $finalNeg = $mydir . "$gene\_Neg" . ($opt_t*100) . ".txt";
-	$finalPos = $mydir . "$gene\_Pos" . ($opt_t*100) . "CG.txt" if($opt_c);
-	$finalNeg = $mydir . "$gene\_Neg" . ($opt_t*100) . "CG.txt" if($opt_c);
-	my $finalPos_NOPEAK = $mydir . "$gene\_Pos" . ($opt_t*100) . "_NOPEAK.txt";
-	my $finalNeg_NOPEAK = $mydir . "$gene\_Neg" . ($opt_t*100) . "_NOPEAK.txt";
-	$finalPos_NOPEAK = $mydir . "$gene\_Pos" . ($opt_t*100) . "_NOPEAK_CG.txt" if($opt_c);
-	$finalNeg_NOPEAK = $mydir . "$gene\_Neg" . ($opt_t*100) . "_NOPEAK_CG.txt" if($opt_c);
-#	if (not $opt_f) {
-		open (my $FINALPOS, ">", $finalPos) or die "Could not open $finalPos: $!";
-		open (my $FINALNEG, ">", $finalNeg) or die "Could not open $finalNeg: $!";
-		open (my $FINALPOS_NOPEAK, ">", "$finalPos_NOPEAK") or die "Could not open $finalPos: $!";
-		open (my $FINALNEG_NOPEAK, ">", "$finalNeg_NOPEAK") or die "Could not open $finalNeg: $!";
-		for(my $strand=0; $strand<2; $strand++)
-		{
-			my $filePos = defined($opt_c) ? "$mydir/$gene\_CG_POS" : "$mydir/$gene\_POS";
-			my $fileNeg = defined($opt_c) ? "$mydir/$gene\_CG_NEG" : "$mydir/$gene\_NEG";
-			my $fileLast = $strand == 0 ? "$filePos.tsv" : "$fileNeg.tsv";
-			print $outLog "\t- Doing gene $CY$gene$N ($fileLast)\n";
-			print $outLog "$fileLast doesn't exist!\n" and next if not -e $fileLast;
-			print $outLog "$fileLast has no line!\n" and next if `wc -l < $fileLast` == 0;
-			open (my $fileLastIn, "<", $fileLast) or print $outLog "Cannot open $fileLast\n" and die "Cannot open $fileLast: $!\n";
-			my ($fileLastCount) = `wc -l $fileLast` =~ /^(\d+) /;
-			
-			my %peak;
-			my $start = 1;
-			my $end = $minPeakLength;
-			my $linecount = 0;
-			my $LENGTH = 0; my $NAME = "NA";
-			while (my $lineFinal = <$fileLastIn>)
-			{
-				$linecount ++;
-				chomp($lineFinal);
-				print $outLog "\tDone $GN$linecount$N\n" if $linecount % 500 eq 0;
-				print "\t$fileLast: Done $GN$linecount$N / $fileLastCount\n" if $linecount % 500 eq 0;
-				next if $lineFinal =~ /^\#READ/;
-				my ($name, @fields) = split("\t", $lineFinal);
-				my $readLength = @fields;
-				if ($readLength != $LENGTH and $NAME ne "NA") {
-					print "PREVIOUS: name=$CY$NAME$N, length=$LGN$LENGTH$N\n";
-					print "CURRENT : name=$CY$name$N, length=$LGN$readLength$N\n";
-				}
-				$LENGTH = $readLength; $NAME = $name;
-	
-				$peak{$name}{length} = 0;
-				#0= not converted (grey) # same
-				#1= converted (green)   # same
-				#2= non-C (white)       # same
-				#3= non-converted CpG (blue) # is non converted
-				#4= converted CpG  (black) # is converted
-				#5= converted CpG in R-loop (purple) # conv CPG
-				#6= no data
-				#9= converted C in R-loop (red) # not exist
-				# conversion of mine into Jenna's: 3 (no data) becomes 2 (non C)
-				
-				# peak call based on threshold
-				my @peak; my $ispeak = 0;
-				for (my $i = 0; $i < @fields - $minPeakLength; $i++)
-				{
-				#	print "8. GENE=$gene: name=$name, Doing Peak Call!\n" if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
-					$peak{$name}{length} ++ if $fields[$i] =~ /^[1459]$/;
-					my $chunk = join("", @fields[$i..($i+$minPeakLength)]);
-					# calculate % conv from start to end, where end is minPeakLength (e.g. 100 then 1 to 100)
-					
-					# calculate conC (converted C) and nonConC (non converted)
-					# calculate % conv
-					# if too few C, (Alex Meissner uses 5 as threshold) we can't call it as anything ... Meissner et al (Nature 2012)
-					# if % conv is more than thershold, then turn 1 (conv C) into 9 and 4 (conv C in CpG) into 5
-					my ($conC)    = $chunk =~ tr/1459/1459/;
-					my ($nonConC) = $chunk =~ tr/03/03/;
-					
-					my $conPer = $conC + $nonConC >= 5 ? $conC / ($conC + $nonConC) : 0;
-					if($conPer >= $opt_t)
-					{
-						my $checkPeak = 0;
-#= CUT1
-#= CUT1
-						if ($checkPeak == 0) {
-							$ispeak = 1;
-							$peak[$i] = 1; # from i to i + minPeakLength is a peak
-							for(my $j = $i; $j < $i + $minPeakLength; $j++)
-							{
-								$fields[$j] = 9 if $fields[$j] == 1;
-								$fields[$j] = 5 if $fields[$j] == 4;
-							}
-						}
-						else {
-							$peak[$i] = 0;
-							$ispeak = 0;
-						}
-					}
-					else {
-						$peak[$i] = 0;
-					}
-				}
-				$peak{$name}{field} = join("\t", @fields);
-				
-				# if it's a read that has peak, then we need to put the peak length etc so it'll be presorted for R
-				if ($ispeak == 1) {
-					my ($maxLength) = 0; my $length = 0; my $lastPos = -2;
-					for (my $i = 0; $i < @peak; $i++) {
-						if ($lastPos != -2 and $lastPos == $i - 1 and $peak[$i] == 1) {
-							$length ++; $lastPos = $i;
-							$maxLength = $length if $maxLength < $length;
-						}
-						else {
-							$length = 0; $lastPos = -2;
-						}
-					}
-					$peak{$name}{length} = $maxLength;
-					$peak{$name}{peak} = 1;
-				}
-				else {$peak{$name}{peak} = 0;}
-			}
-			my $peakcount = 0; my $nopeak = 0; my $total = 0; my $maxAllLength = 0;
-			foreach my $name (sort {$peak{$b}{peak} <=> $peak{$a}{peak} || $peak{$b}{length} <=> $peak{$a}{length}} keys %peak)
-			{
-				#last if $peak{$name}{peak} == 0 and $nopeak > 1000;
-				#$peak{$name}{field} =~ tr/19/91/;
-				print $FINALPOS "$name\t$peak{$name}{field}\n"        if $strand == 0 and $peak{$name}{peak} == 1;
-				print $FINALPOS_NOPEAK "$name\t$peak{$name}{field}\n" if $strand == 0 and $peak{$name}{peak} == 0;
-				print $FINALNEG "$name\t$peak{$name}{field}\n"        if $strand == 1 and $peak{$name}{peak} == 1;
-				print $FINALNEG_NOPEAK "$name\t$peak{$name}{field}\n" if $strand == 1 and $peak{$name}{peak} == 0;
-				$peakcount ++ if $peak{$name}{peak} != 0;
-				$nopeak ++ if $peak{$name}{peak} == 0;
-				$total ++;
-				$maxAllLength = $peak{$name}{length} if $maxAllLength < $peak{$name}{length};
-			}
-			print $outLog "$finalPos\tlength=$maxAllLength\tpeak=$peakcount\tnopeak=$nopeak\ttotal=$total\n" if $strand == 0;
-			print $outLog "$finalNeg\tlength=$maxAllLength\tpeak=$peakcount\tnopeak=$nopeak\ttotal=$total\n" if $strand == 1;
-		}
-		close $FINALPOS; close $FINALNEG;
-		close $FINALPOS_NOPEAK;
-		close $FINALNEG_NOPEAK;
-#	}	
-	# Do edge clearing
+	my $finalPos = $outDir . "0_orig/$gene\_Pos.orig";
+	my $finalNeg = $outDir . "0_orig/$gene\_Neg.orig";
+
+=PART6
+=PART6END
+
 	my $lotsOfC = defined $lotsOfC{$gene} ? $lotsOfC{$gene} : "";
 	my $ucgene = uc($gene);
 	system("footLoop_addition.pl $finalPos $ucgene \"$lotsOfC\"") == 0 or print "Cannot do footLoop_addition.pl $ucgene $finalPos: $!\n";
@@ -971,7 +383,6 @@ foreach my $gene (sort keys %seq) {
 	my ($finalNegLine) = `wc -l $finalNeg` =~ /^(\d+) /;
 	
 	print $outLog "\n\t${GN}SUCCESS$N: Gene $CY$gene$N Output:\n\t\t- $CY$finalPos$N ($finalPosLine reads)\n\t\t- $CY$finalNeg$N ($finalNegLine reads)\n\n";
-	print $outReport "\n\t${GN}SUCCESS$N: Gene $CY$gene$N Output:\n\t\t- $CY$finalPos$N ($finalPosLine reads)\n\t\t- $CY$finalNeg$N ($finalNegLine reads)\n\n";
 	print STDERR "\t${GN}SUCCESS$N: Gene $CY$gene$N Output:\n\t\t- $CY$finalPos$N ($finalPosLine reads)\n\t\t- $CY$finalNeg$N ($finalNegLine reads)\n\n";
 
 
@@ -987,23 +398,24 @@ foreach my $gene (sort keys %seq) {
 	#6= no data (grey)
 	#9= converted C in R-loop (red) # not exist
 	my $threshold = $opt_t * 100;
-	my $finalPosPDF = $mydir . "$mydirname\_$gene\_Pos" . ($opt_t*100) . ".pdf";
-	my $finalNegPDF = $mydir . "$mydirname\_$gene\_Neg" . ($opt_t*100) . ".pdf";
-	$finalPosPDF = $mydir . "$mydirname\_$gene\_Pos" . ($opt_t*100) . "CG.pdf" if($opt_c);
-	$finalNegPDF = $mydir . "$mydirname\_$gene\_Neg" . ($opt_t*100) . "CG.pdf" if($opt_c);
-	my $finalPosPDF_NOPEAK = $mydir . "$mydirname\_$gene\_Pos" . ($opt_t*100) . "_NOPEAK.pdf";
-	my $finalNegPDF_NOPEAK = $mydir . "$mydirname\_$gene\_Neg" . ($opt_t*100) . "_NOPEAK.pdf";
-	$finalPosPDF_NOPEAK = $mydir . "$mydirname\_$gene\_Pos" . ($opt_t*100) . "_NOPEAK_CG.pdf" if($opt_c);
-	$finalNegPDF_NOPEAK = $mydir . "$mydirname\_$gene\_Neg" . ($opt_t*100) . "_NOPEAK_CG.pdf" if($opt_c);
-	my $finalPosPNG = $mydir . "$mydirname\_$gene\_Pos" . ($opt_t*100) . ".png";
-	my $finalNegPNG = $mydir . "$mydirname\_$gene\_Neg" . ($opt_t*100) . ".png";
-	$finalPosPNG = $mydir . "$mydirname\_$gene\_Pos" . ($opt_t*100) . "CG.png" if($opt_c);
-	$finalNegPNG = $mydir . "$mydirname\_$gene\_Neg" . ($opt_t*100) . "CG.png" if($opt_c);
-	my $finalPosPNG_NOPEAK = $mydir . "$mydirname\_$gene\_Pos" . ($opt_t*100) . "_NOPEAK.png";
-	my $finalNegPNG_NOPEAK = $mydir . "$mydirname\_$gene\_Neg" . ($opt_t*100) . "_NOPEAK.png";
-	$finalPosPNG_NOPEAK = $mydir . "$mydirname\_$gene\_Pos" . ($opt_t*100) . "_NOPEAK_CG.png" if($opt_c);
-	$finalNegPNG_NOPEAK = $mydir . "$mydirname\_$gene\_Neg" . ($opt_t*100) . "_NOPEAK_CG.png" if($opt_c);
-	my $Rscript = "$mydir/$mydirname\_$gene\_MakeHeatmap.R";
+	my $finalPosPDF = $outDir . "$outDirname\_$gene\_Pos" . ($opt_t*100) . ".pdf";
+	my $finalNegPDF = $outDir . "$outDirname\_$gene\_Neg" . ($opt_t*100) . ".pdf";
+	$finalPosPDF = $outDir . "$outDirname\_$gene\_Pos" . ($opt_t*100) . "CG.pdf" if($opt_c);
+	$finalNegPDF = $outDir . "$outDirname\_$gene\_Neg" . ($opt_t*100) . "CG.pdf" if($opt_c);
+	my $finalPosPDF_NOPEAK = $outDir . "$outDirname\_$gene\_Pos" . ($opt_t*100) . "_NOPEAK.pdf";
+	my $finalNegPDF_NOPEAK = $outDir . "$outDirname\_$gene\_Neg" . ($opt_t*100) . "_NOPEAK.pdf";
+	$finalPosPDF_NOPEAK = $outDir . "$outDirname\_$gene\_Pos" . ($opt_t*100) . "_NOPEAK_CG.pdf" if($opt_c);
+	$finalNegPDF_NOPEAK = $outDir . "$outDirname\_$gene\_Neg" . ($opt_t*100) . "_NOPEAK_CG.pdf" if($opt_c);
+	my $finalPosPNG = $outDir . "$outDirname\_$gene\_Pos" . ($opt_t*100) . ".png";
+	my $finalNegPNG = $outDir . "$outDirname\_$gene\_Neg" . ($opt_t*100) . ".png";
+	$finalPosPNG = $outDir . "$outDirname\_$gene\_Pos" . ($opt_t*100) . "CG.png" if($opt_c);
+	$finalNegPNG = $outDir . "$outDirname\_$gene\_Neg" . ($opt_t*100) . "CG.png" if($opt_c);
+	my $finalPosPNG_NOPEAK = $outDir . "$outDirname\_$gene\_Pos" . ($opt_t*100) . "_NOPEAK.png";
+	my $finalNegPNG_NOPEAK = $outDir . "$outDirname\_$gene\_Neg" . ($opt_t*100) . "_NOPEAK.png";
+	$finalPosPNG_NOPEAK = $outDir . "$outDirname\_$gene\_Pos" . ($opt_t*100) . "_NOPEAK_CG.png" if($opt_c);
+	$finalNegPNG_NOPEAK = $outDir . "$outDirname\_$gene\_Neg" . ($opt_t*100) . "_NOPEAK_CG.png" if($opt_c);
+
+	my $Rscript = "$outDir/$outDirname\_$gene\_MakeHeatmap.R";
 	open(my $out, ">", $Rscript) or die "Can't print to $Rscript: $!\n";
 
 	# Breaks and color for R script
@@ -1047,7 +459,7 @@ foreach my $gene (sort keys %seq) {
 			my %RBox;
 			foreach my $lines (sort @{$box->{$genez}}) {
 				my ($chr, $beg, $end, $geneBox) = split("\t", $lines);
-				#my $beg2 = $geneIndex{$genez};
+				#my $beg2 = $geneIndexes{$genez};
 				#if ($beg > $beg2) {
 				#	$beg -= $beg2;
 				#	$end -= $beg2;
@@ -1203,20 +615,44 @@ foreach my $gene (sort keys %seq) {
 	system($cmd) if -e $Rscript and -s $Rscript > 10;
 	system("rm Rplots.pdf") if -e "Rplots.pdf";
 }
-close $outReport;
 print STDERR "\n${LPR}If there is not PDF made from step (8) then it's due to too low number of read/peak$N\n\n";
-#sub getDate {
-#	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time); $year += 1900;
-#	my @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
-#	my $date = "$mday $months[$mon] $year $hour:$min:$sec";
-#	my $timenow = $hour * 3600 + $min * 60 + $sec;
-#	return($date);
-#}
+=cut
 
-sub linecount {
-   my ($input1) = @_;
-   my ($linecount) = `wc -l $input1` =~ /^(\d+)/;
-   return $linecount;
+sub parse_geneIndexesFile {
+	my ($geneIndexesFile, $geneIndexesFa, $outLog) = @_;
+	my $geneIndexes;
+	open (my $geneIndexIn, "<", $geneIndexesFile) or die "Cannot read from $geneIndexesFile: $!\n";
+	while (my $line = <$geneIndexIn>) {
+		chomp($line);
+		my ($chr, $beg, $end, $gene) = split("\t", $line);
+		$gene = uc($gene);
+		print $outLog "\tgeneIndexesFile=$geneIndexesFile,gene=$gene,beg=$beg,end=$end\n";
+		$geneIndexes->{$gene} = $beg;
+	}
+	close $geneIndexIn;
+
+	
+	print STDERR "\n${YW}1. Getting fasta sequence from $geneIndexesFile into $CY$geneIndexesFa$N\n";
+	print $outLog "\n${YW}1. Getting fasta sequence from $geneIndexesFile into $CY$geneIndexesFa$N\n";
+	if ($bismark_folder_exist == 0) {
+		print $outLog "\t- Running ${YW}bedtools getfasta$N -fi $opt_g -bed $geneIndexesFile -fo $geneIndexesFa -name\n";
+		system("fastaFromBed -fi $opt_g -bed $geneIndexesFile -fo $geneIndexesFa -name") == 0 ? print $outLog "\t${GN}SUCCESS$N: Output: $CY$geneIndexesFa$N\n" : die "Failed to run bedtools: $!\n";
+		system("perl -pi -e 'tr/acgtn/ACGTN/' $geneIndexesFa") == 0 or die "\n$LRD!!!$N\tFailed to convert atgc into ATGC\n";
+	}
+	return ($geneIndexes, $geneIndexesFa);
+}
+
+sub get_geneIndexes_fasta {
+	my $geneIndexesName = getFilename($geneIndexesFile);
+	print "GENE indexes=$geneIndexesFile, name = $geneIndexesName\n";
+	if ($x eq 0 and $y eq 0) {
+		system("/bin/cp $geneIndexesFile $outDir/$geneIndexesName\_$x\_$y\_bp.bed") == 0 or die "Failed to copy $geneIndexesFile to $outDir/$geneIndexesName\_$x\_$y\_bp.bed: $!\n";
+	}
+	else {
+		system("bedtools_bed_change.pl -m -x $x -y $y -i $geneIndexesFile -o $outDir/$geneIndexesName\_$x\_$y\_bp.bed") == 0 or die "Failed to get (beg $x, end $y) bp of $geneIndexesFile!\n";
+	}
+	$geneIndexesFile = "$outDir/$geneIndexesName\_$x\_$y\_bp.bed";
+	return($geneIndexesFile);
 }
 
 sub convert_seq {
@@ -1253,22 +689,38 @@ sub convert_seq {
 
 sub sanityCheck {
 
-my $usage = "\nUsage: $YW$0$N ${GN}[options]$N [-r $CY<read.fq>$N OR -S $CY<read.bismark.sam>$N -n $PR<output folder>$N -g $GN<genome.fa>$N -i $YW<geneCoordinates.bed>$N
+my $usageshort = "\nUsage: $YW$0$N [options..]
+\t$CY-r$N read.fq
+\t$LPR-n$N output_dir
+\t$LGN-g$N genome.fa
+\t$YW-i$N geneIndexes.bed
+\t$CY-x$N [0] left buffer in bp e.g. -100 for CALM3
+\t$LPR-y$N [0] right buffer in bp e.g. 100 for CALM3
+\t$LGN-L$N [500] minimum read length (percent: 50p)
+\t$YW-q$N [0] minimum map quality (0-50)
+\t$CY-Z$N toggle to use not-stringent mapping
+\t$LPR-F$N toggle to re-map if .sam file is present in output_dir
+
+$LRD IMPORTANT!!$N If you see a lot of 'Chromosomal sequence could not be extracted for..' try adding $YW-x -10 -y 10$N
+If you still see then try adding $YW-x -50 -y 50$N
+
+";
+
+#Usage: $YW$0$N ${GN}[options]$N [-r $CY<read.fq>$N OR -S $CY<read.bismark.sam>$N -n $PR<output folder>$N -g $GN<genome.fa>$N -i $YW<geneCoordinates.bed>$N
+my $usage = "
+${LGN}Options [default]:$N
+-x $LGN<Left pad [0]>$N -y $LGN<Right pad [0]>$N -t $LGN<threshold [0.65]>$N -l $LGN<min peak length [100]>$N -L $LGN<min READ length [500]>$N -q $LGN<min map quality [0]>$N
+
+Example:
+$YW$0$N\n\t$CY-r$N example/pacbio12ccs.fq \n\t$PR-n$N myoutput\n\t$GN-g$N example/hg19.fa.fa\n\t$YW-i$N example/pacbio12index.bed\n\t-x-100\n\t-y 100\n\t-l 100\n\t-L 1000\n\t-t 0.5
 
 $LGN-Z$N: Make mapping parameters not stringent. 
 Bismark uses bowtie2 mapping parameters:
 - stringent (default) formula: --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3
 - not stringent (-Z)  formula: --rdg 2,1 --rfg 2,1 --score_min L,0,-0.8
 
-Use -H for longer explanation about bismark parameters above.
+-H: Longer explanation about bismark parameters above.
 
-Example:
-$YW$0$N -r ${CY}example/pacbio12ccs.fq$N -n ${PR}myoutput$N -g$GN example/hg19.fa.fa$N -i$YW example/pacbio12index.bed$N -x -10 -y 10
-
-${LGN}Options [default]:$N
--x $LGN<Left pad [0]>$N -y $LGN<Right pad [0]>$N -t $LGN<threshold [0.65]>$N -l $LGN<min peak length [100]>$N -L $LGN<min READ length [500]>$N -q $LGN<min map quality [0]>$N
-
-$LRD IMPORTANT!! If you see a lot of 'Chromosomal sequence could not be extracted for..' ADD -x -10 -y 10!$N
 
 (..continued; Use -H to display longer help!)
 
@@ -1353,64 +805,31 @@ All converted Cs and a 5\% mismatches (0.05*(2500-531)) and 1\% gap= 100bp misma
 
 die "\n$usage\n" if defined $opt_h;
 die "\n$usage_long\n" if defined $opt_H;
-die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -n <output directory> not defined\n\n" if not defined($opt_n);
-die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -r <read.fq> and $opt_s <read.sam> both not defined\n\n" if not defined($opt_r) and not defined($opt_S);
-die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -i <geneindex.bed> not defined\n\n" if not defined($opt_i);
-die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -l <min peak length in bp> must be positive integer!\n\n" if defined($opt_l) and $opt_l !~ /^\d+$/;
-die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -L <min read length in bp> must be positive integer!\n\n" if defined($opt_L) and $opt_L !~ /p$/ and $opt_L !~ /^\d+$/;
-die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -g <ref_genome.fa [hg19.fa]> not defined\n\n" if not defined($opt_g);
 my $read0 = defined($opt_r) ? $opt_r : "FALSE";
 my $sam0 = defined($opt_S) ? $opt_S : "FALSE";
-die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -r $read0 and -S $sam0 both DOES NOT EXIST (provide at least one!)\n\n${LRD}########## FATAL ERROR ##########\n$N$usage" if (defined($opt_r) and not -e ($opt_r)) or (defined($opt_S) and not -e ($opt_S));
-die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -i $opt_i DOES NOT EXIST\n\n${LRD}########## FATAL ERROR ##########\n$N$usage" if not -e ($opt_i);
-die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -g $opt_g DOES NOT EXIST\n\n${LRD}########## FATAL ERROR ##########\n$N$usage" if not -e ($opt_g);
-die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -S $CY$opt_S$N exists but seems to be empty!\n$N$usage" if defined($opt_S) and (not -e $opt_S or (-s $opt_S < 10));
 
-	if (not -d "$homedir/sortTMP/") {
-		system("mkdir $homedir/sortTMP/") == 0 or die "Failed to make directory $homedir/sortTMP/: $!\n";
+die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -r <read.fq> not defined\n\n############################################\n\n$usageshort\n\n" if not defined($opt_r);
+die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -n <output directory> not defined\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not defined($opt_n);
+die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -i <geneindex.bed> not defined\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not defined($opt_i);
+die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -l <min peak length in bp> must be positive integer!\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if defined($opt_l) and $opt_l !~ /^\d+$/;
+die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -L <min read length in bp> must be positive integer!\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if defined($opt_L) and $opt_L !~ /p$/ and $opt_L !~ /^\d+$/;
+die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -g <ref_genome.fa [hg19.fa]> not defined\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not defined($opt_g);
+die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -r $read0 and -S $sam0 both DOES NOT EXIST (provide at least one!)\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if (defined($opt_r) and not -e ($opt_r)) or (defined($opt_S) and not -e ($opt_S));
+die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -i $opt_i DOES NOT EXIST\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not -e ($opt_i);
+die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -g $opt_g DOES NOT EXIST\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not -e ($opt_g);
+die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -S $CY$opt_S$N exists but seems to be empty!\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if defined($opt_S) and (not -e $opt_S or (-s $opt_S < 10));
+
+	if (not -d "$footLoopDir/.sortTMP/") {
+		system("mkdir $footLoopDir/.sortTMP/") == 0 or die "Failed to make directory $footLoopDir/.sortTMP/: $!\n";
 	}
 
 	my ($PositiveFinal, $NegativeFinal, $MethylationPos, $methylationNeg);
 
-	my $mydir = myFootLib::getFullpath("$opt_n") . "/";
-	my @dir = split("/", $mydir);
-	my $mydirname = $dir[@dir-1];
-	   $mydirname = $dir[@dir-2] if not defined $mydirname or (defined $mydirname and $mydirname =~ /^[\s]*$/);
-	if (defined $opt_1 or defined $opt_4) {
-		my $finalPositive = $mydir . "/PositiveFinal.txt";
-		my $finalNegative = $mydir . "/NegativeFinal.txt";
-		print "\tWarning: Step 4: either -1 or -4 is given, but $finalPositive and $finalNegative already exists! Moved these into $finalPositive.backup and $finalNegative.backup!\n" if (-e $finalPositive or -e $finalNegative);
-		system("/bin/mv $finalPositive $finalPositive.backup") == 0 or die "Failed to mv $finalPositive to $finalPositive.backup: $!\n" if -e "$finalPositive";
-		system("/bin/mv $finalNegative $finalNegative.backup") == 0 or die "Failed to mv $finalNegative to $finalNegative.backup: $!\n" if -e "$finalNegative";	
+	my $outDir = myFootLib::getFullpath("$opt_n") . "/";
+	my @dir = split("/", $outDir);
+	my $outDirname = $dir[@dir-1];
+	   $outDirname = $dir[@dir-2] if not defined $outDirname or (defined $outDirname and $outDirname =~ /^[\s]*$/);
 
-		# Create symbolic link
-		my $dir4 = defined $opt_1 ? $opt_1 : $opt_4;
-		my $finalPositive2  = $dir4 . "/PositiveFinal.txt";
-		my $finalNegative2  = $dir4 . "/NegativeFinal.txt";
-		($finalPositive2) = myFootLib::getFullpath($finalPositive2);
-		($finalNegative2) = myFootLib::getFullpath($finalNegative2);
-	
-		system("ln -s $finalPositive2 $finalPositive") == 0 or die "\tFailed at step 4: Cannot create link of $finalPositive2 to $mydir: $!\n";
-		system("ln -s $finalNegative2 $finalNegative") == 0 or die "\tFailed at step 4: Cannot create link of $finalNegative2 to $mydir: $!\n";
-	}
-
-	if (defined $opt_1 or defined $opt_6) {
-		# If in new folder, finalPositive already exist, then die UNLESS -f is given
-		my $methylationPos = defined $opt_c ? $mydir . "/methylatioPosCG.txt" : $mydir . "/methylationPos.txt";
-		my $methylationNeg = defined $opt_c ? $mydir . "/methylatioNegCG.txt" : $mydir . "/methylationNeg.txt";
-		print "\tWarning: Step 6: either -1 or -6 is given, but $methylationPos and $methylationNeg already exists! Moved these into $methylationPos.backup and $methylationNeg.backup!\n" if (-e $methylationPos or -e $methylationNeg);
-		system("/bin/mv $methylationPos $methylationPos.backup") == 0 or die "Failed to move $methylationPos to $methylationPos.backup: $!\n" if -e "$methylationPos";
-		system("/bin/mv $methylationNeg $methylationNeg.backup") == 0 or die "Failed to move $methylationNeg to $methylationNeg.backup: $!\n" if -e "$methylationNeg";	
-
-		# Create symbolic link
-		my $dir6 = defined $opt_1 ? $opt_1 : $opt_6;
-		my $methylationPos2 = defined ($opt_c) ? $dir6 . "/methylationPosCG.txt" : $dir6 . "/methylationPos.txt";
-		my $methylationNeg2 = defined ($opt_c) ? $dir6 . "/methylationNegCG.txt" : $dir6 . "/methylationNeg.txt";
-		($methylationPos2) = myFootLib::getFullpath($methylationPos2);
-		($methylationNeg2) = myFootLib::getFullpath($methylationNeg2);
-		system("ln -s $methylationPos2 $mydir/") == 0 or die "\tFailed at step 6: Cannot create link of $methylationPos2 to $mydir: $!\n";
-		system("ln -s $methylationNeg2 $mydir/") == 0 or die "\tFailed at step 6: Cannot create link of $methylationNeg2 to $mydir: $!\n";
-	}
 	my %box; 
 	if (defined $opt_B) {
 		my $boxFile = $opt_B;
@@ -1432,6 +851,53 @@ die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ####
 		}
 	}
 	return(\%box);
+}
+
+sub record_options {
+	my ($opts, $outLog) = @_;
+	my $optPrint = "$YW$0$N";
+	foreach my $opts (sort keys %{$opts}) {
+		next if not defined $opts->{$opts};
+		my $val = defined $opts->{$opts};
+		$optPrint .= " -$opts $val";
+	}
+	my $param = "
+	${YW}Initializing...
+	
+	Date       : $date
+	Run ID     : $uuid
+	Run script : $optPrint
+	
+	${YW}Input Parameters$N
+	1. -r ${CY}Read/SAM$N  :$readFile
+	2. -g ${CY}Genome$N    :$genomeFile
+	3. -n ${CY}OutDir$N    :$outDir
+	4. -i ${CY}Index$N     :$geneIndexesFile
+	5. -L ${CY}MinRdLen$N  :$minReadL
+	6. -q ${CY}MinMapQ$N   :$opt_q
+	7. -Z ${CY}Bismark$N   :$bismarkOpt
+	";
+	print $outLog $param;
+	print STDERR $param;
+}
+
+sub check_if_result_exist {
+	my ($resFiles, $outLog) = @_;
+	return if not defined $resFiles or @{$resFiles} == 0;
+	if (defined $opt_n and -d $opt_n and not defined $opt_f) {
+		if (@{$resFiles} != 0) {
+			my $resFileCheck = 0;
+			foreach my $resFile (@{$resFiles}) {
+				$resFileCheck = 1 if -s $resFile > 0;
+			}
+			print $outLog "-d $LGN$opt_n$N $resFiles[0] already exist!\n" if $resFileCheck == 1;
+			exit 0 if $resFileCheck == 1;
+		}
+		else {
+			print $outLog "End of run file does not exist!\n";
+		}
+	}
+	return;
 }
 
 __END__
@@ -1520,3 +986,198 @@ __END__
 						}
 #						die if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
 #CUT1
+
+__END__
+#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -n <output directory> not defined\n\n$usageshort\n\n" if not defined($opt_n);
+#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -r <read.fq> and $opt_s <read.sam> both not defined\n\n" if not defined($opt_r) and not defined($opt_S);
+#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -i <geneindex.bed> not defined\n\n" if not defined($opt_i);
+#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -l <min peak length in bp> must be positive integer!\n\n" if defined($opt_l) and $opt_l !~ /^\d+$/;
+#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -L <min read length in bp> must be positive integer!\n\n" if defined($opt_L) and $opt_L !~ /p$/ and $opt_L !~ /^\d+$/;
+#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -g <ref_genome.fa [hg19.fa]> not defined\n\n" if not defined($opt_g);
+#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -r $read0 and -S $sam0 both DOES NOT EXIST (provide at least one!)\n\n${LRD}########## FATAL ERROR ##########\n$N$usage" if (defined($opt_r) and not -e ($opt_r)) or (defined($opt_S) and not -e ($opt_S));
+#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -i $opt_i DOES NOT EXIST\n\n${LRD}########## FATAL ERROR ##########\n$N$usage" if not -e ($opt_i);
+#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -g $opt_g DOES NOT EXIST\n\n${LRD}########## FATAL ERROR ##########\n$N$usage" if not -e ($opt_g);
+#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -S $CY$opt_S$N exists but seems to be empty!\n$N$usage" if defined($opt_S) and (not -e $opt_S or (-s $opt_S < 10));
+
+
+
+__END__
+HERE1
+	if (defined $opt_1 or defined $opt_4) {
+		my $finalPositive = $outDir . "/PositiveFinal.txt";
+		my $finalNegative = $outDir . "/NegativeFinal.txt";
+		print "\tWarning: Step 4: either -1 or -4 is given, but $finalPositive and $finalNegative already exists! Moved these into $finalPositive.backup and $finalNegative.backup!\n" if (-e $finalPositive or -e $finalNegative);
+		system("/bin/mv $finalPositive $finalPositive.backup") == 0 or die "Failed to mv $finalPositive to $finalPositive.backup: $!\n" if -e "$finalPositive";
+		system("/bin/mv $finalNegative $finalNegative.backup") == 0 or die "Failed to mv $finalNegative to $finalNegative.backup: $!\n" if -e "$finalNegative";	
+
+		# Create symbolic link
+		my $dir4 = defined $opt_1 ? $opt_1 : $opt_4;
+		my $finalPositive2  = $dir4 . "/PositiveFinal.txt";
+		my $finalNegative2  = $dir4 . "/NegativeFinal.txt";
+		($finalPositive2) = myFootLib::getFullpath($finalPositive2);
+		($finalNegative2) = myFootLib::getFullpath($finalNegative2);
+	
+		system("ln -s $finalPositive2 $finalPositive") == 0 or die "\tFailed at step 4: Cannot create link of $finalPositive2 to $outDir: $!\n";
+		system("ln -s $finalNegative2 $finalNegative") == 0 or die "\tFailed at step 4: Cannot create link of $finalNegative2 to $outDir: $!\n";
+	}
+
+	if (defined $opt_1 or defined $opt_6) {
+		# If in new folder, finalPositive already exist, then die UNLESS -f is given
+		my $methylationPos = defined $opt_c ? $outDir . "/methylatioPosCG.txt" : $outDir . "/methylationPos.txt";
+		my $methylationNeg = defined $opt_c ? $outDir . "/methylatioNegCG.txt" : $outDir . "/methylationNeg.txt";
+		print "\tWarning: Step 6: either -1 or -6 is given, but $methylationPos and $methylationNeg already exists! Moved these into $methylationPos.backup and $methylationNeg.backup!\n" if (-e $methylationPos or -e $methylationNeg);
+		system("/bin/mv $methylationPos $methylationPos.backup") == 0 or die "Failed to move $methylationPos to $methylationPos.backup: $!\n" if -e "$methylationPos";
+		system("/bin/mv $methylationNeg $methylationNeg.backup") == 0 or die "Failed to move $methylationNeg to $methylationNeg.backup: $!\n" if -e "$methylationNeg";	
+
+		# Create symbolic link
+		my $dir6 = defined $opt_1 ? $opt_1 : $opt_6;
+		my $methylationPos2 = defined ($opt_c) ? $dir6 . "/methylationPosCG.txt" : $dir6 . "/methylationPos.txt";
+		my $methylationNeg2 = defined ($opt_c) ? $dir6 . "/methylationNegCG.txt" : $dir6 . "/methylationNeg.txt";
+		($methylationPos2) = myFootLib::getFullpath($methylationPos2);
+		($methylationNeg2) = myFootLib::getFullpath($methylationNeg2);
+		system("ln -s $methylationPos2 $outDir/") == 0 or die "\tFailed at step 6: Cannot create link of $methylationPos2 to $outDir: $!\n";
+		system("ln -s $methylationNeg2 $outDir/") == 0 or die "\tFailed at step 6: Cannot create link of $methylationNeg2 to $outDir: $!\n";
+	}
+HERE1END
+
+PART6
+	#my $finalPos = $outDir . "$gene\_Pos" . ($opt_t*100) . ".txt";
+	#my $finalNeg = $outDir . "$gene\_Neg" . ($opt_t*100) . ".txt";
+	#$finalPos = $outDir . "$gene\_Pos" . ($opt_t*100) . "CG.txt" if($opt_c);
+	#$finalNeg = $outDir . "$gene\_Neg" . ($opt_t*100) . "CG.txt" if($opt_c);
+	#my $finalPos_NOPEAK = $outDir . "$gene\_Pos" . ($opt_t*100) . "_NOPEAK.txt";
+	#my $finalNeg_NOPEAK = $outDir . "$gene\_Neg" . ($opt_t*100) . "_NOPEAK.txt";
+	#$finalPos_NOPEAK = $outDir . "$gene\_Pos" . ($opt_t*100) . "_NOPEAK_CG.txt" if($opt_c);
+	#$finalNeg_NOPEAK = $outDir . "$gene\_Neg" . ($opt_t*100) . "_NOPEAK_CG.txt" if($opt_c);
+#	if (not $opt_f) {
+		open (my $FINALPOS, ">", $finalPos) or die "Could not open $finalPos: $!";
+		open (my $FINALNEG, ">", $finalNeg) or die "Could not open $finalNeg: $!";
+		open (my $FINALPOS_NOPEAK, ">", "$finalPos_NOPEAK") or die "Could not open $finalPos: $!";
+		open (my $FINALNEG_NOPEAK, ">", "$finalNeg_NOPEAK") or die "Could not open $finalNeg: $!";
+		for(my $strand=0; $strand<2; $strand++)
+		{
+			my $filePos = defined($opt_c) ? "$outDir/$gene\_CG_POS" : "$outDir/$gene\_POS";
+			my $fileNeg = defined($opt_c) ? "$outDir/$gene\_CG_NEG" : "$outDir/$gene\_NEG";
+			my $fileLast = $strand == 0 ? "$filePos.tsv" : "$fileNeg.tsv";
+			print $outLog "\t- Doing gene $CY$gene$N ($fileLast)\n";
+			print $outLog "$fileLast doesn't exist!\n" and next if not -e $fileLast;
+			print $outLog "$fileLast has no line!\n" and next if `wc -l < $fileLast` == 0;
+			open (my $fileLastIn, "<", $fileLast) or print $outLog "Cannot open $fileLast\n" and die "Cannot open $fileLast: $!\n";
+			my ($fileLastCount) = `wc -l $fileLast` =~ /^(\d+) /;
+			
+			my %peak;
+			my $start = 1;
+			my $end = $minPeakLength;
+			my $linecount = 0;
+			my $LENGTH = 0; my $NAME = "NA";
+			while (my $lineFinal = <$fileLastIn>)
+			{
+				$linecount ++;
+				chomp($lineFinal);
+				print $outLog "\tDone $GN$linecount$N\n" if $linecount % 500 eq 0;
+				print "\t$fileLast: Done $GN$linecount$N / $fileLastCount\n" if $linecount % 500 eq 0;
+				next if $lineFinal =~ /^\#READ/;
+				my ($name, @fields) = split("\t", $lineFinal);
+				my $readLength = @fields;
+				if ($readLength != $LENGTH and $NAME ne "NA") {
+					print "PREVIOUS: name=$CY$NAME$N, length=$LGN$LENGTH$N\n";
+					print "CURRENT : name=$CY$name$N, length=$LGN$readLength$N\n";
+				}
+				$LENGTH = $readLength; $NAME = $name;
+	
+				$peak{$name}{length} = 0;
+				#0= not converted (grey) # same
+				#1= converted (green)   # same
+				#2= non-C (white)       # same
+				#3= non-converted CpG (blue) # is non converted
+				#4= converted CpG  (black) # is converted
+				#5= converted CpG in R-loop (purple) # conv CPG
+				#6= no data
+				#9= converted C in R-loop (red) # not exist
+				# conversion of mine into Jenna's: 3 (no data) becomes 2 (non C)
+				
+				# peak call based on threshold
+				my @peak; my $ispeak = 0;
+				for (my $i = 0; $i < @fields - $minPeakLength; $i++)
+				{
+				#	print "8. GENE=$gene: name=$name, Doing Peak Call!\n" if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
+					$peak{$name}{length} ++ if $fields[$i] =~ /^[1459]$/;
+					my $chunk = join("", @fields[$i..($i+$minPeakLength)]);
+					# calculate % conv from start to end, where end is minPeakLength (e.g. 100 then 1 to 100)
+					
+					# calculate conC (converted C) and nonConC (non converted)
+					# calculate % conv
+					# if too few C, (Alex Meissner uses 5 as threshold) we can't call it as anything ... Meissner et al (Nature 2012)
+					# if % conv is more than thershold, then turn 1 (conv C) into 9 and 4 (conv C in CpG) into 5
+					my ($conC)    = $chunk =~ tr/1459/1459/;
+					my ($nonConC) = $chunk =~ tr/03/03/;
+					
+					my $conPer = $conC + $nonConC >= 5 ? $conC / ($conC + $nonConC) : 0;
+					if($conPer >= $opt_t)
+					{
+						my $checkPeak = 0;
+#= CUT1
+#= CUT1
+						if ($checkPeak == 0) {
+							$ispeak = 1;
+							$peak[$i] = 1; # from i to i + minPeakLength is a peak
+							for(my $j = $i; $j < $i + $minPeakLength; $j++)
+							{
+								$fields[$j] = 9 if $fields[$j] == 1;
+								$fields[$j] = 5 if $fields[$j] == 4;
+							}
+						}
+						else {
+							$peak[$i] = 0;
+							$ispeak = 0;
+						}
+					}
+					else {
+						$peak[$i] = 0;
+					}
+				}
+				$peak{$name}{field} = join("\t", @fields);
+				
+				# if it's a read that has peak, then we need to put the peak length etc so it'll be presorted for R
+				if ($ispeak == 1) {
+					my ($maxLength) = 0; my $length = 0; my $lastPos = -2;
+					for (my $i = 0; $i < @peak; $i++) {
+						if ($lastPos != -2 and $lastPos == $i - 1 and $peak[$i] == 1) {
+							$length ++; $lastPos = $i;
+							$maxLength = $length if $maxLength < $length;
+						}
+						else {
+							$length = 0; $lastPos = -2;
+						}
+					}
+					$peak{$name}{length} = $maxLength;
+					$peak{$name}{peak} = 1;
+				}
+				else {$peak{$name}{peak} = 0;}
+			}
+			my $peakcount = 0; my $nopeak = 0; my $total = 0; my $maxAllLength = 0;
+			foreach my $name (sort {$peak{$b}{peak} <=> $peak{$a}{peak} || $peak{$b}{length} <=> $peak{$a}{length}} keys %peak)
+			{
+				#last if $peak{$name}{peak} == 0 and $nopeak > 1000;
+				#$peak{$name}{field} =~ tr/19/91/;
+				print $FINALPOS "$name\t$peak{$name}{field}\n"        if $strand == 0 and $peak{$name}{peak} == 1;
+				print $FINALPOS_NOPEAK "$name\t$peak{$name}{field}\n" if $strand == 0 and $peak{$name}{peak} == 0;
+				print $FINALNEG "$name\t$peak{$name}{field}\n"        if $strand == 1 and $peak{$name}{peak} == 1;
+				print $FINALNEG_NOPEAK "$name\t$peak{$name}{field}\n" if $strand == 1 and $peak{$name}{peak} == 0;
+				$peakcount ++ if $peak{$name}{peak} != 0;
+				$nopeak ++ if $peak{$name}{peak} == 0;
+				$total ++;
+				$maxAllLength = $peak{$name}{length} if $maxAllLength < $peak{$name}{length};
+			}
+			print $outLog "$finalPos\tlength=$maxAllLength\tpeak=$peakcount\tnopeak=$nopeak\ttotal=$total\n" if $strand == 0;
+			print $outLog "$finalNeg\tlength=$maxAllLength\tpeak=$peakcount\tnopeak=$nopeak\ttotal=$total\n" if $strand == 1;
+		}
+		close $FINALPOS; close $FINALNEG;
+		close $FINALPOS_NOPEAK;
+		close $FINALNEG_NOPEAK;
+#	}	
+	# Do edge clearing
+
+PART6END
+-e -f -B -D
+
