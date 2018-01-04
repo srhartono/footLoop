@@ -129,12 +129,11 @@ sub getFilename {
 
 	if ($fh =~ /\/$/) {$fh =~ s/\/+$//;}
 	my (@names)   = split("\/", $fh);
-#	print "Names = @names\n";
 	my $fullname  = pop(@names);
 	my $folder    = @names != 1 ? join("\/", @names) : $names[0] =~ /^\.\.$/ ? "../" : $names[0] eq "." ? "./" : $names[0] =~ /^\.\/$/ ? "./" : $names[0] =~ /^\w+/ ? "$names[0]/" : die "Can't extract folder from $fh :( (names = @names)\n";
-#	print "FOLDERZ = $folder\n";
 	my @names2    = split(".", $fullname);
 	my $shortname = @names2 == 0 ? $fullname : $names2[0];
+#	print "Names=" . join(",", @names) . "\n\nFOLDER=$CY$folder$N, $shortname\n\n";
 	return($shortname)                      if not defined($type);
 	return($folder, $fullname)              if $type eq "folderfull";
 	return($folder, $shortname)             if $type eq "folder";
@@ -146,11 +145,9 @@ sub getFullpath {
 	my ($fh) = @_;
 	
 	my ($folder, $fullname) = getFilename($fh, "folderfull");
-#	print "fh = $fh\nFull name = $fullname.\n";
-#	print "FOLDER = $folder\n";
 	my $currdir = `pwd`; chomp($currdir);
-	chdir $folder if defined($folder) and -e $folder;
-	($folder) = `pwd`;
+	die "Folder $folder does not exist!\n" if not defined($folder) or not -d $folder;
+	($folder) = `cd \"$folder\" && pwd`;
 	chdir $currdir;
 	chomp($folder);
 	return("$folder/$fullname");

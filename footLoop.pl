@@ -50,7 +50,6 @@ record_options(\%opts, $outLog);
 # 2. Runs Bismark #
 ###################
 
-check_if_result_exist(["$outDir/0_orig/.GOOD"], $outLog);
 
 # Get gene names from $geneIndexesFile
 $geneIndexesFile = get_geneIndexes_fasta($geneIndexesFile, $outDir, $logFile, $outLog);
@@ -72,6 +71,7 @@ print STDERR "\n$YW-------------->$N\n${YW}2. Parsing in sequence for genes from
 print $outLog "\n$YW-------------->$N\n${YW}2. Parsing in sequence for genes from sequence file $CY$seqFile$N\n$YW<--------------$N\n";
 open(my $SEQIN, "<", $seqFile) or die "\n$LRD!!!$N\tFATAL ERROR: Could not open $CY$seqFile$N: $!";
 my $fasta = new FAlite($SEQIN);
+my %lotsOfC;
 while (my $entry = $fasta->nextEntry()) {
 	my $gene = uc($entry->def);
 	my $seqz = uc($entry->seq);
@@ -88,6 +88,7 @@ while (my $entry = $fasta->nextEntry()) {
 	$seq{$gene}{orig} = $gene;
 	print STDERR "\t\tgenez=$gene ($gene) Length=$seq{$gene}{len}\n";
 	print $outLog "\t\tgenez=$gene ($gene) Length=$seq{$gene}{len}\n";
+	$lotsOfC{$gene} = get_lotsOfC($seqz);
 }
 #push(@{$box{$chr}}, "$chr\t$beg\t$end\t$gene\t$val\t$strand$others");
 close $SEQIN;
@@ -98,6 +99,7 @@ print $outLog "\t${GN}SUCCESS$N: Sequence has been parsed from fasta file $CY$se
 
 my ($samMD5) = getMD5($mysam);
 my $origDir = "$outDir/.0_orig_$samMD5/";
+check_if_result_exist(["$origDir/.GOOD"], $outLog);
 my $checkSam = 1;
 my ($mysamName) = getFilename($mysam, "full");
 $checkSam = 0 if not -e "$origDir/$mysamName.fixed" and not -e "$origDir/$mysamName.fixed.gz";
@@ -303,7 +305,14 @@ foreach my $gene (sort keys %seq) {
 	foreach my $key (@key) {
 		$seq{$gene}{$key} = 0 if not defined $seq{$gene}{$key};
 	}
-	$zero .= "$gene\n" and next if $seq{$gene}{total} == 0;
+}
+foreach my $gene (sort {$seq{$b}{total} <=> $seq{$a}{total}} keys %seq) {
+	my @key = qw(posneg negpos unkpos unkneg pos neg used total badlength lowq orig);
+	my $outTXTFilePos  = "$origDir/$gene\_Pos.orig"; system("/bin/rm $outTXTFilePos") if -e $outTXTFilePos and -s $outTXTFilePos == 0;
+	my $outTXTFileNeg  = "$origDir/$gene\_Neg.orig"; system("/bin/rm $outTXTFileNeg") if -e $outTXTFileNeg and -s $outTXTFileNeg == 0;
+	my $outTXTFileUnk  = "$origDir/$gene\_Unk.orig"; system("/bin/rm $outTXTFileUnk") if -e $outTXTFileUnk and -s $outTXTFileUnk == 0;
+
+	$zero .= "$gene ($seq{$gene}{total})\n" and next if $seq{$gene}{total} <= 10;
 	my $gene2 = $seq{$gene}{orig};
 	print $outLog "
 - $gene (original name = $gene2):
@@ -330,7 +339,7 @@ Low Quality = $seq{$gene}{lowq}
 ";
 }
 $zero = $zero eq "" ? "(None)\n" : "\n$zero\n";
-print STDERR "- Genes that have 0 reads:$zero\n";
+print STDERR "- Genes that have <= 10 reads:$zero\n";
 print STDERR "\t${GN}SUCCESS$N: Total=$count{total}, used=$count{used}, Low Map Quality=$count{lowq}, Too short=$count{badlength}\n";
 print $outLog "\n\t${GN}SUCCESS$N: Total=$count{total}, used=$count{used}, Low Map Quality=$count{lowq}, Too short=$count{badlength}\n";
 
@@ -338,17 +347,20 @@ print STDERR "\n\nOutput: ${LGN}$origDir$N\n";
 print $outLog "\n\nOutput: ${LGN}$origDir$N\n";
 ##########################################
 
-=comment
 foreach my $gene (sort keys %seq) {
 	my @seq = @{$seq{$gene}{seq}};
-	my $finalPos = $outDir . "0_orig/$gene\_Pos.orig";
-	my $finalNeg = $outDir . "0_orig/$gene\_Neg.orig";
+	my $finalPos = $origDir . "/$gene\_Pos.orig";
+	my $finalNeg = $origDir . "/$gene\_Neg.orig";
 
 #=PART6
 	my $lotsOfC = defined $lotsOfC{$gene} ? $lotsOfC{$gene} : "";
 	my $ucgene = uc($gene);
-	next;
-	system("footLoop_addition.pl $finalPos $ucgene \"$lotsOfC\"") == 0 or print "Cannot do footLoop_addition.pl $ucgene $finalPos: $!\n";
+	print "footLoop_addition.pl $finalPos $ucgene $lotsOfC\n";
+	print "footLoop_addition.pl $finalNeg $ucgene $lotsOfC\n";
+	#system("footLoop_addition.pl $finalPos $ucgene \"$lotsOfC\"") == 0 or print "Cannot do footLoop_addition.pl $ucgene $finalPos: $!\n";
+}
+die;
+=comment
 	print $outLog "\tfootLoop_addition.pl $finalPos $ucgene \"$lotsOfC\"\n";
 	my ($finalPosLine) = `wc -l $finalPos` =~ /^(\d+) /;
 	my ($finalNegLine) = `wc -l $finalNeg` =~ /^(\d+) /;
@@ -588,6 +600,34 @@ foreach my $gene (sort keys %seq) {
 }
 print STDERR "\n${LPR}If there is not PDF made from step (8) then it's due to too low number of read/peak$N\n\n";
 =cut
+
+sub get_lotsOfC {
+	my ($seq) = @_;
+	my @seq = $seq =~ /ARRAY/ ? @{$seq} : split("", $seq);
+	my $len = @seq;
+	my $data;
+	my %nuc;
+	foreach my $nuc (@seq[0..@seq-1]) {
+		$nuc = uc($nuc);
+		#print "NUC=$nuc\n";die;
+		$nuc{$nuc} ++;
+	}
+	foreach my $nuc (sort keys %nuc) {
+		$nuc = uc($nuc);
+		next if $nuc{$nuc} < 10;
+		next if $nuc !~ /^(C|G)$/i;
+		while ($seq =~ /${nuc}{6,$len}/ig) {
+			my ($prev, $curr, $next) = ($`, $&, $');
+			my ($beg, $end) = (length($prev), length($prev) + length($curr));
+			$data .= ",$nuc;$beg;$end";
+			my ($prev0) = length($prev) > 2 ? $prev =~ /(..)$/ : "NOPREV";
+			my ($next0) = length($next) > 2 ? $next =~ /^(..)/ : "NONEXT";
+#			print "\t- $nuc\t$beg\t$end\t$prev0$YW$curr$N$next0\n";
+		}
+	}
+	$data =~ s/^,// if defined $data;
+	return($data);
+}
 
 sub run_bismark {
 	my ($readFile, $outDir, $mysam, $force, $outLog) = @_;

@@ -1,44 +1,46 @@
 #!/usr/bin/perl
 
-use strict; use warnings; use mitochy; use Getopt::Std; use FAlite;
-use vars qw($opt_v $opt_x $opt_R);
-getopts("vxR");
+use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
+use vars qw($opt_v $opt_x $opt_R $opt_c $opt_t);
+getopts("vxRct:");
 
-my ($folders, $mygene, $lotsOfC) = @ARGV;
-die "\nusage: $YW$0$N $CY<input1_Pos50.txt>$N\n\n" unless @ARGV;
+BEGIN {
+   my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
+   push(@INC, $libPath);
+}
+use myFootLib; use FAlite;
+my $homedir = $ENV{"HOME"};
+my $footLoopDir = dirname(dirname abs_path $0) . "/footLoop";
+
+my ($input1, $mygene, $lotsOfC) = @ARGV;
+die "\nusage: $YW$0$N -t [threshold] [-c to use cpg] $CY<input1_Pos50.orig>$N\n\n" unless @ARGV;
 my %bad;
 if (defined $lotsOfC) {
-	my @lotsOfC = split(";", $lotsOfC);
+	my @lotsOfC = split(",", $lotsOfC);
 	foreach my $coor (@lotsOfC) {
-		my ($beg, $end) = split(",", $coor);
-		$bad{$beg} = $end;
+		my ($nuc, $beg, $end) = split(";", $coor);
+		my $strand = $nuc eq "C" ? 0 : $nuc eq "G" ? 16 : 255;
+		$bad{$strand}{$beg} = $end-1;
 	}
 }
 my %pk;
-my (@inputs, $input1);
-if ($folders =~ /.txt$/) {
-	$input1 = $folders;
-}
-else {
-	(@inputs) = <$folders/*Pos50.txt>;
-	die "Must have 1 input only! (" . scalar(@inputs) . "):\n" . join("\n-", @inputs) . "\n" if @inputs != 1 and not defined $opt_x;
-	$input1 = defined $opt_x ? $folders : $inputs[0];
-}
+die "Input cannot be directry!\n" if -d $input1;
+($input1) = getFullpath($input1);
+#inputs END1
 my ($folder, $fileName) = getFilename($input1, "folder");
 my %total; 
 $total{Pos}{peak} = 0; $total{Pos}{nopeak} = 0; $total{Pos}{total} = 0;
 $total{Neg}{peak} = 0; $total{Neg}{nopeak} = 0; $total{Neg}{total} = 0;
+$total{Unk}{peak} = 0; $total{Unk}{nopeak} = 0; $total{Unk}{total} = 0;
 my $type = "Pos";
 my $log2 = "";
-print STDERR "Folder $YW$folder$N: Processing files related to $LCY$input1$N\n";
-open (my $outLog, ">", "$folder/0_RESULTS\_$mygene.TXT") if not defined $opt_x;
-open (my $outLog2, ">", "$folder/1_RESULTS_EXTRA\_$mygene.TXT") if not defined $opt_x;
-for (my $h = 0; $h < 2; $h++) {
-	my $peakFile   = $input1; $peakFile   =~ s/_NOPEAK.txt/.txt/ if $peakFile =~ /_NOPEAK.txt/;
-	my $nopeakFile = $input1; $nopeakFile =~ s/.txt$/_NOPEAK.txt/ if $nopeakFile !~ /_NOPEAK.txt/;
-	if ($peakFile =~ /CG.txt/) {
-		$nopeakFile =~ s/CG_NOPEAK.txt/_NOPEAK_CG.txt/;
-	}
+print STDERR "\n\nFolder $YW$folder$N: Processing files related to $LCY$input1$N\n";
+open (my $outLog, ">", "$folder/.0_RESULTS\_$mygene.TXT") if not defined $opt_x;
+open (my $outLog2, ">", "$folder/.1_RESULTS_EXTRA\_$mygene.TXT") if not defined $opt_x;
+for (my $h = 0; $h < 3; $h++) {
+	my $strand = $h == 0 ? "Pos" : $h == 1 ? "Neg" : "Unk";
+	my $peakFile   = defined $opt_c ? "$folder/$fileName\_$strand\_CG_PEAK.txt" : "$folder/$fileName\_$strand\_PEAK.txt";
+	my $nopeakFile = defined $opt_c ? "$folder/$fileName\_$strand\_CG_NONE.txt" : "$folder/$fileName\_$strand\_NONE.txt";
 	if (not defined $opt_x) {
 		$peakFile =~ s/_Neg/_Pos/ if $h == 0;
 		$peakFile =~ s/_Pos/_Neg/ if $h == 1;
@@ -47,12 +49,13 @@ for (my $h = 0; $h < 2; $h++) {
 	}
 	last if $h == 1 and defined $opt_x;
 	$type = $h == 0 ? "Pos" : "Neg";
-	print STDERR "\t$h\t$peakFile\t$nopeakFile\n";
+	print STDERR "\th=$LGN$h\t$YW$peakFile\t$LCY$nopeakFile\n$N";
+	die if $h == 2;
 #	die if $h == 1;
 #	next;
 	
-	my ($folder1, $peakfileName) = mitochy::getFilename($peakFile, "folder");
-	my ($folder2, $nopeakfileName) = mitochy::getFilename($nopeakFile, "folder");
+	my ($folder1, $peakfileName) = getFilename($peakFile, "folder");
+	my ($folder2, $nopeakfileName) = getFilename($nopeakFile, "folder");
 	
 	my %data; my $totalnopeak = 0;
 	open (my $in2, "<", $nopeakFile) or die "Cannot read from $nopeakFile: $!\n";
@@ -418,4 +421,18 @@ __END__
 
 
 
+
+
+
+__END__
+END1
+#my (@inputs, $input1);
+#if ($input1 =~ /.orig$/) {
+#}
+#else {
+#	(@inputs) = <$folders/*Pos50.orig>;
+#	die "Must have 1 input only! (" . scalar(@inputs) . "):\n" . join("\n-", @inputs) . "\n" if @inputs != 1 and not defined $opt_x;
+#	$input1 = defined $opt_x ? $folders : $inputs[0];
+#	print "INPUT1=$input1\n";
+#}
 
