@@ -16,15 +16,16 @@ my $footLoopDir = dirname(dirname abs_path $0) . "/footLoop";
 # 0. Check Sanity #
 ##################
 
-sanityCheck();
+my %opts = ("r" => $opt_r, "g" => $opt_g, "i" => $opt_i, "n" => $opt_n, "L" => $opt_L, "x" => $opt_x, "y" => $opt_y, "p" => $opt_p, "q" => $opt_q, "Z" => $opt_Z, "F" => $opt_F, "f" => $opt_f, "L" => $opt_L, "q" => $opt_q);
+sanityCheck(\%opts);
 
 ###################
 # 1. Define Input #
 ###################
-my %opts = ("r" => $opt_r, "g" => $opt_g, "i" => $opt_i, "n" => $opt_n, "L" => $opt_L, "x" => $opt_x, "y" => $opt_y, "p" => $opt_p, "q" => $opt_q, "Z" => $opt_Z);
 my ($readFile, $genomeFile, $geneIndexesFile, $outDir) = getFullpathAll($opt_r, $opt_g, $opt_i, $opt_n);
+my ($readFilename) = getFilename($opt_r, "full");
 my $minMapQ  = (not defined($opt_q)) ? 0 : $opt_q;
-my $minReadL = (not defined($opt_L)) ? 50 : $$opt_L =~ /p$/i ? $$opt_L =~ /^(.+)p$/i : $opt_L;
+my $minReadL = (not defined($opt_L)) ? 50 : $opt_L =~ /p$/i ? $opt_L =~ /^(.+)p$/i : $opt_L;
 my $bufferL  = (not defined($opt_x)) ? 0 : $opt_x;
 my $bufferR  = (not defined($opt_y)) ? 0 : $opt_y;
 my $x = defined($opt_x) ? $opt_x : 0;
@@ -49,81 +50,26 @@ record_options(\%opts, $outLog);
 # 2. Runs Bismark #
 ###################
 
-check_if_result_exist("$outDir/0_orig/.GOOD", $outLog);
-
-$geneIndexesFile = get_geneIndexes_fasta($geneIndexesFile);
-my $geneIndexesFa = "$bismark_folder\/geneIndexes.fa";
-#my ($bismark_folder_exist, $bismark_folder) = checkBismarkIndex($geneIndexesFile, $footLoopDir, $outLog);
+check_if_result_exist(["$outDir/0_orig/.GOOD"], $outLog);
 
 # Get gene names from $geneIndexesFile
-my %geneIndexes = parse_geneIndexesFile($geneIndexesFile);
+$geneIndexesFile = get_geneIndexes_fasta($geneIndexesFile, $outDir, $logFile, $outLog);
+my ($geneIndexesHash, $geneIndexesFa, $bismark_folder) = parse_geneIndexesFile($geneIndexesFile, $outDir, $outLog);
+my %geneIndexes = %{$geneIndexesHash};
+make_bismark_index($geneIndexesFa, $bismark_folder, $bismarkOpt, $outLog);
 
+# Run Bismark
+run_bismark($readFile, $outDir, $mysam, $opt_F, $outLog);
 
-print $outLog "\n${YW}1b. Running$CY bismark$YW (output file will be$CY pacbio.fastq_bismark_bt2.sam$YW) only if it hasn't been ran previously$N\n";
-print $outLog "\t- Running$YW bismark_genome_preparation$N --bowtie2 $bismark_folder\n";
-my $check = 0;
-#if (-d "$outFolder/Bisulfite_Genome/" and -e "$outFolder/Bisulfite_Genome/md5sum.txt") {
-if ($bismark_folder_exist == 1) {#-d "$bismark_folder/Bisulfite_Genome/" and -e "$bismark_folder/Bisulfite_Genome/md5sum.txt") {
-	my ($md5sum) = `cat $bismark_folder/Bisulfite_Genome/md5sum.txt`; chomp($md5sum);
-	$md5sum = "NA" if not defined($md5sum); 
-	($md5sum) = $md5sum =~ /^(\w+)[ ]+/;
-	my $md5sum2 = `md5sum $geneIndexesFa`; chomp($md5sum2);
-	($md5sum2) = $md5sum2 =~ /^(\w+)[ ]+/;
-	$check = 1 if $md5sum eq $md5sum2;
-	print $outLog "\tOlder bisulfite genome found but$LRD different$N (md5sum old = $CY$md5sum$N, new = $CY$md5sum2)$N\n" if $md5sum ne $md5sum2;
-	print $outLog "\tOlder bisulfite genome found and they're the$LGN same$N! (md5sum old = $CY$md5sum$N, new = $CY$md5sum2)$N\n" if $md5sum eq $md5sum2;
-}
-if ($bismark_folder_exist == 0) {#not -d "$bismark_folder/Bisulfite_Genome" or $check == 0) {
-	print "bismark_genome_preparation --bowtie2 $bismark_folder && md5sum $geneIndexesFa > $bismark_folder/Bisulfite_Genome/md5sum.txt\n";
-	system("bismark_genome_preparation --bowtie2 $bismark_folder && md5sum $geneIndexesFa > $bismark_folder/Bisulfite_Genome/md5sum.txt") == 0 or die "Failed to run bismark genome preparation: $!\n";
-	exit;
-}
-else { 
-	print $outLog "\t${GN}SUCCESS$N: $CY$bismark_folder\/Bisulfite_Genome$N already exist and is used!\n";
-	#"\t${GN}SUCCESS$N: $CY$bismark_folder\/Bisulfite_Genome$N already exist and is used!\n";
-}
-if ($opt_F or (not -e "$mysam" or -s $mysam <= 10)) {
-	print "\t- Running$YW bismark$N $bismarkOpt $bismark_folder $opt_r\n";
-	print $outLog "\t- Running$YW bismark$N $bismarkOpt $bismark_folder $opt_r\n";
-	if ($opt_p) {
-		print $outLog "\t  Splitting $CY$opt_r$N by 1000 sequences!\n";
-		my $splitresult = `SplitFastq.pl -i $opt_r -o $outFolder -n 1000`; print $outLog "$splitresult\n";
-		print "\t  Running bismark in paralel!\n";
-		my $result = system("run_script_in_paralel2.pl -v \"bismark $bismarkOpt $bismark_folder FILENAME > FILENAME.bismark.log 2>&1\" $outFolder .part 20");
-		my ($readFilename) = myFootLib::getFilename($opt_r, "full");
-		my @partSam = <$outFolder/*.part_bismark*.sam>; my $totalPartSam = @partSam;
-		print "\t  All part.sam has been made (total = $totalPartSam). Now making $CY$mysam$N and then removing the part sam\n";
-		for (my $p = 0; $p < @partSam; $p++) {
-			my $partSam = $partSam[$p];
-			print "\t\tPutting $partSam into $mysam and removing it!\n";
-			system("cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >  $mysam") == 0 or die "Failed to cat $partSam: $!\n" if $p == 0;
-			system("cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >> $mysam") == 0 or die "Failed to cat $partSam: $!\n" if $p != 0;
-			print "\t- Removing $CY$partSam$N: /bin/rm $partSam\n";
-			system("/bin/rm $partSam") == 0 or die "Failed to /bin/rm $partSam: $!\n";
-		}
-	}
-	else {
-		my $result = system("bismark $bismarkOpt $bismark_folder $opt_r");
-		if ($result != 0) {
-			print $outLog "\t${LRD}Bisulfte_Genome seems to be corrupted so re-running:\n\t${YW}-bismark_genome_preparation$N --bowtie2 $bismark_folder\n";
-			system("bismark_genome_preparation --bowtie2 $bismark_folder") == 0 or die "Failed to run bismark genome preparation: $!\n";
-			system("bismark $bismarkOpt $bismark_folder $opt_r") == 0 or die "$LRD!!!$N\tFailed to run bismark: $!\n";
-		}
-		print $outLog "\t${GN}SUCCESS$N: Output $mysam\n";
-		print STDERR "\t${GN}SUCCESS$N: Output $mysam\n";
-	}
-}
-else {
-	print $outLog "\t${GN}SUCCESS$N: Output already exist: $CY$mysam$N\n";
-	print STDERR "\t${GN}SUCCESS$N: Output already exist: $CY$mysam$N\n";
-}
-
-#takes sequence of gene and splits into array of individual bases
+# Takes sequence of gene and splits into array of individual bases
 my $seqFile = $geneIndexesFa;
+print $outLog "
+!seq=$seqFile
+!sam=$mysam
+";
 my %seq;
-print "SEq=$seqFile\n";
-print STDERR "\n${YW}2. Parsing in sequence for genes from sequence file $CY$seqFile$N\n";
-print $outLog "\n${YW}2. Parsing in sequence for genes from sequence file $CY$seqFile$N\n";
+print STDERR "\n$YW-------------->$N\n${YW}2. Parsing in sequence for genes from sequence file $CY$seqFile$N\n$YW<--------------$N\n";
+print $outLog "\n$YW-------------->$N\n${YW}2. Parsing in sequence for genes from sequence file $CY$seqFile$N\n$YW<--------------$N\n";
 open(my $SEQIN, "<", $seqFile) or die "\n$LRD!!!$N\tFATAL ERROR: Could not open $CY$seqFile$N: $!";
 my $fasta = new FAlite($SEQIN);
 while (my $entry = $fasta->nextEntry()) {
@@ -148,50 +94,44 @@ close $SEQIN;
 print STDERR "\t${GN}SUCCESS$N: Sequence has been parsed from fasta file $CY$seqFile$N\n";
 print $outLog "\t${GN}SUCCESS$N: Sequence has been parsed from fasta file $CY$seqFile$N\n";
 
-if ($opt_e) {
-	#0 = white
-	#1 = intron line
-	#2 = exon line
-	print $outLog "\t${BR}2a. Parsing in exon intron data from $CY$exonFile$N:\n";
-	foreach my $gene (sort keys %seq) {
-		next if -e "$outFolder/exon/$gene.exon"; # DELETE THIS
-		my ($genepos) = `grep -i -P \"\\t$gene\\t\" $geneIndexesFile`; chomp($genepos);
-		my $length_seq = $seq{$gene}{len};
-		print $outLog "\n$LRD!!!$N\tWARNING: No sequence for gene $CY$gene$N is found in -s $CY$seqFile$N!\n\n" if $length_seq == 0;
-		myFootLib::parseExon($exonFile, $genepos, $gene, $outFolder, $length_seq);
-		print STDERR "\t${GN}SUCCESS$N: Sequence of exon $CY$gene$N has been parsed from fasta file $CY$seqFile$N (length = $CY" . $length_seq . "$N bp)\n";
-		print $outLog "\t${GN}SUCCESS$N: Sequence of exon $CY$gene$N has been parsed from fasta file $CY$seqFile$N (length = $CY" . $length_seq . "$N bp)\n";
-	}
-}
+#=OPT_E
 
+my ($samMD5) = getMD5($mysam);
+my $origDir = "$outDir/.0_orig_$samMD5/";
 my $checkSam = 1;
-$checkSam = 0 if not -e "$mysam.fixed";
-if (-e "$mysam.fixed") {
-	my ($samLineCount2) = linecount("$mysam.fixed");
+my ($mysamName) = getFilename($mysam, "full");
+$checkSam = 0 if not -e "$origDir/$mysamName.fixed" and not -e "$origDir/$mysamName.fixed.gz";
+makedir($origDir);
+if (-e "$origDir/$mysamName.fixed.gz") {
+	my ($samLineCount2) = linecount("$origDir/$mysamName.fixed.gz");
 	my ($samLineCount1) = linecount($mysam);
-	$checkSam = 0 if $samLineCount1 - 50 > $samLineCount2;
+	my $nine = $samLineCount1 * 0.9;
+	$checkSam = 0 if $nine > $samLineCount2;
 }
-$checkSam = 0;
+elsif (-e "$origDir/$mysamName.fixed") {
+	my ($samLineCount2) = linecount("$origDir/$mysamName.fixed");
+	my ($samLineCount1) = linecount($mysam);
+	$checkSam = 0 if $samLineCount1 - 500 > $samLineCount2;
+	print "gzip $origDir/$mysamName.fixed\n";
+	print "md5sum $origDir/$mysamName.fixed.gz > $origDir/.$mysamName.fixed.gz.md5\n";
+	system("gzip $origDir/$mysamName.fixed") == 0 or die "Failed to gzip $origDir/$mysamName.fixed: $!\n";
+	system("md5sum $origDir/$mysamName.fixed.gz > $origDir/.$mysamName.fixed.gz.md5") == 0 or die "Failed to md5sum $origDir/$mysamName.fixed > $origDir/.$mysamName.fixed.gz.md5: $!\n";
+}
 if ($checkSam == 0) {
-	print STDERR "footLoop_2_sam_to_peak.pl -f $outDir\n";
-	print $outLog "footLoop_2_sam_to_peak.pl -f $outDir\n";
-	system("footLoop_2_sam_to_peak.pl -f $outDir") == 0 or die "Failed to run footLoop_2_sam_to_peak.pl -f $outDir: $!\n";
+	print STDERR "line 122 of footLoop.pl shouldnt be accesse\n";
+	print $outLog "line 122 of footLoop.pl shouldnt be accesse\n" and exit 1;
+	print STDERR "footLoop_2_sam_to_peak.pl -f $outDir -o $origDir\n";
+	print $outLog "footLoop_2_sam_to_peak.pl -f $outDir -o $origDir\n";
+	system("footLoop_2_sam_to_peak.pl -f $outDir -o $origDir") == 0 or die "Failed to run footLoop_2_sam_to_peak.pl -f $outDir: $!\n";
+	system("gzip $origDir/$mysamName.fixed.gz") == 0 or die "Failed to gzip $origDir/$mysamName.fixed.gz: $!\n";
 }
 
-#die "Checksam is good!\n";
 # File description, open files, etc
 my $samFile = "$mysam";
-my $positive = "$outDir/Positive.3";
-my $negative = "$outDir/Negative.3";
-my $notusedfile = "$outDir/NOTUSED.3";
-print STDERR "${YW}3. Parsing sam file $CY$samFile$N and getting only high quality reads\n";
-print $outLog "${YW}3. Parsing sam file $CY$samFile$N and getting only high quality reads\n";
-open(my $positiveReads, ">", $positive) or die "Could not open $positive: $!";
-open(my $negativeReads, ">", $negative) or die "Could not open $negative: $!";
-open(my $notused, ">", $notusedfile) or die "Cannot open $notusedfile: $!\n";
-open(my $sam, $samFile) or die "$LRD!!!$N\tFATAL ERROR: Could not open $samFile: $!";
-
-
+open(my $notused, ">", "$outDir/.$readFilename.notused") or die "Cannot open $outDir/.$readFilename.notused: $!\n";
+print STDERR "\n$YW-------------->$N\n${YW}3. Parsing sam file $CY$samFile$N and getting only high quality reads\n$YW<--------------$N\n";
+print $outLog "\n$YW-------------->$N\n${YW}3. Parsing sam file $CY$samFile$N and getting only high quality reads\n$YW<--------------$N\n";
+open(my $sam, $samFile) or print $outLog "$LRD!!!$N\tFATAL ERROR: Could not open $samFile: $!" and exit 1;
 
 ## Some stats
 my $linecount = 0; my %count; ($count{total}, $count{used}, $count{diffgene}, $count{lowq}, $count{badlength}) = (0,0,0,0,0);
@@ -210,7 +150,8 @@ while(my $line = <$sam>) {
 	# 1. Parse sam line #
 	#####################
 	my @arr = split("\t", $line);
-
+	print STDERR "\t$YW$samFile$N: Done $linecount\n" if $linecount % 5000 == 0;
+	print $outLog "\t$YW$samFile$N: Done $linecount\n" if $linecount % 5000 == 0;
 	# a. Total column must be 14 or skipped (e.g. sam header)
 	print $outLog "$LGN$linecount$N: SAM header detected (#column < 14). LINE:\n\t$line\n" and next if @arr < 14;
 	
@@ -264,11 +205,11 @@ while(my $line = <$sam>) {
 	}
 	
 	#counts number of CT conversions (takes into account whether or not the user wants to include Cs in CpG context)
-	my $CT = ($readMethCall =~ tr/xhu/xhu/);
-	if($opt_c)
-	{
-		$CT = ($readMethCall =~ tr/zxhu/zxhu/);
-	}
+	#my $CT = ($readMethCall =~ tr/xhu/xhu/);
+	#if($opt_c)
+	#{
+	#	$CT = ($readMethCall =~ tr/zxhu/zxhu/);
+	#}
 	
 	#writes positive reads into <gene>Positive.txt and negative reads into <gene>Negative.txt
 	if($readStrand == 0 || $readStrand == 16)
@@ -279,63 +220,73 @@ while(my $line = <$sam>) {
 	}
 }
 
-print STDERR "\t${GN}SUCCESS$N: Total=$count{total}, used=$count{used}, Low Map Quality=$count{lowq}, Too short=$count{badlength}\n";
-print $outLog "\n\t${GN}SUCCESS$N: Total=$count{total}, used=$count{used}, Low Map Quality=$count{lowq}, Too short=$count{badlength}\n";
 
 # print from insamfix
 # Open the .orig files
-makedir("$outDir/0_orig/") if not -d "$outDir/0_orig/";
+makedir("$origDir") if not -d "$origDir";
 foreach my $genez (sort keys %seq) {
-	my $outTXTFilePos  = $outDir . "0_orig/$genez\_Pos.orig";
-	my $outTXTFileNeg  = $outDir . "0_orig/$genez\_Neg.orig";
+	my $outTXTFilePos  = "$origDir/$genez\_Pos.orig";
+	my $outTXTFileNeg  = "$origDir/$genez\_Neg.orig";
+	my $outTXTFileUnk  = "$origDir/$genez\_Unk.orig";
 #	my $outTXTFilePosR = $outDir . "0_orig/$genez\_RevPos.orig";
 #	my $outTXTFileNegR = $outDir . "0_orig/$genez\_RevNeg.orig";
 	open ($seq{$genez}{outTXTPos}, ">", $outTXTFilePos);
 	open ($seq{$genez}{outTXTNeg}, ">", $outTXTFileNeg);
+	open ($seq{$genez}{outTXTUnk}, ">", $outTXTFileUnk);
 #	open ($seq{$genez}{outTXTRevPos}, ">", $outTXTRevFilePos);
 #	open ($seq{$genez}{outTXTRevNeg}, ">", $outTXTRevFileNeg);
 }
 
 my $skipped = 0; my ($passedFilterP, $passedFilterN) = (0,0);
-open (my $inSamFix, "<", "$mysam.fixed") or die;
+open (my $inSamFix, "zcat $origDir/$mysamName.fixed.gz|") or print $outLog "Failed to open $origDir/$mysamName.fixed.gz: $!\n" and exit 1;
 while (my $line = <$inSamFix>) {
 	chomp($line);
-	my ($read, $strand, $genez, $pos, $info) = split("\t", $line);
+	my ($read,$type, $oldStrand, $strand, $genez, $pos, $info) = split("\t", $line);
 	my ($CT0, $CC0, $GA0, $GG0, $CT1, $CC1, $GA1, $GG1) = split(",", $info);
 	if (not defined $seq{$genez} or not defined $info) {
-		print $outLog "\tERROR in $LCY$mysam.fixed$N: gene=$genez but \$seq{\$genez} is not defined!line=\n$line\n\n" if not defined $seq{$genez};
-		print $outLog "\tERROR in $LCY$mysam.fixed$N: gene=$genez and seq genez is $seq{$genez} but info is not defined!line=\n$line\n\n" if defined $seq{$genez} and not defined $info;
+		print $outLog "\tERROR in $LCY$origDir/$mysamName.fixed$N: gene=$genez but \$seq{\$genez} is not defined!line=\n$line\n\n" if not defined $seq{$genez};
+		print $outLog "\tERROR in $LCY$origDir/$mysamName.fixed$N: gene=$genez and seq genez is $seq{$genez} but info is not defined!line=\n$line\n\n" if defined $seq{$genez} and not defined $info;
 		$skipped ++;
 		next;
 	}
 	if (not defined $seq{$genez}{read}{$read}) {
 		next;
 	}
-	my $oldStrand = $seq{$genez}{read}{$read};
-	print {$seq{$genez}{outTXTPos}} "$read\tFP\t$pos\n" if $strand eq 0;
-	print {$seq{$genez}{outTXTNeg}} "$read\tFN\t$pos\n" if $strand eq 16;
-	$seq{$genez}{pos} ++ if $strand == 0;
-	$seq{$genez}{neg} ++ if $strand == 16;
-	$passedFilterP ++ if $strand == 0;
-	$passedFilterN ++ if $strand == 16;
+#	my $oldStrand = $seq{$genez}{read}{$read};
+	if ($type eq "6_BOTH") {
+		print {$seq{$genez}{outTXTUnk}} "$read\tBP\t$pos\n" if $strand eq 0;
+		print {$seq{$genez}{outTXTUnk}} "$read\tBN\t$pos\n" if $strand eq 16;
+		$seq{$genez}{unkpos} ++ if $strand == 0;
+		$seq{$genez}{unkneg} ++ if $strand == 16;
+		$passedFilterP ++ if $strand == 0;
+		$passedFilterN ++ if $strand == 16;
+	}
+	else {
+		print {$seq{$genez}{outTXTNeg}} "$read\tFN\t$pos\n" if $strand eq 16;
+		print {$seq{$genez}{outTXTPos}} "$read\tFP\t$pos\n" if $strand eq 0;
+		$seq{$genez}{pos} ++ if $strand == 0;
+		$seq{$genez}{neg} ++ if $strand == 16;
+		$passedFilterP ++ if $strand == 0;
+		$passedFilterN ++ if $strand == 16;
+	}
 	$count{used} ++;
 	$seq{$genez}{used} ++;
 	$seq{$genez}{posneg} ++ if $strand eq 16 and $oldStrand eq 0;
 	$seq{$genez}{negpos} ++ if $strand eq 0 and $oldStrand eq 16;
 }
 close $inSamFix;
-print $outLog "\t$LCY$mysam.fixed$N: skipped = $LGN$skipped$N\n";
+print $outLog "\t$LCY$origDir/$mysamName.fixed$N: skipped = $LGN$skipped$N\n";
 
 ###########
-=comment
-      my $CTval = $CT eq " "       ? "-"  : $CT eq "."       ? $ref     : $CT =~ /^[Nn]$/ ? $CT :
-                  $CT =~ /^[Z]$/   ? "Z"  : $CT =~ /^[z]$/   ? "z"      : $CT eq "-" ? "-" :
-                  $CT =~ /^[XHU]$/ ? $ref : $CT =~ /^[xhu]$/ ? lc($ref) : die "Cannot determine CT=$CT\n";
-
-      my $GAval = $GA eq " "       ? "-"  : $GA eq "."       ? $ref     : $GA =~ /^[Nn]$/ ? $GA :
-                  $GA =~ /^[Z]$/   ? "Z"  : $GA =~ /^[z]$/   ? "z"      : $GA eq "-" ? "-" :
-                  $GA =~ /^[XHU]$/ ? $ref : $GA =~ /^[xhu]$/ ? lc($ref) : die "Cannot determine GA=$GA\n";
-=cut
+#=comment
+#      my $CTval = $CT eq " "       ? "-"  : $CT eq "."       ? $ref     : $CT =~ /^[Nn]$/ ? $CT :
+#                  $CT =~ /^[Z]$/   ? "Z"  : $CT =~ /^[z]$/   ? "z"      : $CT eq "-" ? "-" :
+#                  $CT =~ /^[XHU]$/ ? $ref : $CT =~ /^[xhu]$/ ? lc($ref) : die "Cannot determine CT=$CT\n";
+#
+#      my $GAval = $GA eq " "       ? "-"  : $GA eq "."       ? $ref     : $GA =~ /^[Nn]$/ ? $GA :
+#                  $GA =~ /^[Z]$/   ? "Z"  : $GA =~ /^[z]$/   ? "z"      : $GA eq "-" ? "-" :
+#                  $GA =~ /^[XHU]$/ ? $ref : $GA =~ /^[xhu]$/ ? lc($ref) : die "Cannot determine GA=$GA\n";
+#=cut
 
 print $outLog "
 Reads that passed filters:
@@ -346,24 +297,45 @@ Total   : $count{total};
 Per Gene:
 ";
 
-foreach my $gene (sort keys %seq)
-{
-my @key = qw(posneg negpos pos neg used total badlength lowq orig);
-foreach my $key (@key) {
-	$seq{$gene}{$key} = 0 if not defined $seq{$gene}{$key};
-}
-my $gene2 = $seq{$gene}{orig};
-print $outLog "
+my $zero = "";
+foreach my $gene (sort keys %seq) {
+	my @key = qw(posneg negpos unkpos unkneg pos neg used total badlength lowq orig);
+	foreach my $key (@key) {
+		$seq{$gene}{$key} = 0 if not defined $seq{$gene}{$key};
+	}
+	$zero .= "$gene\n" and next if $seq{$gene}{total} == 0;
+	my $gene2 = $seq{$gene}{orig};
+	print $outLog "
 - $gene (original name = $gene2):
 Positive    = $seq{$gene}{pos} (neg->pos = $seq{$gene}{negpos})
 Negative    = $seq{$gene}{neg} (pos->neg = $seq{$gene}{posneg})
+UnkPos      = $seq{$gene}{unkpos}
+UnkNeg      = $seq{$gene}{unkneg}
+Used        = $seq{$gene}{used}
+Total       = $seq{$gene}{total}
+Too Short   = $seq{$gene}{badlength}
+Low Quality = $seq{$gene}{lowq}
+";
+
+	print STDERR "
+- $gene (original name = $gene2):
+Positive    = $seq{$gene}{pos} (neg->pos = $seq{$gene}{negpos})
+Negative    = $seq{$gene}{neg} (pos->neg = $seq{$gene}{posneg})
+UnkPos      = $seq{$gene}{unkpos}
+UnkNeg      = $seq{$gene}{unkneg}
 Used        = $seq{$gene}{used}
 Total       = $seq{$gene}{total}
 Too Short   = $seq{$gene}{badlength}
 Low Quality = $seq{$gene}{lowq}
 ";
 }
+$zero = $zero eq "" ? "(None)\n" : "\n$zero\n";
+print STDERR "- Genes that have 0 reads:$zero\n";
+print STDERR "\t${GN}SUCCESS$N: Total=$count{total}, used=$count{used}, Low Map Quality=$count{lowq}, Too short=$count{badlength}\n";
+print $outLog "\n\t${GN}SUCCESS$N: Total=$count{total}, used=$count{used}, Low Map Quality=$count{lowq}, Too short=$count{badlength}\n";
 
+print STDERR "\n\nOutput: ${LGN}$origDir$N\n";
+print $outLog "\n\nOutput: ${LGN}$origDir$N\n";
 ##########################################
 
 =comment
@@ -372,11 +344,10 @@ foreach my $gene (sort keys %seq) {
 	my $finalPos = $outDir . "0_orig/$gene\_Pos.orig";
 	my $finalNeg = $outDir . "0_orig/$gene\_Neg.orig";
 
-=PART6
-=PART6END
-
+#=PART6
 	my $lotsOfC = defined $lotsOfC{$gene} ? $lotsOfC{$gene} : "";
 	my $ucgene = uc($gene);
+	next;
 	system("footLoop_addition.pl $finalPos $ucgene \"$lotsOfC\"") == 0 or print "Cannot do footLoop_addition.pl $ucgene $finalPos: $!\n";
 	print $outLog "\tfootLoop_addition.pl $finalPos $ucgene \"$lotsOfC\"\n";
 	my ($finalPosLine) = `wc -l $finalPos` =~ /^(\d+) /;
@@ -618,8 +589,81 @@ foreach my $gene (sort keys %seq) {
 print STDERR "\n${LPR}If there is not PDF made from step (8) then it's due to too low number of read/peak$N\n\n";
 =cut
 
+sub run_bismark {
+	my ($readFile, $outDir, $mysam, $force, $outLog) = @_;
+	if (defined $force or not -e $mysam) {
+		my $text = "\n$YW-------------->$N\n${YW}2. Running bismark$N $bismarkOpt $bismark_folder $readFile\n";
+		print STDERR $text; print $outLog $text;
+		if ($opt_p) {
+			my $outFolder = $outDir . "/.bismark_paralel/";
+			if (-d $outFolder) {
+				print "Removing all in $outFolder\n";
+				system("/bin/rm $outFolder/*");
+			}
+			makedir($outFolder);
+			print $outLog "\t  Splitting $CY$readFile$N by 1000 sequences!\n\n####### SPLITRESULT LOG ########";	
+			my $splitresult = `SplitFastq.pl -i $readFile -o $outFolder -n 1000`;
+			print $outLog "$splitresult\n";	
+			print "####### SPLITRESULT LOG #######\n\n\t  Running bismark in paralel!\n";
+			my $result = system("run_script_in_paralel2.pl -v \"srun -p high --mem 8000 bismark -o $outDir/.bismark_paralel/ $bismarkOpt $bismark_folder FILENAME >> FILENAME.bismark.log 2>&1\" $outFolder .part 20");
+			my @partSam = <$outFolder/*.part_bismark*.sam>; my $totalPartSam = @partSam;
+			print $outLog "\t  All part.sam has been made (total = $totalPartSam). Now making $CY$mysam$N and then removing the part sam\n";
+			for (my $p = 0; $p < @partSam; $p++) {
+				my $partSam = $partSam[$p];
+				print "\t\tPutting $partSam into $mysam and removing it!\n";
+				system("cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >  $mysam") == 0 or die "Failed to cat $partSam: $!\n" if $p == 0;
+				system("cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >> $mysam") == 0 or die "Failed to cat $partSam: $!\n" if $p != 0;
+				print "\t- Removing $CY$partSam$N: /bin/rm $partSam\n";
+				system("/bin/rm $partSam") == 0 or die "Failed to /bin/rm $partSam: $!\n";
+			}
+		}
+		else {
+			my $result = system("bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1");
+			if ($result != 0) {
+				print STDERR  "\t${LRD}Bisulfte_Genome seems to be corrupted so re-running:\n\t${YW}-bismark_genome_preparation$N --bowtie2 $bismark_folder\n";
+				print $outLog "\t${LRD}Bisulfte_Genome seems to be corrupted so re-running:\n\t${YW}-bismark_genome_preparation$N --bowtie2 $bismark_folder\n";
+				system("bismark_genome_preparation --bowtie2 $bismark_folder") == 0 or die "Failed to run bismark genome preparation: $!\n";
+				system("bismark $bismarkOpt $bismark_folder $readFile") == 0 or die "$LRD!!!$N\tFailed to run bismark: $!\n";
+			}
+			print $outLog "\t${GN}SUCCESS$N: Output $mysam\n";
+			print STDERR "\t${GN}SUCCESS$N: Output $mysam\n";
+		}
+	}
+	else {
+		print $outLog "\t${GN}SUCCESS$N: Output already exist: $CY$mysam$N\n";
+		print STDERR "\t${GN}SUCCESS$N: Output already exist: $CY$mysam$N\n";
+	}
+}
+
+sub make_bismark_index {
+	my ($geneIndexFa, $bismark_folder, $bismarkOpt, $outLog) = @_;
+	print STDERR  "\n$YW-------------->$N\n${YW}1b. Running bismark_genome_preparation$N --bowtie2 $bismark_folder$N\n$YW<--------------$N\n";
+	print $outLog "\n$YW-------------->$N\n${YW}1b. Running bismark_genome_preparation$N --bowtie2 $bismark_folder$N\n$YW<--------------$N\n";
+	my ($check, $md5sum, $md5sum2) = (0);
+	my $bismark_folder_exist = (-d "$bismark_folder/Bisulfite_Genome/" and -e "$bismark_folder/Bisulfite_Genome/.md5sum.md5") ? 1 : 0;
+	if ($bismark_folder_exist == 1) {
+		print STDERR "\tOlder bismark folder $LCY$bismark_folder/BIsulfite_Genome/$N exist! Checking MD5 if they're the same as current fasta file.\n";
+		print $outLog "\tOlder bismark folder $LCY$bismark_folder/BIsulfite_Genome/$N exist! Checking MD5 if they're the same as current fasta file.\n";
+		($md5sum)  = getMD5("$bismark_folder/Bisulfite_Genome/.md5sum.md5");
+		($md5sum2) = getMD5($geneIndexesFa);
+		$bismark_folder_exist = 0 if $md5sum ne $md5sum2;
+	}
+	if ($bismark_folder_exist == 0) {
+		print STDERR "\tOlder bisulfite genome found but$LRD different$N (md5sum old = $CY$md5sum$N, new = $CY$md5sum2)$N\n" if defined $md5sum;
+		print $outLog "\tOlder bisulfite genome found but$LRD different$N (md5sum old = $CY$md5sum$N, new = $CY$md5sum2)$N\n" if defined $md5sum;
+		print $outLog "\tbismark_genome_preparation --bowtie2 $bismark_folder && md5sum $geneIndexesFa > $bismark_folder/Bisulfite_Genome/.md5sum.md5\n";
+		system("bismark_genome_preparation --bowtie2 $bismark_folder > $bismark_folder/LOG.txt 2>&1 && md5sum $geneIndexesFa > $bismark_folder/Bisulfite_Genome/.md5sum.md5") == 0 or die "Failed to run bismark genome preparation: $!\n";
+	}
+	else { 
+		print STDERR "\tOlder bisulfite genome have the ${LGN}same$N MD5sum! (md5sum old = $CY$md5sum$N, new = $CY$md5sum2)$N\n" if $md5sum eq $md5sum2;
+		print $outLog "\tOlder bisulfite genome have the ${LGN}same$N MD5sum! (md5sum old = $CY$md5sum$N, new = $CY$md5sum2)$N\n" if $md5sum eq $md5sum2;
+		print STDERR "\t${GN}SUCCESS$N: $CY$bismark_folder\/Bisulfite_Genome$N already exist and is used!\n";
+		print $outLog "\t${GN}SUCCESS$N: $CY$bismark_folder\/Bisulfite_Genome$N already exist and is used!\n";
+	}
+}
+
 sub parse_geneIndexesFile {
-	my ($geneIndexesFile, $geneIndexesFa, $outLog) = @_;
+	my ($geneIndexesFile, $outDir, $outLog) = @_;
 	my $geneIndexes;
 	open (my $geneIndexIn, "<", $geneIndexesFile) or die "Cannot read from $geneIndexesFile: $!\n";
 	while (my $line = <$geneIndexIn>) {
@@ -630,66 +674,68 @@ sub parse_geneIndexesFile {
 		$geneIndexes->{$gene} = $beg;
 	}
 	close $geneIndexIn;
+	my $geneIndexesName = getFilename($geneIndexesFile);
+	my $geneIndexesFaTemp = $outDir . "/.geneIndexes/$geneIndexesName.fa";
+	makedir($geneIndexesFaTemp, 1);
 
-	
-	print STDERR "\n${YW}1. Getting fasta sequence from $geneIndexesFile into $CY$geneIndexesFa$N\n";
-	print $outLog "\n${YW}1. Getting fasta sequence from $geneIndexesFile into $CY$geneIndexesFa$N\n";
-	if ($bismark_folder_exist == 0) {
-		print $outLog "\t- Running ${YW}bedtools getfasta$N -fi $opt_g -bed $geneIndexesFile -fo $geneIndexesFa -name\n";
-		system("fastaFromBed -fi $opt_g -bed $geneIndexesFile -fo $geneIndexesFa -name") == 0 ? print $outLog "\t${GN}SUCCESS$N: Output: $CY$geneIndexesFa$N\n" : die "Failed to run bedtools: $!\n";
-		system("perl -pi -e 'tr/acgtn/ACGTN/' $geneIndexesFa") == 0 or die "\n$LRD!!!$N\tFailed to convert atgc into ATGC\n";
+	my $text = "\n$YW-------------->$N\n${YW}1a. Getting fasta sequence from $geneIndexesFile into $CY$geneIndexesFaTemp$N\n$YW<--------------$N\n";
+	print STDERR $text; print $outLog $text; 
+	print $outLog "\t- Running ${YW}bedtools getfasta$N -fi $opt_g -bed $geneIndexesFile -fo $geneIndexesFaTemp -name\n";
+
+	system("fastaFromBed -fi $opt_g -bed $geneIndexesFile -fo $geneIndexesFaTemp -name") == 0 ? print $outLog "\t${GN}SUCCESS$N: Output: $CY$geneIndexesFaTemp$N\n" : die "Failed to run bedtools: $!\n";
+	$geneIndexesFaTemp = uppercaseFasta($geneIndexesFaTemp, $outLog);
+	my ($geneIndexesFaMD5, $temp, $geneIndexesFaTempMD5File)  = getMD5($geneIndexesFaTemp);
+	die "GENE=$geneIndexesFaTemp, MD5=$geneIndexesFaMD5\n" if $geneIndexesFaMD5 eq "NA";
+	my $geneIndexesFa = $outDir . "/.geneIndexes/$geneIndexesFaMD5/$geneIndexesName.fa";
+	my $geneIndexesFaMD5File = $outDir . "/.geneIndexes/$geneIndexesFaMD5/.$geneIndexesName.fa.md5";
+	if (not -d $geneIndexesFaMD5 or (-d $geneIndexesFaMD5 and not -e $geneIndexesFa)) {
+		makedir("$outDir/.geneIndexes/$geneIndexesFaMD5");
+		system("/bin/mv $geneIndexesFaTemp $outDir/.geneIndexes/$geneIndexesFaMD5/") == 0 or print $outLog "Failed to mv $geneIndexesFaTemp $outDir/.geneIndexes/$geneIndexesFaMD5/: $!\n" and exit 1;
+		system("/bin/mv $geneIndexesFaTempMD5File $outDir/.geneIndexes/$geneIndexesFaMD5/") == 0 or print $outLog "Failed to mv $geneIndexesFaTemp $outDir/.geneIndexes/$geneIndexesFaMD5/: $!\n" and exit 1;
 	}
-	return ($geneIndexes, $geneIndexesFa);
+	print $outLog "\nERROR: geneIndexesHash is not defined!\n" and exit 1 if not defined $geneIndexes;
+	print $outLog "\nERROR: geneIndexesFa is not defined!\n" and exit 1 if not defined $geneIndexesFa;
+	return ($geneIndexes, $geneIndexesFa, "$outDir/.geneIndexes/$geneIndexesFaMD5/");
 }
 
+sub uppercaseFasta {
+	my ($fastaFile, $outLog) = @_;
+	open (my $in, "<", $fastaFile) or print $outLog "Failed to open $fastaFile: $!\n" and exit 1;
+	open (my $out, ">", "$fastaFile.out") or print $outLog "Failed to write to $fastaFile.out: $!\n" and exit 1;
+	my $fasta = new FAlite($in);
+	while (my $entry = $fasta->nextEntry()) {
+		my $def = $entry->def;
+		my $seq = $entry->seq;
+		$seq =~ tr/a-z/A-Z/;
+		print $out "$def\n$seq\n";
+	}
+	close $in;
+	close $out;
+	system("/bin/mv $fastaFile.out $fastaFile") == 0 or print $outLog "Failed to /bin/mv $fastaFile.out $fastaFile: $!\n" and exit 1;
+	return("$fastaFile");
+}
 sub get_geneIndexes_fasta {
+	my ($geneIndexesFile, $outDir, $logFile, $outLog) = @_;
 	my $geneIndexesName = getFilename($geneIndexesFile);
-	print "GENE indexes=$geneIndexesFile, name = $geneIndexesName\n";
+	#print "GENE indexes=$geneIndexesFile, name = $geneIndexesName\n";
 	if ($x eq 0 and $y eq 0) {
-		system("/bin/cp $geneIndexesFile $outDir/$geneIndexesName\_$x\_$y\_bp.bed") == 0 or die "Failed to copy $geneIndexesFile to $outDir/$geneIndexesName\_$x\_$y\_bp.bed: $!\n";
+		system("/bin/cp $geneIndexesFile $outDir/$geneIndexesName\_$x\_$y\_bp.bed") == 0 or print $outLog "Failed to copy $geneIndexesFile to $outDir/$geneIndexesName\_$x\_$y\_bp.bed: $!\n" and exit 1;
 	}
 	else {
-		system("bedtools_bed_change.pl -m -x $x -y $y -i $geneIndexesFile -o $outDir/$geneIndexesName\_$x\_$y\_bp.bed") == 0 or die "Failed to get (beg $x, end $y) bp of $geneIndexesFile!\n";
+		system("bedtools_bed_change.pl -m -x $x -y $y -i $geneIndexesFile -o $outDir/$geneIndexesName\_$x\_$y\_bp.bed >> $logFile 2>&1") == 0 or print $outLog "Failed to get (beg $x, end $y) bp of $geneIndexesFile!\n" and exit 1;
 	}
 	$geneIndexesFile = "$outDir/$geneIndexesName\_$x\_$y\_bp.bed";
 	return($geneIndexesFile);
 }
 
-sub convert_seq {
-	my @seq = @{$_[0]};
-	my %new;
-	for (my $strand = 0; $strand < 2; $strand++) {
-		my @new;
-		for (my $i = 0; $i < @seq; $i++) {
-			my $lastpos = $strand == 0 ? 0 : @seq-1;
-			my $add     = $strand == 0 ? 1 : -1; 
-			my $nuc1 = $strand == 0 ? "C" : "G";
-			my $nuc2 = $strand == 0 ? "G" : "C";
-			
-			if ($i == 0 || $i == @seq - 1) {
-				$new[$i] = "B";
-			}
-			elsif ($seq[$i] ne $nuc1) {
-				$new[$i] = "N";
-			}
-			else {
-				if ($seq[$i+$add] eq $nuc2) {
-					$new[$i] = "P" if defined($opt_c);
-					$new[$i] = "N" if not defined($opt_c);
-				}
-				else {
-					$new[$i] = "C";
-				}
-			}
-		}
-		@{$new{$strand}} = @new;
-	}
-	return(\%new);
-}
+#=SUB convert_seq {
 
 sub sanityCheck {
 
-my $usageshort = "\nUsage: $YW$0$N [options..]
+my ($opts) = @_;
+
+my $usageshort = "\n$LGN----------------------------$N\n
+Usage: $YW$0$N [options..]
 \t$CY-r$N read.fq
 \t$LPR-n$N output_dir
 \t$LGN-g$N genome.fa
@@ -698,13 +744,22 @@ my $usageshort = "\nUsage: $YW$0$N [options..]
 \t$LPR-y$N [0] right buffer in bp e.g. 100 for CALM3
 \t$LGN-L$N [500] minimum read length (percent: 50p)
 \t$YW-q$N [0] minimum map quality (0-50)
-\t$CY-Z$N toggle to use not-stringent mapping
-\t$LPR-F$N toggle to re-map if .sam file is present in output_dir
+\t$CY-Z$N toggle to use non-stringent mapping (-H for more explanation)
+\t$LPR-F$N toggle to redo bismark mapping even if a .sam file is present in output_dir
 
-$LRD IMPORTANT!!$N If you see a lot of 'Chromosomal sequence could not be extracted for..' try adding $YW-x -10 -y 10$N
+Do $YW$0$N $LGN-h$N for longer explanation
+
+${LRD}IMPORTANT!!$N If you see a lot of 'Chromosomal sequence could not be extracted for..' try adding $YW-x -10 -y 10$N
 If you still see then try adding $YW-x -50 -y 50$N
 
+$LGN----------------------------$N\n
 ";
+
+my $checkopts = 0;
+foreach my $key (sort keys %{$opts}) {
+	$checkopts ++ if defined $opts->{$key};
+}
+die $usageshort if $checkopts == 0;
 
 #Usage: $YW$0$N ${GN}[options]$N [-r $CY<read.fq>$N OR -S $CY<read.bismark.sam>$N -n $PR<output folder>$N -g $GN<genome.fa>$N -i $YW<geneCoordinates.bed>$N
 my $usage = "
@@ -806,18 +861,16 @@ All converted Cs and a 5\% mismatches (0.05*(2500-531)) and 1\% gap= 100bp misma
 die "\n$usage\n" if defined $opt_h;
 die "\n$usage_long\n" if defined $opt_H;
 my $read0 = defined($opt_r) ? $opt_r : "FALSE";
-my $sam0 = defined($opt_S) ? $opt_S : "FALSE";
 
-die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -r <read.fq> not defined\n\n############################################\n\n$usageshort\n\n" if not defined($opt_r);
+die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -r <read.fq> not defined\n\n############################################\n\n" if not defined($opt_r);
+die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -r $opt_r DOES NOT EXIST\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if defined $opt_r and not -e $opt_r;
 die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -n <output directory> not defined\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not defined($opt_n);
 die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -i <geneindex.bed> not defined\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not defined($opt_i);
-die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -l <min peak length in bp> must be positive integer!\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if defined($opt_l) and $opt_l !~ /^\d+$/;
+#die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -l <min peak length in bp> must be positive integer!\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if defined($opt_l) and $opt_l !~ /^\d+$/;
 die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -L <min read length in bp> must be positive integer!\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if defined($opt_L) and $opt_L !~ /p$/ and $opt_L !~ /^\d+$/;
 die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -g <ref_genome.fa [hg19.fa]> not defined\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not defined($opt_g);
-die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -r $read0 and -S $sam0 both DOES NOT EXIST (provide at least one!)\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if (defined($opt_r) and not -e ($opt_r)) or (defined($opt_S) and not -e ($opt_S));
 die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -i $opt_i DOES NOT EXIST\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not -e ($opt_i);
 die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -g $opt_g DOES NOT EXIST\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not -e ($opt_g);
-die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -S $CY$opt_S$N exists but seems to be empty!\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if defined($opt_S) and (not -e $opt_S or (-s $opt_S < 10));
 
 	if (not -d "$footLoopDir/.sortTMP/") {
 		system("mkdir $footLoopDir/.sortTMP/") == 0 or die "Failed to make directory $footLoopDir/.sortTMP/: $!\n";
@@ -830,67 +883,49 @@ die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -S $CY$opt
 	my $outDirname = $dir[@dir-1];
 	   $outDirname = $dir[@dir-2] if not defined $outDirname or (defined $outDirname and $outDirname =~ /^[\s]*$/);
 
-	my %box; 
-	if (defined $opt_B) {
-		my $boxFile = $opt_B;
-		die "\n${LRD}ERROR!$N: $LCY-B$N <boxfile.bed> does not exist!\n" if not -e $boxFile;
-		my @lines = `cat $boxFile`;
-		die "\n${LRD}ERROR!$N: $LCY-B$N <boxfile.bed> is empty!!\n" if @lines == 0;
-		my $lineCount = 0;
-		foreach my $line (@lines) {
-			chomp($line);
-			next if $line =~ /^\#/;
-			my ($chr, $beg, $end, $gene, $val, $strand, @others) = split("\t", $line);
-			$lineCount ++;
-			$gene = "GENE_$lineCount" if not defined $gene;
-			$strand = "+" if not defined $strand;
-			$val = 0 if not defined $val;
-			my $others = @others == 0 ? "" : "\t" . join("\t", @others);
-			$chr=uc($chr);
-			push(@{$box{$chr}}, "$chr\t$beg\t$end\t$gene\t$val\t$strand$others");
-		}
-	}
-	return(\%box);
 }
 
 sub record_options {
 	my ($opts, $outLog) = @_;
 	my $optPrint = "$YW$0$N";
-	foreach my $opts (sort keys %{$opts}) {
-		next if not defined $opts->{$opts};
-		my $val = defined $opts->{$opts};
-		$optPrint .= " -$opts $val";
+	foreach my $opt (sort keys %{$opts}) {
+		next if not defined $opts->{$opt};
+		my $val = $opts->{$opt};
+		$optPrint .= $val eq 1 ? " -$opt" : " -$opt $val";
 	}
-	my $param = "
-	${YW}Initializing...
+	my  $param = "
+${YW}Initializing...$N
 	
-	Date       : $date
-	Run ID     : $uuid
-	Run script : $optPrint
+Date       : $date
+Run ID     : $uuid
+Run script : $optPrint
 	
-	${YW}Input Parameters$N
-	1. -r ${CY}Read/SAM$N  :$readFile
-	2. -g ${CY}Genome$N    :$genomeFile
-	3. -n ${CY}OutDir$N    :$outDir
-	4. -i ${CY}Index$N     :$geneIndexesFile
-	5. -L ${CY}MinRdLen$N  :$minReadL
-	6. -q ${CY}MinMapQ$N   :$opt_q
-	7. -Z ${CY}Bismark$N   :$bismarkOpt
-	";
+${YW}Input Parameters$N
+1. -r ${CY}Read/SAM$N  :$readFile
+2. -g ${CY}Genome$N    :$genomeFile
+3. -n ${CY}OutDir$N    :$outDir
+4. -i ${CY}Index$N     :$geneIndexesFile
+5. -L ${CY}MinRdLen$N  :$minReadL
+6. -q ${CY}MinMapQ$N   :$opt_q
+7. -Z ${CY}Bismark$N   :$bismarkOpt
+
+";
 	print $outLog $param;
 	print STDERR $param;
 }
 
 sub check_if_result_exist {
 	my ($resFiles, $outLog) = @_;
-	return if not defined $resFiles or @{$resFiles} == 0;
+	return if not defined $resFiles;
+	my @resFiles = @{$resFiles};	
+	return if @resFiles == 0;
 	if (defined $opt_n and -d $opt_n and not defined $opt_f) {
 		if (@{$resFiles} != 0) {
 			my $resFileCheck = 0;
 			foreach my $resFile (@{$resFiles}) {
-				$resFileCheck = 1 if -s $resFile > 0;
+				$resFileCheck = 1 if -e $resFile and -s $resFile > 0;
 			}
-			print $outLog "-d $LGN$opt_n$N $resFiles[0] already exist!\n" if $resFileCheck == 1;
+			print $outLog "-d $LGN$opt_n$N $resFiles->[0] already exist!\n" if $resFileCheck == 1;
 			exit 0 if $resFileCheck == 1;
 		}
 		else {
@@ -1181,3 +1216,74 @@ PART6
 PART6END
 -e -f -B -D
 
+
+if ($opt_e) {
+	#0 = white
+	#1 = intron line
+	#2 = exon line
+	print $outLog "\t${BR}2a. Parsing in exon intron data from $CY$exonFile$N:\n";
+	foreach my $gene (sort keys %seq) {
+		next if -e "$outFolder/exon/$gene.exon"; # DELETE THIS
+		my ($genepos) = `grep -i -P \"\\t$gene\\t\" $geneIndexesFile`; chomp($genepos);
+		my $length_seq = $seq{$gene}{len};
+		print $outLog "\n$LRD!!!$N\tWARNING: No sequence for gene $CY$gene$N is found in -s $CY$seqFile$N!\n\n" if $length_seq == 0;
+		myFootLib::parseExon($exonFile, $genepos, $gene, $outFolder, $length_seq);
+		print STDERR "\t${GN}SUCCESS$N: Sequence of exon $CY$gene$N has been parsed from fasta file $CY$seqFile$N (length = $CY" . $length_seq . "$N bp)\n";
+		print $outLog "\t${GN}SUCCESS$N: Sequence of exon $CY$gene$N has been parsed from fasta file $CY$seqFile$N (length = $CY" . $length_seq . "$N bp)\n";
+	}
+}
+
+sub convert_seq {
+	my @seq = @{$_[0]};
+	my %new;
+	for (my $strand = 0; $strand < 2; $strand++) {
+		my @new;
+		for (my $i = 0; $i < @seq; $i++) {
+			my $lastpos = $strand == 0 ? 0 : @seq-1;
+			my $add     = $strand == 0 ? 1 : -1; 
+			my $nuc1 = $strand == 0 ? "C" : "G";
+			my $nuc2 = $strand == 0 ? "G" : "C";
+			
+			if ($i == 0 || $i == @seq - 1) {
+				$new[$i] = "B";
+			}
+			elsif ($seq[$i] ne $nuc1) {
+				$new[$i] = "N";
+			}
+			else {
+				if ($seq[$i+$add] eq $nuc2) {
+					$new[$i] = "P" if defined($opt_c);
+					$new[$i] = "N" if not defined($opt_c);
+				}
+				else {
+					$new[$i] = "C";
+				}
+			}
+		}
+		@{$new{$strand}} = @new;
+	}
+	return(\%new);
+}
+
+=BOX
+	my %box; 
+	if (defined $opt_B) {
+		my $boxFile = $opt_B;
+		die "\n${LRD}ERROR!$N: $LCY-B$N <boxfile.bed> does not exist!\n" if not -e $boxFile;
+		my @lines = `cat $boxFile`;
+		die "\n${LRD}ERROR!$N: $LCY-B$N <boxfile.bed> is empty!!\n" if @lines == 0;
+		my $lineCount = 0;
+		foreach my $line (@lines) {
+			chomp($line);
+			next if $line =~ /^\#/;
+			my ($chr, $beg, $end, $gene, $val, $strand, @others) = split("\t", $line);
+			$lineCount ++;
+			$gene = "GENE_$lineCount" if not defined $gene;
+			$strand = "+" if not defined $strand;
+			$val = 0 if not defined $val;
+			my $others = @others == 0 ? "" : "\t" . join("\t", @others);
+			$chr=uc($chr);
+			push(@{$box{$chr}}, "$chr\t$beg\t$end\t$gene\t$val\t$strand$others");
+		}
+	}
+	return(\%box);

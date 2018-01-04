@@ -25,10 +25,14 @@ our $LPR		="\e[1;35m";
 our $DIES   ="$LRD!!!\t$N";
 
 our @EXPORT = qw(
+revcomp
+date
+getuuid
 getFullpathAll
 myeval
 checkBismarkIndex
 getDate
+getMD5
 getFilename
 getFullpath
 parseExon
@@ -68,6 +72,13 @@ $LPR
 
 
 #################################
+
+sub getuuid {
+	my ($uuid) = `uuidgen`;
+	chomp($uuid);
+	return $uuid;
+
+}
 
 sub checkBismarkIndex {
 	my ($geneIndexes, $mainFolder, $outLog) = @_;
@@ -247,11 +258,12 @@ sub intersect {
 
 sub linecount {
    my ($input1) = @_;
-   my ($linecount) = `wc -l $input1` =~ /^(\d+)/;
+   my ($linecount) = `wc -l $input1` =~ /^(\d+)/ if $input1 !~ /.gz$/;
+      ($linecount) = `zcat $input1| wc -l` =~ /^(\d+)/ if $input1 =~ /.gz$/;
    return $linecount;
 }
 sub makedir {
-   my ($folder) = @_;
+   my ($folder, $isFile) = @_;
 	my $log = "";
    #$folder = getFullpath($folder);
    my @folders = split("/", $folder);
@@ -259,6 +271,7 @@ sub makedir {
    my $curr_folder = "";
    $log .= "FOLDER $LCY$folder$N is already exist!\n" and return $log if -e $folder;
    for (my $i = 0; $i < @folders; $i++) {
+		last if $i == @folders-1 and defined $isFile;
       $curr_folder .= "$folders[$i]/";
       next if $curr_folder =~ /^\/$/;
       next if $curr_folder =~ /^(\/|\/home\/)$/;
@@ -438,7 +451,57 @@ sub myeval {
 sub getFullpathAll {
    my @arr = @_;
    for (my $i = 0; $i < @arr; $i++) {
-      $arr[$i] = getFullpath($arr[$i]);
+		my $file = $arr[$i];
+      ($file) = getFullpath($file);
+		$arr[$i] = $file;
    }
    return(@arr);
+}
+
+sub getMD5 {
+   my ($file) = @_;
+   my $filetemp = getFullpath($file);
+   $filetemp = $file if not defined $filetemp or not -e $filetemp;
+   if ($file !~ /md5(sum)?$/) {
+      #print "FILE is not md5 ($file)\n";
+      my ($folder, $filename) = getFilename($filetemp, "folder");
+      $file = -e "$folder/.$filename.md5sum" ? "$folder/.$filename.md5sum" :
+              -e "$folder/.$filename.md5"    ? "$folder/.$filename.md5" :
+              -e "$folder/$filename.md5sum"  ? "$folder/$filename.md5sum" :
+              -e "$folder/$filename.md5"     ? "$folder/$filename.md5" : "";
+		if (not -e $filetemp) {
+			die "file=\n$CY$filetemp$N\nHERE\n";
+			return "NA";
+		}
+      system("md5sum $filetemp > $folder/.$filename.md5") == 0 or print date() . "mitochy::getMD5 $YW$filetemp$N: failed to md5sum $filetemp!\n" and return;
+      $file = "$folder/.$filename.md5";
+   }
+	if (not -e $filetemp) {
+		die "file=\n$CY$filetemp$N\nHERE\n";
+		return "NA";
+	}
+   my @line = `cat $file`;
+   return "NA" if @line == 0;
+   return "NA" if $line[0] !~ /^[a-z0-9]+/i;
+   chomp($line[0]);
+   my ($md5, $file2) = split("[\t ]+", $line[0]);
+   #print "\nMD5 = $md5\n\n";
+   #print "\t$YW Warning$N: file=$CY$file$N, but file inside differs! ($LGN$file2$N)\n" if $file !~ /$file2/ and $file2 !~ /$file/;
+   return($md5, $file2, $file);
+}
+
+sub date {
+   my ($add, $color) = @_;
+   ($color = $add and undef $add) if defined $add and $add =~ /^(color=|color|col=|col|y|c)/i;
+   $add = 0 if not defined $add;
+   return ("[$YW" . getDate($add) . "$N]: ") if not defined $color;
+   return ("[" . getDate($add) . "]: ") if defined $color;
+}
+
+sub revcomp {
+   my ($sequence) = @_;
+   $sequence = uc($sequence);
+   $sequence =~ tr/ATGC/TACG/;
+   $sequence = reverse($sequence);
+   return ($sequence);
 }
