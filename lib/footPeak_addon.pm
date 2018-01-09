@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+package#!/usr/bin/perl
 
 use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
 use vars qw($opt_v $opt_x $opt_R $opt_c $opt_t);

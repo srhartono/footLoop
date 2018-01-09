@@ -361,7 +361,22 @@ sub getConv {
 	return(\@converted);
 
 }
-
+sub check_chr_in_sam {
+	my ($samFile) = @_;
+	open (my $in2, "cut -f2,3 $samFile|") or die "Cannot read from $samFile: $!\n";
+	while (my $line = <$in2>) {
+		chomp($line);
+		my @arr = split("\t", $line);
+		next if @arr == 0;
+		next if $arr[0] !~ /^\d+$/;
+		$linecount ++;
+		my ($strand, $chr) = @arr; $chr = uc($chr);
+		next if $strand eq 4;
+		die "Can't find gene $chr in $seqFile!\n" if not defined $refs{$chr};
+		next;
+	}
+}
+__END__
 sub colorseq {
    my ($seq) = @_;
    my @seq = $seq =~ /ARRAY/ ? @{$seq} : split("", $seq);
@@ -406,20 +421,5 @@ sub colorconv {
 	return($res1, $res2);
 }
 
-sub check_chr_in_sam {
-	my ($samFile) = @_;
-	open (my $in2, "cut -f2,3 $samFile|") or die "Cannot read from $samFile: $!\n";
-	while (my $line = <$in2>) {
-		chomp($line);
-		my @arr = split("\t", $line);
-		next if @arr == 0;
-		next if $arr[0] !~ /^\d+$/;
-		$linecount ++;
-		my ($strand, $chr) = @arr; $chr = uc($chr);
-		next if $strand eq 4;
-		die "Can't find gene $chr in $seqFile!\n" if not defined $refs{$chr};
-		next;
-	}
-}
 __END__
 

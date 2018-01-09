@@ -25,6 +25,11 @@ our $LPR		="\e[1;35m";
 our $DIES   ="$LRD!!!\t$N";
 
 our @EXPORT = qw(
+colorseq
+colorseqCG
+color
+colorCG
+colorconv
 revcomp
 date
 getuuid
@@ -501,4 +506,48 @@ sub revcomp {
    $sequence =~ tr/ATGC/TACG/;
    $sequence = reverse($sequence);
    return ($sequence);
+}
+
+sub colorseq {
+   my ($seq) = @_;
+   my @seq = $seq =~ /ARRAY/ ? @{$seq} : split("", $seq);
+   my $seq3 = "";
+   foreach my $seq2 (@seq[0..@seq-1]) {
+      $seq3 .= color($seq2);
+   }
+   return ($seq3);
+}
+sub colorseqCG {
+   my ($seq) = @_;
+   my @seq = $seq =~ /ARRAY/ ? @{$seq} : split("", $seq);
+   my $seq3 = "";
+   foreach my $seq2 (@seq[0..@seq-1]) {
+      $seq3 .= colorCG($seq2);
+   }
+   return ($seq3);
+}
+
+sub color {
+   my ($nuc) = @_;
+   $nuc = $nuc eq "A" ? "$LRD$nuc$N" : $nuc eq "G" ? "$LGN$nuc$N" : $nuc eq "C" ? "$YW$nuc$N" : $nuc eq "T" ? "$LCY$nuc$N" : "$LPR$nuc$N";
+   return $nuc;
+}
+
+sub colorCG {
+   my ($nuc) = @_;
+   $nuc = $nuc eq "C" ? "$LGN$nuc$N" : $nuc eq "G" ? "$LGN$nuc$N" : "$GR$nuc$N";
+   return $nuc;
+}
+
+sub colorconv {
+   my ($seq1, $seq2) = @_;
+   my @seq1 = $seq1 =~ /ARRAY/ ? @{$seq1} : split("", $seq1);
+   my @seq2 = $seq2 =~ /ARRAY/ ? @{$seq2} : split("", $seq2);
+   my ($res1, $res2);
+   for (my $i = 0; $i < @seq1; $i++) {
+      my $dinuc = $seq1[$i] . $seq2[$i];
+      $res1 .= $dinuc eq "CT" ? "${LRD}C$N" : $dinuc eq "GA" ? "${LRD}G$N" : ($seq1[$i] =~ /^(C|G)$/ and $seq1[$i] ne $seq2[$i]) ? "${YW}$seq1[$i]$N" : colorCG($seq1[$i]);
+      $res2 .= $dinuc eq "CT" ? "${LPR}T$N" : $dinuc eq "GA" ? "${LPR}A$N" : ($seq2[$i] =~ /^(C|G)$/ and $seq2[$i] ne $seq1[$i]) ? "${YW}$seq2[$i]$N" : colorCG($seq2[$i]);
+   }
+   return($res1, $res2);
 }

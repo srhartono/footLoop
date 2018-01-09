@@ -3,7 +3,7 @@
 use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
 use vars   qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f);
 my @opts = qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f);
-getopts("r:g:i:n:L:x:y:pq:ZhHFf");
+getopts("r:g:i:n:L:x:y:q:HhZFfp");
 BEGIN {
 	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
 	push(@INC, $libPath);
@@ -16,8 +16,9 @@ my $footLoopDir = dirname(dirname abs_path $0) . "/footLoop";
 # 0. Check Sanity #
 ##################
 
-my %opts = ("r" => $opt_r, "g" => $opt_g, "i" => $opt_i, "n" => $opt_n, "L" => $opt_L, "x" => $opt_x, "y" => $opt_y, "p" => $opt_p, "q" => $opt_q, "Z" => $opt_Z, "F" => $opt_F, "f" => $opt_f, "L" => $opt_L, "q" => $opt_q);
-sanityCheck(\%opts);
+my %opts = ("r" => $opt_r, "g" => $opt_g, "i" => $opt_i, "n" => $opt_n, "L" => $opt_L, "x" => $opt_x, "y" => $opt_y, "p" => $opt_p, "q" => $opt_q, "Z" => $opt_Z, "F" => "NONE", "f" => "NONE", "Z" => "NONE", "p" => "NONE", "L" => $opt_L, "q" => $opt_q);
+my %opts2 = ("p" => $opt_p, "Z" => $opt_z, "F" => $opt_F, "f" => $opt_f);
+sanityCheck(\%opts, \%opts2);
 
 ###################
 # 1. Define Input #
@@ -44,7 +45,7 @@ my $logFile = "$outDir/logFile.txt";
 open(my $outLog, '>', $logFile);
 
 # Record all options
-record_options(\%opts, $outLog);
+record_options(\%opts, \%opts2, $outLog);
 
 ###################
 # 2. Runs Bismark #
@@ -926,12 +927,15 @@ die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -g $opt_g 
 }
 
 sub record_options {
-	my ($opts, $outLog) = @_;
-	my $optPrint = "$YW$0$N";
+	my ($opts, $opts2, $outLog) = @_;
+	my $optPrint = "$0";
 	foreach my $opt (sort keys %{$opts}) {
-		next if not defined $opts->{$opt};
-		my $val = $opts->{$opt};
-		$optPrint .= $val eq 1 ? " -$opt" : " -$opt $val";
+		if (defined $opts->{$opt} and $opts->{$opt} eq "NONE") {
+			$optPrint .= " -$opt" if defined $opts2->{$opt};
+		}
+		elsif (defined $opts->{$opt} and $opts->{$opt} ne "NONE") {
+			$optPrint .= " -$opt $opts->{$opt}";
+		}
 	}
 	my  $param = "
 ${YW}Initializing...$N

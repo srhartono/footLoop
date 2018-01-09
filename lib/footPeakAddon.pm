@@ -1,8 +1,7 @@
-#!/usr/bin/perl
+package footPeakAddon;
 
 use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
 use vars qw($opt_v $opt_x $opt_R $opt_c $opt_t);
-getopts("vxRct:");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -427,6 +426,7 @@ while (my $entry = $fasta->nextEntry()) {
 
 }
 
+1;
 __END__
 # 0 = not converted
 # 1 = converted C
