@@ -17,7 +17,7 @@ my $footLoopDir = dirname(dirname abs_path $0) . "/footLoop";
 ##################
 
 my %opts = ("r" => $opt_r, "g" => $opt_g, "i" => $opt_i, "n" => $opt_n, "L" => $opt_L, "x" => $opt_x, "y" => $opt_y, "p" => $opt_p, "q" => $opt_q, "Z" => $opt_Z, "F" => "NONE", "f" => "NONE", "Z" => "NONE", "p" => "NONE", "L" => $opt_L, "q" => $opt_q);
-my %opts2 = ("p" => $opt_p, "Z" => $opt_z, "F" => $opt_F, "f" => $opt_f);
+my %opts2 = ("p" => $opt_p, "Z" => $opt_Z, "F" => $opt_F, "f" => $opt_f);
 sanityCheck(\%opts, \%opts2);
 
 ###################
@@ -78,8 +78,8 @@ while (my $entry = $fasta->nextEntry()) {
 	my $seqz = uc($entry->seq);
 	$gene =~ s/^>//;
 	@{$seq{$gene}{seq}} = split("", $seqz);
-	$seq{$gene}{len} = @{$seq{$gene}{seq}};
-	$seq{$gene}{exp} = (defined $opt_L and $opt_L =~ /p$/i) ? int(0.5+$seq{$gene}{len} * $minReadL / 100) : $minReadL;
+	$seq{$gene}{geneL} = @{$seq{$gene}{seq}};
+	$seq{$gene}{minReadL} = (defined $opt_L and $opt_L =~ /p$/i) ? int(0.5+$seq{$gene}{geneL} * $minReadL / 100) : $minReadL;
 	$seq{$gene}{total} = 0;
 	$seq{$gene}{badlength} = 0;
 	$seq{$gene}{lowq} = 0;
@@ -87,8 +87,8 @@ while (my $entry = $fasta->nextEntry()) {
 	$seq{$gene}{pos} = 0;
 	$seq{$gene}{neg} = 0;
 	$seq{$gene}{orig} = $gene;
-	print STDERR "\t\tgenez=$gene ($gene) Length=$seq{$gene}{len}\n";
-	print $outLog "\t\tgenez=$gene ($gene) Length=$seq{$gene}{len}\n";
+	print STDERR "\t\tgenez=$gene ($gene) Length=$seq{$gene}{geneL}\n";
+	print $outLog "\t\tgenez=$gene ($gene) Length=$seq{$gene}{geneL}\n";
 	$lotsOfC{$gene} = get_lotsOfC($seqz);
 }
 #push(@{$box{$chr}}, "$chr\t$beg\t$end\t$gene\t$val\t$strand$others");
@@ -155,6 +155,7 @@ while(my $line = <$sam>) {
 	my @arr = split("\t", $line);
 	print STDERR "\t$YW$samFile$N: Done $linecount\n" if $linecount % 5000 == 0;
 	print $outLog "\t$YW$samFile$N: Done $linecount\n" if $linecount % 5000 == 0;
+
 	# a. Total column must be 14 or skipped (e.g. sam header)
 	print $outLog "$LGN$linecount$N: SAM header detected (#column < 14). LINE:\n\t$line\n" and next if @arr < 14;
 	
@@ -170,13 +171,6 @@ while(my $line = <$sam>) {
 	my $cigarPerc = int($cigarLen / $seqsLen * 10000)/100;
 	next if $cigarPerc < 75;
 	
-	# (EXTRA) This below is to shorten read name. Unique read name is the number between last number or behind ccs. If can't be found just use the whole read name.
-	#my ($read) = $read =~ /^.+\/(\d+)\/\d+/i;
-	#($read) = $read =~ /^.+\/(\d+)\/ccs/i if not defined($read);
-	#($read) = $read if not defined($read);
-	#my ($readDate) = $read =~ /^(m\d+_\d+_\d+)_/; $readDate = $read if not defined $readDate;
-	#$read = "SEQ_$readDate\_$read";
-	
 	# (EXTRA) This below is to show the user an example of parsed line and tells user if it's parsed every 20k read.
 	my ($readname) = length($read) >= 20 ? $read =~ /(.{20})$/ : $read; $readname = "..." . $readname  if length($read) >= 20;
 	$count{total} ++;
@@ -184,7 +178,7 @@ while(my $line = <$sam>) {
 	print $outLog "\tExample at read $count{total}: name=$CY$readname$N\tstrand=$CY$readStrand$N\tchr/gene=$CY$chrom$N\tpos=$CY$readPos$N\tmapQ=$CY$mapQ$N\n\n" if $count{total} == 1;
 	print $outLog "\tDone $GN$count{total}$N\n" if $count{total} % 20000 == 0;
 	
-	#discounts if mapping quality is not at least phred score specified
+	# b. Filter out reads with mapping quality=$mapQ less than threshold quality=$opt_q
 	if($mapQ < $opt_q)
 	{
 		print $notused "\t$CY$readname$N quality ($CY$mapQ$N) is less than $CY$opt_q$N\n";
@@ -193,17 +187,17 @@ while(my $line = <$sam>) {
 		next;
 	}
 	
-	#discounts any read that is not the gene of interest, the proper length, or at the proper location in genome(accounting for indexing)
-	elsif(length($seqs) < $seq{$gene}{exp}) # buffer is obsolete
+	# c. Filter out reads with read length=length($seqs) less than  the proper length, or at the proper location in genome(accounting for indexing)
+	elsif(length($seqs) < $seq{$gene}{minReadL}) # buffer is obsolete
 	{
 		# (EXTRA) This below is just for statistics
 		$count{badlength} ++;
 		$seq{$gene}{badlength} ++;
 		die "READNAME undef\n" if not defined($readname);
 		die "fields9 undef\n" if not defined($seqs);
-		die "length of gene $chrom undef\n" if not defined($seq{$gene}{len});
+		die "length of gene $chrom undef\n" if not defined($seq{$gene}{geneL});
 		
-		print $notused "\t$CY$readname$N length of seq ($CY" . length($seqs). "$N) is less than 500bp (length of original sequence is ($CY" . $seq{$gene}{len} . "$N)!\n";
+		print $notused "\t$CY$readname$N length of seq ($CY" . length($seqs). "$N) is less than 500bp (length of original sequence is ($CY" . $seq{$gene}{geneL} . "$N)!\n";
 		next;
 	}
 	
@@ -1269,7 +1263,7 @@ if ($opt_e) {
 	foreach my $gene (sort keys %seq) {
 		next if -e "$outFolder/exon/$gene.exon"; # DELETE THIS
 		my ($genepos) = `grep -i -P \"\\t$gene\\t\" $geneIndexesFile`; chomp($genepos);
-		my $length_seq = $seq{$gene}{len};
+		my $length_seq = $seq{$gene}{geneL};
 		print $outLog "\n$LRD!!!$N\tWARNING: No sequence for gene $CY$gene$N is found in -s $CY$seqFile$N!\n\n" if $length_seq == 0;
 		myFootLib::parseExon($exonFile, $genepos, $gene, $outFolder, $length_seq);
 		print STDERR "\t${GN}SUCCESS$N: Sequence of exon $CY$gene$N has been parsed from fasta file $CY$seqFile$N (length = $CY" . $length_seq . "$N bp)\n";
