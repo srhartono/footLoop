@@ -35,24 +35,32 @@ my $threshold = $opts->{t};
 my $window = $opts->{w};
 my $min = $opts->{d};
 my $groupsize = $opts->{s};
-my $dist = $opts->{k};
+my $minDis = $opts->{k};
 my $outDir = $opts->{n};
 my ($K) = $opts->{K};
 print $outLog $die . __LINE__ . "$N: -K *must* be 2 or 3 or 4! (Currently:$LGN$K$N)\n\n" and exit 0 unless $K =~ /^[234]$/;
 my @kmer = @{make_kmer($K)};
 
-#my ($faFile, $indexFile, $x, $y, $min, $groupsize, $dist, $outDir) = ($opts->{g}, $opts->{i}, $opts->{x}, $opts->{y}, $opt_d, $opt_s, $opt_k, $opt_n);
+#my ($faFile, $indexFile, $x, $y, $min, $groupsize, $minDis, $outDir) = ($opts->{g}, $opts->{i}, $opts->{x}, $opts->{y}, $opt_d, $opt_s, $opt_k, $opt_n);
 $outDir = $origFolder if not defined $outDir;
 print $outLog $usage . "faFile=$faFile\nindexFile=$indexFile\norigFolder=$origFolder\noutdir=$outDir\n" and exit 0 unless defined $faFile and defined $indexFile and defined $origFolder and -e $faFile and -e $indexFile and -e $origFolder and defined $outDir;
-#die $usage if mydefined($faFile, $indexFile, $x, $y, $min, $groupsize, $dist, $outDir) != 0;
+#die $usage if mydefined($faFile, $indexFile, $x, $y, $min, $groupsize, $minDis, $outDir) != 0;
 if (not -d $outDir) {
 	mkdir $outDir or die $die . __LINE__ . "$N: Cannot create directory (-n) $outDir: $!\n\n";
 }
 
 # Get Real Coordinate of each Gene
 my %coor;
-$indexFile = parse_index($indexFile, $x, $y);
-
+$indexFile = parse_index($indexFile, $outDir, $x, $y);
+my @indexLine = `cat $indexFile`;
+my $SEQ;
+foreach my $line (@indexLine) {
+	chomp($line);
+	my ($chr, $beg, $end, $gene, $zero, $strand) = split("\t", $line);
+	$gene = uc($gene);
+	$SEQ->{$gene} = "$chr\t$beg\t$end\t$gene\t$zero\t$strand";
+	print "gene=$gene, coor=$chr, $beg, $end, $gene, $zero, $strand\n";
+}
 # get seq from faFile
 open (my $in, "<", $faFile) or die;
 my $fasta = new FAlite($in);
@@ -128,7 +136,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 	#	print "\n\n>$name\n";	
 		my $count = 0; my $beg = 0; my $end = 0;
 		my $check;
-		#$check = 1 if $name eq "CALM3.m160130_030742_42145_c100934342550000001823210305251633_s1_p0/57684/ccs";
+		$check = 1 if $name eq "CALM3.m160130_030742_42145_c100934342550000001823210305251633_s1_p0/101566/ccs";
 		#next if not defined $check;
 		my ($peak, $peakCH, $peakCG, $peakGH, $peakGC) = getPeak($val, $seq{$gene}, $window, $threshold, $check);
 		my $t1 = Benchmark->new();
@@ -173,7 +181,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 		$peakCG != 0 ? ($pk{CG} ++ and print $outPEAKCG $CG) : ($pk{CGNO} ++ and print $outNOPKCG $CG);
 		$peakGH != 0 ? ($pk{GH} ++ and print $outPEAKGH $GH) : ($pk{GHNO} ++ and print $outNOPKGH $GH);
 		$peakGC != 0 ? ($pk{GC} ++ and print $outPEAKGC $GC) : ($pk{GCNO} ++ and print $outNOPKGC $GC);
-	#	exit 0 if defined $check and $check == 1;
+		#last if $linecount > 100;##	exit 0 if defined $check and $check == 1;
 	}
 	my $t1 = Benchmark->new();
 	my ($td) = timestr(timediff($t1, $t0)) =~ /(\-?\d+\.?\d*) wallclock/;
@@ -196,7 +204,8 @@ for (my $i = 0; $i < @origFile; $i++) {
 	my $peakFilez = "$peakFolder/$peakFilename\_$window\_$threshold\_CG.PEAK";
 	print $outLog "footLoop_addition.pl $peakFilez $faFile $gene\n";
 	print STDERR "footLoop_addition.pl $peakFilez $faFile $gene\n";
-	system("footLoop_addition.pl $peakFilez $faFile $gene") == 0 or print $outLog "Failed to footLoop_addition.pl $peakFilez $faFile: $!\n";
+	footPeakAddon::main(($peakFilez, $faFile, $gene, $minDis, $SEQ));
+#	system("footLoop_addition.pl $peakFilez $faFile $gene") == 0 or print $outLog "Failed to footLoop_addition.pl $peakFilez $faFile: $!\n";
 	next;
 
 =comment
@@ -299,10 +308,10 @@ for (my $i = 0; $i < @origFile; $i++) {
 				my $end  = $final{$indexBeg}{$indexEnd}{$peak}{end};
 				my $badbeg  = $final{$indexBeg}{$indexEnd}{$peak}{badbeg};
 				my $badend  = $final{$indexBeg}{$indexEnd}{$peak}{badend};
-				my $beg0 = $beg - $dist < 0 ? 0 : $beg - $dist;
-				my $beg1 = $beg + $dist > @seq-1 ? @seq-1 : $beg+$dist;
-				my $end0 = $end - $dist < 0 ? 0 : $end - $dist;
-				my $end1 = $end + $dist > @seq-1 ? @seq-1 : $end+$dist;
+				my $beg0 = $beg - $minDis < 0 ? 0 : $beg - $minDis;
+				my $beg1 = $beg + $minDis > @seq-1 ? @seq-1 : $beg+$minDis;
+				my $end0 = $end - $minDis < 0 ? 0 : $end - $minDis;
+				my $end1 = $end + $minDis > @seq-1 ? @seq-1 : $end+$minDis;
 				my $begSeq = join("", @seq[$beg0..$beg1]);
 				my $endSeq = join("", @seq[$end0..$end1]);
 				print $outLog "beg0=$beg0; beg1=$beg1; end0=$end0; end1=$end1\n" and exit 0 if not defined $seq[$beg0] or not defined($seq[$beg1]);
@@ -340,10 +349,10 @@ foreach my $group (sort {$group{$b} <=> $group{$a} || $a cmp $b} keys %group) {
 		print $outOriginal "$origChr\t$peakBeg\t$peakEnd\t$name\t$len\t$newstrand\n";
 		my $badbeg  = $final{$indexBeg}{$indexEnd}{$peak}{badbeg};
 		my $badend  = $final{$indexBeg}{$indexEnd}{$peak}{badend};
-		my $beg0 = $beg - $dist < 0 ? 0 : $beg - $dist;
-		my $beg1 = $beg + $dist > @seq-1 ? @seq-1 : $beg+$dist;
-		my $end0 = $end - $dist < 0 ? 0 : $end - $dist;
-		my $end1 = $end + $dist > @seq-1 ? @seq-1 : $end+$dist;
+		my $beg0 = $beg - $minDis < 0 ? 0 : $beg - $minDis;
+		my $beg1 = $beg + $minDis > @seq-1 ? @seq-1 : $beg+$minDis;
+		my $end0 = $end - $minDis < 0 ? 0 : $end - $minDis;
+		my $end1 = $end + $minDis > @seq-1 ? @seq-1 : $end+$minDis;
 		my $begSeq = $badbeg == 0 ? join("", @seq[$beg0..$beg1]) : "NA";
 		my $endSeq = $badend == 0 ? join("", @seq[$end0..$end1]) : "NA";
 		my $temp = $begSeq;
@@ -494,7 +503,7 @@ sub getPeak {
 #=cut
 		}
 		if ($i == 0 and defined $check) {
-			print "i=$i, " . join("", @{$peak->{CH}}[0..$window-1]) . "\n";
+#			print "i=$i, " . join("", @{$peak->{CH}}[0..$window-1]) . "\n";
 		}
 		my ($CG, $CH, $GC, $GH) = (0,0,0,0);
 		($peak, $CG, $CH, $GC, $GH) = isPeak($i, $con, $peak, $window, $threshold, $seq, $totalseqpos, $totalseqneg, $check);
@@ -580,12 +589,32 @@ sub isPeak {
 		my $max = ($i < $totalseqpos - $window) ? $seq->{loc}{pos1}{$i + $window -1} : $seq->{loc}{pos1}{$totalseqpos-$window-1};
 		if ($peakCH eq 1) {
 			my $temp = join("", @{$peak->{CH}}[$min..$max]);
-			$temp =~ tr/6/8/;
+			$temp =~ tr/26/88/;
+			if ($temp =~ /8$/) {
+				$temp =~ s/8$/2/;
+			}
+			else {
+				$temp =~ s/8([01345679A-Z\! ]+)$/2$1/i;# if $temp =~ /8([012345679A-Z\! ]+)$/i;
+			}
 			@{$peak->{CH}}[$min..$max] = split("", $temp);
+			#die "$temp\n" if $peakCH eq 1;
+	#		print "$i: $temp\n" if defined $check;
 		}
 		if ($peakCG eq 1) {
 			my $temp = join("", @{$peak->{CG}}[$min..$max]);
-			$temp =~ tr/67/89/;
+			$temp =~ tr/2367/8989/;
+			if ($temp =~ /8$/) {
+				$temp =~ s/8$/2/;
+			}
+			elsif ($temp =~ /9$/) {
+				$temp =~ s/9$/3/;
+			}
+			elsif ($temp =~ /8([014567A-Z\! \.]+)$/i) {
+				$temp =~ s/8([014567A-Z\! ]+)$/2$1/i;
+			}
+			elsif ($temp =~ /9([014567A-Z\! \.]+)$/i) {
+				$temp =~ s/9([01234567A-Z\! ]+)$/3$1/i;
+			}
 			@{$peak->{CG}}[$min..$max] = split("", $temp);
 		}
 #		print "i=$i, min=$min, max=$max, CHcon=$LGN$CHcon$N, CHtot=$LPR$CHtot$N, " . join("", @{$peak->{CH}}[$min..$max]) . "\n" if defined $check and $check eq 1;# and $peakCH eq 1;
@@ -596,12 +625,30 @@ sub isPeak {
 		my $max = $i < $totalseqneg - $window ? $seq->{loc}{neg1}{$i + $window -1} : $seq->{loc}{neg1}{$totalseqneg-$window-1};
 		if ($peakGH eq 1) {
 			my $temp = join("", @{$peak->{GH}}[$min..$max]);
-			$temp =~ tr/6/8/;
+			$temp =~ tr/26/88/;
+			if ($temp =~ /8$/) {
+				$temp =~ s/8$/2/;
+			}
+			else {
+				$temp =~ s/8([012345679A-Z\! \.]+)$/2$1/i;# if $temp =~ /8([012345679A-Z\! ]+)$/i;
+			}
 			@{$peak->{GH}}[$min..$max] = split("", $temp);
 		}
 		if ($peakGC eq 1) {
 			my $temp = join("", @{$peak->{GC}}[$min..$max]);
-			$temp =~ tr/67/89/;
+			$temp =~ tr/2367/8989/;
+			if ($temp =~ /8$/) {
+				$temp =~ s/8$/2/;
+			}
+			elsif ($temp =~ /9$/) {
+				$temp =~ s/9$/3/;
+			}
+			elsif ($temp =~ /8([01234567A-Z\! \.]+)$/i) {
+				$temp =~ s/8([01234567A-Z\! ]+)$/2$1/i;
+			}
+			elsif ($temp =~ /9([01234567A-Z\! \.]+)$/i) {
+				$temp =~ s/9([01234567A-Z\! ]+)$/3$1/i;
+			}
 			@{$peak->{GC}}[$min..$max] = split("", $temp);
 		}
 	}
@@ -657,7 +704,7 @@ Run ID              $LCY: $uuid; $N
 Run script full     $LCY: $optPrint; $N
 Run script short    $LCY: $optShort; $N
 >Options:
--d min     $LCY: $opts->{d}; $N
+-d minDis  $LCY: $opts->{d}; $N
 -s grpSize $LCY: $opts->{s}; $N
 -k Dist    $LCY: $opts->{k}; $N
 -K Kmer    $LCY: $opts->{K}; $N
@@ -686,8 +733,8 @@ footLoop origDir    $LGN: $other->{origDir}; $N
 sub parse_logFile {
 	my ($logFile) = @_;
 	my @head = `head $logFile`;
-	my %opts = ("x" => 0, "y" => 0, "g" => "", "i" => "", "q" => 0, "r" => "", "L" => 0,"t" => 0.65, "w" => 10,
-					"d" => 100, "s" => 200, "k" => 50, "K" => 2, "n" => "");
+	my %opts = ("x" => 0, "y" => 0, "g" => "", "i" => "", "q" => 0, "r" => "", "L" => 0,"t" => 0.65, "w" => 20,
+					"d" => 250, "s" => 200, "k" => 50, "K" => 2, "n" => "");
 	my %opts2 = ("t" => $opt_t, "w" => $opt_w, "d" => $opt_d, "s" => $opt_s, "k" => $opt_k, "K" => $opt_K, "n" => $opt_n);
 	my (%other, %log);
 	foreach my $opt (sort keys %opts2) {
@@ -717,9 +764,10 @@ sub parse_logFile {
 			next if not defined $opt;
 			$opts{$opt} = $val;
 			$log{$opt} = $val;
+			print "-$opt $val\n";
 		}
 	}
-	my ($outDirs) = `tail -n 1 $logFile`; chomp($outDirs);
+	my ($outDirs) = `tail -n 10 $logFile | grep 'Output: '`; chomp($outDirs);
 	my @outDirs = split("\/", $outDirs);
 	my $outDir = ""; my $temp = "";
 	for (my $i = 0; $i < @outDirs; $i++) {
@@ -747,9 +795,9 @@ sub parse_logFile {
 	return(\%opts, $outLog);
 }
 sub parse_index {
-	my ($indexFile, $leftBuf, $riteBuf) = @_;
-	my ($folder, $fileName) = getFilename($indexFile);
-	my $indexFile2 = $indexFile . "\_$leftBuf\_$riteBuf\_bp.bed";
+	my ($indexFile, $outDir, $leftBuf, $riteBuf) = @_;
+	my ($folder, $fileName) = getFilename($indexFile, "folder");
+	my $indexFile2 = $outDir . "/$fileName\_$leftBuf\_$riteBuf\_bp.bed";
 	return $indexFile2;
 	#system("bedtools_bed_change.pl -x $leftBuf -y $riteBuf -i $indexFile -o $indexFile\_$leftBuf\_$riteBuf.bed > /dev/null 2>&1");
 
@@ -880,7 +928,7 @@ __END__
 	return %count;
 }
 __END__
-my ($faFile, $indexFile, $peakFile, $x, $y, $min, $groupsize, $dist, $outDir) = ($opt_g, $opt_i, $opt_p, $opt_x, $opt_y, $opt_d, $opt_s, $opt_k, $opt_n)
+my ($faFile, $indexFile, $peakFile, $x, $y, $min, $groupsize, $minDis, $outDir) = ($opt_g, $opt_i, $opt_p, $opt_x, $opt_y, $opt_d, $opt_s, $opt_k, $opt_n)
 
 __END__
 		print "\n$name\tCG\t$strand\t";		

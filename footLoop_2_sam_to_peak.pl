@@ -16,14 +16,18 @@ die "\nplease define output (-o)\n" if not defined $opt_o;
 makedir($outDir);
 my $logFile = "$folder/logFile.txt";
 
-print "Logfile = $LRD$logFile$N\n"; my ($samFile, $seqFile, $genez) = parse_logFile($logFile); 
-check_file($samFile, "sam"); check_file($seqFile, "seq"); my ($folder1, $fileName1) = getFilename($samFile, "folder"); 
+print "Logfile = $LRD$logFile$N\n"; 
+my ($samFile, $seqFile, $genez) = parse_logFile($logFile); 
+print "Checking sam File =$LCY$samFile$N=\n";
+check_file($samFile, "sam"); 
+print "Checking seq File =$LCY$seqFile$N=\n";
+check_file($seqFile, "seq"); 
+my ($folder1, $fileName1) = getFilename($samFile, "folder"); 
 my %refs = %{parse_seqFile($seqFile)}; 
 
 foreach my $chr (sort keys %refs) {
 	$genez->{$chr} = @{$refs{$chr}};
 }
-
 my %out;
 my %data; my $cons; my %strand;
 my $linecount = 0;
@@ -32,7 +36,7 @@ my $debugFile = "$outDir/debug.txt";
 my $outSam = "$outDir/$samName.fixed";
 open (my $outsam, ">", "$outSam") or die "Cannot write to $outSam: $!\n";
 open (my $outdebug, ">", "$debugFile") or die "Cannot write to $debugFile: $!\n";
-
+my ($total_read) = `awk '\$2 == 0|| \$2 == 16 {print}' $samFile | wc -l` =~ /^(\d+)$/;
 $linecount = 0;
 open (my $in1, "<", $samFile) or die "Cannot read from $samFile: $!\n";
 while (my $line = <$in1>) {
@@ -40,7 +44,7 @@ while (my $line = <$in1>) {
 	my @arr = split("\t", $line);
 	next if @arr < 6;
 	$linecount ++;
-	print "Parsed $linecount\n" if $linecount % 50 == 0;
+	print date() . "\t$0: Parsed $LGN$linecount$N / $LCY$total_read$N\n" if $linecount % 50 == 0;
 	my ($read, $strand, $chr, $pos, $mapq, $cigar, $junk1, $junk2, $junk3, $seqs, $qual, $junk4, $junk5, $converted, @others) = @arr;
 	$chr = uc($chr);
 	my $others = join("\t", @others); $others = @others == 0 ? "" : "\t$others";
@@ -117,7 +121,7 @@ sub check_file {
 	die "$type file $file does not exist!\n" if ex($file) == 0;
 	die "$type file $file is empty!\n" if -s $file == 0;
 	my $filetype = `file -b --mime-type $file`; chomp($filetype);
-	my @line = ($file =~ /.bam$/ or $filetype !~ /text/) ? `samtools view $file | head -n 200` : `head -n 200 $file`;
+	my @line = ($file =~ /\.(rmdup|bam)$/ or $filetype =~ /(gzip|binary)/) ? `samtools view $file | head -n 200` : `head -n 200 $file`;
 	my $check = 0;
 	for (my $i = 0; $i < @line; $i++) {
 		my $line = $line[$i];
@@ -146,7 +150,7 @@ sub parse_seqFile {
       my $seq = $entry->seq;
 		my @seq = split("", $seq);
 		@{$ref{$def}} = @seq;
-		#print "REF $def SEQ = @seq\n\n" if $def eq "CALM3";
+		#print "REF $def length=" . length($seq) . " SEQ = @seq\n\n" if $def eq "CALM3";
    }
    close $in;
 	return(\%ref);
@@ -155,28 +159,32 @@ sub parse_seqFile {
 sub parse_logFile {
 	my ($logFile) = @_;
 	die "\n\nCan't find $logFile! Please run footLoop.pl first before running this!\n\n" if not -e $logFile;
+	print "LOGFILE=$logFile\n";
 	my ($samFile, $seqFile, $genez);
 	if (-e $logFile) {
 		my @line = `cat $logFile`;
 		for (my $i = 0; $i < @line; $i++) {
 			my $line = $line[$i]; chomp($line);
-			if ($line =~ /^!sam=/) {
-				($samFile) = $line =~ /^!sam=(.+)$/;
+			if ($line =~ /^!samFile=/) {
+				($samFile) = $line =~ /^!samFile=(.+)$/;
 			}
-			if ($line =~ /^!seq=/) {
-				($seqFile) = $line =~ /^!seq=(.+)$/;
+			if ($line =~ /^!seqFile=/) {
+				($seqFile) = $line =~ /^!seqFile=(.+)$/;
 			}
-			if ($line =~ /2. Parsing in sequence for genes from sequence file/) {
-				for (my $j = $i+1; $j < @line; $j++) {
-					#print "\t$line\n";
-					last if $line[$j] =~ /SUCCESS.+Sequence has been parsed from fasta file/;
-					my ($gene, $length) = $line[$j] =~ /^.+genez=(.+) \(.+\) Length=(\d+)$/;
-					die if not defined $gene or not defined $length;
-					$genez->{$gene} = $length;
-				}
+			if ($line =~ /gene=.+length=/) {
+				my ($gene, $length) = $line =~ /^.+gene=(.+) length=(\d+)$/;
+				die if not defined $gene or not defined $length;
+				$genez->{$gene} = $length;
+				print "gene $gene = $length bp\n";
 			}
-			last if ex([$samFile, $seqFile]) == 1 and defined $genez;
-			last if $line =~ /SUCCESS.+Sequence has been parsed from fasta file/;
+#			if ($line =~ /2. Parsing in sequence for genes from sequence file/) {
+#				for (my $j = $i+1; $j < @line; $j++) {
+#					#print "\t$line\n";
+#					last if $line =~ /SUCCESS.+Sequence has been parsed from fasta file/;
+#					}
+#				}
+#			}
+			last if $line =~ /footLoop_2_sam_to_peak.pl/;
 		}
 	}
 	return($samFile, $seqFile, $genez);
@@ -191,7 +199,9 @@ sub get_bad_region {
 		my $reftemp = "";
 		my $seqtemp = "";
 		for (my $j = $i; $j < $seqborder1; $j++) {
+			die "Undefined ref2 at j=$j\n" if not defined $ref2->[$j];
 			$reftemp .= $ref2->[$j];
+			die "Undefined seq2 at j=$j\n" if not defined $seq2->[$j];
 			$seqtemp .= $seq2->[$j];
 			if ($ref2->[$j] eq "-" or $seq2->[$j] eq "-") {
 				$badcount ++;

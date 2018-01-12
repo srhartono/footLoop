@@ -54,6 +54,8 @@ tmm
 tmmsd
 tmmse
 parse_cigar
+LOG
+makehash
 $DIES
 $N 
 $B
@@ -77,6 +79,15 @@ $LPR
 
 
 #################################
+
+sub makehash {
+   my ($keys, $vals) = @_;
+   my $hash;
+   for (my $i = 0; $i < @{$keys}; $i++) {
+      $hash->{$keys->[$i]} = (defined $vals and defined $vals->[$i]) ? $vals->[$i] : 0;
+   }
+   return($hash);
+}
 
 sub getuuid {
 	my ($uuid) = `uuidgen`;
@@ -112,6 +123,16 @@ sub checkBismarkIndex {
 	}
 	print $outLog "\n$LRD!!!$N FATAL ERROR: $geneIndexes doesn't seem to be a bed file (MUST contain$YW 4$N column of$YW tab$N separated:$LGN chromosome, start, end, and gene name$N!\n\n" and die "\n" if ($check == 0);
 	return (1, $bismark_folder) if (-d $bismark_folder);
+}
+sub LOG {
+   my ($outLog, $text, $STEP, $STEPCOUNT) = @_;
+	if (defined $STEP) {
+		$STEP += $STEPCOUNT if defined $STEPCOUNT;
+		$text =~ s/\$STEP/$STEP/g;
+	}
+   print $outLog $text;
+	print $text;
+	return $STEP if defined $STEP;
 }
 
 sub getDate {
@@ -260,8 +281,9 @@ sub intersect {
 
 sub linecount {
    my ($input1) = @_;
-   my ($linecount) = `wc -l $input1` =~ /^(\d+)/ if $input1 !~ /.gz$/;
+   my ($linecount) = `wc -l $input1` =~ /^(\d+)/ if $input1 !~ /.(bam|rmdup|gz|zip)$/;
       ($linecount) = `zcat $input1| wc -l` =~ /^(\d+)/ if $input1 =~ /.gz$/;
+      ($linecount) = `samtools view $input1| wc -l` =~ /^(\d+)/ if $input1 =~ /.(bam|rmdup)$/;
    return $linecount;
 }
 sub makedir {
@@ -551,3 +573,83 @@ sub colorconv {
    }
    return($res1, $res2);
 }
+
+__END__
+sub makeopt {
+	my 
+(
+'a' => $opt_a,
+'b' => $opt_b,
+'c' => $opt_c,
+'d' => $opt_d,
+'e' => $opt_e,
+'f' => $opt_f,
+'g' => $opt_g,
+'h' => $opt_h,
+'i' => $opt_i,
+'j' => $opt_j,
+'k' => $opt_k,
+'l' => $opt_l,
+'m' => $opt_m,
+'n' => $opt_n,
+'o' => $opt_o,
+'p' => $opt_p,
+'q' => $opt_q,
+'r' => $opt_r,
+'s' => $opt_s,
+'t' => $opt_t,
+'u' => $opt_u,
+'v' => $opt_v,
+'w' => $opt_w,
+'x' => $opt_x,
+'y' => $opt_y,
+'z' => $opt_z,
+'A' => $opt_A,
+'B' => $opt_B,
+'C' => $opt_C,
+'D' => $opt_D,
+'E' => $opt_E,
+'F' => $opt_F,
+'G' => $opt_G,
+'H' => $opt_H,
+'I' => $opt_I,
+'J' => $opt_J,
+'K' => $opt_K,
+'L' => $opt_L,
+'M' => $opt_M,
+'N' => $opt_N,
+'O' => $opt_O,
+'P' => $opt_P,
+'Q' => $opt_Q,
+'R' => $opt_R,
+'S' => $opt_S,
+'T' => $opt_T,
+'U' => $opt_U,
+'V' => $opt_V,
+'W' => $opt_W,
+'X' => $opt_X,
+'Y' => $opt_Y,
+'Z' => $opt_Z,
+'1' => $opt_1,
+'2' => $opt_2,
+'3' => $opt_3,
+'4' => $opt_4,
+'5' => $opt_5,
+'6' => $opt_6,
+'7' => $opt_7,
+'8' => $opt_8,
+'9' => $opt_9,
+'0' => $opt_0
+)
+
+	return \%opt;
+}
+my ($useVars) = `grep 'use vars' $0` =~ /qw\((.+)\)/;
+my @opts = split(" ", $useVars); @opts = sort @opts;
+my %opts;
+foreach my $opt (sort @opts) {
+   my ($key) = $opt =~ /_(.)$/;
+   $opts{$key} = $opt;
+   print "$key -> $opts{$key}\n";
+}
+print "opts:\n" . join("\n", @opts) . "\n";die;
