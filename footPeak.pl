@@ -1,6 +1,5 @@
 #!/usr/bin/perl
 
-
 # 0 is bad or not data (6)
 # 2 is non C/G
 # 4 is CH non conv
@@ -10,43 +9,49 @@
 # 8 is CH peak
 # 9 is CG peak
 
-use strict; use warnings; use Getopt::Std; use Time::HiRes; use Benchmark qw(:all); use Benchmark ':hireswallclock';
+use strict; use warnings; use Getopt::Std; use Time::HiRes; use Benchmark qw(:all); use Benchmark ':hireswallclock'; use Carp;
 use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_g $opt_i $opt_p $opt_x $opt_y $opt_d $opt_s $opt_k $opt_K $opt_n $opt_h $opt_t $opt_w);
-getopts("vg:i:p:x:y:d:s:k:K:n:ht:w:");
+use vars qw($opt_v $opt_g $opt_i $opt_p $opt_x $opt_y $opt_d $opt_s $opt_k $opt_K $opt_n $opt_h $opt_t $opt_w $opt_l);
+getopts("vg:i:p:x:y:d:s:k:K:n:ht:w:l:");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
 }
 use myFootLib; use FAlite; use footPeakAddon;
-my $die = "\nDied at file$CY" . __FILE__ . "$N at line $LGN";
-my ($footFolder) = $opt_i;
-my $usage = check_sanity($footFolder);
-my $logFile = "$footFolder/logFile.txt";
-my ($opts, $outLog) = parse_logFile($logFile);
+use feature 'say';
 
-my $faFile = $opts->{g};
-my $indexFile = $opts->{i};
-my $origFolder = $opts->{origDir};
-my $x = $opts->{x};
-my $y = $opts->{y};
-my $threshold = $opts->{t};
-my $window = $opts->{w};
-my $min = $opts->{d};
-my $groupsize = $opts->{s};
-my $minDis = $opts->{k};
-my $outDir = $opts->{n};
-my ($K) = $opts->{K};
-print $outLog $die . __LINE__ . "$N: -K *must* be 2 or 3 or 4! (Currently:$LGN$K$N)\n\n" and exit 0 unless $K =~ /^[234]$/;
-my @kmer = @{make_kmer($K)};
+my ($footFolder) = $opt_i;
+my $date = getDate();
+my $uuid = getuuid();
+
+my ($usage) = check_sanity($footFolder);
+my $logFile = "$footFolder/logFile.txt";
+my ($opts, $outLog) = parse_footLoop_logFile($logFile, $date, $uuid);
+
+my $faFile        = $opts->{g};
+my $indexFile		= $opts->{i};
+my $origFolder 	= $opts->{origDir};
+my $x 				= $opts->{x};
+my $y 				= $opts->{y};
+my $threshold 		= $opts->{t};
+my $window 			= $opts->{w};
+my $min 				= $opts->{d};
+my $groupsize 		= $opts->{s};
+my $minDis 			= $opts->{k};
+my $outDir 			= $opts->{n};
+my $Kmerz			= $opts->{K};
+print $outLog . "$N: -K *must* be 2 or 3 or 4! (Currently:$LGN$Kmerz$N)\n\n" and die unless $Kmerz =~ /^[234]$/;
+
+# Create kmer (deprecated)
+my @kmer = @{make_kmer($Kmerz)};
 
 #my ($faFile, $indexFile, $x, $y, $min, $groupsize, $minDis, $outDir) = ($opts->{g}, $opts->{i}, $opts->{x}, $opts->{y}, $opt_d, $opt_s, $opt_k, $opt_n);
 $outDir = $origFolder if not defined $outDir;
-print $outLog $usage . "faFile=$faFile\nindexFile=$indexFile\norigFolder=$origFolder\noutdir=$outDir\n" and exit 0 unless defined $faFile and defined $indexFile and defined $origFolder and -e $faFile and -e $indexFile and -e $origFolder and defined $outDir;
+print $outLog $usage . "faFile=$faFile\nindexFile=$indexFile\norigFolder=$origFolder\noutdir=$outDir\n" and die unless defined $faFile and defined $indexFile and defined $origFolder and -e $faFile and -e $indexFile and -e $origFolder and defined $outDir;
 #die $usage if mydefined($faFile, $indexFile, $x, $y, $min, $groupsize, $minDis, $outDir) != 0;
 if (not -d $outDir) {
-	mkdir $outDir or die $die . __LINE__ . "$N: Cannot create directory (-n) $outDir: $!\n\n";
+	mkdir $outDir or die DIE() . __LINE__ . "$N: Cannot create directory (-n) $outDir: $!\n\n";
 }
 
 # Get Real Coordinate of each Gene
@@ -103,8 +108,8 @@ for (my $i = 0; $i < @origFile; $i++) {
 	my ($gene, $strand) = $peakFilename =~ /^(\w+)_(Pos|Neg|Unk)$/; $gene = uc($gene);
 	my ($totalPeak, $linecount, $peakcount, $total, %data, %end, %bad, %final, %group) = (0,0,0, scalar(@{$seq{$gene}{seq}}));
 	print "FILENAME=$peakFilename, GENE=$gene\n";
-	print $outLog "Died cannot get gene from peakfile $peakFile\n" and exit 0 unless defined $gene;
-	print $outLog "Cannot find sequence of gene=$LCY$gene$N in $faFile!\n" and exit 0 if not defined $seq{$gene};
+	print $outLog "Died cannot get gene from peakfile $peakFile\n" and die unless defined $gene;
+	print $outLog "Cannot find sequence of gene=$LCY$gene$N in $faFile!\n" and die if not defined $seq{$gene};
 	my %pk = ("CH" => 0, "CG" => 0, "GH" => 0, "GC" => 0);
 	print "$LGN$i$N. peakFile=$LCY$peakFile$N, Gene = $LRD$gene$N total length = $LPR$total$N\n";
 	open (my $outPEAKCG, ">", "$peakFolder/$peakFilename\_$window\_$threshold\_CG.PEAK") or die "Failed to write to $peakFolder/$peakFilename\_$window\_$threshold\_CG.PEAK: $!\n";
@@ -204,7 +209,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 	my $peakFilez = "$peakFolder/$peakFilename\_$window\_$threshold\_CG.PEAK";
 	print $outLog "footLoop_addition.pl $peakFilez $faFile $gene\n";
 	print STDERR "footLoop_addition.pl $peakFilez $faFile $gene\n";
-	footPeakAddon::main(($peakFilez, $faFile, $gene, $minDis, $SEQ));
+	footPeakAddon::main(($peakFilez, $faFile, $gene, $minDis, $opt_l, $SEQ));
 #	system("footLoop_addition.pl $peakFilez $faFile $gene") == 0 or print $outLog "Failed to footLoop_addition.pl $peakFilez $faFile: $!\n";
 	next;
 
@@ -216,7 +221,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 			if ($peak == 0 and $val[$i] == 9) {
 				$peak = 1;
 				$totalPeak ++;#= (keys %data);
-				my $base = $seq{$gene}[$i]; print $outLog "Died i = $i name=$name total=${@val}\n" and exit 0 if not defined($base);
+				my $base = $seq{$gene}[$i]; print $outLog "Died i = $i name=$name total=${@val}\n" and die if not defined($base);
 				my $index = int($i / $groupsize);
 				$data{$index}{$totalPeak}{beg} = $i;
 				$data{$index}{$totalPeak}{name} = $name;
@@ -235,7 +240,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 			}
 			# 2. Currently is peak (peak == 1) but value isn't 9 and total non-peak is equal to maximum buffer length, then peak is end
 			elsif ($peak == 1 and (($val[$i] != 9 and $count == $min) or $i == $total - 1 or $i == @val - 1)) {
-				my $base = $seq{$gene}[$i]; print $outLog "Died i = $i name=$name total=${@val}\n" and exit 0 if not defined($base);
+				my $base = $seq{$gene}[$i]; print $outLog "Died i = $i name=$name total=${@val}\n" and die if not defined($base);
 				my $index = int($beg / $groupsize);
 				#$end = $i - $min;
 				my $indexend = int($end/ $groupsize);
@@ -258,7 +263,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 			# 3. Currently is peak (peak == 1), but total non-peak length is less than required maximum non-peak length ($min)
 			elsif ($peak == 1 and $count < $min) {
 				my $base = $seq{$gene}[$i]; 
-				print $outLog "\nUndefined base at i=$i gene=$gene, total = $total\n\n" and exit 0 if not defined $base;
+				print $outLog "\nUndefined base at i=$i gene=$gene, total = $total\n\n" and die if not defined $base;
 				$count ++ if $val[$i] != 9;
 				$count = 0 if $val[$i] == 9;
 				$end = $i if $val[$i] == 9;
@@ -314,7 +319,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 				my $end1 = $end + $minDis > @seq-1 ? @seq-1 : $end+$minDis;
 				my $begSeq = join("", @seq[$beg0..$beg1]);
 				my $endSeq = join("", @seq[$end0..$end1]);
-				print $outLog "beg0=$beg0; beg1=$beg1; end0=$end0; end1=$end1\n" and exit 0 if not defined $seq[$beg0] or not defined($seq[$beg1]);
+				print $outLog "beg0=$beg0; beg1=$beg1; end0=$end0; end1=$end1\n" and die if not defined $seq[$beg0] or not defined($seq[$beg1]);
 	#			print "GENE=$gene\tGROUP=$indexBeg.$indexEnd\tBEG=$beg\tEND=$end\tPEAK=$peak\tNAME=$name\tbeg=$begSeq\tend=$endSeq\n";
 			}
 		}
@@ -341,7 +346,7 @@ foreach my $group (sort {$group{$b} <=> $group{$a} || $a cmp $b} keys %group) {
 		my ($gene) = $name =~ /^(.+)\.SEQ_/;
 		my ($origChr, $origBeg, $origEnd) = ($coor{$gene}{chr}, $coor{$gene}{beg}, $coor{$gene}{end});
 		my $peakBeg = $origBeg + $beg; $peakBeg = $origBeg if $peakBeg < $origBeg;
-		my $peakEnd = $origBeg + $end + 1; print $outLog "$peak: start ($peakBeg) is less than end ($peakEnd)\n" and exit 0 if $peakEnd < $peakBeg;
+		my $peakEnd = $origBeg + $end + 1; print $outLog "$peak: start ($peakBeg) is less than end ($peakEnd)\n" and die if $peakEnd < $peakBeg;
 		#die "Gene = $gene, name = $name, CHR=$origChr, BEG=$origBeg, END=$origEnd, beg = $beg, end = $end, peakBeg = $peakBeg, peakEnd = $peakEnd\n";
 		my $len = $end - $beg + 1;
 		my $newstrand = $strand eq "pos" ? "+" : $strand eq "neg" ? "-" : ".";
@@ -385,7 +390,7 @@ print "\t- Kmer odds ratio file: $LGN$outDir/$peakFilename.kmer$N\n";
 #print "\n\n--------------------\n";
 
 open (my $outKmer, ">", "$outDir/$peakFilename.kmer") or die "Cannot write to $outDir/$peakFilename.kmer: $!\n";
-my @seqs = @{make_kmer($K)};
+my @seqs = @{make_kmer($Kmerz)};
 print $outKmer "type";
 foreach my $seq1(sort @seqs) {
 	print $outKmer "\t$seq1";
@@ -667,9 +672,9 @@ sub kmer {
 	my %kmer = %{$kmer};
 	$seq = uc($seq);
 	my @seqz = split("", $seq);
-	for (my $i = 0; $i < @seqz-($K-1); $i++) {
+	for (my $i = 0; $i < @seqz-($Kmerz-1); $i++) {
 		my $kmer;
-		for (my $j = $i; $j < $i+$K; $j++) {
+		for (my $j = $i; $j < $i+$Kmerz; $j++) {
 			$kmer .= $seqz[$j];
 		}
 		$kmer{$type}{$kmer} ++;
@@ -682,7 +687,7 @@ sub kmer {
 	return(\%kmer);
 }
 sub record_options {
-   my ($opts, $logs, $other, $outLog, $logFile) = @_;
+   my ($opts, $logs, $other, $outLog, $logFile, $date, $uuid) = @_;
    my $optPrint = "$0";
 	my $optShort = "$0";
    foreach my $opt (sort keys %{$opts}) {
@@ -691,8 +696,6 @@ sub record_options {
       $optPrint .= $val eq "MYTRUE" ? " -$opt" : " -$opt $val";
 		$optShort .= defined ($logs->{$opt}) ? "" : $val eq "MYTRUE" ? " -$opt" : " -$opt $val";
    }
-	my $date = getDate();
-	my $uuid = getuuid();
    my  $param = "
 
 $YW<-----------------------------------------------$N
@@ -730,41 +733,30 @@ footLoop origDir    $LGN: $other->{origDir}; $N
    print STDERR $param;
 }
 
-sub parse_logFile {
-	my ($logFile) = @_;
-	my @head = `head $logFile`;
-	my %opts = ("x" => 0, "y" => 0, "g" => "", "i" => "", "q" => 0, "r" => "", "L" => 0,"t" => 0.65, "w" => 20,
-					"d" => 250, "s" => 200, "k" => 50, "K" => 2, "n" => "");
-	my %opts2 = ("t" => $opt_t, "w" => $opt_w, "d" => $opt_d, "s" => $opt_s, "k" => $opt_k, "K" => $opt_K, "n" => $opt_n);
-	my (%other, %log);
-	foreach my $opt (sort keys %opts2) {
-		$opts{$opt} = $opts2{$opt} if defined $opts2{$opt};
-	}
-	foreach my $line (@head[0..@head-1]) {
-		if ($line =~ /^Date[ ]+:/) {
-			($other{date}) = $line =~ /^Date[ ]+: (.+)$/;
+sub parse_footLoop_logFile {
+	my ($logFile, $date, $uuid) = @_;
+	my @line = `cat $logFile`;
+
+	my $defOpts = set_default_opts();
+	
+	# %others contain other parameters from footLoop that aren't options (e.g. uuid)
+	# %log TBA
+
+	my ($other, $log); 
+
+	foreach my $line (@line[0..@line-1]) {
+		if ($line =~ /^Date\s*:/) {
+			($other->{date}) = $line =~ /^Date\s+:\s*([a-zA-Z0-9\:\-].+)$/;
+			print "Undefined date from $line\n" and die if not defined $other->{date};
 		}
-		if ($line =~ /^Run ID[ \t]+:[ \t]+([a-zA-Z0-9]+.+)$/) {
-			($other{uuid}) = $line =~ /^Run ID[ \t]+:[ \t]+([a-zA-Z0-9]+.+)$/;
-			die if not defined $other{uuid};
+		if ($line =~ /^Run ID\s*:/) {
+			($other->{uuid}) = $line =~ /^Run ID[ \t]+:[ \t]+([a-zA-Z0-9]+.+)$/;
+			print "Undefined uuid from $line\n" and die if not defined $other->{uuid};
 		}
-		next if $line !~ /^Run script :/;
-		($other{runscript}) = $line =~ /^Run script[ ]+:(.+)$/;
-		my @opts = split(" ", $other{runscript});
-		for (my $i = 1; $i < @opts; $i+=2) {
-			if ($opts[$i] =~ /home\/mitochi\/footLoop.pl/) {$i -= 1; next;}
-			my $opts = $opts[$i];
-			my ($opt, $val) = ($opts[$i], $opts[$i+1]);
-			if ($opt =~ /^\-[a-zA-Z0-9]$/ and $val =~ /^\-[a-zA-Z0-9]$/ and defined $opts[$i+2] and $opts[$i+2] !~ /^\-[0-9]$/) {
-				($opt, $val) = ($opt, "TRUE");
-				$i -= 1;
-			}
-			($opt) = $opts =~ /^(.)$/ if not defined $opt;
-			$opt =~ s/^\-//;
-			next if not defined $opt;
-			$opts{$opt} = $val;
-			$log{$opt} = $val;
-			print "-$opt $val\n";
+		if ($line =~ /^Run script\s*:/) {
+			($other->{runscript}) = $line =~ /^Run script[ ]+:(.+)$/;
+			print "Undefined runscript from $line\n" and die if not defined $other->{runscript};
+			$defOpts = parse_runscript($defOpts, $other->{runscript});
 		}
 	}
 	my ($outDirs) = `tail -n 10 $logFile | grep 'Output: '`; chomp($outDirs);
@@ -774,11 +766,11 @@ sub parse_logFile {
 		my $temp = $outDir . "/" . $outDirs[$i];
 		$outDir = -d $temp ? $temp : $outDir;
 	}
-	$other{origDir} = $outDir;
-	$opts{origDir} = $outDir;
-	($other{md5}) = $outDir =~ /\.0_orig_([a-z0-9]+)/i; print $outLog "Can't find outdir md5 (outdir=$opts{o})\n" and exit 0 if not defined $other{md5};
-#	die "opt i = $opts{i} others=$other{runscript}\n";
-	my ($indexFilename) = getFilename($opts{i}, "full");
+	$other->{origDir} = $outDir;
+	$defOpts->{origDir} = $outDir;
+	($other->{md5}) = $outDir =~ /\.0_orig_([a-z0-9]+)/i; print $outLog "Can't find outdir md5 (outdir=$defOpts->{o})\n" and die if not defined $other->{md5};
+#	die "opt i = $defOpts->{i} others=$other->{runscript}\n";
+	my ($indexFilename) = getFilename($defOpts->{i}, "full");
 	my ($faFiles) = `grep "Sequence has been parsed from fasta file" $logFile` =~ /^.+fasta file (.+)$/;
 
 	my @faFile = split("\/", $faFiles);
@@ -787,13 +779,107 @@ sub parse_logFile {
 		$temp = $faFile . "/" . $faFile[$i];
 		$faFile = -d $temp ? $temp : $faFile;
 	}
-	$faFile .= "/$indexFilename\_$opts{x}\_$opts{y}\_bp.bed.fa";
-	$opts{g} = $faFile;
-	print $outLog "Fasta file $faFile does not exist!\n" and exit 0 if not -e $faFile;
+	$faFile .= "/$indexFilename\_$defOpts->{x}\_$defOpts->{y}\_bp.bed.fa";
+	$defOpts->{g} = $faFile;
+	print $outLog "Fasta file $faFile does not exist!\n" and die if not -e $faFile;
 	open (my $outLog, ">", "$outDir/footPeak_logFile.txt") or print "Failed to write to $outDir/footPeak_logFile.txt: $!\n" and exit 1;
-	record_options(\%opts, \%log, \%other, $outLog, $logFile);
-	return(\%opts, $outLog);
+	record_options($defOpts, $log, $other, $outLog, $logFile);
+	return($defOpts, $outLog);
 }
+
+sub parse_runscript {
+	my ($defOpts, $runscripts) = @_;
+	my @runscripts = split(" ", $runscripts);
+	my $log;
+	for (my $i = 0; $i < @runscripts; $i++) {
+		my ($opt, $val);
+		if ($runscripts[$i] =~ /^\-[a-zA-Z]$/) {
+			($opt) = $runscripts[$i] =~ /^\-(.)$/;
+			if ($i < @runscripts-1) {
+				$val = $runscripts[$i+1];
+			}
+			else {
+				$val = "TRUE";
+			}
+			if (not defined $defOpts->{$opt}) {
+				print "parse_runscript: opt $opt does not exist!\n" and next;
+			}
+		}
+		elsif ($i == 0) {
+			print "script = $runscripts[0]\n" and next;
+		}
+		else {
+			print "parse_runscript: $runscripts[$i] nexted\n" and next;
+		}
+		if ($val =~ /^\-[a-zA-Z]$/) {
+			my ($val1) = $val =~ /^\-(.)$/;
+			if (defined $defOpts->{$val1}) {
+				$val = "TRUE";
+			}
+			else {
+				$i ++;
+			}
+		}
+		else {
+			$i ++;
+		}
+		$defOpts->{$opt} = $val;
+		$log->{$opt} = 1;
+	}
+	my $defOptsCount = 0;
+	my $defOptsPrint = "\%defOpts = (";
+	foreach my $opt (sort keys %{$defOpts}) {
+		#$defOptsPrint .= "\'$opt\' => \'$defOpts->{$opt}\',";
+		$defOptsPrint .= "\n\t\t" if $defOptsCount % 4 == 0;
+		$defOptsPrint .= "\'$opt\' => \'\$opt\_$opt\',\t" if defined $log->{$opt};
+		$defOptsPrint .= "\'$opt\' => \'$defOpts->{$opt}\',\t" if not defined $log->{$opt};
+		$defOptsCount ++;
+	}
+	$defOptsPrint =~ s/,\t$/\n/;
+	$defOptsPrint .= ");";
+	print "$defOptsPrint\n";
+	die;
+	for (my $i = 1; $i < @runscripts; $i+=2) {
+		my $defOpts = $runscripts[$i];
+		my ($opt, $val) = ($runscripts[$i], $runscripts[$i+1]);
+		if ($opt =~ /^\-[a-zA-Z0-9]$/ and $val =~ /^\-[a-zA-Z0-9]$/ and defined $runscripts[$i+2] and $runscripts[$i+2] !~ /^\-[0-9]$/) {
+			($opt, $val) = ($opt, "TRUE");
+			$i -= 1;
+		}
+		($opt) = $defOpts =~ /^(.)$/ if not defined $opt;
+		$opt =~ s/^\-//;
+		next if not defined $opt;
+		$defOpts->{$opt} = $val;
+		#$log->{$opt} = $val;
+		print "-$opt $val\n";
+	}
+	return $defOpts;
+}
+
+sub set_default_opts {
+	# To define default values as well as record purposes, we create 4 hashes, %defOpts, %usrOpts, %other, and %log.
+	# %defOpts contains options that came from footLoop logfile.txt and came from user inputs from this script (footPeak.pl)
+	# %defOpts stores default values, %usrOpts stores user inputs.
+	my %defOpts = (
+					'x' => 0,	'y' => 0,	'g' => '',	'i' => '',	'q' => 0, 	'r' => '', 
+					'L' => 0,	't' => 65,	'w' => 20,	'd' => 250, 's' => 200, 'k' => 50,
+					'K' => 2, 	'n' => '', 	'l' => ''
+					);
+		
+	# %usrOpts contains options only from this script (footPeak.pl) 
+	# For each undefined values in %usrOpts (user didn't input anything), we use default value in %defOpts.
+	my %usrOpts = (
+					't' => $opt_t, 'w' => $opt_w, 'd' => $opt_d, 's' => $opt_s, 
+					'k' => $opt_k, 'K' => $opt_K, 'n' => $opt_n, 'l' => $opt_l
+					);
+	# set opt in footPeak's %defOpts to be what user inputted based on %usrOpts.
+	# if doesn't exist, then use default value in %defOpts.
+	foreach my $opt (sort keys %usrOpts) {
+		$defOpts{$opt} = $usrOpts{$opt} if defined $usrOpts{$opt};
+	}
+	return \%defOpts;
+}
+
 sub parse_index {
 	my ($indexFile, $outDir, $leftBuf, $riteBuf) = @_;
 	my ($folder, $fileName) = getFilename($indexFile, "folder");
@@ -831,7 +917,7 @@ sub make_kmer {
 		@preword = @curr;
 	}
 	my $max = @preword > 9 ? 9 : @preword-1;
-	#print "\nK=$K; Kmer = " . join(",", @preword[0..$max]);
+	#print "\nK=$Kmerz; Kmer = " . join(",", @preword[0..$max]);
 	#print "\n" if @preword <= 9;
 	#print "..." . "(total =$LGN " . scalar(@preword) . "$N)\n\n" if @preword > 9;
 	return(\@preword);
@@ -839,6 +925,8 @@ sub make_kmer {
 
 sub check_sanity {
 	my ($footFolder) = @_;
+
+
 my $usage = "
 Usage: $YW$0$N -i <footLoop output folder>
 #-g$CY <genomic fasta>$N -i$LPR <UNMODIFIED geneIndexes.bed>$N -p$LGN <Peak file>$N -n$YW <Output Folder>$N
@@ -911,12 +999,15 @@ end = 255-50 to 255+50 = 205 to 305
 
 ";
 
-die $usage . $usage_long if defined $opt_h;
-die $usage if not defined $footFolder or not -d $footFolder;
-print $outLog "Please run footloop.pl first! ($footFolder/logFile.txt does not exists)\n" and exit 0 if not -e "$footFolder/logFile.txt";
+print $usage . $usage_long and die if defined $opt_h;
+print $usage and die if not defined $footFolder or not -d $footFolder;
+print $outLog "Please run footloop.pl first! ($footFolder/logFile.txt does not exists)\n" and die if not -e "$footFolder/logFile.txt";
 
 return $usage;
 }
+
+
+
 __END__
 	my %count;
 	for (my $i = 0; $i < @preword; $i++) {

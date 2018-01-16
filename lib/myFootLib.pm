@@ -56,6 +56,7 @@ tmmse
 parse_cigar
 LOG
 makehash
+DIE
 $DIES
 $N 
 $B
@@ -79,6 +80,10 @@ $LPR
 
 
 #################################
+
+sub DIE {
+	return "\n$DIES Died at file $CY " . __FILE__ . " $N at line $LGN " . __LINE__ . " $N";
+}
 
 sub makehash {
    my ($keys, $vals) = @_;
