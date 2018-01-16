@@ -743,7 +743,6 @@ sub parse_footLoop_logFile {
 	# %log TBA
 
 	my ($other, $log); 
-
 	foreach my $line (@line[0..@line-1]) {
 		if ($line =~ /^Date\s*:/) {
 			($other->{date}) = $line =~ /^Date\s+:\s*([a-zA-Z0-9\:\-].+)$/;
