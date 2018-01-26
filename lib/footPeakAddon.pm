@@ -12,14 +12,17 @@ my $homedir = $ENV{"HOME"};
 my $footLoopDir = dirname(dirname abs_path $0) . "/footLoop";
 
 sub main {
-	my ($input1, $faFile, $mygene, $minDis, $label, $SEQ) = @_;
-	print date() . "\nusage: $YW$0$N [-c to use cpg] $CY<CALM3_Pos_20_0.65_CG.PEAK>$N $CY<location with lots of C>$N\n\n" and exit 1 unless @_ == 6;
+	my ($input1, $faFile, $mygene, $minDis, $label, $minLen, $SEQ) = @_;
+	print date() . "\nusage: $YW$0$N [-c to use cpg] $CY<CALM3_Pos_20_0.65_CG.PEAK>$N $CY<location with lots of C>$N\n\n" and exit 1 unless @_ == 7;
 	print date() . "Input cannot be directry!\n" and exit 1 if -d $input1;
 	($input1) = getFullpath($input1);
 	my ($folder, $fileName) = getFilename($input1, "folderfull");
-	open (my $outLog, ">", "$folder/footLoop_addition_logFile.txt") or die;
-
-	my @coor = split("\t", $SEQ->{$mygene});
+	open (my $outLog, ">>", "$folder/footLoop_addition_logFile.txt") or die;
+#      $SEQ->{$def}{seq} = \@seq;
+#      $SEQ->{$def}{loc} = findCGPos(\@seq);
+#      $SEQ->{$def}{coor} = "$chr\t$beg\t$end\t$def\t$zero\t$strand";
+	
+	my @coor = split("\t", $SEQ->{$mygene}{coor});
 	my (%pk, %Rscripts, %files);
 	my $total = make_total_hash();
 	my ($gene, $strand, $window, $thres, $type, $isPeak) = $fileName =~ /^(\w+)_(Unk|Pos|Neg)_(\d+)_(\d+\.?\d*)_(\w+)\.(PEAK|NOPK)$/;
@@ -54,7 +57,7 @@ sub main {
 				$linecount ++;
 				next if $linecount == 1; #header
 				LOG($outLog, date . "\tDone $totalnopk / $totalline\n") if $totalnopk % 500 == 0;
-				my ($name, $val, $totalPeak, $peaks) = parse_peak($line, $bad, $minDis, $outLog);
+				my ($name, $val, $totalPeak, $peaks) = parse_peak($line, $bad, $minDis, $minLen, $outLog);
 				$val = "$name\t" . join("\t", @{$val});
 				push(@{$data->{peak}}, $val) if $totalPeak > 0;
 				push(@{$data->{nopk}}, $val) if $totalPeak == 0;
@@ -81,7 +84,7 @@ sub main {
 				$linecount ++;
 				next if $linecount == 1; #header
 				LOG($outLog, date . "\tDone $totalpeak / $totalline\n") if $totalpeak % 500 == 0;
-				my ($name, $val, $totalPeak, $peaks) = parse_peak($line, $bad, $minDis, $outLog);
+				my ($name, $val, $totalPeak, $peaks) = parse_peak($line, $bad, $minDis, $minLen, $outLog);
 				$val = "$name\t" . join("\t", @{$val});
 				push(@{$data->{peak}}, $val) if $totalPeak > 0;
 				push(@{$data->{nopk}}, $val) if $totalPeak == 0;
@@ -117,6 +120,8 @@ sub main {
 		LOG($outLog, date . "#Folder\tFile\tPeak\tnopk\tTotalRead\tTotalLineInFile\n") if $h == 0;
 		LOG($outLog, date . "$peakPrint\n$nopkPrint\n");
 	}
+	my ($chr0, $beg0, $end0, $name0, $val0, $strand0) = @coor;
+	die "Undefined beg or end at coor=\n" . join("\n", @coor) . "\n" if not defined $beg0 or not defined $end0;
 	
 	foreach my $file (sort keys %pk) {
 		open (my $outPEAKS, ">", "$file.PEAKS")   or LOG($outLog, "\tFailed to write into $file.PEAKS: $!\n")  and exit 1;
@@ -126,7 +131,6 @@ sub main {
 		foreach my $name (sort keys %{$pk{$file}}) {
 			foreach my $peak (sort @{$pk{$file}{$name}}) {
 				my ($beg, $end) = split("-", $peak);
-				my ($chr0, $beg0, $end0, $name0, $val0, $strand0) = @coor;
 				$end0 = $end + $beg0;
 				$beg0 = $beg + $beg0;
 				my ($junk, $readname) = $name =~ /^(\w+)\.(.+)$/;
@@ -153,9 +157,14 @@ sub main {
 	close $outLGENE;
 	system("cat $folder/.0_RESULTS\_$mygene\_$strand\_$window\_$thres.TXT");
 
-	my ($sampleName) = $folder =~ /\/\d+_(m\d+_\d+)_\d+_\w+/;
+	#my ($sampleName) = $folder =~ /\/?\d+_(m\d+_\d+)_\d+_\w+/;
+	my ($sampleName) = $folder =~ /^.+(PCB\d\d\d)/;
+	if ($folder =~ /debarcode/) {
+		my ($temp) = $folder =~ /_ccs_(\w+)/;
+		$sampleName = $sampleName . "_$temp";
+	}
 	if (not defined $sampleName) {
-		$sampleName = $folder;
+		($sampleName) = $folder if not defined $sampleName;
 		$sampleName =~ s/\//_/g;
 	}
 	foreach my $file (sort keys %files) {
@@ -169,6 +178,7 @@ sub main {
 		for (my $p = 0; $p < 2; $p ++) {
 			my $currFile = $p == 0 ? $peakFile : $nopkFile;
 			my ($currFolder, $currFilename) = getFilename($currFile, "folderfull");
+			#$currFilename =~ s/\.0_orig_//i;
 			my $pngout = "$currFolder/$sampleName\_$currFilename.png";
 			my $pdfout = "$currFolder/$sampleName\_$currFilename.pdf";
 			next if not -e $currFile;
@@ -177,8 +187,13 @@ sub main {
 			$Rscript .= "
 				df = read.table(\"$currFile\",skip=1,sep=\"\\t\")
 				colnames(df) = c(\"V1\",seq(1,dim(df)[2]-1))
-				h = hclust(dist(df[,-1]))
-				df = df[h\$order,]
+				if (dim(df)[1] < 1000) {
+					h = hclust(dist(df[,-1]))
+					df = df[h\$order,]
+				} else {
+					mysum = apply(df[,-1],1,sum)
+					df = df[order(mysum),]
+				}
 				df\$y = seq(1,dim(df)[1])
 			";
 			if (-e $bedFile and linecount($bedFile) > 0) {
@@ -257,8 +272,9 @@ sub main {
 			close $outRscript;
 		}
 	}
+	LOG($outLog, "\n\n");
 	foreach my $outRscript (sort keys %Rscripts) {
-		LOG($outLog, date() . "run_Rscript.pl $outRscript > $outRscript.LOG 2>&1\n");
+		LOG($outLog, "run_Rscript.pl $outRscript > $outRscript.LOG 2>&1\n");
 	#	system("run_Rscript.pl $outRscript > $outRscript.LOG 2>&1") == 0 or LOG($outLog, date() . "Failed to run_Rscript.pl $outRscript: $!\n");
 	}
 #	LOG($outLog, date . "\tcd $folder && run_Rscript.pl *MakeHeatmap.R\n");
@@ -289,10 +305,10 @@ sub make_heatmap {
 
 
 sub parse_peak {
-	my ($ARG, $bad, $minDis, $outLog) = @_;
+	my ($ARG, $bad, $minDis, $minLen, $outLog) = @_;
 	my ($name, $isPeak, $mygene, $type, $strand, @val) = split("\t", $ARG);
 	my %bad = %{$bad} if defined $bad;
-	my $name_want = "CALM3.m160130_030742_42145_c100934342550000001823210305251633_s1_p0/9477/ccs";
+	my $name_want = "AIRN_PFC66_FORWARD.16024";#CALM3.m160130_030742_42145_c100934342550000001823210305251633_s1_p0/16024/ccs";
 	shift(@val) if $val[0] eq "";
 #	for (my $i = 0; $i < @val; $i++) {
 #		if ($val[$i] !~ /^[456789]$/) {print "."} else {print "$val[$i]";}
@@ -305,7 +321,7 @@ sub parse_peak {
 	my $peaks;
 	my %peak; $peak{curr} = 0; #my $edge = 0; my $edge2 = 0; my $zero = 0; my $edge1 = 0;
 	my $Length = @val; 
-	my $print = "Total length = $Length\n";
+	my $print = "name=$name, isPeak = $isPeak, Total length = $Length\n";
 	my ($edge1) = join("", @val) =~ /^(0+)[\.1-9A-Za-z]/;
 	$edge1 = defined $edge1 ? length($edge1) : 0;
 	my ($edge2) = join("", @val) =~ /[\.1-9A-Za-z](0+)$/;
@@ -340,6 +356,7 @@ sub parse_peak {
 	$strand = $type =~ /^C/ ? 0 : $type =~ /^G/ ? 16 : 255;
 	my %peak2;
 	$print .= "\n";
+	print "$print" if $name_want eq $name;
 #	LOG($outLog, date() . "\nDoing $YW$name$N\n" if $name eq $name_want;#"SEQ_76074" or $name eq "SEQ_34096" or $name eq "SEQ_62746");
 	if (defined $peak{peak}) {
 		foreach my $peak (sort @{$peak{peak}}) {
@@ -395,20 +412,26 @@ sub parse_peak {
 #			LOG($outLog, date() . "\t$name checkbad = $checkBad\n" if $name eq "SEQ_76074" or $name eq "SEQ_34096" or $name eq "SEQ_62746");
 			
 			if ($checkBad == 1) {
-				$print .= "\tend=$end > 100 + edge1=$edge1 OR beg=$beg < edge2=$edge2-100; Peak Bad : $LRD$peak$N\n";
+				$print .= "\tCheckBad; Peak Not: $LRD$peak$N\n";
 #				LOG($outLog, date() . "\tend=$end > 100 + edge1=$edge1 OR beg=$beg < edge2=$edge2-100; Peak bad : $LRD$peak$N\n" if $name eq "$name_want");
 				for (my $j = $beg; $j <= $end; $j++) {
 					$nopk{$j} = 1;
 				}
 			}
-			elsif ($end > 10 + $edge1 or $beg < $edge2 - 10) {
+			elsif ($end - $beg < $minLen) {
+				$print .= "\tend-$end < $minLen; Peak Not: $LRD$peak$N\n";
+				for (my $j = $beg; $j <= $end; $j++) {
+					$nopk{$j} = 1;
+				}
+			}
+			elsif ($beg < $edge2 - 100 and $end > 100 + $edge1) {
 #				LOG($outLog, date() . "something wrong\n";# if $name eq "$name_want");
 				$print .= "\tend=$end > 100 + edge1=$edge1 OR beg=$beg < edge2=$edge2-100; Peak Used: $LGN$peak$N\n";
 				push(@peak, "$beg-$end");
 				push(@{$peak2{peak}}, $peak);
 			}
 			else {
-				$print .= "\tend=$end > 10 + edge1=$edge1 OR beg=$beg < edge2=$edge2-10; Peak Not : $LRD$peak$N\n";
+				$print .= "\tbeg=$beg, end=4end, peak Not: $LRD$peak$N\n";
 				for (my $j = $beg; $j <= $end; $j++) {
 					$nopk{$j} = 1;
 				}
@@ -416,20 +439,57 @@ sub parse_peak {
 		}
 	}
 	my $totalpeak = scalar(@peak);
-#	my @val2;
-#	for (my $i = 0; $i < @val; $i++) {
-#		my $val = $val[$i];
-#		$val2[$i] = $val;
-	#	if ($val =~ /^(8|9)$/ and defined $nopk{$i}) { # Peak Converted CpG or CH
-	#		#$val2[$i] = 7 if $val eq 9;
-	#		#$val2[$i] = 6 if $val eq 8;
-	#	}
-	#}
+	my @val2 = @val;
+	if ($totalpeak > 0) {
+		for (my $i = 0; $i < @val; $i++) {
+			my $val = $val[$i];
+			$val2[$i] = $val;
+			if ($val =~ /^(8|9)$/ and defined $nopk{$i}) { # Peak Converted CpG or CH
+				$val2[$i] = 7 if $val eq 9;
+				$val2[$i] = 6 if $val eq 8;
+			}
+		}
+	}
 	#die $print if $totalpeak > 1;
 	$print .= "$name\t$totalpeak\n" if $isPeak eq "PEAK";
 #	LOG($outLog, date() . "$print\n" if $isPeak eq "PEAK";# and $print =~ /; Peak Not/;# if $totalpeak == 1;# or $name eq "SEQ_100022") and exit 1;
 #	exit 0 if $isPeak eq "PEAK";
-	return ($name, \@val, $totalpeak, $peak2{peak});
+	@val = @val2;
+	$print .= "\n\nVAL2: Total length = $Length\n";
+	($edge1) = join("", @val) =~ /^(0+)[\.1-9A-Za-z]/;
+	$edge1 = defined $edge1 ? length($edge1) : 0;
+	($edge2) = join("", @val) =~ /[\.1-9A-Za-z](0+)$/;
+	$edge2 = defined $edge2 ? @val-length($edge2) : @val;
+	for (my $i = 0; $i < @val; $i++) {
+		my $val = $val[$i];
+		if ($i % 100 == 0) {$print .= "\n$YW" . $i . "$N:\t";}
+		if ($val[$i] =~ /[89]/) {
+			$peak{beg} = $i if $peak{curr} == 0;
+			$print .= "${LPR}$val[$i]$N" if $peak{curr} == 0;
+			$print .= "${LRD}$val[$i]$N" if $peak{curr} == 1;
+			$peak{curr} = 1;
+		}
+		elsif ($val[$i] =~ /[23]/) {
+			$peak{end} = $i+1;
+			push(@{$peak{peak}}, "$peak{beg}-$peak{end}");
+			undef $peak{beg}; undef $peak{end};
+			$peak{curr} = 0;
+			$val[$i] =~ tr/23/89/;
+			$print .= "${LPR}$val$N";
+		}
+		else {
+			$print .= "EDGE1" if $i == $edge1;
+			$print .= "${LGN}$val[$i]$N" if $val =~ /^[46]$/;
+			$print .= "${LGN}$val[$i]$N" if $val =~ /^[57]$/;
+			$print .= "." if $val[$i] eq 1;
+			$print .= "x" if $val[$i] eq 0;# and $i < $edge1;
+			$print .= "EDGE2" if $i == $edge2 - 1;
+		}
+	}
+	$print .= "\n";
+	print "$print" if $name_want eq $name;
+
+	return ($name, \@val2, $totalpeak, $peak2{peak});
 }
 
 sub find_lots_of_C {

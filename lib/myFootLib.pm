@@ -157,7 +157,7 @@ sub getFilename {
 	# $folder   = "folder1/folder2"
 	# @names2   = (filename, txt, bed)
 	# shortname = "filename"
-
+	$fh = "./" . $fh if $fh !~ /\//;
 	if ($fh =~ /\/$/) {$fh =~ s/\/+$//;}
 	my (@names)   = split("\/", $fh);
 	my $fullname  = pop(@names);
@@ -177,7 +177,7 @@ sub getFullpath {
 	
 	my ($folder, $fullname) = getFilename($fh, "folderfull");
 	my $currdir = `pwd`; chomp($currdir);
-	die "Folder $folder does not exist!\n" if not defined($folder) or not -d $folder;
+	die "Folder of fh=$fh (folder=$folder=) does not exist!\n" if not defined($folder) or not -d $folder;
 	($folder) = `cd \"$folder\" && pwd`;
 	chdir $currdir;
 	chomp($folder);

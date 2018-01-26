@@ -10,9 +10,10 @@
 # 9 is CG peak
 
 use strict; use warnings; use Getopt::Std; use Time::HiRes; use Benchmark qw(:all); use Benchmark ':hireswallclock'; use Carp;
+use Thread; use Thread::Queue;
 use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_g $opt_p $opt_d $opt_s $opt_k $opt_K $opt_n $opt_h $opt_t $opt_w $opt_l);
-getopts("vg:p:d:s:k:K:n:ht:w:l:");
+use vars qw($opt_v $opt_g $opt_p $opt_d $opt_s $opt_k $opt_K $opt_n $opt_h $opt_t $opt_w $opt_l $opt_A);
+getopts("vg:p:d:s:k:K:n:ht:w:l:A:");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -23,7 +24,8 @@ use feature 'say';
 
 my $date = getDate();
 my $uuid = getuuid();
-
+my $genewant = "NONE";# = "CALM3.m160130_030742_42145_c100934342550000001823210305251633_s1_p0/101566/ccs";
+my $numThread = 1;
 my ($footFolder) = $opt_n;
 my ($usage) = check_sanity($footFolder);
 my $logFile = "$footFolder/logFile.txt";
@@ -33,9 +35,10 @@ my ($opts, $outLog) = parse_footLoop_logFile($logFile, $date, $uuid);
 my $seqFile        = $opts->{seqFile};
 my $indexFile		= $opts->{geneIndexFile};
 my $origFolder 	= $opts->{origDir};
+my $minLen			= $opts->{l};
 my $x 				= $opts->{x};
 my $y 				= $opts->{y};
-my $threshold 		= $opts->{t};
+my $threshold 		= $opts->{t}; $threshold /= 100 if $threshold > 1;
 my $window 			= $opts->{w};
 my $min 				= $opts->{d};
 my $groupsize 		= $opts->{s};
@@ -64,13 +67,24 @@ my $SEQ = parse_indexFile_and_seqFile($indexFile, $seqFile, $outLog);
 #           | P1| | P2 |                      | Peak 3  |         # if max non-9 buffer length is < 2
 #           |  Peak1   |                      | Peak 2  |         # if max non-9 buffer length is < 300
 #           |              Peak 1                       |         # if max non-9 buffer length is < 500
-
 my @origFile = <$origFolder/*.orig>;
-
+open (my $outLogAddon, ">", "$origFolder/footLoop_addition_logFile.txt") or die;
+close $outLogAddon;
+my $out;
+my $R;
+my @total_Rscript = <$origFolder/*.R>;
+my @total_png = <$origFolder/*.png>;
+makedir("$origFolder/remove2/") if not -d "$origFolder/remove2/";
+system("/bin/mv $origFolder/remove/ $origFolder/remove2") if -d "$origFolder/remove";
+system("/bin/mv $origFolder/*.R $origFolder/remove2") if @total_Rscript > 0;
+system("/bin/mv $origFolder/*.png $origFolder/remove2") if @total_png > 0;
+system("/bin/mv $origFolder/remove2/ $origFolder/remove/");
+print "Doing origFile = " . scalar(@origFile) . "\n";
 for (my $i = 0; $i < @origFile; $i++) {
+	my $Q = new Thread::Queue;
 	my $peakFile = $origFile[$i];
 #debug
-	next if $peakFile !~ /CALM3_Pos/;
+#	next if $peakFile !~ /(AIRN_PFC66_FORWARD_Neg|CALM3_Pos)/;
 ##
 	my ($peakFolder, $peakFilename) = getFilename($peakFile, "folder");
 	$peakFilename =~ s/.orig$//;
@@ -81,24 +95,22 @@ for (my $i = 0; $i < @origFile; $i++) {
 	LOG($outLog, "Cannot find sequence of gene=$LCY$gene$N in $seqFile!\n") and die if not defined $SEQ->{$gene};
 	my %pk = ("CH" => 0, "CG" => 0, "GH" => 0, "GC" => 0);
 	print "$LGN$i$N. peakFile=$LCY$peakFile$N, Gene = $LRD$gene$N total length = $LPR$total$N\n";
-	open (my $outPEAKCG, ">", "$peakFolder/$peakFilename\_$window\_$threshold\_CG.PEAK") or die "Failed to write to $peakFolder/$peakFilename\_$window\_$threshold\_CG.PEAK: $!\n";
-	open (my $outNOPKCG, ">", "$peakFolder/$peakFilename\_$window\_$threshold\_CG.NOPK") or die "Failed to write to $peakFolder/$peakFilename\_$window\_$threshold\_CG.NOPK: $!\n";
-	open (my $outPEAKCH, ">", "$peakFolder/$peakFilename\_$window\_$threshold\_CH.PEAK") or die "Failed to write to $peakFolder/$peakFilename\_$window\_$threshold\_CH.PEAK: $!\n";
-	open (my $outNOPKCH, ">", "$peakFolder/$peakFilename\_$window\_$threshold\_CH.NOPK") or die "Failed to write to $peakFolder/$peakFilename\_$window\_$threshold\_CH.NOPK: $!\n";
-	open (my $outPEAKGC, ">", "$peakFolder/$peakFilename\_$window\_$threshold\_GC.PEAK") or die "Failed to write to $peakFolder/$peakFilename\_$window\_$threshold\_GC.PEAK: $!\n";
-	open (my $outNOPKGC, ">", "$peakFolder/$peakFilename\_$window\_$threshold\_GC.NOPK") or die "Failed to write to $peakFolder/$peakFilename\_$window\_$threshold\_GC.NOPK: $!\n";
-	open (my $outPEAKGH, ">", "$peakFolder/$peakFilename\_$window\_$threshold\_GH.PEAK") or die "Failed to write to $peakFolder/$peakFilename\_$window\_$threshold\_GH.PEAK: $!\n";
-	open (my $outNOPKGH, ">", "$peakFolder/$peakFilename\_$window\_$threshold\_GH.NOPK") or die "Failed to write to $peakFolder/$peakFilename\_$window\_$threshold\_GH.NOPK: $!\n";
+	foreach my $type (sort keys %pk) {
+		my $outpeak = "PEAK$type";
+		my $outnopk = "NOPK$type";
+		open ($out->{$outpeak}, ">", "$peakFolder/$peakFilename\_$window\_$threshold\_$type.PEAK") or LOG($outLog, "Failed to write to $peakFolder/$peakFilename\_$window\_$threshold\_CG.PEAK: $!\n") and die;
+		open ($out->{$outnopk}, ">", "$peakFolder/$peakFilename\_$window\_$threshold\_$type.NOPK") or LOG($outLog, "Failed to write to $peakFolder/$peakFilename\_$window\_$threshold\_CG.NOPK: $!\n") and die;
+	}
 	open (my $in1, "<", $peakFile) or die "Cannot read from $peakFile: $!\n";
 	my ($l0, $t0) = (0,Benchmark->new());
-	print $outPEAKCH "$peakFile\tPEAK\t$gene\tCH\t$strand\t" . join("\t", @{$SEQ->{$gene}{seq}}) . "\n";
-	print $outNOPKCH "$peakFile\tNOPK\t$gene\tCH\t$strand\t" . join("\t", @{$SEQ->{$gene}{seq}}) . "\n";
-	print $outPEAKCG "$peakFile\tPEAK\t$gene\tCG\t$strand\t" . join("\t", @{$SEQ->{$gene}{seq}}) . "\n";
-	print $outNOPKCG "$peakFile\tNOPK\t$gene\tCG\t$strand\t" . join("\t", @{$SEQ->{$gene}{seq}}) . "\n";
-	print $outPEAKGH "$peakFile\tPEAK\t$gene\tGH\t$strand\t" . join("\t", @{$SEQ->{$gene}{seq}}) . "\n";
-	print $outNOPKGH "$peakFile\tNOPK\t$gene\tGH\t$strand\t" . join("\t", @{$SEQ->{$gene}{seq}}) . "\n";
-	print $outPEAKGC "$peakFile\tPEAK\t$gene\tGC\t$strand\t" . join("\t", @{$SEQ->{$gene}{seq}}) . "\n";
-	print $outNOPKGC "$peakFile\tNOPK\t$gene\tGC\t$strand\t" . join("\t", @{$SEQ->{$gene}{seq}}) . "\n";
+	foreach my $type (sort keys %pk) {
+		my $outpeak = "PEAK$type";
+		my $outnopk = "NOPK$type";
+		print {$out->{$outpeak}} "$peakFile\tPEAK\t$gene\t$type\t$strand\t" . join("\t", @{$SEQ->{$gene}{seq}}) . "\n";
+		print {$out->{$outnopk}} "$peakFile\tNOPK\t$gene\t$type\t$strand\t" . join("\t", @{$SEQ->{$gene}{seq}}) . "\n";
+	}
+
+	LOG($outLog, date() . "$peakFilename\n");
 	while (my $line = <$in1>) {
 		chomp($line);
 		$linecount ++;
@@ -107,305 +119,153 @@ for (my $i = 0; $i < @origFile; $i++) {
 		$val = [split("", $val)];
 		$name = "$gene.$name";
 		print "Line error skipped: $line\n" and next if not defined($name) or length($val) == 0;
-	#	print "\n\n>$name\n";	
-		my $count = 0; my $beg = 0; my $end = 0;
-		my $check;
-		$check = 1 if $name eq "CALM3.m160130_030742_42145_c100934342550000001823210305251633_s1_p0/101566/ccs";
+		my ($count, $beg, $end) = (0,0,0);
+		my $check = 1 if $name eq $genewant;
 		#next if not defined $check;
-		my ($peak, $peakCH, $peakCG, $peakGH, $peakGC) = getPeak($val, $SEQ->{$gene}, $window, $threshold, $check);
-		my $t1 = Benchmark->new();
-		my ($td) = timestr(timediff($t1, $t0)) =~ /(\-?\d+\.?\d*) wallclock/;
-		if ($td > 5) {
-			my $persec = int(($linecount-$l0) / $td*10+0.5)/10;
-			print STDERR "$peakFilename: Done $LGN$linecount$N in $LCY$persec$N lines per second; ";
-			LOG($outLog, "$peakFilename: Done $LGN$linecount$N in $LCY$persec$N lines per second; ");
-			$t0 = Benchmark->new();
-			$l0 = $linecount;
-			LOG($outLog, "$LGN$linecount$N:");
-			print STDERR "$LGN$linecount$N:"; my $to = 0;
-			foreach my $key (sort keys %pk) {
-				next if $key =~ /NO$/;
-				my $peak = defined $pk{$key} ? $pk{$key} : 0;
-				$to = defined $pk{$key . "NO"} ? $pk{$key . "NO"} + $peak : $peak;
-				LOG($outLog, "$key=$LGN$peak$N, ");
-				print STDERR "$key=$LGN$peak$N, ";
+#		my ($peak, $peakCH, $peakCG, $peakGH, $peakGC) = getPeak($val, $SEQ->{$gene}, $window, $threshold, $check);
+		my $comm = [$gene, $strand, $val, $name, $window, $threshold, $check];
+		$Q->enqueue($comm);
+		if ($Q->pending == 60) {
+			LOG($outLog, date() . "  Done $linecount\n");
+			$Q->end();
+			$R = new Thread::Queue;
+			my @threads; my $badthread = 0;
+			for (my $thr = 0; $thr < $numThread; $thr++) {
+				$threads[$thr] = threads->create(\&worker, $thr, $Q);
+				if (defined $threads[$thr] and $threads[$thr] eq 1) {
+					$badthread = 1;
+					last;
+				}
 			}
-			LOG($outLog, "total=$LCY$to$N\n");
-			print STDERR "total=$LCY$to$N\n";
+			if ($badthread == 1) {
+				for (my $thr = 0; $thr < $numThread; $thr++){
+					$threads[$thr] = 1;
+				}
+			}
+			for (my $thr = 0; $thr < $numThread; $thr++){
+				$threads[$thr]->join();
+			}
+			$R->end();
+			die if $badthread == 1;
+			while ($R->pending) {
+				my $result = $R->dequeue; next if not defined $result;
+				my ($pkcurr, $outcurr) = @{$result};
+				foreach my $type (sort keys %{$pkcurr}) {
+					$pk{$type} += $pkcurr->{$type};
+				}
+				foreach my $type (sort keys %{$outcurr}) {
+					print {$out->{$type}} $outcurr->{$type};
+				}
+				#last if $linecount > 100;
+				#exit 0 if defined $check and $check == 1;
+			}
+			$Q = new Thread::Queue();
 		}
+		#last if $linecount > 600;
+	}
+
+	if (defined $Q->pending) {
+		LOG($outLog, date() . "  Done $linecount\n");
+		$Q->end();
+		$R = new Thread::Queue;
+		my @threads; my $badthread = 0;
+		for (my $thr = 0; $thr < $numThread; $thr++) {
+			$threads[$thr] = threads->create(\&worker, $thr, $Q);
+			if (defined $threads[$thr] and $threads[$thr] eq 1) {
+				$badthread = 1;
+				last;
+			}
+		}
+		if ($badthread == 1) {
+			for (my $thr = 0; $thr < $numThread; $thr++){
+				$threads[$thr] = 1;
+			}
+		}
+		for (my $thr = 0; $thr < $numThread; $thr++){
+			$threads[$thr]->join();
+		}
+		$R->end();
+		die if $badthread == 1;
+		while ($R->pending) {
+			my $result = $R->dequeue; next if not defined $result;
+			my ($pkcurr, $outcurr) = @{$result};
+			foreach my $type (sort keys %{$pkcurr}) {
+				$pk{$type} += $pkcurr->{$type};
+			}
+			foreach my $type (sort keys %{$outcurr}) {
+				print {$out->{$type}} $outcurr->{$type};
+			}
+			#last if $linecount > 100;
+			#exit 0 if defined $check and $check == 1;
+		}
+	}
+	my $to;
+	foreach my $key (sort keys %pk) {
+		next if $key =~ /NO$/;
+		my $peak = defined $pk{$key} ? $pk{$key} : 0;
+		$to = defined $pk{$key . "NO"} ? $pk{$key . "NO"} + $peak : $peak;
+		LOG($outLog, "$key=$LGN$peak$N, ");
+	}
+	LOG($outLog, "\n\n" . date() . "\n\n");
+	my $peakFilez = "$peakFolder/$peakFilename\_$window\_$threshold\_CG.PEAK";
+	footPeakAddon::main(($peakFilez, $seqFile, $gene, $minDis, $opt_l, $minLen, $SEQ));
+}
+
+#COMMENTCUT
+#	my $t1 = Benchmark->new();
+#	my ($td) = timestr(timediff($t1, $t0)) =~ /(\-?\d+\.?\d*) wallclock/;
+#	my $persec = int(($linecount-$l0) / $td*10+0.5)/10;
+#	LOG($outLog, "$peakFilename: Done $LGN$linecount$N in $LCY$persec$N lines per second; ");
+#	my $to = 0;
+#	foreach my $key (sort keys %pk) {
+#		next if $key =~ /NO$/;
+#		my $peak = defined $pk{$key} ? $pk{$key} : 0;
+#		$to = defined $pk{$key . "NO"} ? $pk{$key . "NO"} + $peak : $peak;
+#		LOG($outLog, "$key=$LGN$peak$N, ");
+#	}
+#	LOG($outLog, "total=$LCY$to$N\n");
+##	print "PEAK: CH=$LGN$peakCH$N, CG=$LGN$peakCG$N, GH=$LCY$peakGH$N, GC=$LCY$peakGC$N\n";
+##	print "NOPK: CH=$LGN$peakCH$N, CG=$LGN$peakCG$N, GH=$LCY$peakGH$N, GC=$LCY$peakGC$N\n";
+
+
+###############
+# SUBROUTINES #
+###############
+
+sub worker {
+   my ($thread, $queue) = @_;
+   my $tid = threads->tid;
+
+   while ($queue->pending) {
+		my $left = $queue->pending;
+		return 0 if not defined $left;
+#		print "Remaining: $left\n" if $left % 10 == 0;
+      my $command = $queue->dequeue;
+		my ($gene, $strand, $val, $name) = ($command->[0], $command->[1], $command->[2], $command->[3]);
+		print "left; $left. tid=$tid doing $gene $name\n" if $left % 100 == 0;
+		print "gene=$gene, strand=$strand, name=$name, Undefined seq!\n" and return 1 if not defined $SEQ;
+		my ($peak, $peakCH, $peakCG, $peakGH, $peakGC) = getPeak(@{$command});
+		#my ($gene, $strand, $nuc, $name, $out, $seq, $window, $threshold, $check) = @_;
 		my ($CH, $CG, $GH, $GC) = ("","","","");
 		for (my $i = 0; $i < @{$SEQ->{$gene}{seq}}; $i++) {
 			$CH .= $val->[$i] =~ /^[\-\_]$/ ? "\t0" : (defined $peak->{CH}[$i] and $peak->{CH}[$i] !~ /^[\! ]$/) ? "\t" . $peak->{CH}[$i] : "\t1";
 			$CG .= $val->[$i] =~ /^[\-\_]$/ ? "\t0" : (defined $peak->{CG}[$i] and $peak->{CG}[$i] !~ /^[\! ]$/) ? "\t" . $peak->{CG}[$i] : "\t1";
 			$GH .= $val->[$i] =~ /^[\-\_]$/ ? "\t0" : (defined $peak->{GH}[$i] and $peak->{GH}[$i] !~ /^[\! ]$/) ? "\t" . $peak->{GH}[$i] : "\t1";
 			$GC .= $val->[$i] =~ /^[\-\_]$/ ? "\t0" : (defined $peak->{GC}[$i] and $peak->{GC}[$i] !~ /^[\! ]$/) ? "\t" . $peak->{GC}[$i] : "\t1";
-#			$CH .= $val->[$i] =~ /^[\-\_]$/ ? "\t6" : (defined $peak->{CH}[$i] and $peak->{CH}[$i] =~ /^[\-\_]$/) ? "\t6" : (defined $peak->{CH}[$i] and $peak->{CH}[$i] !~ /^[\! ]$/) ? "\t" . $peak->{CH}[$i] : "\t7";
-#			$CG .= $val->[$i] =~ /^[\-\_]$/ ? "\t6" : (defined $peak->{CG}[$i] and $peak->{CG}[$i] =~ /^[\-\_]$/) ? "\t6" : (defined $peak->{CG}[$i] and $peak->{CG}[$i] !~ /^[\! ]$/) ? "\t" . $peak->{CG}[$i] : "\t7";
-#			$GH .= $val->[$i] =~ /^[\-\_]$/ ? "\t6" : (defined $peak->{GH}[$i] and $peak->{GH}[$i] =~ /^[\-\_]$/) ? "\t6" : (defined $peak->{GH}[$i] and $peak->{GH}[$i] !~ /^[\! ]$/) ? "\t" . $peak->{GH}[$i] : "\t7";
-#			$GC .= $val->[$i] =~ /^[\-\_]$/ ? "\t6" : (defined $peak->{GC}[$i] and $peak->{GC}[$i] =~ /^[\-\_]$/) ? "\t6" : (defined $peak->{GC}[$i] and $peak->{GC}[$i] !~ /^[\! ]$/) ? "\t" . $peak->{GC}[$i] : "\t7";
-# 2 is now 2
-# 6 is now 6
-# bad region is now 6
-		}		
+		}
 		$CH = $peakCH != 0 ? "$name\tPEAK\t$gene\tCH\t$strand\t$CH\n" : "$name\tNOPK\t$gene\tCH\t$strand\t$CH\n";
 		$CG = $peakCG != 0 ? "$name\tPEAK\t$gene\tCG\t$strand\t$CG\n" : "$name\tNOPK\t$gene\tCG\t$strand\t$CG\n";
 		$GH = $peakGH != 0 ? "$name\tPEAK\t$gene\tGH\t$strand\t$GH\n" : "$name\tNOPK\t$gene\tGH\t$strand\t$GH\n";
 		$GC = $peakGC != 0 ? "$name\tPEAK\t$gene\tGC\t$strand\t$GC\n" : "$name\tNOPK\t$gene\tGC\t$strand\t$GC\n";
-		$peakCH != 0 ? ($pk{CH} ++ and print $outPEAKCH $CH) : ($pk{CHNO} ++ and print $outNOPKCH $CH);
-		$peakCG != 0 ? ($pk{CG} ++ and print $outPEAKCG $CG) : ($pk{CGNO} ++ and print $outNOPKCG $CG);
-		$peakGH != 0 ? ($pk{GH} ++ and print $outPEAKGH $GH) : ($pk{GHNO} ++ and print $outNOPKGH $GH);
-		$peakGC != 0 ? ($pk{GC} ++ and print $outPEAKGC $GC) : ($pk{GCNO} ++ and print $outNOPKGC $GC);
-		#last if $linecount > 100;##	exit 0 if defined $check and $check == 1;
+		my ($pk, $out);
+		if ($peakCH != 0) {$pk->{CH} ++; $out->{'PEAKCH'} = $CH;} else {$pk->{CHNO} ++; $out->{'NOPKCH'} = $CH;}
+		if ($peakCG != 0) {$pk->{CG} ++; $out->{'PEAKCG'} = $CG;} else {$pk->{CGNO} ++; $out->{'NOPKCG'} = $CG;}
+		if ($peakGH != 0) {$pk->{GH} ++; $out->{'PEAKGH'} = $GH;} else {$pk->{GHNO} ++; $out->{'NOPKGH'} = $GH;}
+		if ($peakGC != 0) {$pk->{GC} ++; $out->{'PEAKGC'} = $GC;} else {$pk->{GCNO} ++; $out->{'NOPKGC'} = $GC;}
+		$R->enqueue([$pk, $out]);
 	}
-	my $t1 = Benchmark->new();
-	my ($td) = timestr(timediff($t1, $t0)) =~ /(\-?\d+\.?\d*) wallclock/;
-	my $persec = int(($linecount-$l0) / $td*10+0.5)/10;
-	print STDERR "$peakFilename: Done $LGN$linecount$N in $LCY$persec$N lines per second; ";
-	LOG($outLog, "$peakFilename: Done $LGN$linecount$N in $LCY$persec$N lines per second; ");
-	my $to = 0;
-	foreach my $key (sort keys %pk) {
-		next if $key =~ /NO$/;
-		my $peak = defined $pk{$key} ? $pk{$key} : 0;
-		$to = defined $pk{$key . "NO"} ? $pk{$key . "NO"} + $peak : $peak;
-		LOG($outLog, "$key=$LGN$peak$N, ");
-		print STDERR "$key=$LGN$peak$N, ";
-	}
-	LOG($outLog, "total=$LCY$to$N\n");
-	print STDERR "total=$LCY$to$N\n";
-#	print "PEAK: CH=$LGN$peakCH$N, CG=$LGN$peakCG$N, GH=$LCY$peakGH$N, GC=$LCY$peakGC$N\n";
-#	print "NOPK: CH=$LGN$peakCH$N, CG=$LGN$peakCG$N, GH=$LCY$peakGH$N, GC=$LCY$peakGC$N\n";
-#	exit 0;
-	my $peakFilez = "$peakFolder/$peakFilename\_$window\_$threshold\_CG.PEAK";
-	LOG($outLog, "footLoop_addition.pl $peakFilez $seqFile $gene\n");
-	print STDERR "footLoop_addition.pl $peakFilez $seqFile $gene\n";
-	footPeakAddon::main(($peakFilez, $seqFile, $gene, $minDis, $opt_l, $SEQ));
-#	system("footLoop_addition.pl $peakFilez $seqFile $gene") == 0 or LOG($outLog, "Failed to footLoop_addition.pl $peakFilez $seqFile: $!\n");
+	return 0;
 }
-
-=comment
-		for (my $i = 0; $i < @val; $i++) {
-		#	next if $val[$i] eq "";
-		#	print "DIED\n\n$line\n\nVal:" . join(" ", @val[@val-10..@val-1]) . "\n" and die if $val[$i] eq "";
-			# 1. Not currently at peak, and current is peak (9)
-			if ($peak == 0 and $val[$i] == 9) {
-				$peak = 1;
-				$totalPeak ++;#= (keys %data);
-				my $base = $SEQ->{$gene}[$i]; LOG($outLog, "Died i = $i name=$name total=${@val}\n") and die if not defined($base);
-				my $index = int($i / $groupsize);
-				$data{$index}{$totalPeak}{beg} = $i;
-				$data{$index}{$totalPeak}{name} = $name;
-				$bad{$index}{$totalPeak}{beg} = 1 if $i <= 50;
-				my $j0 = $i < 500 ? 0 : $i - 500;
-				for (my $j = $j0; $j < $i; $j++) {
-					last if $val[$j] == 0 or $val[$j] == 1 or $val[$j] == 2 or $val[$j] == 9;
-					$bad{$index}{$totalPeak}{beg} = 1 if $val[$j] == 6;
-					last if $val[$j] == 6;
-				}
-				push(@{$data{$index}{$totalPeak}{seq}}, $base);
-				$count = 0;
-	##			print "Peak $totalPeak: name $name: $base";
-				$beg = $i; $end = $i;
-				$peakcount ++;
-			}
-			# 2. Currently is peak (peak == 1) but value isn't 9 and total non-peak is equal to maximum buffer length, then peak is end
-			elsif ($peak == 1 and (($val[$i] != 9 and $count == $min) or $i == $total - 1 or $i == @val - 1)) {
-				my $base = $SEQ->{$gene}[$i]; LOG($outLog, "Died i = $i name=$name total=${@val}\n") and die if not defined($base);
-				my $index = int($beg / $groupsize);
-				#$end = $i - $min;
-				my $indexend = int($end/ $groupsize);
-				push(@{$data{$index}{$totalPeak}{seq}}, $base);
-				$bad{$index}{$totalPeak}{end} = 1 if $val[$end] == 6 or $i == $total - 1 or $i == @val - 1;
-				$data{$index}{$totalPeak}{end} = $end;
-	#			for (my $j = $end; $j < $j + 500; $j++) {
-				for (my $j = $end; $j < $end + 500; $j++) {
-					last if $j == @val - 1 or $j == $total - 1;
-					last if $val[$j] == 0 or $val[$j] == 1 or $val[$j] == 2 or $val[$j] == 9;
-					$bad{$index}{$totalPeak}{end} = 1 if $val[$j] == 6;
-					last if $val[$j] == 6;
-				}
-				$end{$totalPeak} = $indexend;
-	##			print "\ni=$i indexBeg=$index indexEnd=$indexend Peak=$totalPeak name $name: BEG=$beg, END=$end\n\n";
-				$count = 0;
-				$peak = 0;
-				$beg = 0; $end = 0;
-			}
-			# 3. Currently is peak (peak == 1), but total non-peak length is less than required maximum non-peak length ($min)
-			elsif ($peak == 1 and $count < $min) {
-				my $base = $SEQ->{$gene}[$i]; 
-				LOG($outLog, "\nUndefined base at i=$i gene=$gene, total = $total\n\n") and die if not defined $base;
-				$count ++ if $val[$i] != 9;
-				$count = 0 if $val[$i] == 9;
-				$end = $i if $val[$i] == 9;
-				my $index = int($beg / $groupsize);
-				push(@{$data{$index}{$totalPeak}{seq}}, $base);
-	##			print "$base";
-			}
-		#	print "\nBEG=$beg, END=$end\n" if $i == @val - 1 or $i == $total - 1;
-			last if $i == $total - 1;
-		}
-		$linecount ++;
-		last if $linecount > 10;
-#	   last if $totalPeak > 2;
-	}
-	close $in1;
-	exit 0;
-	print "Processed $linecount lines, peak = $peakcount\n";
-	my %final;
-	##print "\n\n";
-	foreach my $index (sort {$a <=> $b} keys %data) {
-		foreach my $peaknum (sort {$a <=> $b} keys %{$data{$index}}) {
-			my $seq = join("", @{$data{$index}{$peaknum}{seq}});
-			my $name = $data{$index}{$peaknum}{name};
-			my $indexend = $end{$peaknum};
-			my $badbeg = defined($bad{$index}{$totalpeak}{beg}) ? $bad{$index}{$totalpeak}{beg} : 0;
-			my $badend = defined($bad{$index}{$totalpeak}{end}) ? $bad{$index}{$totalpeak}{end} : 0;
-			$final{$index}{$indexend}{$peaknum}{badbeg} = $badbeg;
-			$final{$index}{$indexend}{$peaknum}{badend} = $badend;
-			$final{$index}{$indexend}{$peaknum}{seq} = $seq;
-			$final{$index}{$indexend}{$peaknum}{name} = $name;
-			$final{$index}{$indexend}{$peaknum}{beg} = $data{$index}{$peaknum}{beg};
-			$final{$index}{$indexend}{$peaknum}{end} = $data{$index}{$peaknum}{end};
-			
-	##		print "$index $indexend Peak=$peaknum $name $seq\n";
-		}
-	}
-	@seq = @{$SEQ->{$gene}};
-	my %group; my $totalPeak = 0;
-	foreach my $indexBeg (sort {$a <=> $b} keys %final) {
-		foreach my $indexEnd (sort {$a <=> $b} keys %{$final{$indexBeg}}) {
-			foreach my $peak (sort {$a <=> $b} keys %{$final{$indexBeg}{$indexEnd}}) {
-				$group{"$indexBeg.$indexEnd"} ++;
-				$totalPeak ++;
-				my $seq  = $final{$indexBeg}{$indexEnd}{$peak}{seq};
-				my $name = $final{$indexBeg}{$indexEnd}{$peak}{name};
-				my $beg  = $final{$indexBeg}{$indexEnd}{$peak}{beg};
-				my $end  = $final{$indexBeg}{$indexEnd}{$peak}{end};
-				my $badbeg  = $final{$indexBeg}{$indexEnd}{$peak}{badbeg};
-				my $badend  = $final{$indexBeg}{$indexEnd}{$peak}{badend};
-				my $beg0 = $beg - $minDis < 0 ? 0 : $beg - $minDis;
-				my $beg1 = $beg + $minDis > @seq-1 ? @seq-1 : $beg+$minDis;
-				my $end0 = $end - $minDis < 0 ? 0 : $end - $minDis;
-				my $end1 = $end + $minDis > @seq-1 ? @seq-1 : $end+$minDis;
-				my $begSeq = join("", @seq[$beg0..$beg1]);
-				my $endSeq = join("", @seq[$end0..$end1]);
-				LOG($outLog, "beg0=$beg0; beg1=$beg1; end0=$end0; end1=$end1\n") and die if not defined $seq[$beg0] or not defined($seq[$beg1]);
-	#			print "GENE=$gene\tGROUP=$indexBeg.$indexEnd\tBEG=$beg\tEND=$end\tPEAK=$peak\tNAME=$name\tbeg=$begSeq\tend=$endSeq\n";
-			}
-		}
-	}
-#=cut
-#=comment
-	exit 0;
-open (my $outLen, ">", "$outDir/$peakFilename.len") or die "Cannot write to $outDir/$peakFilename.len: $!\n";
-open (my $outOriginal, ">", "$outDir/$peakFilename.original") or die "Cannot write to $outDir/$peakFilename.original: $!\n";
-#my $strand = $peakFile =~ /Pos/i ? "pos" : $peakFile =~ /Neg/i ? "neg" : die "Cannot determine strand for file $peakFile\n";
-open (my $outz, ">", "$outDir/$gene.group") or die "Cannot write to $outDir/$gene.group: $!\n";
-my %kmer;
-my $countz = 0;
-foreach my $group (sort {$group{$b} <=> $group{$a} || $a cmp $b} keys %group) {
-	$countz ++;
-#	next if $group{$group} / $totalPeak * 100 < 5;
-	printf $outz "Group=$countz (name=$group)\tTotalPeak=$group{$group}\tPercent=%.1f\n", $group{$group}/$totalPeak * 100;
-	my ($begPrint, $midPrint, $endPrint) = ("","","");
-	my ($indexBeg, $indexEnd) = $group =~ /^(\d+)\.(\d+)$/;
-	foreach my $peak (sort {$a <=> $b} keys %{$final{$indexBeg}{$indexEnd}}) {
-		my $seq  = $final{$indexBeg}{$indexEnd}{$peak}{seq};
-		my $name = $final{$indexBeg}{$indexEnd}{$peak}{name};
-		my $beg  = $final{$indexBeg}{$indexEnd}{$peak}{beg};
-		my $end  = $final{$indexBeg}{$indexEnd}{$peak}{end};
-		my ($gene) = $name =~ /^(.+)\.SEQ_/;
-		my ($origChr, $origBeg, $origEnd) = ($SEQ->{$gene}{coor}{chr}, $SEQ->{$gene}{coor}{beg}, $SEQ->{$gene}{coor}{end});
-		my $peakBeg = $origBeg + $beg; $peakBeg = $origBeg if $peakBeg < $origBeg;
-		my $peakEnd = $origBeg + $end + 1; LOG($outLog, "$peak: start ($peakBeg) is less than end ($peakEnd)\n") and die if $peakEnd < $peakBeg;
-		#die "Gene = $gene, name = $name, CHR=$origChr, BEG=$origBeg, END=$origEnd, beg = $beg, end = $end, peakBeg = $peakBeg, peakEnd = $peakEnd\n";
-		my $len = $end - $beg + 1;
-		my $newstrand = $strand eq "pos" ? "+" : $strand eq "neg" ? "-" : ".";
-		print $outLen "$gene\t$beg\t$end\t$name\t$len\t$newstrand\n";
-		print $outOriginal "$origChr\t$peakBeg\t$peakEnd\t$name\t$len\t$newstrand\n";
-		my $badbeg  = $final{$indexBeg}{$indexEnd}{$peak}{badbeg};
-		my $badend  = $final{$indexBeg}{$indexEnd}{$peak}{badend};
-		my $beg0 = $beg - $minDis < 0 ? 0 : $beg - $minDis;
-		my $beg1 = $beg + $minDis > @seq-1 ? @seq-1 : $beg+$minDis;
-		my $end0 = $end - $minDis < 0 ? 0 : $end - $minDis;
-		my $end1 = $end + $minDis > @seq-1 ? @seq-1 : $end+$minDis;
-		my $begSeq = $badbeg == 0 ? join("", @seq[$beg0..$beg1]) : "NA";
-		my $endSeq = $badend == 0 ? join("", @seq[$end0..$end1]) : "NA";
-		my $temp = $begSeq;
-		my $midSeq = join("", @seq[$beg1..$end0]);
-		$begSeq = uc(reverse($endSeq)) if $strand eq "neg";
-		$begSeq =~ tr/ATGC/TACG/ if $strand eq "neg";
-		$endSeq = uc(reverse($temp)) if $strand eq "neg";
-		$endSeq =~ tr/ATGC/TACG/ if $strand eq "neg";
-		$midSeq = uc(reverse($midSeq)) if $strand eq "neg";
-		$midSeq =~ tr/ATGC/TACG/ if $strand eq "neg";
-		%kmer = %{kmer($begSeq, "beg", \%kmer)};
-		%kmer = %{kmer($endSeq, "end", \%kmer)};
-		%kmer = %{kmer($midSeq, "mimd", \%kmer)};
-		$begPrint .= "$gene\t$beg0\t$beg1\t$peak.beg\t0\t$newstrand\t$begSeq\n";
-		$midPrint .= "$gene\t$beg1\t$end0\t$peak.mid\t0\t$newstrand\t$midSeq\n";
-		$endPrint .= "$gene\t$end0\t$end1\t$peak.end\t0\t$newstrand\t$endSeq\n";
-		print "\n\n!!!!!!!!!!!!!!!!\nCONTACT STELLA THIS HAPPEN!!! AT: GENE $gene GROUP $group PEAK $peak SEQ $seq NAME $name beg0=$beg0; beg1=$beg1; end0=$end0; end1=$end1\n!!!!!!!!!!!!!!!!!!!!\n" if not defined $seq[$beg0] or not defined($seq[$beg1]);
-#		die "GROUP=$countz (name=$group)\tGENE=$gene\tGROUP=$indexBeg.$indexEnd\tBEG=$beg\tEND=$end\tPEAK=$peak\tNAME=$name\tbeg=$begSeq\tend=$endSeq\n";
-	}
-	print $outz "\n$begPrint$midPrint$endPrint";
-}
-close $outLen;
-close $outz;
-
-print "\nOUTPUT:\n";
-print "\t- Relative coordinate bed file: $LGN$outDir/$peakFilename.len$N\n";
-print "\t- UCSC Original coordinate bed file: $LGN$outDir/$peakFilename.original$N\n";
-print "\t- Kmer odds ratio file: $LGN$outDir/$peakFilename.kmer$N\n";
-#print "\n\n--------------------\nKMER:";
-#print "\n\n--------------------\n";
-
-open (my $outKmer, ">", "$outDir/$peakFilename.kmer") or die "Cannot write to $outDir/$peakFilename.kmer: $!\n";
-my @seqs = @{make_kmer($Kmerz)};
-print $outKmer "type";
-foreach my $seq1(sort @seqs) {
-	print $outKmer "\t$seq1";
-}
-print $outKmer "\n";
-kmer(join("", @seq),"all");
-
-my @type = qw(beg mid end);
-my $obs; my $exp; my $odd;
-foreach my $type (@type[0..2]) {
-	$obs .= "$type";
-	$exp .= "any" if $type eq "beg";
-	$odd .= "$type";
-	foreach my $seq1(sort @seqs) {
-		my $kmer = "$seq1";
-		my $count = defined $kmer{$type}{$kmer} ? $kmer{$type}{$kmer} : 0;
-		my $total = defined $kmer{$type}{total} ? $kmer{$type}{total} : 0;
-		my $countE = defined $kmer{all}{$kmer} ? $kmer{all}{$kmer} : 0;
-		my $totalE = defined $kmer{all}{total} ? $kmer{all}{total} : 1;
-		my $perc  = int((1+$count*1000)/(1+$total))/10;
-		my $percE = int((1+$countE*1000)/(1+$totalE))/10;
-		my $ratio = $percE == 0 ? 0 : int(100*$perc / $percE)/100;
-		$perc = $perc <= 2 ? "$LBU$perc$N" : $perc <= 5 ? "$LCY$perc$N" : $perc <= 7 ? "$N$perc$N" : $perc <= 10 ? "$YW$perc$N" : "$LRD$perc$N";
-		$percE = $percE <= 2 ? "$LBU$percE$N" : $percE <= 5 ? "$LCY$percE$N" : $percE <= 7 ? "$N$percE$N" : $percE <= 10 ? "$YW$percE$N" : "$LRD$percE$N";
-		$ratio = $ratio <= 0.5 ? "$LBU$ratio$N" : $ratio <= 0.9 ? "$LCY$ratio$N" : $ratio <= 1/0.9 ? "$N$ratio$N" : $ratio <= 1/0.5 ? "$YW$ratio$N" : "$LRD$ratio$N";
-		$obs .= "\t$perc";
-		$exp .= "\t$percE" if $type eq "beg";
-		$odd .= "\t$ratio";
-	}
-	$obs .= "\n";
-	$exp .= "\n" if $type eq "beg";
-	$odd .= "\n";
-}
-
-print $outKmer ">Observed:\n$obs\n\n";
-print $outKmer ">Expected:\n$exp\n\n";
-print $outKmer ">OddRatio:\n$odd\n\n";
-}
-exit 0;
-=cut
-
-
-###############
-# SUBROUTINES #
-###############
 
 sub findCGPos {
 	my $seq = $_[0];
@@ -426,7 +286,8 @@ sub findCGPos {
 }
 
 sub getPeak {
-	my ($nuc, $seq, $window, $threshold, $check) = @_;
+	my ($gene, $strand, $nuc, $name, $window, $threshold, $check) = @_;
+	#my $seq = $SEQ->{$gene};
    #CH=B(-)CDcdMN, CG=F(-)EeO
    #GH=J(-)GHghUV, GC=K(-)IiW
 	#-_.TA
@@ -437,12 +298,12 @@ sub getPeak {
 	my $con = makeCon();
 	my ($peakCH, $peakCG, $peakGH, $peakGC) = (0,0,0,0);
 	my ($chunkC, $chunkG); 
-	@{$peak->{CH}} = ("!") x (@{$seq->{seq}});
-	@{$peak->{CG}} = ("!") x (@{$seq->{seq}});
-	@{$peak->{GH}} = ("!") x (@{$seq->{seq}});
-	@{$peak->{GC}} = ("!") x (@{$seq->{seq}});
-	my $totalseqpos = (keys %{$seq->{loc}{pos1}});
-	my $totalseqneg = (keys %{$seq->{loc}{neg1}});
+	@{$peak->{CH}} = ("!") x (@{$SEQ->{$gene}{seq}});
+	@{$peak->{CG}} = ("!") x (@{$SEQ->{$gene}{seq}});
+	@{$peak->{GH}} = ("!") x (@{$SEQ->{$gene}{seq}});
+	@{$peak->{GC}} = ("!") x (@{$SEQ->{$gene}{seq}});
+	my $totalseqpos = (keys %{$SEQ->{$gene}{loc}{pos1}});
+	my $totalseqneg = (keys %{$SEQ->{$gene}{loc}{neg1}});
 	my $max = $totalseqpos > $totalseqneg ? $totalseqpos : $totalseqneg;
 	# initialize
 #	return($peak,0,0,0,0); #debug
@@ -451,33 +312,33 @@ sub getPeak {
 		for (my $j = $jmin; $j < $jmax; $j++) {
 			if ($j < $totalseqpos - $window) {
 				if ($i == 0) {
-					my $nucpos1 = $nuc->[$seq->{loc}{pos1}{$j}];
+					my $nucpos1 = $nuc->[$SEQ->{$gene}{loc}{pos1}{$j}];
 					$con = det_CG_con($con, $nucpos1, 1);
 					LOG($outLog, "i=$i, j=$j: nuc.i=$LCY$nucpos1$N, nuc.j(nucpos1)=$nucpos1: file.orig value isn't one of the listed at $LGN" . __LINE__ . "$N\n") if $nucpos1 !~ /^[BCDcdMNFEeOJGHghUVKIiW\-_\.TA123PQR456XYZ]$/;
-					$peak->{CH}[$seq->{loc}{pos1}{$j}] = det_peak($peak->{CH}[$seq->{loc}{pos1}{$j}], $nucpos1, "CH");
-					$peak->{CG}[$seq->{loc}{pos1}{$j}] = det_peak($peak->{CG}[$seq->{loc}{pos1}{$j}], $nucpos1, "CG");
+					$peak->{CH}[$SEQ->{$gene}{loc}{pos1}{$j}] = det_peak($peak->{CH}[$SEQ->{$gene}{loc}{pos1}{$j}], $nucpos1, "CH");
+					$peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j}] = det_peak($peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j}], $nucpos1, "CG");
 				}
 				else {
-					my ($nucpos0, $nucpos2) = ($nuc->[$seq->{loc}{pos1}{$j-1}], $nuc->[$seq->{loc}{pos1}{$j+$window-1}]);
+					my ($nucpos0, $nucpos2) = ($nuc->[$SEQ->{$gene}{loc}{pos1}{$j-1}], $nuc->[$SEQ->{$gene}{loc}{pos1}{$j+$window-1}]);
 					$con = det_CG_con($con, $nucpos0, -1, $nucpos2, 1);
-					$peak->{CH}[$seq->{loc}{pos1}{$j+$window-1}] = det_peak($peak->{CH}[$seq->{loc}{pos1}{$j+$window-1}], $nucpos2, "CH");
-					$peak->{CG}[$seq->{loc}{pos1}{$j+$window-1}] = det_peak($peak->{CG}[$seq->{loc}{pos1}{$j+$window-1}], $nucpos2, "CG");
+					$peak->{CH}[$SEQ->{$gene}{loc}{pos1}{$j+$window-1}] = det_peak($peak->{CH}[$SEQ->{$gene}{loc}{pos1}{$j+$window-1}], $nucpos2, "CH");
+					$peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j+$window-1}] = det_peak($peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j+$window-1}], $nucpos2, "CG");
 				}
 #				$chunkC .= $nucpos1;
 			}
 			if ($j < $totalseqneg - $window) {
 				if ($i == 0) {
-					my $nucneg1 = $nuc->[$seq->{loc}{neg1}{$j}];
+					my $nucneg1 = $nuc->[$SEQ->{$gene}{loc}{neg1}{$j}];
 					$con = det_CG_con($con, $nucneg1, 1);
 					LOG($outLog, "i=$i, j=$j: nuc.i=$LCY$nucneg1$N, nuc.j(nucneg1)=$nucneg1: file.orig value isn't one of the listed at $LGN" . __LINE__ . "$N\n") if $nucneg1 !~ /^[BCDcdMNFEeOJGHghUVKIiW\-_\.TA123PQR456XYZ]$/;
-					$peak->{GH}[$seq->{loc}{neg1}{$j}] = det_peak($peak->{GH}[$seq->{loc}{neg1}{$j}], $nucneg1, "GH");
-					$peak->{GC}[$seq->{loc}{neg1}{$j}] = det_peak($peak->{GC}[$seq->{loc}{neg1}{$j}], $nucneg1, "GC");
+					$peak->{GH}[$SEQ->{$gene}{loc}{neg1}{$j}] = det_peak($peak->{GH}[$SEQ->{$gene}{loc}{neg1}{$j}], $nucneg1, "GH");
+					$peak->{GC}[$SEQ->{$gene}{loc}{neg1}{$j}] = det_peak($peak->{GC}[$SEQ->{$gene}{loc}{neg1}{$j}], $nucneg1, "GC");
 				}
 				else {
-					my ($nucneg0, $nucneg2) = ($nuc->[$seq->{loc}{neg1}{$j-1}], $nuc->[$seq->{loc}{neg1}{$j+$window-1}]);
+					my ($nucneg0, $nucneg2) = ($nuc->[$SEQ->{$gene}{loc}{neg1}{$j-1}], $nuc->[$SEQ->{$gene}{loc}{neg1}{$j+$window-1}]);
 					$con = det_CG_con($con, $nucneg0, -1, $nucneg2, 1);
-					$peak->{GH}[$seq->{loc}{neg1}{$j+$window-1}] = det_peak($peak->{GH}[$seq->{loc}{neg1}{$j+$window-1}], $nucneg2, "GH");
-					$peak->{GC}[$seq->{loc}{neg1}{$j+$window-1}] = det_peak($peak->{GC}[$seq->{loc}{neg1}{$j+$window-1}], $nucneg2, "GC");
+					$peak->{GH}[$SEQ->{$gene}{loc}{neg1}{$j+$window-1}] = det_peak($peak->{GH}[$SEQ->{$gene}{loc}{neg1}{$j+$window-1}], $nucneg2, "GH");
+					$peak->{GC}[$SEQ->{$gene}{loc}{neg1}{$j+$window-1}] = det_peak($peak->{GC}[$SEQ->{$gene}{loc}{neg1}{$j+$window-1}], $nucneg2, "GC");
 				}
 #				$chunkG .= $nucneg1;
 			}
@@ -487,7 +348,7 @@ sub getPeak {
 #			print "i=$i, " . join("", @{$peak->{CH}}[0..$window-1]) . "\n";
 		}
 		my ($CG, $CH, $GC, $GH) = (0,0,0,0);
-		($peak, $CG, $CH, $GC, $GH) = isPeak($i, $con, $peak, $window, $threshold, $seq, $totalseqpos, $totalseqneg, $check);
+		($peak, $CG, $CH, $GC, $GH) = isPeak($i, $con, $peak, $window, $threshold, $SEQ->{$gene}, $totalseqpos, $totalseqneg, $check);
 		$peakCH += $CH;
 		$peakCG += $CG;
 		$peakGC += $GC;
@@ -739,8 +600,12 @@ sub parse_footLoop_logFile {
 			($defOpts, $other->{runscript}) = parse_runscript($defOpts, $usrOpts, $other->{footLoop_runscript});
 		}
 		if ($line =~ /^\s*Output\s*:/) {
-			($other->{origDir}) = $line =~ /^\s*Output\s*:.*(${inputFolder}.*\.0_orig_\w{32}\/)/;
-			print "Undefined origDir from $line\n" and die if not defined $other->{origDir};
+			my ($value) = $line =~ /Output.+(\.0_orig_\w{32})/;
+			die "Died at line=$line, value=?\n" if not defined $value;
+			$value = $footFolder . "/$value";
+			die "Died at line=$line, value=?\n" if not -d $value;
+			($other->{origDir}) = $value;
+			print "Undefined origDir from input=$inputFolder, line=$line\n" and die if not defined $other->{origDir};
 			print "origDir $other->{origDir} does not exist!\n" and die if not -d $other->{origDir};
 			$defOpts->{origDir} = $other->{origDir};
 			open ($outLog, ">", "$other->{origDir}/footPeak_logFile.txt") or print "Failed to write to $other->{origDir}/footPeak_logFile.txt: $!\n" and die;
@@ -750,14 +615,33 @@ sub parse_footLoop_logFile {
 		if ($line =~ /geneIndexFile=/) {
 			($defOpts->{geneIndexFile}) = $line =~ /geneIndexFile=(.+)$/ if $line !~ /,gene=.+,beg=\d+,end=\d+$/;
 			($defOpts->{geneIndexFile}) = $line =~ /geneIndexFile=(.+),gene=.+,beg=\d+,end=\d+$/ if $line =~ /,gene=.+,beg=\d+,end=\d+$/;
+			$defOpts->{geneIndexFile} = $footFolder . "/" .  getFilename($defOpts->{geneIndexFile});
 		}
 		if ($line =~ /^!\w+=/) {
 			my ($param, $value) = $line =~ /^!(\w+)=(.+)$/;
 			my $param2 = defined $param ? $param : "__UNDEF__";
 			my $value2 = defined $value ? $value : "__UNDEF__";
+			if ($value =~ /\//) {
+				if ($value =~ /\/?\.0_orig\w{32}/) {
+					($value) = $value =~ /^.+(\/?\.0_orig_\w{32})/; 
+					$value = $footFolder . "/$value";
+					die "Died at line=line, param=$param, value=?\n" if not defined $value;
+				}
+				if ($value =~ /\/\.geneIndex/) {
+					($value) = $value =~ /^.+(\/\.geneIndex.+)$/; 
+					$value = $footFolder . "/$value";
+					die "Died at line=line, param=$param, value=?\n" if not defined $value;
+				}
+				else {
+					($value) = getFilename($value, 'full');
+					$value = $footFolder . "/$value";
+					die "Died at line=line, param=$param, value=?\n" if not defined $value;
+				}
+			}
+			print "$param = $value\n";
 			print "Cannot parse param=$param2 and value=$value2 from line=$line\n" and die if not defined $param or not defined $value;
 			print "$param file $value does not exist!\n" and die if $value =~ /\/+/ and not -e $value;
-			($defOpts->{$param}) = $value;
+			($defOpts->{$param}) = $value if $param ne "n";
 		}
 	}
 	record_options($defOpts, $usrOpts, $usrOpts2, $other, $outLog, $logFile, $date, $uuid);
@@ -803,6 +687,7 @@ sub parse_runscript {
 		my $opt2 = defined $opt ? $opt : "__UNDEF__";
 		my $val2 = defined $val ? $val : "__UNDEF__";
 		print "i=$i Undefined opt=$opt2 val=$val2 line=$runscripts[$i]\n" and die if not defined $val or not defined $opt;
+		next if $opt eq "n";
 		$defOpts->{$opt} = $val;# eq "MYTRUE" ? "MYTRUE" : $val;
 		$log->{$opt} = 1;
 	}
@@ -843,9 +728,9 @@ sub set_default_opts {
 	my %defOpts =
 		(
 		'd' => '250'     ,'g' => ''        ,'i' => ''        ,'k' => '50'      ,
-		'l' => ''        ,'n' => ''        ,'q' => '0'       ,'r' => ''        ,
+		'l' => '100'     ,'n' => ''        ,'q' => '0'       ,'r' => ''        ,
 		's' => '200'     ,'t' => '65'      ,'w' => '20'      ,'x' => '0'       ,
-		'y' => '0'       ,'K' => '2'       ,'L' => '0'       
+		'y' => '0'       ,'K' => '2'       ,'L' => '0'       ,'A' => ''
 	);
 
 
@@ -855,7 +740,7 @@ sub set_default_opts {
 		(
 		'd' => $opt_d    ,'g' => $opt_g    ,'h' => 'FALSE'   ,'k' => $opt_k    ,
 		'l' => $opt_l    ,'n' => $opt_n    ,'p' => $opt_p    ,'s' => $opt_s    ,
-		't' => $opt_t    ,'w' => $opt_w    ,'K' => $opt_K    
+		't' => $opt_t    ,'w' => $opt_w    ,'K' => $opt_K    ,'A' => $opt_A
 		);
 
 	my %usrOpts2 =
@@ -873,6 +758,7 @@ sub set_default_opts {
 		next if not defined $usrOpts{$opt};
 		$defOpts{$opt} = $usrOpts{$opt};
 		if (-d $usrOpts{$opt}) {
+			$usrOpts{$opt} = "./$usrOpts{$opt}" if $usrOpts{$opt} !~ /\/.+$/;
 			$defOpts{$opt} = getFullpath($usrOpts{$opt}) . "/";
 		}
 	}
@@ -950,12 +836,13 @@ sub parse_indexFile_and_seqFile {
 	my $SEQ;
 
 	my @indexLine = `cat $indexFile`;
+	LOG($outLog, "Index File = $indexFile\n");
 	foreach my $line (@indexLine) {
 		chomp($line);
 		my ($chr, $beg, $end, $def, $zero, $strand) = split("\t", $line);
 		$def = uc($def);
 		$SEQ->{$def}{coor} = "$chr\t$beg\t$end\t$def\t$zero\t$strand";
-		LOG($outLog, "$indexFile: def=$def, coor=$chr, $beg, $end, $def, $zero, $strand\n");
+		LOG($outLog, "\tdef=$def, coor=$chr, $beg, $end, $def, $zero, $strand\n");
 	}
 
 	open (my $in, "<", $seqFile) or die;
@@ -995,55 +882,14 @@ sub check_sanity {
 	my ($footFolder) = @_;
 
 
-my $usage = "
-Usage: $YW$0$N -i <footLoop output folder>
-#-g$CY <genomic fasta>$N -i$LPR <UNMODIFIED geneIndexes.bed>$N -p$LGN <Peak file>$N -n$YW <Output Folder>$N
+my $usage = "\nUsage: $YW$0$N -n $LCY<footLoop output folder>$N\n
 
-${YW}Example: $YW$0$N -g$CY hg19.fa$N -i$LPR geneIndexes.bed$N -p$LGN CALM3_Pos75.txt$N -n$YW CALM3_Pos75_Out$N
-
-$LRD	========== !!IMPORTANT!! ========== $N
-1.	The format of the file from -p *has* to be: ${CY}GENE$N\_NNNDD.txt
-	NNN is Pos or Neg
-	DD is the percent threshold (e.g. 75)
-	If there's 'CG' after DD that's okay!
-	E.g.:$YW CALM3_pos75.txt or CALM3_NEG75.txt or CALM3_Pos75CG.txt$N
-
-2.	The GENE will  be used to extract gene from geneindexes.bed (case insensitive!)
-	So if in geneindexes.bed, the gene name is CALM and the file name is CALM3_pos40.txt,
-	this will >not< work as CALM is >not<the same as CALM3
-
-
-3.	Put -x and -y EXACTLY like what you used for footLoop.pl
-	e.g. in footLoop.pl you gave -100 left buffer and 100 right buffer
-	do this: -x -10 -y 10
-	If you didn't specify -x and -y when doing footLoop.pl, then don't put anything here as well
-
-	${LRD}The result will be wrong if -x and -y isn't the same as what you used in footLoop.pl!$N
-";
+Options:
+-w <window size> [20]
+-t <threshold in \%> [65]
+\n";
 
 my $usage_long = "
-$LRD	=================================== $N
-
-${LGN}Options$N [default] 
--x: Length of left 'buffer' in basepair [0]
--y: Length of right 'buffer' in basepair [0]
--d: Maxmimum distance between 2 peaks in basepair [100]
--s: Range of group size bin in basepair [200]
--k: Length of seequence to take from start/end of each peak [50]
--K: [2] Kmer size; the 'k' of 'k'mer [-K 2 (AA/AT/AG/etc];
-	 -K 2 -> AA/AC/AG/AT/CA/CC/...
-	 -K 3 -> AAA/AAC/AAG/AAT/ACA/ACT/...
-	 -K 4 -> AAAA/AAAC/AAAG/AAAT/...
-
-${LGN}Determining cluster$N
-
-Example:
-
-...|100      |110      |120 ... |250
-...01234567${LGN}8${N}9012345678901234...901234${LGN}5${N}6789012345678....   <=$LGN this is position 1 at 0 means 100, 1 at 250 means 251$N
------------|         PEAK   ...      |-----------
-
-Above, peak begin at position 108 and end at position 255.
 
 -d of 100:
 Say there's another peak >> WITHIN SAME READ << that begins at position 280 and ending at position 500.
@@ -1068,7 +914,7 @@ end = 255-50 to 255+50 = 205 to 305
 ";
 
 print $usage . $usage_long and die if defined $opt_h;
-print $usage and die if not defined $footFolder or not -d $footFolder;
+die $usage if not defined $footFolder or not -d $footFolder;
 LOG($outLog, "Please run footloop.pl first! ($footFolder/logFile.txt does not exists)\n") and die if not -e "$footFolder/logFile.txt";
 
 return $usage;
@@ -1158,4 +1004,361 @@ __END__
 		$usrOptsCount ++;
 	}
 	$usrOptsPrint =~ s/,$/\n\t\t);/;
+
+
+
+__END__
+#COMMENTCUTBEG
+		for (my $i = 0; $i < @val; $i++) {
+		#	next if $val[$i] eq "";
+		#	print "DIED\n\n$line\n\nVal:" . join(" ", @val[@val-10..@val-1]) . "\n" and die if $val[$i] eq "";
+			# 1. Not currently at peak, and current is peak (9)
+			if ($peak == 0 and $val[$i] == 9) {
+				$peak = 1;
+				$totalPeak ++;#= (keys %data);
+				my $base = $SEQ->{$gene}[$i]; LOG($outLog, "Died i = $i name=$name total=${@val}\n") and die if not defined($base);
+				my $index = int($i / $groupsize);
+				$data{$index}{$totalPeak}{beg} = $i;
+				$data{$index}{$totalPeak}{name} = $name;
+				$bad{$index}{$totalPeak}{beg} = 1 if $i <= 50;
+				my $j0 = $i < 500 ? 0 : $i - 500;
+				for (my $j = $j0; $j < $i; $j++) {
+					last if $val[$j] == 0 or $val[$j] == 1 or $val[$j] == 2 or $val[$j] == 9;
+					$bad{$index}{$totalPeak}{beg} = 1 if $val[$j] == 6;
+					last if $val[$j] == 6;
+				}
+				push(@{$data{$index}{$totalPeak}{seq}}, $base);
+				$count = 0;
+	##			print "Peak $totalPeak: name $name: $base";
+				$beg = $i; $end = $i;
+				$peakcount ++;
+			}
+			# 2. Currently is peak (peak == 1) but value isn't 9 and total non-peak is equal to maximum buffer length, then peak is end
+			elsif ($peak == 1 and (($val[$i] != 9 and $count == $min) or $i == $total - 1 or $i == @val - 1)) {
+				my $base = $SEQ->{$gene}[$i]; LOG($outLog, "Died i = $i name=$name total=${@val}\n") and die if not defined($base);
+				my $index = int($beg / $groupsize);
+				#$end = $i - $min;
+				my $indexend = int($end/ $groupsize);
+				push(@{$data{$index}{$totalPeak}{seq}}, $base);
+				$bad{$index}{$totalPeak}{end} = 1 if $val[$end] == 6 or $i == $total - 1 or $i == @val - 1;
+				$data{$index}{$totalPeak}{end} = $end;
+	#			for (my $j = $end; $j < $j + 500; $j++) {
+				for (my $j = $end; $j < $end + 500; $j++) {
+					last if $j == @val - 1 or $j == $total - 1;
+					last if $val[$j] == 0 or $val[$j] == 1 or $val[$j] == 2 or $val[$j] == 9;
+					$bad{$index}{$totalPeak}{end} = 1 if $val[$j] == 6;
+					last if $val[$j] == 6;
+				}
+				$end{$totalPeak} = $indexend;
+	##			print "\ni=$i indexBeg=$index indexEnd=$indexend Peak=$totalPeak name $name: BEG=$beg, END=$end\n\n";
+				$count = 0;
+				$peak = 0;
+				$beg = 0; $end = 0;
+			}
+			# 3. Currently is peak (peak == 1), but total non-peak length is less than required maximum non-peak length ($min)
+			elsif ($peak == 1 and $count < $min) {
+				my $base = $SEQ->{$gene}[$i]; 
+				LOG($outLog, "\nUndefined base at i=$i gene=$gene, total = $total\n\n") and die if not defined $base;
+				$count ++ if $val[$i] != 9;
+				$count = 0 if $val[$i] == 9;
+				$end = $i if $val[$i] == 9;
+				my $index = int($beg / $groupsize);
+				push(@{$data{$index}{$totalPeak}{seq}}, $base);
+	##			print "$base";
+			}
+		#	print "\nBEG=$beg, END=$end\n" if $i == @val - 1 or $i == $total - 1;
+			last if $i == $total - 1;
+		}
+		$linecount ++;
+		last if $linecount > 10;
+#	   last if $totalPeak > 2;
+	}
+	close $in1;
+	exit 0;
+	print "Processed $linecount lines, peak = $peakcount\n";
+	my %final;
+	##print "\n\n";
+	foreach my $index (sort {$a <=> $b} keys %data) {
+		foreach my $peaknum (sort {$a <=> $b} keys %{$data{$index}}) {
+			my $seq = join("", @{$data{$index}{$peaknum}{seq}});
+			my $name = $data{$index}{$peaknum}{name};
+			my $indexend = $end{$peaknum};
+			my $badbeg = defined($bad{$index}{$totalpeak}{beg}) ? $bad{$index}{$totalpeak}{beg} : 0;
+			my $badend = defined($bad{$index}{$totalpeak}{end}) ? $bad{$index}{$totalpeak}{end} : 0;
+			$final{$index}{$indexend}{$peaknum}{badbeg} = $badbeg;
+			$final{$index}{$indexend}{$peaknum}{badend} = $badend;
+			$final{$index}{$indexend}{$peaknum}{seq} = $seq;
+			$final{$index}{$indexend}{$peaknum}{name} = $name;
+			$final{$index}{$indexend}{$peaknum}{beg} = $data{$index}{$peaknum}{beg};
+			$final{$index}{$indexend}{$peaknum}{end} = $data{$index}{$peaknum}{end};
+			
+	##		print "$index $indexend Peak=$peaknum $name $seq\n";
+		}
+	}
+	@seq = @{$SEQ->{$gene}};
+	my %group; my $totalPeak = 0;
+	foreach my $indexBeg (sort {$a <=> $b} keys %final) {
+		foreach my $indexEnd (sort {$a <=> $b} keys %{$final{$indexBeg}}) {
+			foreach my $peak (sort {$a <=> $b} keys %{$final{$indexBeg}{$indexEnd}}) {
+				$group{"$indexBeg.$indexEnd"} ++;
+				$totalPeak ++;
+				my $seq  = $final{$indexBeg}{$indexEnd}{$peak}{seq};
+				my $name = $final{$indexBeg}{$indexEnd}{$peak}{name};
+				my $beg  = $final{$indexBeg}{$indexEnd}{$peak}{beg};
+				my $end  = $final{$indexBeg}{$indexEnd}{$peak}{end};
+				my $badbeg  = $final{$indexBeg}{$indexEnd}{$peak}{badbeg};
+				my $badend  = $final{$indexBeg}{$indexEnd}{$peak}{badend};
+				my $beg0 = $beg - $minDis < 0 ? 0 : $beg - $minDis;
+				my $beg1 = $beg + $minDis > @seq-1 ? @seq-1 : $beg+$minDis;
+				my $end0 = $end - $minDis < 0 ? 0 : $end - $minDis;
+				my $end1 = $end + $minDis > @seq-1 ? @seq-1 : $end+$minDis;
+				my $begSeq = join("", @seq[$beg0..$beg1]);
+				my $endSeq = join("", @seq[$end0..$end1]);
+				LOG($outLog, "beg0=$beg0; beg1=$beg1; end0=$end0; end1=$end1\n") and die if not defined $seq[$beg0] or not defined($seq[$beg1]);
+	#			print "GENE=$gene\tGROUP=$indexBeg.$indexEnd\tBEG=$beg\tEND=$end\tPEAK=$peak\tNAME=$name\tbeg=$begSeq\tend=$endSeq\n";
+			}
+		}
+	}
+#=cut
+#=comment
+	exit 0;
+open (my $outLen, ">", "$outDir/$peakFilename.len") or die "Cannot write to $outDir/$peakFilename.len: $!\n";
+open (my $outOriginal, ">", "$outDir/$peakFilename.original") or die "Cannot write to $outDir/$peakFilename.original: $!\n";
+#my $strand = $peakFile =~ /Pos/i ? "pos" : $peakFile =~ /Neg/i ? "neg" : die "Cannot determine strand for file $peakFile\n";
+open (my $outz, ">", "$outDir/$gene.group") or die "Cannot write to $outDir/$gene.group: $!\n";
+my %kmer;
+my $countz = 0;
+foreach my $group (sort {$group{$b} <=> $group{$a} || $a cmp $b} keys %group) {
+	$countz ++;
+#	next if $group{$group} / $totalPeak * 100 < 5;
+	printf $outz "Group=$countz (name=$group)\tTotalPeak=$group{$group}\tPercent=%.1f\n", $group{$group}/$totalPeak * 100;
+	my ($begPrint, $midPrint, $endPrint) = ("","","");
+	my ($indexBeg, $indexEnd) = $group =~ /^(\d+)\.(\d+)$/;
+	foreach my $peak (sort {$a <=> $b} keys %{$final{$indexBeg}{$indexEnd}}) {
+		my $seq  = $final{$indexBeg}{$indexEnd}{$peak}{seq};
+		my $name = $final{$indexBeg}{$indexEnd}{$peak}{name};
+		my $beg  = $final{$indexBeg}{$indexEnd}{$peak}{beg};
+		my $end  = $final{$indexBeg}{$indexEnd}{$peak}{end};
+		my ($gene) = $name =~ /^(.+)\.SEQ_/;
+		my ($origChr, $origBeg, $origEnd) = ($SEQ->{$gene}{coor}{chr}, $SEQ->{$gene}{coor}{beg}, $SEQ->{$gene}{coor}{end});
+		my $peakBeg = $origBeg + $beg; $peakBeg = $origBeg if $peakBeg < $origBeg;
+		my $peakEnd = $origBeg + $end + 1; LOG($outLog, "$peak: start ($peakBeg) is less than end ($peakEnd)\n") and die if $peakEnd < $peakBeg;
+		#die "Gene = $gene, name = $name, CHR=$origChr, BEG=$origBeg, END=$origEnd, beg = $beg, end = $end, peakBeg = $peakBeg, peakEnd = $peakEnd\n";
+		my $len = $end - $beg + 1;
+		my $newstrand = $strand eq "pos" ? "+" : $strand eq "neg" ? "-" : ".";
+		print $outLen "$gene\t$beg\t$end\t$name\t$len\t$newstrand\n";
+		print $outOriginal "$origChr\t$peakBeg\t$peakEnd\t$name\t$len\t$newstrand\n";
+		my $badbeg  = $final{$indexBeg}{$indexEnd}{$peak}{badbeg};
+		my $badend  = $final{$indexBeg}{$indexEnd}{$peak}{badend};
+		my $beg0 = $beg - $minDis < 0 ? 0 : $beg - $minDis;
+		my $beg1 = $beg + $minDis > @seq-1 ? @seq-1 : $beg+$minDis;
+		my $end0 = $end - $minDis < 0 ? 0 : $end - $minDis;
+		my $end1 = $end + $minDis > @seq-1 ? @seq-1 : $end+$minDis;
+		my $begSeq = $badbeg == 0 ? join("", @seq[$beg0..$beg1]) : "NA";
+		my $endSeq = $badend == 0 ? join("", @seq[$end0..$end1]) : "NA";
+		my $temp = $begSeq;
+		my $midSeq = join("", @seq[$beg1..$end0]);
+		$begSeq = uc(reverse($endSeq)) if $strand eq "neg";
+		$begSeq =~ tr/ATGC/TACG/ if $strand eq "neg";
+		$endSeq = uc(reverse($temp)) if $strand eq "neg";
+		$endSeq =~ tr/ATGC/TACG/ if $strand eq "neg";
+		$midSeq = uc(reverse($midSeq)) if $strand eq "neg";
+		$midSeq =~ tr/ATGC/TACG/ if $strand eq "neg";
+		%kmer = %{kmer($begSeq, "beg", \%kmer)};
+		%kmer = %{kmer($endSeq, "end", \%kmer)};
+		%kmer = %{kmer($midSeq, "mimd", \%kmer)};
+		$begPrint .= "$gene\t$beg0\t$beg1\t$peak.beg\t0\t$newstrand\t$begSeq\n";
+		$midPrint .= "$gene\t$beg1\t$end0\t$peak.mid\t0\t$newstrand\t$midSeq\n";
+		$endPrint .= "$gene\t$end0\t$end1\t$peak.end\t0\t$newstrand\t$endSeq\n";
+		print "\n\n!!!!!!!!!!!!!!!!\nCONTACT STELLA THIS HAPPEN!!! AT: GENE $gene GROUP $group PEAK $peak SEQ $seq NAME $name beg0=$beg0; beg1=$beg1; end0=$end0; end1=$end1\n!!!!!!!!!!!!!!!!!!!!\n" if not defined $seq[$beg0] or not defined($seq[$beg1]);
+#		die "GROUP=$countz (name=$group)\tGENE=$gene\tGROUP=$indexBeg.$indexEnd\tBEG=$beg\tEND=$end\tPEAK=$peak\tNAME=$name\tbeg=$begSeq\tend=$endSeq\n";
+	}
+	print $outz "\n$begPrint$midPrint$endPrint";
+}
+close $outLen;
+close $outz;
+
+print "\nOUTPUT:\n";
+print "\t- Relative coordinate bed file: $LGN$outDir/$peakFilename.len$N\n";
+print "\t- UCSC Original coordinate bed file: $LGN$outDir/$peakFilename.original$N\n";
+print "\t- Kmer odds ratio file: $LGN$outDir/$peakFilename.kmer$N\n";
+#print "\n\n--------------------\nKMER:";
+#print "\n\n--------------------\n";
+
+open (my $outKmer, ">", "$outDir/$peakFilename.kmer") or die "Cannot write to $outDir/$peakFilename.kmer: $!\n";
+my @seqs = @{make_kmer($Kmerz)};
+print $outKmer "type";
+foreach my $seq1(sort @seqs) {
+	print $outKmer "\t$seq1";
+}
+print $outKmer "\n";
+kmer(join("", @seq),"all");
+
+my @type = qw(beg mid end);
+my $obs; my $exp; my $odd;
+foreach my $type (@type[0..2]) {
+	$obs .= "$type";
+	$exp .= "any" if $type eq "beg";
+	$odd .= "$type";
+	foreach my $seq1(sort @seqs) {
+		my $kmer = "$seq1";
+		my $count = defined $kmer{$type}{$kmer} ? $kmer{$type}{$kmer} : 0;
+		my $total = defined $kmer{$type}{total} ? $kmer{$type}{total} : 0;
+		my $countE = defined $kmer{all}{$kmer} ? $kmer{all}{$kmer} : 0;
+		my $totalE = defined $kmer{all}{total} ? $kmer{all}{total} : 1;
+		my $perc  = int((1+$count*1000)/(1+$total))/10;
+		my $percE = int((1+$countE*1000)/(1+$totalE))/10;
+		my $ratio = $percE == 0 ? 0 : int(100*$perc / $percE)/100;
+		$perc = $perc <= 2 ? "$LBU$perc$N" : $perc <= 5 ? "$LCY$perc$N" : $perc <= 7 ? "$N$perc$N" : $perc <= 10 ? "$YW$perc$N" : "$LRD$perc$N";
+		$percE = $percE <= 2 ? "$LBU$percE$N" : $percE <= 5 ? "$LCY$percE$N" : $percE <= 7 ? "$N$percE$N" : $percE <= 10 ? "$YW$percE$N" : "$LRD$percE$N";
+		$ratio = $ratio <= 0.5 ? "$LBU$ratio$N" : $ratio <= 0.9 ? "$LCY$ratio$N" : $ratio <= 1/0.9 ? "$N$ratio$N" : $ratio <= 1/0.5 ? "$YW$ratio$N" : "$LRD$ratio$N";
+		$obs .= "\t$perc";
+		$exp .= "\t$percE" if $type eq "beg";
+		$odd .= "\t$ratio";
+	}
+	$obs .= "\n";
+	$exp .= "\n" if $type eq "beg";
+	$odd .= "\n";
+}
+
+print $outKmer ">Observed:\n$obs\n\n";
+print $outKmer ">Expected:\n$exp\n\n";
+print $outKmer ">OddRatio:\n$odd\n\n";
+}
+exit 0;
+#COMMENTCUTEND
+
+
+__END__
+	while (my $line = <$in1>) {
+		chomp($line);
+		$linecount ++;
+		next if $line =~ /^#/;
+		my ($name, $type, $val) = split("\t", $line);
+		$val = [split("", $val)];
+		$name = "$gene.$name";
+		print "Line error skipped: $line\n" and next if not defined($name) or length($val) == 0;
+		my ($count, $beg, $end) = (0,0,0);
+		my $check = 1 if $name eq $genewant;
+		#next if not defined $check;
+#		my ($peak, $peakCH, $peakCG, $peakGH, $peakGC) = getPeak($val, $SEQ->{$gene}, $window, $threshold, $check);
+		my $comm = [$val, $SEQ->{$gene}, $window, $threshold, $check];
+		$Q->enqueue($comm);
+	}
+	$Q->end();
+	while
+		my $t1 = Benchmark->new();
+		my ($td) = timestr(timediff($t1, $t0)) =~ /(\-?\d+\.?\d*) wallclock/;
+		if ($td > 5) {
+			my $persec = int(($linecount-$l0) / $td*10+0.5)/10;
+			LOG($outLog, "$peakFilename: Done $LGN$linecount$N in $LCY$persec$N lines per second; ");
+			$t0 = Benchmark->new();
+			$l0 = $linecount;
+			LOG($outLog, "$LGN$linecount$N:");
+			my $to = 0;
+			foreach my $key (sort keys %pk) {
+				next if $key =~ /NO$/;
+				my $peak = defined $pk{$key} ? $pk{$key} : 0;
+				$to = defined $pk{$key . "NO"} ? $pk{$key . "NO"} + $peak : $peak;
+				LOG($outLog, "$key=$LGN$peak$N, ");
+			}
+			LOG($outLog, "total=$LCY$to$N\n");
+		}
+		my ($CH, $CG, $GH, $GC) = ("","","","");
+		for (my $i = 0; $i < @{$SEQ->{$gene}{seq}}; $i++) {
+			$CH .= $val->[$i] =~ /^[\-\_]$/ ? "\t0" : (defined $peak->{CH}[$i] and $peak->{CH}[$i] !~ /^[\! ]$/) ? "\t" . $peak->{CH}[$i] : "\t1";
+			$CG .= $val->[$i] =~ /^[\-\_]$/ ? "\t0" : (defined $peak->{CG}[$i] and $peak->{CG}[$i] !~ /^[\! ]$/) ? "\t" . $peak->{CG}[$i] : "\t1";
+			$GH .= $val->[$i] =~ /^[\-\_]$/ ? "\t0" : (defined $peak->{GH}[$i] and $peak->{GH}[$i] !~ /^[\! ]$/) ? "\t" . $peak->{GH}[$i] : "\t1";
+			$GC .= $val->[$i] =~ /^[\-\_]$/ ? "\t0" : (defined $peak->{GC}[$i] and $peak->{GC}[$i] !~ /^[\! ]$/) ? "\t" . $peak->{GC}[$i] : "\t1";
+		}		
+		$CH = $peakCH != 0 ? "$name\tPEAK\t$gene\tCH\t$strand\t$CH\n" : "$name\tNOPK\t$gene\tCH\t$strand\t$CH\n";
+		$CG = $peakCG != 0 ? "$name\tPEAK\t$gene\tCG\t$strand\t$CG\n" : "$name\tNOPK\t$gene\tCG\t$strand\t$CG\n";
+		$GH = $peakGH != 0 ? "$name\tPEAK\t$gene\tGH\t$strand\t$GH\n" : "$name\tNOPK\t$gene\tGH\t$strand\t$GH\n";
+		$GC = $peakGC != 0 ? "$name\tPEAK\t$gene\tGC\t$strand\t$GC\n" : "$name\tNOPK\t$gene\tGC\t$strand\t$GC\n";
+		$peakCH != 0 ? ($pk{CH} ++ and print {$out{'PEAKCH'}} $CH) : ($pk{CHNO} ++ and print {$out{'NOPKCH'}} $CH);
+		$peakCG != 0 ? ($pk{CG} ++ and print {$out{'PEAKCG'}} $CG) : ($pk{CGNO} ++ and print {$out{'NOPKCG'}} $CG);
+		$peakGH != 0 ? ($pk{GH} ++ and print {$out{'PEAKGH'}} $GH) : ($pk{GHNO} ++ and print {$out{'NOPKGH'}} $GH);
+		$peakGC != 0 ? ($pk{GC} ++ and print {$out{'PEAKGC'}} $GC) : ($pk{GCNO} ++ and print {$out{'NOPKGC'}} $GC);
+		#last if $linecount > 100;
+		#exit 0 if defined $check and $check == 1;
+	}
+
+__END__
+my $usage = "
+Usage: $YW$0$N -i <footLoop output folder>
+#-g$CY <genomic fasta>$N -i$LPR <UNMODIFIED geneIndexes.bed>$N -p$LGN <Peak file>$N -n$YW <Output Folder>$N
+
+${YW}Example: $YW$0$N -g$CY hg19.fa$N -i$LPR geneIndexes.bed$N -p$LGN CALM3_Pos75.txt$N -n$YW CALM3_Pos75_Out$N
+
+$LRD	========== !!IMPORTANT!! ========== $N
+1.	The format of the file from -p *has* to be: ${CY}GENE$N\_NNNDD.txt
+	NNN is Pos or Neg
+	DD is the percent threshold (e.g. 75)
+	If there's 'CG' after DD that's okay!
+	E.g.:$YW CALM3_pos75.txt or CALM3_NEG75.txt or CALM3_Pos75CG.txt$N
+
+2.	The GENE will  be used to extract gene from geneindexes.bed (case insensitive!)
+	So if in geneindexes.bed, the gene name is CALM and the file name is CALM3_pos40.txt,
+	this will >not< work as CALM is >not<the same as CALM3
+
+
+3.	Put -x and -y EXACTLY like what you used for footLoop.pl
+	e.g. in footLoop.pl you gave -100 left buffer and 100 right buffer
+	do this: -x -10 -y 10
+	If you didn't specify -x and -y when doing footLoop.pl, then don't put anything here as well
+
+	${LRD}The result will be wrong if -x and -y isn't the same as what you used in footLoop.pl!$N
+";
+
+my $usage_long = "
+$LRD	=================================== $N
+
+${LGN}Options$N [default] 
+-x: Length of left 'buffer' in basepair [0]
+-y: Length of right 'buffer' in basepair [0]
+-d: Maxmimum distance between 2 peaks in basepair [100]
+-s: Range of group size bin in basepair [200]
+-k: Length of seequence to take from start/end of each peak [50]
+-K: [2] Kmer size; the 'k' of 'k'mer [-K 2 (AA/AT/AG/etc];
+	 -K 2 -> AA/AC/AG/AT/CA/CC/...
+	 -K 3 -> AAA/AAC/AAG/AAT/ACA/ACT/...
+	 -K 4 -> AAAA/AAAC/AAAG/AAAT/...
+
+${LGN}Determining cluster$N
+
+Example:
+
+...|100      |110      |120 ... |250
+...01234567${LGN}8${N}9012345678901234...901234${LGN}5${N}6789012345678....   <=$LGN this is position 1 at 0 means 100, 1 at 250 means 251$N
+-----------|         PEAK   ...      |-----------
+
+Above, peak begin at position 108 and end at position 255.
+
+-d of 100:
+Say there's another peak >> WITHIN SAME READ << that begins at position 280 and ending at position 500.
+This peak is 'too close' to the first peak as its beginning (280) is less than 100bp away from the first peak's end (255)
+Therefore these two peak -will be merged-
+New peak begin at 108 end at 500
+
+-s of 200:
+	beg of this peak = integer of (108/200) = 0
+	end of this peak = integer of (255/200) = 1
+
+The distance of this start/end bin with another peak's start/end bin determines its cluster.
+This means this peak will be -very- close with other peaks that also begin at bin 0 and end at bin 1
+It will be slightly further with peak begin at bin 0 and end at bin 2
+It will be weakly grouped with peak beginning at bin 0 and end at bin 99
+
+-k of 50:
+beg = 108-50 to 108+50 = 58 to 158
+mid = 108+50 to 255-50 = 158 to 205
+end = 255-50 to 255+50 = 205 to 305
+
+";
+
+print $usage . $usage_long and die if defined $opt_h;
+print $usage and die if not defined $footFolder or not -d $footFolder;
+LOG($outLog, "Please run footloop.pl first! ($footFolder/logFile.txt does not exists)\n") and die if not -e "$footFolder/logFile.txt";
+
+return $usage;
 

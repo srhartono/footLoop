@@ -407,7 +407,10 @@ sub parse_samFile {
 		LOG($outLog, "\t$YW$samFile$N: Done $linecount\n") if $linecount % 5000 == 0;
 	
 		# a. Total column must be 14 or skipped (e.g. sam header)
-		LOG($outLog, "$LGN$linecount$N: SAM header detected (#column < 14). LINE:\n\t$line\n") and next if @arr < 14;
+		if (@arr < 14) {
+			LOG($outLog, "$LGN$linecount$N: SAM header detected (#column < 14). LINE:\n\t$line\n");
+			next;
+		}
 		
 		my ($eval, $evalPrint) = myeval(\@arr);
 		my ($read, $readStrand, $gene, $readPos, $mapQ, $cigar, $junk1, $junk2, $junk3, $seqs, $qual, $tags, $junk4, $readMethCall) = @arr;
@@ -670,19 +673,18 @@ sub run_bismark {
 		}
 		else {
 			my $result = system("bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1");
+
 			if ($result != 0) {
-				print STDERR  "\t${LRD}Bisulfte_Genome seems to be corrupted so re-running:\n\t${YW}-bismark_genome_preparation$N --bowtie2 $bismark_folder\n";
 				LOG($outLog, "\t${LRD}Bisulfte_Genome seems to be corrupted so re-running:\n\t${YW}-bismark_genome_preparation$N --bowtie2 $bismark_folder\n");
+				make_bismark_index($seqFile, $bismark_folder, $bismarkOpt, $outLog);
 				system("bismark_genome_preparation --bowtie2 $bismark_folder") == 0 or die "Failed to run bismark genome preparation: $!\n";
-				system("bismark $bismarkOpt $bismark_folder $readFile") == 0 or die "$LRD!!!$N\tFailed to run bismark: $!\n";
+				system("bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1") == 0 or die "$LRD!!!$N\tFailed to run bismark: $!\n";
 			}
 			LOG($outLog, "\t${GN}SUCCESS$N: Output $mysam\n");
-			print STDERR "\t${GN}SUCCESS$N: Output $mysam\n";
 		}
 	}
 	else {
 		LOG($outLog, "\t${GN}SUCCESS$N: Output already exist: $CY$mysam$N\n");
-		print STDERR "\t${GN}SUCCESS$N: Output already exist: $CY$mysam$N\n";
 	}
 	LOG($outLog, "${run_boolean}::: bismark $bismarkOpt $bismark_folder $readFile :::$N\n");
 	LOG($outLog, "!samFile=$outDir/$mysamFilename\n");
