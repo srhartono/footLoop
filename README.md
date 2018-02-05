@@ -1,3 +1,18 @@
+### How to clone:
+
+git clone ssh://git@github.com/srhartono/jeep.git
+
+### 2.0 - 2.72
+
+Massive rework on scrips
+
+- footLoop.pl deals with read map/filter
+- footPeak.pl deals with peak calling
+
+
+Improved graphs and added stats
+
+
 ### Initial Commit 4/28/2017
 
 git checkout ID: 1735a7ec4a8e11b76e588a31dc19fdc0f8a4d83c
