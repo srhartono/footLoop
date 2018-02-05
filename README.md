@@ -2,7 +2,8 @@
 
 `git clone ssh://git@github.com/srhartono/footLoop.git`
 
-IMPORTANT! When it ask for this, type "yes"
+**IMPORTANT! When it ask for this, type "yes"**:
+
 `Are you sure you want to continue connecting (yes/no)?` **yes**
 
 
