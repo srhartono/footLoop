@@ -241,22 +241,12 @@ sub parse_samFile {
 	my %pos;
 	my $lengthref = @ref; my $insref = 0; my $insseq = 0;
 	for (my $i = 0; $i < @num; $i++) {
-		#if ($alp[$i] =~ /^(I|D)$/) {
-		#for (my $j = 0; $j < $num[$i]; $j++) {
 		($ref) = $alp[$i] eq "I" ? ins($ref, $refpos, "-", $num[$i], "ref") : $ref;
 		($seq) = $alp[$i] eq "D" ? ins($seq, $seqpos, "-", $num[$i], "seq") : $seq; 
 		$refpos += $num[$i];
 		$seqpos += $num[$i];
-#				$refpos ++;
-#				$seqpos ++;
 		$insref += $num[$i] if $alp[$i] eq "I";
 		$insseq += $num[$i] if $alp[$i] eq "D";
-				#$pos{seq}{$seqpos-$insseq+$pos-1} = $refpos-1+$pos-1;
-#				#$pos{ref}{$refpos-$insref+$pos-1} = $seqpos-1+$pos-1;
-#			}
-#		}
-#		else {
-#		}
 	}
 	my $refend = $refpos - $insref;
 	@ref = (@ref0, @{$ref});
