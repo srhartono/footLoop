@@ -6,8 +6,32 @@ use vars   qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $op
 my @opts = qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f);
 getopts("r:g:i:n:L:x:y:q:HhZFfp");
 BEGIN {
-	my ($bedtools) = `which bedtools`;
-	print "\n\nPlease install bedtools at least version 2.17 before proceeding!\n\n" and die if not defined $bedtools or $bedtools !~ /bedtools/;
+	my ($bedtools) = `bedtools --version`;
+	my ($bowtie2) = `bowtie2 --version`;
+	my ($bismark) = `bismark --version`;
+	my ($bismark_genome_preparation) = `bismark_genome_preparation --version`;
+	
+	if (not defined $bedtools or $bedtools =~ /command not found/ or $bedtools =~ /bedtools v?([01].\d+|2\.0[0-9]|2\.1[0-6])/) {
+		print "Please install bedtools at least version 2.17 before proceeding!\n";
+		$bedtools = 0;
+	}
+	if (not defined $bowtie2 or $bowtie2 =~ /command not found/ or $bowtie2 =~ /version [0-1]./) {
+		print "Please install bowtie2 at least version 2.1.0 before proceeding!\n";
+		$bowtie2 = 0;
+	}
+	if (not defined $bismark or $bismark =~ /command not found/ or $bismark =~ /v?(0\.1[0-2]|0\.0[0-9])/) {
+		print "Please install bismark at least version 0.13 before proceeding!\n";
+		$bismark = 0;
+	}
+	if (not defined $bismark_genome_preparation or $bismark_genome_preparation =~ /command not found/ or $bismark_genome_preparation =~ /v?(0\.1[0-2]|0\.0[0-9])/) {
+		print "\n\nPlease install bismark_genome_preparation at least version 0.13 before proceeding!\n\n";
+		$bismark_genome_preparation = 0;
+	}
+	print "- bedtools v2.17+ exist!\n" if $bedtools ne 0;
+	print "- bowtie2 v2.1+ exist!\n" if $bowtie2 ne 0;
+	print "- bismark v0.13+ exist!\n" if $bismark ne 0;
+	print "- bismark_genome_preparation v0.13+ exist!\n" if $bismark_genome_preparation ne 0;
+	die if $bedtools eq 0 or $bowtie2 eq 0 or $bismark eq 0 or $bismark_genome_preparation eq 0;
 	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
 	push(@INC, $libPath);
 }
