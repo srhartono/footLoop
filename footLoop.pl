@@ -27,10 +27,10 @@ BEGIN {
 		print "\n\nPlease install bismark_genome_preparation at least version 0.13 before proceeding!\n\n";
 		$bismark_genome_preparation = 0;
 	}
-	print "- bedtools v2.17+ exist!\n" if $bedtools ne 0;
-	print "- bowtie2 v2.1+ exist!\n" if $bowtie2 ne 0;
-	print "- bismark v0.13+ exist!\n" if $bismark ne 0;
-	print "- bismark_genome_preparation v0.13+ exist!\n" if $bismark_genome_preparation ne 0;
+	print "- bedtools v2.17+ exists:" . `which bedtools` if $bedtools ne 0;
+	print "- bowtie2 v2.1+ exists:" . `which bowtie2` if $bowtie2 ne 0;
+	print "- bismark v0.13+ exists:" . `which bismark` if $bismark ne 0;
+	print "- bismark_genome_preparation v0.13+ exists:" . `which bismark_genome_preparation` if $bismark_genome_preparation ne 0;
 	die if $bedtools eq 0 or $bowtie2 eq 0 or $bismark eq 0 or $bismark_genome_preparation eq 0;
 	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
 	push(@INC, $libPath);
