@@ -6,6 +6,8 @@ use vars   qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $op
 my @opts = qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f);
 getopts("r:g:i:n:L:x:y:q:HhZFfp");
 BEGIN {
+	my ($bedtools) = `which bedtools`;
+	print "\n\nPlease install bedtools at least version 2.17 before proceeding!\n\n" and die if not defined $bedtools or $bedtools !~ /bedtools/;
 	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
 	push(@INC, $libPath);
 }
