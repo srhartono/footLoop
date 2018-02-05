@@ -902,15 +902,15 @@ $LGN----------------------------$N\n
 #Usage: $YW$0$N ${GN}[options]$N [-r $CY<read.fq>$N OR -S $CY<read.bismark.sam>$N -n $PR<output folder>$N -g $GN<genome.fa>$N -i $YW<geneCoordinates.bed>$N
 my $usage = "
 ${LGN}Options [default]:$N
--x $LGN<Left pad [0]>$N -y $LGN<Right pad [0]>$N -t $LGN<threshold [0.65]>$N -l $LGN<min peak length [100]>$N -L $LGN<min READ length [500]>$N -q $LGN<min map quality [0]>$N
+-x $LGN<Left pad [0]>$N -y $LGN<Right pad [0]>$N -L $LGN<min READ length [500]>$N -q $LGN<min map quality [0]>$N
 
 Example:
-$YW$0$N\n\t$CY-r$N example/pacbio12ccs.fq \n\t$PR-n$N myoutput\n\t$GN-g$N example/hg19.fa.fa\n\t$YW-i$N example/pacbio12index.bed\n\t-x-100\n\t-y 100\n\t-l 100\n\t-L 1000\n\t-t 0.5
+$YW$0$N\n\t$CY-r$N example/pacbio12ccs.fq \n\t$PR-n$N myoutput\n\t$GN-g$N example/hg19.fa.fa\n\t$YW-i$N example/pacbio12index.bed\n\t-x-100\n\t-y 100\n\t-L 1000\n
 
 $LGN-Z$N: Make mapping parameters not stringent. 
 Bismark uses bowtie2 mapping parameters:
-- stringent (default) formula: --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3
-- not stringent (-Z)  formula: --rdg 2,1 --rfg 2,1 --score_min L,0,-0.8
+- normal stringency (default) formula: --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3
+- lowest stringency (-Z)      formula: --rdg 2,1 --rfg 2,1 --score_min L,0,-0.8
 
 -H: Longer explanation about bismark parameters above.
 
