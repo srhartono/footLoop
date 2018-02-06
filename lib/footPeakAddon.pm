@@ -12,12 +12,21 @@ my $homedir = $ENV{"HOME"};
 my $footLoopDir = dirname(dirname abs_path $0) . "/footLoop";
 
 sub main {
-	my ($input1, $faFile, $mygene, $minDis, $label, $minLen, $SEQ) = @_;
+#(($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ));
+	my ($input1, $faFile, $mygene, $minDis, $resDir, $minLen, $SEQ) = @_;
+	my @foldershort = split("\/", $resDir);
+	my $foldershort = pop(@foldershort);
 	print date() . "\nusage: $YW$0$N [-c to use cpg] $CY<CALM3_Pos_20_0.65_CG.PEAK>$N $CY<location with lots of C>$N\n\n" and exit 1 unless @_ == 7;
 	print date() . "Input cannot be directry!\n" and exit 1 if -d $input1;
 	($input1) = getFullpath($input1);
 	my ($folder, $fileName) = getFilename($input1, "folderfull");
-	open (my $outLog, ">>", "$folder/footLoop_addition_logFile.txt") or die;
+#	$folder = $resDir;
+	makedir("$resDir/.CALL") if not -d "$resDir/\.CALL";
+	makedir("$resDir/PEAKS_GENOME") if not -d "$resDir/PEAKS_GENOME";
+	makedir("$resDir/PEAKS_LOCAL") if not -d "$resDir/PEAKS_LOCAL";
+	makedir("$resDir/PNG") if not -d "$resDir/PNG";
+	makedir("$resDir/PDF") if not -d "$resDir/PDF";
+	open (my $outLog, ">>", "$resDir/footLoop_addition_logFile.txt") or die;
 #      $SEQ->{$def}{seq} = \@seq;
 #      $SEQ->{$def}{loc} = findCGPos(\@seq);
 #      $SEQ->{$def}{coor} = "$chr\t$beg\t$end\t$def\t$zero\t$strand";
@@ -37,8 +46,8 @@ sub main {
 	my @types = qw(CH CG GH GC);
 	for (my $h = 0; $h < 4; $h++) {
 		my $type = $types[$h];
-		my $peakFile   = "$folder/$mygene\_$strand\_$window\_$thres\_$type.PEAK";
-		my $nopkFile   = "$folder/$mygene\_$strand\_$window\_$thres\_$type.NOPK";
+		my $peakFile   = "$resDir/.CALL/$mygene\_$strand\_$window\_$thres\_$type.PEAK";
+		my $nopkFile   = "$resDir/.CALL/$mygene\_$strand\_$window\_$thres\_$type.NOPK";
 		$files{$peakFile} = 1;
 		LOG($outLog, date . "h=$LGN$h\t$YW$peakFile\t$LCY$nopkFile\n$N");
 	
@@ -103,7 +112,8 @@ sub main {
 
 		if (defined $data->{peak}) {
 			die if @{$data->{peak}} != $total->{$type}{peak};
-			open (my $out1, ">", "$folder1/$peakfileName.out") or LOG($outLog, date() . "Cannot write to $peakfileName.out: $!\n") and exit 1;
+			print "HERE: $folder1/$peakfileName.out\n";
+			open (my $out1, ">", "$resDir/.CALL/$peakfileName.out") or LOG($outLog, date() . "Cannot write to $peakfileName.out: $!\n") and exit 1;
 			foreach my $val (sort @{$data->{peak}}) {
 				print $out1 "$val\n";
 			}
@@ -111,7 +121,8 @@ sub main {
 		}
 		if (defined $data->{nopk}) {
 			die if @{$data->{nopk}} != $total->{$type}{nopk};
-			open (my $out1, ">", "$folder1/$nopkfileName.out") or LOG($outLog, date() . "Cannot write to $nopkfileName.out: $!\n") and exit 1;
+			print "HERE: $folder1/$nopkfileName.out\n";
+			open (my $out1, ">", "$resDir/.CALL/$nopkfileName.out") or LOG($outLog, date() . "Cannot write to $nopkfileName.out: $!\n") and exit 1;
 			foreach my $val (sort @{$data->{nopk}}) {
 				print $out1 "$val\n";
 			}
@@ -124,8 +135,9 @@ sub main {
 	die "Undefined beg or end at coor=\n" . join("\n", @coor) . "\n" if not defined $beg0 or not defined $end0;
 	
 	foreach my $file (sort keys %pk) {
-		open (my $outPEAKS, ">", "$file.PEAKS")   or LOG($outLog, "\tFailed to write into $file.PEAKS: $!\n")  and exit 1;
-		open (my $outRPEAKS, ">", "$file.RPEAKS") or LOG($outLog, "\tFailed to write into $file.RPEAKS: $!\n") and exit 1;
+		my ($pk_filename) = getFilename($file, 'full');
+		open (my $outPEAKS, ">", "$resDir/PEAKS_GENOME/$pk_filename.genome.bed")   or LOG($outLog, "\tFailed to write into $resDir/PEAKS_GENOME/$pk_filename.genome.bed: $!\n")  and exit 1;
+		open (my $outRPEAKS, ">", "$resDir/PEAKS_LOCAL/$pk_filename.local.bed") or LOG($outLog, "\tFailed to write into $resDir/PEAKS_LOCAL/$pk_filename.local.bed: $!\n") and exit 1;
 		my $currtype = $file =~ /_CH/ ? "CH" : $file =~ /_CG/ ? "CG" : $file =~ /_GH/ ? "GH" : $file =~ /_GC/ ? "GC" : "UNK";
 		LOG($outLog, "\tFailed to determine type (CH/CG/GH/GC) of file=$file.PEAKS: $!\n") if $currtype eq "UNK";
 		foreach my $name (sort keys %{$pk{$file}}) {
@@ -142,12 +154,12 @@ sub main {
 		close $outRPEAKS;
 	}
 	
-	open (my $outLGENE, ">", "$folder/.0_RESULTS\_$mygene\_$strand\_$window\_$thres.TXT");
+	open (my $outLGENE, ">", "$resDir/.0_RESULTS\_$mygene\_$strand\_$window\_$thres.TXT");
 	for (my $h = 0; $h < 4; $h++) {
 		my $type = $types[$h];
 		$total->{$type}{peak} = $total->{$type}{total} == 0 ? 0 : int(1000 * $total->{$type}{peak} / $total->{$type}{total}+0.5)/10;
 		$total->{$type}{nopk} = $total->{$type}{total} == 0 ? 0 : int(1000 * $total->{$type}{nopk} / $total->{$type}{total}+0.5)/10;
-		my @folder = split("/", $folder);
+		my @folder = split("/", $resDir);
 		my $foldershort = $folder[@folder-1];
 		   $foldershort = $folder[@folder-2] if not defined ($foldershort) or (defined $foldershort and $foldershort =~ /^[\s]*$/);
 		my $peakFile    = "$mygene\_$strand\_$window\_$thres\_$type.PEAK";
@@ -156,7 +168,6 @@ sub main {
 	}
 	close $outLGENE;
 	system("cat $folder/.0_RESULTS\_$mygene\_$strand\_$window\_$thres.TXT");
-
 	#my ($sampleName) = $folder =~ /\/?\d+_(m\d+_\d+)_\d+_\w+/;
 	my ($sampleName) = $folder =~ /^.+(PCB\d\d\d)/;
 	if ($folder =~ /debarcode/) {
@@ -164,26 +175,35 @@ sub main {
 		$sampleName = $sampleName . "_$temp";
 	}
 	if (not defined $sampleName) {
-		($sampleName) = $folder if not defined $sampleName;
-		$sampleName =~ s/\//_/g;
+		$sampleName = $foldershort;
+#		$sampleName =~ s/\//_/g;
 	}
 	foreach my $file (sort keys %files) {
+#		my $outPEAKS, ">", "$resDir/PEAKS_GENOME/$pk_filename.genome.bed")   or LOG($outLog, "\tFailed to write into $resDir/PEAKS_GENOME/$pk_filename.genome.bed: $!\n")  and exit 1;
+#		open (my $outRPEAKS, ">", "$resDir/PEAKS_LOCAL/$pk_filename.local.bed") or LOG($outLog, "\tFailed to write into $resDir/PEAKS_LOCAL/$pk_filename.local.bed: $!\n") and exit 1;
 		next if not defined $files{$file};
 		my $peakFile = $file . ".out";
+		my ($pk_filename) = getFilename($peakFile, 'full');
+		$peakFile = "$resDir/.CALL/$pk_filename";
+		my $nopkFile = $peakFile; $nopkFile =~ s/\.PEAK.out/.NOPK.out/;
 		LOG($outLog, date() . "Doing $peakFile\n");
-		my $nopkFile = $file . ".out"; $nopkFile =~ s/\.PEAK.out/.NOPK.out/;
+#		my $nopkFile = $file . ".out"; 
 		my $totpeak = -e $peakFile ? linecount($peakFile) : 0;
 		my $totnopk = -e $nopkFile ? linecount($nopkFile) : 0;
-		my $bedFile = $peakFile . ".RPEAKS"; $bedFile =~ s/.out.RPEAKS$/.RPEAKS/;
+		my $bedFile = "$resDir/PEAKS_LOCAL/$pk_filename.local.bed";
+#		my $bedFile = $peakFile . ".RPEAKS"; 
+		$bedFile =~ s/.out.local.bed/.local.bed/;
 		for (my $p = 0; $p < 2; $p ++) {
 			my $currFile = $p == 0 ? $peakFile : $nopkFile;
+			print "$p. Currfile = $currFile\n";
 			my ($currFolder, $currFilename) = getFilename($currFile, "folderfull");
 			#$currFilename =~ s/\.0_orig_//i;
-			my $pngout = "$currFolder/$sampleName\_$currFilename.png";
-			my $pdfout = "$currFolder/$sampleName\_$currFilename.pdf";
+			my $pngout = "$resDir/PNG/$sampleName\_$currFilename.png";
+			my $pdfout = "$resDir/PDF/$sampleName\_$currFilename.pdf";
 			next if not -e $currFile;
 			next if linecount($currFile) <= 1;
-			my $Rscript = "library(ggplot2);library(reshape2)\nlibrary(grid)\nlibrary(gridExtra)\n";
+			my $Rscript = ".libPaths( c(.libPaths(), \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\", \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\") )
+library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(gridExtra)\n";
 			$Rscript .= "
 				df = read.table(\"$currFile\",skip=1,sep=\"\\t\")
 				colnames(df) = c(\"V1\",seq(1,dim(df)[2]-1))
@@ -264,6 +284,10 @@ sub main {
 				png(\"$pngout\",width=dim(df)[2]*2,height=dim(df)[1]*16 + 500)
             grid.arrange(p,p2,ncol=1,nrow=2,heights=c(ratio1,ratio2));
 				dev.off()
+
+				pdf(\"$pdfout\",width=(dim(df)[2]*2)/200,height=(dim(df)[1]*16 + 500)/200)
+            grid.arrange(p,p2,ncol=1,nrow=2,heights=c(ratio1,ratio2));
+				dev.off()
 			";
 
 			open (my $outRscript, ">", "$currFile.R") or (LOG($outLog, date() . "Failed to write R script into $currFile.R: $!\n") and print $outLog $Rscript and next);
@@ -274,11 +298,11 @@ sub main {
 	}
 	LOG($outLog, "\n\n");
 	foreach my $outRscript (sort keys %Rscripts) {
-		LOG($outLog, "run_Rscript.pl $outRscript > $outRscript.LOG 2>&1\n");
-	#	system("run_Rscript.pl $outRscript > $outRscript.LOG 2>&1") == 0 or LOG($outLog, date() . "Failed to run_Rscript.pl $outRscript: $!\n");
+		LOG($outLog, "R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n");
+		system("R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1") == 0 or LOG($outLog, date() . "Failed to run_Rscript.pl $outRscript: $!\n");
 	}
-#	LOG($outLog, date . "\tcd $folder && run_Rscript.pl *MakeHeatmap.R\n");
-#	system("cd $folder && run_Rscript.pl *MakeHeatmap.R") if not defined $opt_x and defined $opt_R;
+#	LOG($outLog, date . "\tcd $resDir && run_Rscript.pl *MakeHeatmap.R\n");
+#	system("cd $resDir && run_Rscript.pl *MakeHeatmap.R") if not defined $opt_x and defined $opt_R;
 }
 ###############
 # Subroutines #

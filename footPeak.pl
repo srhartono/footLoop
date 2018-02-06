@@ -12,8 +12,8 @@
 use strict; use warnings; use Getopt::Std; use Time::HiRes; use Benchmark qw(:all); use Benchmark ':hireswallclock'; use Carp;
 use Thread; use Thread::Queue;
 use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_g $opt_p $opt_d $opt_s $opt_k $opt_K $opt_n $opt_h $opt_t $opt_w $opt_l $opt_A);
-getopts("vg:p:d:s:k:K:n:ht:w:l:A:");
+use vars qw($opt_v $opt_g $opt_p $opt_d $opt_s $opt_k $opt_K $opt_n $opt_h $opt_t $opt_w $opt_l $opt_o $opt_A);
+getopts("vg:p:d:s:k:K:n:ht:w:l:A:o:");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -45,6 +45,8 @@ my $groupsize 		= $opts->{s};
 my $minDis 			= $opts->{k};
 my $outDir 			= $opts->{n};
 my $Kmerz			= $opts->{K};
+my $resDir        = $opts->{o};
+makedir("$resDir/.CALL") if not -d "$resDir/.CALL";
 #print "FAFILE = $seqFile, index=$indexFile, origDir = $opts->{origDir}\n";die;
 LOG($outLog, "$N: -K *must* be 2 or 3 or 4! (Currently:$LGN$Kmerz$N)\n\n") and die unless $Kmerz =~ /^[234]$/;
 
@@ -98,8 +100,8 @@ for (my $i = 0; $i < @origFile; $i++) {
 	foreach my $type (sort keys %pk) {
 		my $outpeak = "PEAK$type";
 		my $outnopk = "NOPK$type";
-		open ($out->{$outpeak}, ">", "$peakFolder/$peakFilename\_$window\_$threshold\_$type.PEAK") or LOG($outLog, "Failed to write to $peakFolder/$peakFilename\_$window\_$threshold\_CG.PEAK: $!\n") and die;
-		open ($out->{$outnopk}, ">", "$peakFolder/$peakFilename\_$window\_$threshold\_$type.NOPK") or LOG($outLog, "Failed to write to $peakFolder/$peakFilename\_$window\_$threshold\_CG.NOPK: $!\n") and die;
+		open ($out->{$outpeak}, ">", "$resDir/.CALL/$peakFilename\_$window\_$threshold\_$type.PEAK") or LOG($outLog, "Failed to write to $resDir/$peakFilename\_$window\_$threshold\_CG.PEAK: $!\n") and die;
+		open ($out->{$outnopk}, ">", "$resDir/.CALL/$peakFilename\_$window\_$threshold\_$type.NOPK") or LOG($outLog, "Failed to write to $resDir/$peakFilename\_$window\_$threshold\_CG.NOPK: $!\n") and die;
 	}
 	open (my $in1, "<", $peakFile) or die "Cannot read from $peakFile: $!\n";
 	my ($l0, $t0) = (0,Benchmark->new());
@@ -207,8 +209,8 @@ for (my $i = 0; $i < @origFile; $i++) {
 		LOG($outLog, "$key=$LGN$peak$N, ");
 	}
 	LOG($outLog, "\n\n" . date() . "\n\n");
-	my $peakFilez = "$peakFolder/$peakFilename\_$window\_$threshold\_CG.PEAK";
-	footPeakAddon::main(($peakFilez, $seqFile, $gene, $minDis, $opt_l, $minLen, $SEQ));
+	my $peakFilez = "$resDir/.CALL/$peakFilename\_$window\_$threshold\_CG.PEAK";
+	footPeakAddon::main(($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ));
 }
 
 #COMMENTCUT
@@ -645,6 +647,9 @@ sub parse_footLoop_logFile {
 		}
 	}
 	record_options($defOpts, $usrOpts, $usrOpts2, $other, $outLog, $logFile, $date, $uuid);
+	$defOpts->{o} = $defOpts->{n} if not defined $opt_o;
+	makedir($defOpts->{o}) if not -d $defOpts->{o};
+#	print "Output = $defOpts->{o}\n";
 	return($defOpts, $outLog);
 }
 
@@ -730,7 +735,8 @@ sub set_default_opts {
 		'd' => '250'     ,'g' => ''        ,'i' => ''        ,'k' => '50'      ,
 		'l' => '100'     ,'n' => ''        ,'q' => '0'       ,'r' => ''        ,
 		's' => '200'     ,'t' => '65'      ,'w' => '20'      ,'x' => '0'       ,
-		'y' => '0'       ,'K' => '2'       ,'L' => '0'       ,'A' => ''
+		'y' => '0'       ,'K' => '2'       ,'L' => '0'       ,'A' => ''        ,
+		'o' => 'RESULTS'
 	);
 
 
@@ -740,7 +746,8 @@ sub set_default_opts {
 		(
 		'd' => $opt_d    ,'g' => $opt_g    ,'h' => 'FALSE'   ,'k' => $opt_k    ,
 		'l' => $opt_l    ,'n' => $opt_n    ,'p' => $opt_p    ,'s' => $opt_s    ,
-		't' => $opt_t    ,'w' => $opt_w    ,'K' => $opt_K    ,'A' => $opt_A
+		't' => $opt_t    ,'w' => $opt_w    ,'K' => $opt_K    ,'A' => $opt_A    ,
+		'o' => $opt_o
 		);
 
 	my %usrOpts2 =
@@ -882,7 +889,7 @@ sub check_sanity {
 	my ($footFolder) = @_;
 
 
-my $usage = "\nUsage: $YW$0$N -n $LCY<footLoop output folder>$N\n
+my $usage = "\nUsage: $YW$0$N -n $LCY<footLoop output folder>$N -o $LCY<output png dir>$N
 
 Options:
 -w <window size> [20]
@@ -913,6 +920,8 @@ end = 255-50 to 255+50 = 205 to 305
 
 ";
 
+print $usage . "\nPlease define -n (dir from footLoop.pl)\n\n" and die if not defined $footFolder or not -d $footFolder;
+print $usage . "\nPlease define -o (output dir for footPeak.pl)\n\n" and die if not defined $opt_o;
 print $usage . $usage_long and die if defined $opt_h;
 die $usage if not defined $footFolder or not -d $footFolder;
 LOG($outLog, "Please run footloop.pl first! ($footFolder/logFile.txt does not exists)\n") and die if not -e "$footFolder/logFile.txt";
