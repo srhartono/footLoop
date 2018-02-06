@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # Version 160831_Fixed_PrintOutput at the same file (step 8)
 use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use Getopt::Std::WithCheck;
+#use Getopt::Std::WithCheck;
 use vars   qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f);
 my @opts = qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f);
 getopts("r:g:i:n:L:x:y:q:HhZFfp");
