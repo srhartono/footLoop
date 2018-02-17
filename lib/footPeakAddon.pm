@@ -143,10 +143,10 @@ sub main {
 		foreach my $name (sort keys %{$pk{$file}}) {
 			foreach my $peak (sort @{$pk{$file}{$name}}) {
 				my ($beg, $end) = split("-", $peak);
-				$end0 = $end + $beg0;
-				$beg0 = $beg + $beg0;
+				my $end1 = $end + $beg0;
+				my $beg1 = $beg + $beg0;
 				my ($junk, $readname) = $name =~ /^(\w+)\.(.+)$/;
-				print $outPEAKS  "$chr0\t$beg0\t$end0\t$name\t0\t$strand0\t$file\n";
+				print $outPEAKS  "$chr0\t$beg1\t$end1\t$name\t0\t$strand0\t$file\n";
 				print $outRPEAKS "$name\t$beg\t$end\n";
 			}
 		}

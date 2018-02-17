@@ -50,7 +50,6 @@ my %OPTS  = ('r' => $opt_r, 'g' => $opt_g, 'i' => $opt_i, 'n' => $opt_n,
 				 'p' => 'NONE', 'L' => $opt_L, 'q' => $opt_q, 'e' => 'NONE');
 my %OPTS2 = ('p' => $opt_p, 'Z' => $opt_Z, 'F' => $opt_F, 'f' => $opt_f);
 sanityCheck(\%OPTS, \%OPTS2);
-
 ###################
 # 1. Define Input #
 ###################
@@ -58,7 +57,7 @@ my ($readFile, $genomeFile, $geneIndexFile, $outDir) = getFullpathAll($opt_r, $o
 my ($readFilename)  = getFilename($opt_r, "full");
 my ($geneIndexName) = getFilename($geneIndexFile);
 my $minMapQ    = (not defined($opt_q)) ? 0  : $opt_q;
-my $minReadL   = (not defined($opt_L)) ? 50 : $opt_L =~ /p$/i ? $opt_L =~ /^(.+)p$/i : $opt_L;
+my ($minReadL)   = (not defined($opt_L)) ? 75 : $opt_L =~ /p$/i ? $opt_L =~ /^(.+)p$/i : $opt_L;
 my $bufferL    = (not defined($opt_x)) ? 0  : $opt_x;
 my $bufferR    = (not defined($opt_y)) ? 0  : $opt_y;
 my $readName   = getFilename($readFile, "full");
@@ -787,7 +786,8 @@ sub parse_fasta {
 		my $seqz = uc($entry->seq);
 	   $SEQ->{$gene}{seq}       = [split("", $seqz)];
 		$SEQ->{$gene}{geneL}     = scalar(@{$SEQ->{$gene}{seq}});
-		$SEQ->{$gene}{minReadL}  = (defined $minReadL and $minReadL =~ /p$/i) ? int(0.5+$SEQ->{$gene}{geneL} * $minReadL / 100) : $minReadL;
+		$SEQ->{$gene}{minReadL}  = (defined $minReadL and $opt_L =~ /p$/i) ? int(0.5+$SEQ->{$gene}{geneL} * $minReadL / 100) : $minReadL;
+		print "minreadL = $minReadL / 100 * $SEQ->{$gene}{geneL} = $SEQ->{$gene}{minReadL}\n";die;
 		$SEQ->{$gene}{total}     = 0;
 		$SEQ->{$gene}{badlength} = 0;
 		$SEQ->{$gene}{lowq}      = 0;
