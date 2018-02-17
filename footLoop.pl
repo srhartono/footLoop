@@ -787,7 +787,6 @@ sub parse_fasta {
 	   $SEQ->{$gene}{seq}       = [split("", $seqz)];
 		$SEQ->{$gene}{geneL}     = scalar(@{$SEQ->{$gene}{seq}});
 		$SEQ->{$gene}{minReadL}  = (defined $minReadL and $opt_L =~ /p$/i) ? int(0.5+$SEQ->{$gene}{geneL} * $minReadL / 100) : $minReadL;
-		print "minreadL = $minReadL / 100 * $SEQ->{$gene}{geneL} = $SEQ->{$gene}{minReadL}\n";die;
 		$SEQ->{$gene}{total}     = 0;
 		$SEQ->{$gene}{badlength} = 0;
 		$SEQ->{$gene}{lowq}      = 0;
