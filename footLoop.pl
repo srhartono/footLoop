@@ -38,7 +38,6 @@ BEGIN {
 use myFootLib; use FAlite;
 my $homedir = $ENV{"HOME"};
 my $footLoopDir = dirname(dirname abs_path $0) . "/footLoop";
-
 ($opt_r, $opt_i, $opt_n, $opt_g, $opt_x, $opt_y) = run_example() if @ARGV and $ARGV[0] eq "ex";
 ###################
 # 0. Check Sanity #
@@ -646,16 +645,16 @@ sub make_bismark_index {
 		($md5sum)  = getMD5("$bismark_folder/Bisulfite_Genome/.md5sum.md5");
 		($md5sum2) = getMD5($geneIndexFa);
 		$bismark_folder_exist = 0 if $md5sum ne $md5sum2;
-		$run_boolean = "" if $bismark_folder_exist == 0;
 	}
+	$run_boolean = "" if $bismark_folder_exist == 0;
 	if ($bismark_folder_exist == 0) {
-		LOG($outLog, "\tOlder bisulfite genome found but$LRD different$N (md5sum old = $CY$md5sum$N, new = $CY$md5sum2)$N\n") if defined $md5sum;
+		LOG($outLog, "\tEither bismark folder didn't exist or older bisulfite genome found but$LRD different$N (md5sum old = $CY$md5sum$N, new = $CY$md5sum2)$N\n") if defined $md5sum;
 		system("bismark_genome_preparation --bowtie2 $bismark_folder > $bismark_folder/LOG.txt 2>&1 && md5sum $geneIndexFa > $bismark_folder/Bisulfite_Genome/.md5sum.md5") == 0 or die "Failed to run bismark genome preparation: $!\n";
 	}
 	else { 
 		LOG($outLog, "\t${GN}SUCCESS$N: $CY$bismark_folder\/Bisulfite_Genome$N already exist (md5sum old = $CY$md5sum$N, new = $CY$md5sum2)$N\n");
 	}
-	LOG($outLog, "${run_boolean}::: $cmd :::\n");
+	LOG($outLog, "${run_boolean} $N ::: $cmd :::\n");
 }
 
 sub run_bismark {
