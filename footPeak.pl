@@ -734,7 +734,7 @@ sub set_default_opts {
 		(
 		'd' => '250'     ,'g' => ''        ,'i' => ''        ,'k' => '50'      ,
 		'l' => '100'     ,'n' => ''        ,'q' => '0'       ,'r' => ''        ,
-		's' => '200'     ,'t' => '75'      ,'w' => '20'      ,'x' => '0'       ,
+		's' => '200'     ,'t' => '65'      ,'w' => '20'      ,'x' => '0'       ,
 		'y' => '0'       ,'K' => '2'       ,'L' => '0'       ,'A' => ''        ,
 		'o' => 'RESULTS'
 	);
@@ -893,7 +893,7 @@ my $usage = "\nUsage: $YW$0$N -n $LCY<footLoop output folder>$N -o $LCY<output p
 
 Options:
 -w <window size> [20]
--t <threshold in \%> [75]
+-t <threshold in \%> [65]
 \n";
 
 my $usage_long = "
@@ -984,7 +984,7 @@ __END__
 __END__
 	my %defOpts = (
 					'x' => 0,	'y' => 0,	'g' => '',	'i' => '',	'q' => 0, 	'r' => '', 
-					'L' => 0,	't' => 75,	'w' => 20,	'd' => 250, 's' => 200, 'k' => 50,
+					'L' => 0,	't' => 65,	'w' => 20,	'd' => 250, 's' => 200, 'k' => 50,
 					'K' => 2, 	'n' => '', 	'l' => ''
 					);
 		
@@ -1297,14 +1297,14 @@ my $usage = "
 Usage: $YW$0$N -i <footLoop output folder>
 #-g$CY <genomic fasta>$N -i$LPR <UNMODIFIED geneIndexes.bed>$N -p$LGN <Peak file>$N -n$YW <Output Folder>$N
 
-${YW}Example: $YW$0$N -g$CY hg19.fa$N -i$LPR geneIndexes.bed$N -p$LGN CALM3_Pos75.txt$N -n$YW CALM3_Pos75_Out$N
+${YW}Example: $YW$0$N -g$CY hg19.fa$N -i$LPR geneIndexes.bed$N -p$LGN CALM3_Pos65.txt$N -n$YW CALM3_Pos65_Out$N
 
 $LRD	========== !!IMPORTANT!! ========== $N
 1.	The format of the file from -p *has* to be: ${CY}GENE$N\_NNNDD.txt
 	NNN is Pos or Neg
-	DD is the percent threshold (e.g. 75)
+	DD is the percent threshold (e.g. 65)
 	If there's 'CG' after DD that's okay!
-	E.g.:$YW CALM3_pos75.txt or CALM3_NEG75.txt or CALM3_Pos75CG.txt$N
+	E.g.:$YW CALM3_pos65.txt or CALM3_NEG65.txt or CALM3_Pos65CG.txt$N
 
 2.	The GENE will  be used to extract gene from geneindexes.bed (case insensitive!)
 	So if in geneindexes.bed, the gene name is CALM and the file name is CALM3_pos40.txt,
