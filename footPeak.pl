@@ -48,7 +48,6 @@ my $Kmerz			= $opts->{K};
 my $resDir        = $opts->{o};
 system("/bin/cp $seqFile $resDir");
 LOG($outLog, "seqFile=$seqFile\n");
-die;
 makedir("$resDir/.CALL") if not -d "$resDir/.CALL";
 #print "FAFILE = $seqFile, index=$indexFile, origDir = $opts->{origDir}\n";die;
 LOG($outLog, "$N: -K *must* be 2 or 3 or 4! (Currently:$LGN$Kmerz$N)\n\n") and die unless $Kmerz =~ /^[234]$/;
