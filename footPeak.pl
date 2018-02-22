@@ -46,6 +46,9 @@ my $minDis 			= $opts->{k};
 my $outDir 			= $opts->{n};
 my $Kmerz			= $opts->{K};
 my $resDir        = $opts->{o};
+system("/bin/cp $seqFile $resDir");
+LOG($outLog, "seqFile=$seqFile\n");
+die;
 makedir("$resDir/.CALL") if not -d "$resDir/.CALL";
 #print "FAFILE = $seqFile, index=$indexFile, origDir = $opts->{origDir}\n";die;
 LOG($outLog, "$N: -K *must* be 2 or 3 or 4! (Currently:$LGN$Kmerz$N)\n\n") and die unless $Kmerz =~ /^[234]$/;
@@ -212,7 +215,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 	my $peakFilez = "$resDir/.CALL/$peakFilename\_$window\_$threshold\_CG.PEAK";
 	footPeakAddon::main(($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ));
 }
-
+system("/bin/cp $opts{origDir} $resDir/");
 #COMMENTCUT
 #	my $t1 = Benchmark->new();
 #	my ($td) = timestr(timediff($t1, $t0)) =~ /(\-?\d+\.?\d*) wallclock/;

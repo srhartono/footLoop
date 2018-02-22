@@ -57,6 +57,7 @@ parse_cigar
 LOG
 makehash
 DIE
+DIELOG
 $DIES
 $N 
 $B
@@ -140,6 +141,17 @@ sub LOG {
 	return $STEP if defined $STEP;
 }
 
+sub DIELOG {
+   my ($outLog, $text, $STEP, $STEPCOUNT) = @_;
+	if (defined $STEP) {
+		$STEP += $STEPCOUNT if defined $STEPCOUNT;
+		$text =~ s/\$STEP/$STEP/g;
+	}
+   print $outLog $text;
+	print $text;
+	die "\n";
+}
+
 sub getDate {
    my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time); $year += 1900;
    my @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
@@ -174,7 +186,7 @@ sub getFilename {
 
 sub getFullpath {
 	my ($fh) = @_;
-	
+	$fh = "./$fh" if $fh !~ /^(\/|\.)/;
 	my ($folder, $fullname) = getFilename($fh, "folderfull");
 	my $currdir = `pwd`; chomp($currdir);
 	die "Folder of fh=$fh (folder=$folder=) does not exist!\n" if not defined($folder) or not -d $folder;
