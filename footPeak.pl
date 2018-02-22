@@ -215,7 +215,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 	my $peakFilez = "$resDir/.CALL/$peakFilename\_$window\_$threshold\_CG.PEAK";
 	footPeakAddon::main(($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ));
 }
-system("/bin/cp $opts{origDir} $resDir/");
+system("/bin/cp $opts->{origDir} $resDir/");
 #COMMENTCUT
 #	my $t1 = Benchmark->new();
 #	my ($td) = timestr(timediff($t1, $t0)) =~ /(\-?\d+\.?\d*) wallclock/;

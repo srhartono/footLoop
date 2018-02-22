@@ -217,6 +217,7 @@ foreach my $input1 (sort @local_peak_files) {
 		LOG($outLog, date() . "Cannot parse num from line=$line\n") if not defined $num;
 		my ($mid) = int(($end + $beg)/2+0.5);
 		push(@{$cl{$clust}{beg}}, $beg);
+		push(@{$cl{$clust}{mid}}, $mid);
 		push(@{$cl{$clust}{end}}, $end);
 	}
 	close $in2;
@@ -225,10 +226,20 @@ foreach my $input1 (sort @local_peak_files) {
 	open (my $out2, ">", "$outDir/.TEMP/$fullName1.clust.bed") or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $outDir/.TEMP/$fullName1.clust.bed: $!\n");
 	print $out2 "#gene\tbeg\tend\tcluster\ttotal_peak\tstrand\n";
 	foreach my $clust (sort {$a <=> $b} keys %cl) {
-		my $beg = int(tmm(@{$cl{$clust}{beg}})+0.5);
-		my $end = int(tmm(@{$cl{$clust}{end}})+0.5);
+		my $BEG   = int(tmm(@{$cl{$clust}{beg}})+0.5);
+		my $BEGSD = int(tmmsd(@{$cl{$clust}{beg}})+0.5);
+		my ($beg0, $end0) = ($BEG - $BEGSD, $BEG + $BEGSD);
+		my $MID   = int(tmm(@{$cl{$clust}{mid}})+0.5);
+		my $MIDSD = int(tmmsd(@{$cl{$clust}{mid}})+0.5);
+		my ($beg1, $end1) = ($MID - $MIDSD, $MID + $MIDSD);
+		my $END   = int(tmm(@{$cl{$clust}{end}})+0.5);
+		my $ENDSD = int(tmmsd(@{$cl{$clust}{end}})+0.5);
+		my ($beg2, $end2) = ($END - $ENDSD, $END + $ENDSD);
 		my $total = @{$cl{$clust}{beg}};
-		print $out2 "$gene\t$beg\t$end\t$clust\t$total\t$strand\n";
+		print $out2 "$gene\t$beg0\t$end2\t$clust.WHOLE\t$total\t$strand\n";
+		print $out2 "$gene\t$beg0\t$end0\t$clust.BEG\t$total\t$strand\n";
+		print $out2 "$gene\t$beg1\t$end1\t$clust.MID\t$total\t$strand\n";
+		print $out2 "$gene\t$beg2\t$end2\t$clust.END\t$total\t$strand\n";
 	}
 	close $out2;
 	system("fastaFromBed -fi $faFile -bed $outDir/.TEMP/$fullName1.clust.bed -fo $outDir/.TEMP/$fullName1.clust.fa -s");
