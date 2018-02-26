@@ -88,7 +88,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 	my $Q = new Thread::Queue;
 	my $peakFile = $origFile[$i];
 #debug
-#	next if $peakFile !~ /(AIRN_PFC66_FORWARD_Neg|CALM3_Pos)/;
+#	next if $peakFile !~ /FUS_Pos/;#/(AIRN_PFC66_FORWARD_Neg|CALM3_Pos)/;
 ##
 	my ($peakFolder, $peakFilename) = getFilename($peakFile, "folder");
 	$peakFilename =~ s/.orig$//;
@@ -214,7 +214,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 	my $peakFilez = "$resDir/.CALL/$peakFilename\_$window\_$threshold\_CG.PEAK";
 	footPeakAddon::main(($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ));
 }
-system("/bin/cp $opts->{origDir} $resDir/");
+system("/bin/cp $opts->{origDir}/footPeak_logFile.txt $resDir/");
 #COMMENTCUT
 #	my $t1 = Benchmark->new();
 #	my ($td) = timestr(timediff($t1, $t0)) =~ /(\-?\d+\.?\d*) wallclock/;

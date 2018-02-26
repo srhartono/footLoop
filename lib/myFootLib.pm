@@ -25,6 +25,9 @@ our $LPR		="\e[1;35m";
 our $DIES   ="$LRD!!!\t$N";
 
 our @EXPORT = qw(
+myformat
+perc
+fold
 colorseq
 colorseqCG
 color
@@ -444,6 +447,46 @@ sub sum {
       $sum += $value[$i];
    }
    return($sum);
+}
+
+sub myformat {
+	my ($number) = @_;
+	my $mod = $number < 0 ? -1 : 1;
+	if (abs($number) > 5) {
+		return($mod*int(abs($number)*10+0.5)/10);
+	}
+	elsif (abs($number) > 1 and abs($number) <= 5) {
+		return($mod*int(abs($number)*100+0.5)/100);
+	}
+	elsif (abs($number) > 0.1) {
+		return($mod*int(abs($number)*100+0.5)/100);
+	}
+	elsif (abs($number) > 0.01) {
+		return($mod*int(abs($number)*1000+0.5)/1000);
+	}
+	elsif (abs($number) > 0.001) {
+		return($mod*int(abs($number)*10000+0.5)/10000);
+	}
+	elsif (abs($number) > 0.0001) {
+		return($mod*int(abs($number)*100000+0.5)/100000);
+	}
+	elsif (abs($number) > 0.00001) {
+		return($mod*int(abs($number)*1000000+0.5)/1000000);
+	}
+	elsif (abs($number) > 0.000001) {
+		return($mod*int(abs($number)*10000000+0.5)/10000000);
+	}
+	else {
+		return($mod*int(abs($number)*100000000+0.5)/100000000);
+	}
+}
+sub perc {
+	my ($peak, $total) = @_;
+	return(int($peak/$total*1000+0.5)/10);
+}
+sub fold {
+	my ($shuf, $orig) = @_;
+	return(int(($shuf+5)/($orig+5)*1000+0.5)/1000);
 }
 
 sub parse_cigar {

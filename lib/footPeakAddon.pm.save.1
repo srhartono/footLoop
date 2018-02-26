@@ -178,8 +178,8 @@ sub main {
 		$sampleName = $foldershort;
 #		$sampleName =~ s/\//_/g;
 	}
-	system("footClust.pl -n $resDir -g $gene") == 0 or die "Failed to run footClust.pl : $!\n";
-	system("footClust2.pl -n $resDir -g $gene") == 0 or die "Failed to run footClust2.pl : $!\n";
+	system("footClust.pl -n $resDir") == 0 or die "Failed to run footClust.pl : $!\n";
+	system("footClust2.pl -n $resDir") == 0 or die "Failed to run footClust2.pl : $!\n";
 	foreach my $file (sort keys %files) {
 #		my $outPEAKS, ">", "$resDir/PEAKS_GENOME/$pk_filename.genome.bed")   or LOG($outLog, "\tFailed to write into $resDir/PEAKS_GENOME/$pk_filename.genome.bed: $!\n")  and exit 1;
 #		open (my $outRPEAKS, ">", "$resDir/PEAKS_LOCAL/$pk_filename.local.bed") or LOG($outLog, "\tFailed to write into $resDir/PEAKS_LOCAL/$pk_filename.local.bed: $!\n") and exit 1;
@@ -215,8 +215,6 @@ sub main {
 		$bedFile =~ s/.out.local.bed/.local.bed/;
 		for (my $p = 0; $p < 2; $p ++) {
 			my $currFile = $p == 0 ? $peakFile : $nopkFile;
-			my $curr_cluster_file = $cluster_file;
-			$curr_cluster_file =~ s/PEAK/NOPK/ if $p != 0;
 			print "$p. Currfile = $currFile\n";
 			my ($currFolder, $currFilename) = getFilename($currFile, "folderfull");
 			#$currFilename =~ s/\.0_orig_//i;
@@ -238,9 +236,9 @@ sub main {
 				df\$id = gsub(\"^.+/([0-9]+)/ccs\", \"\\\\1\", df\$V1, perl=T)
 			";
 			# cluster
-			if (-e $curr_cluster_file and -s $curr_cluster_file > 0) {
+			if (-e $cluster_file and -s $cluster_file > 0) {
 				$Rscript .= "
-					clust = read.table(\"$curr_cluster_file\",header=T,sep=\"\\t\")
+					clust = read.table(\"$cluster_file\",header=T,sep=\"\\t\")
 					clust = clust[grep(\"^[0-9]+\\\\.[0-9]+\$\",clust\$id,perl=T,invert=T),]
                clust\$y = seq(1,dim(clust)[1])
                clust = subset(clust,select=c(\"id\",\"y\",\"clust\"))
@@ -338,15 +336,12 @@ for (x in 1:max(df3\$clust)) {
                geom_tile(aes(fill=as.factor(value))) +
                geom_rect(data=df5,aes(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax,x=xmin,y=ymin),
                                  size=0.8,fill=rgb(0,0,0,alpha=0),color=rgb(0,0,0,alpha=0.25)) +
-               geom_rect(data=df4,aes(xmin=xmin,xmax=xmax,ymin=ymin,
-													ymax=ymax,x=xmin,y=ymin,color=as.factor(df4\$clust2)
-												 ),size=4,fill=rgb(0,0,0,alpha=0)) + #color=rgb(1,0,0,alpha=1)) +
+               geom_rect(data=df4,aes(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax,x=xmin,y=ymin),
+                                 size=2,fill=rgb(0,0,0,alpha=0),color=rgb(1,0,0,alpha=1)) +
                geom_rect(data=df4,aes(fill=as.factor(df4\$clust2),x=1,y=1,xmin=1,xmax=30,ymin=ymin,ymax=ymax)) +
                geom_text(data=df4,aes(x=10,y=(ymin+ymax)/2,label=clust2-10),hjust=0,size=15) +
                theme_bw() + theme(legend.position=\"none\") +
                scale_fill_manual(values=c(df3col,\"11\"=\"#e41a1c\",\"12\"=\"#377eb8\",
-            \"13\"=\"#4daf4a\",\"14\"=\"#984ea3\",\"15\"=\"#ff7f00\")) +
-               scale_color_manual(values=c(df3col,\"11\"=\"#e41a1c\",\"12\"=\"#377eb8\",
             \"13\"=\"#4daf4a\",\"14\"=\"#984ea3\",\"15\"=\"#ff7f00\")) +
                scale_x_continuous(expand = c(0,0)) + scale_y_continuous(expand = c(0,0)) +
               theme(line = element_blank(),
@@ -358,7 +353,7 @@ for (x in 1:max(df3\$clust)) {
 				";
 			} #CLUSTER
 			else {
-				$Rscript .= "df\$y = seq(1,dim(df)[1])\ndf=subset(df,select=-id)\n";
+				$Rscript .= "df\$y = seq(1,dim(df)[1])\n";
 			}
 			if (-e $bedFile and linecount($bedFile) > 0) {
 				$Rscript .= "bed = read.table(\"$bedFile\",sep=\"\\t\");\n";# bed = bed[,c(4,2,3)];colnames(bed) = c(\"V1\",\"V2\",\"V3\");\n";
@@ -368,19 +363,17 @@ for (x in 1:max(df3\$clust)) {
 				dm = melt(df,id.vars=c(\"V1\",\"y\"))
 				dm\$variable = as.numeric(as.character(dm\$variable))
 				p = ggplot(dm,aes(variable,y)) +  
-					geom_tile(aes(fill=as.factor(value))) + ";
-		if (-e $curr_cluster_file and -s $curr_cluster_file > 0) {
-			$Rscript .= "
-              geom_rect(data=clust2,aes(fill=as.factor(clust),x=xmin,y=ymin,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax)) +
-              geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=clust-10),hjust=0,size=15) +
+					geom_tile(aes(fill=as.factor(value))) + \n";
+			if (-e $cluster_file and -s $cluster_file > 0) {
+				$Rscript
+               geom_rect(data=clust2,aes(fill=as.factor(clust),x=xmin,y=ymin,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax)) +
+               geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=clust-10),hjust=0,size=15) +
 			";
-		}
-			$Rscript .= "
 					theme_bw() + theme(legend.position=\"none\") + 
+
 #					coord_fixed() +
 					scale_fill_manual(values=c(\"0\"=\"grey\",\"1\"=\"white\",\"4\"=\"cornsilk\",\"5\"=\"cornsilk\",
-								  					   \"6\"=\"green4\",\"7\"=\"seagreen4\",\"8\"=\"red4\",\"9\"=\"maroon4\",
-														\"11\"=\"#e41a1c\",\"12\"=\"#377eb8\",\"13\"=\"#4daf4a\",\"14\"=\"#984ea3\",\"15\"=\"#ff7f00\")) +
+								  					   \"6\"=\"green4\",\"7\"=\"seagreen4\",\"8\"=\"red4\",\"9\"=\"maroon4\")) +
 					scale_x_continuous(expand = c(0,0)) + scale_y_continuous(expand = c(0,0)) +
                theme(line = element_blank(),
                      axis.text = element_blank(),
@@ -430,12 +423,14 @@ for (x in 1:max(df3\$clust)) {
                annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5,hjust=0) +
                annotate(geom='text',x=10,y=0,label=\"- 0   \%\",size=5,hjust=0) +
                coord_cartesian(ylim=c(-0.05,1.05))
-            ratio1 = dim(df)[1]*16 / (dim(df)[1]*16 + 500 + 425)
-            ratio2 = 500           / (dim(df)[1]*16 + 500 + 425)
+            ratio1 = as.integer(10*dim(df)[1]*16 / (dim(df)[1]*16 + 500 + 425)+0.5)/10
+            ratio2 = as.integer(10*500           / (dim(df)[1]*16 + 500 + 425)+0.5)/10
 			";
-			if (-e $curr_cluster_file and -s $curr_cluster_file > 0) {
-				$Rscript .= "
-           ratio3 = 425           / (dim(df)[1]*16 + 500 + 425)
+			if (-e $cluster_file and -s $cluster_file > 0) {
+				$Rscript .= "           ratio3 = as.integer(10*425           / (dim(df)[1]*16 + 500 + 425)+0.5)/10\n":
+			}
+			if (-e $cluster_file and -s $cluster_file > 0) {
+            $Rscript .= " 
 		png(\"$pngout\",width=dim(df)[2]*2,height=dim(df)[1]*16 + 500 + 425)
 grid.arrange(p,p2,p3,ncol=1,nrow=3,heights=c(ratio1,ratio2,ratio3));\ndev.off()\n";
 			}
