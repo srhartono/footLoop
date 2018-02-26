@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 	
 use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_d $opt_n);
-getopts("vd:n:");
+use vars qw($opt_v $opt_d $opt_n $opt_g);
+getopts("vd:n:g:");
 
 #########
 # BEGIN #

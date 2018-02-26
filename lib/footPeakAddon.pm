@@ -157,6 +157,8 @@ sub main {
 	open (my $outLGENE, ">", "$resDir/.0_RESULTS\_$mygene\_$strand\_$window\_$thres.TXT");
 	for (my $h = 0; $h < 4; $h++) {
 		my $type = $types[$h];
+		my $totalPeak = $total->{$type}{peak};
+		my $totalNopk = $total->{$type}{nopk};
 		$total->{$type}{peak} = $total->{$type}{total} == 0 ? 0 : int(1000 * $total->{$type}{peak} / $total->{$type}{total}+0.5)/10;
 		$total->{$type}{nopk} = $total->{$type}{total} == 0 ? 0 : int(1000 * $total->{$type}{nopk} / $total->{$type}{total}+0.5)/10;
 		my @folder = split("/", $resDir);
@@ -164,10 +166,10 @@ sub main {
 		   $foldershort = $folder[@folder-2] if not defined ($foldershort) or (defined $foldershort and $foldershort =~ /^[\s]*$/);
 		my $peakFile    = "$mygene\_$strand\_$window\_$thres\_$type.PEAK";
 		print $outLGENE "#folder\tpeakFile\tGene\tStrand\ttotal\tpeak.perc\n" if $type eq "CH";
-		print $outLGENE "$foldershort\t$peakFile\t$mygene\t$type\ttotal=$total->{$type}{total}\tpeak=$total->{$type}{peak}\n";
+		print $outLGENE "$foldershort\t$peakFile\t$mygene\t$type\t$total->{$type}{total}\t$totalPeak\t$total->{$type}{peak}\n";
 	}
 	close $outLGENE;
-	system("cat $folder/.0_RESULTS\_$mygene\_$strand\_$window\_$thres.TXT");
+	system("cat $resDir/.0_RESULTS\_$mygene\_$strand\_$window\_$thres.TXT");
 	#my ($sampleName) = $folder =~ /\/?\d+_(m\d+_\d+)_\d+_\w+/;
 	my ($sampleName) = $folder =~ /^.+(PCB\d\d\d)/;
 	if ($folder =~ /debarcode/) {
