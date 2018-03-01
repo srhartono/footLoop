@@ -30,9 +30,10 @@ my ($footFolder) = $opt_n;
 my ($usage) = check_sanity($footFolder);
 my $logFile = "$footFolder/logFile.txt";
 
-my ($opts, $outLog) = parse_footLoop_logFile($logFile, $date, $uuid);
+my ($opts, $outLog) = parse_footLoop_logFile($logFile, $date, $uuid, $footFolder);
 
-my $seqFile        = $opts->{seqFile};
+my $label         = $opts->{label};
+my $seqFile       = $opts->{seqFile};
 my $indexFile		= $opts->{geneIndexFile};
 my $origFolder 	= $opts->{origDir};
 my $minLen			= $opts->{l};
@@ -580,15 +581,36 @@ footLoop samFixedMD5 : $defOpts->{samFixedMD5}
 }
 
 sub parse_footLoop_logFile {
-	my ($logFile, $date, $uuid) = @_;
+	my ($logFile, $date, $uuid, $footFolder) = @_;
 	my @line = `cat $logFile`;
-
+	my $paramsFile = "$footFolder/.PARAMS";
 	my ($defOpts, $usrOpts, $usrOpts2) = set_default_opts();
 	my $inputFolder = $defOpts->{n}; 
 
+	my @parline = `cat $paramsFile`;
+	foreach my $parline (@parline) {
+		if ($parline =~ /footLoop.pl,geneIndexFile,/) {
+			($defOpts->{geneIndexFile}) = $parline =~ /geneIndexFile,(.+)$/;
+		}
+		if ($parline =~ /footLoop.pl,geneIndexFile,/) {
+			($defOpts->{geneIndexFile}) = $parline =~ /geneIndexFile,(.+)$/;
+		}
+		if ($parline =~ /footLoop.pl,seqFile,/) {
+			($defOpts->{seqFile}) = $parline =~ /seqFile,(.+)$/;
+		}
+		if ($parline =~ /footLoop.pl,samFile,/) {
+			($defOpts->{samFile}) = $parline =~ /samFile,(.+)$/;
+		}
+		if ($parline =~ /footLoop.pl,samFixedFile,/) {
+			($defOpts->{samFixed}) = $parline =~ /samFixedFile,(.+)$/;
+		}
+		if ($parline =~ /footLoop.pl,samFixedFileMD5,/) {
+			($defOpts->{samFixedMD5}) = $parline =~ /samFixedFileMD5,(.+)$/;
+		}
+	}
 	# %others contain other parameters from footLoop that aren't options (e.g. uuid)
 	my ($other, $outLog); 
-
+	
 	foreach my $line (@line[0..@line-1]) {
 		if ($line =~ /^\s*Date\s*:/) {
 			($other->{date}) = $line =~ /^Date\s+:\s*([a-zA-Z0-9\:\-].+)$/;
@@ -616,11 +638,11 @@ sub parse_footLoop_logFile {
 			($other->{md5}) = $other->{origDir} =~ /\.0_orig_(\w{32})/;
 			LOG($outLog, "Can't parse md5 from outdir (outdir=$defOpts->{origDir})\n") and die if not defined $other->{md5};
 		}
-		if ($line =~ /geneIndexFile=/) {
-			($defOpts->{geneIndexFile}) = $line =~ /geneIndexFile=(.+)$/ if $line !~ /,gene=.+,beg=\d+,end=\d+$/;
-			($defOpts->{geneIndexFile}) = $line =~ /geneIndexFile=(.+),gene=.+,beg=\d+,end=\d+$/ if $line =~ /,gene=.+,beg=\d+,end=\d+$/;
-			$defOpts->{geneIndexFile} = $footFolder . "/" .  getFilename($defOpts->{geneIndexFile});
-		}
+#		if ($line =~ /geneIndexFile=/) {
+#			($defOpts->{geneIndexFile}) = $line =~ /geneIndexFile=(.+)$/ if $line !~ /,gene=.+,beg=\d+,end=\d+$/;
+#			($defOpts->{geneIndexFile}) = $line =~ /geneIndexFile=(.+),gene=.+,beg=\d+,end=\d+$/ if $line =~ /,gene=.+,beg=\d+,end=\d+$/;
+#			$defOpts->{geneIndexFile} = $footFolder . "/" .  getFilename($defOpts->{geneIndexFile});
+#		}
 		if ($line =~ /^!\w+=/) {
 			my ($param, $value) = $line =~ /^!(\w+)=(.+)$/;
 			my $param2 = defined $param ? $param : "__UNDEF__";
@@ -695,6 +717,11 @@ sub parse_runscript {
 		my $val2 = defined $val ? $val : "__UNDEF__";
 		print "i=$i Undefined opt=$opt2 val=$val2 line=$runscripts[$i]\n" and die if not defined $val or not defined $opt;
 		next if $opt eq "n";
+		if ($opt eq "l") {
+			$defOpts->{label} = $val;
+			$log->{label} = 1;
+			next;
+		}
 		$defOpts->{$opt} = $val;# eq "MYTRUE" ? "MYTRUE" : $val;
 		$log->{$opt} = 1;
 	}

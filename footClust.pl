@@ -172,7 +172,15 @@ foreach my $input1 (sort @local_peak_files) {
 	setwd(\"$outDir\");
 	library(ggplot2)
 	df = read.table(\"$outDir/.TEMP/$fullName1.temp\",row.names=1,header=T,sep=\"\\t\")
-	dm = kmeans(df,5,nstart=20)
+	lenz = length(unique(paste(df\$beg,df\$end)))
+	if (lenz > 20) {
+		lenz = 5
+	} else if (lenz > 5) {
+		lenz = 2
+	} else {
+		lenz = 1
+	}
+	dm = kmeans(df,lenz,nstart=20)
 	df\$cluster = dm\$cluster
 	df = df[order(df\$cluster, df[,1], df[,2]),]
 	df\$y = seq(1,dim(df)[1])

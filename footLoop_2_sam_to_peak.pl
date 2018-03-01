@@ -72,11 +72,12 @@ while (my $line = <$in1>) {
 	$type = "4_WPOS" if $CT1 > $GA1;
 	$type = "5_SPOS" if ($CT1 > 15 and $GA1 < 5) or ($GA1 >= 5 and $CT1 / $GA1 > 3) or ($GA1 >= 20 and $CT1 / $GA1 >= 2);
 	$type = "1_SNEG" if ($GA1 > 15 and $CT1 < 5) or ($CT1 >= 5 and $GA1 / $CT1 > 3) or ($CT1 >= 20 and $GA1 / $CT1 >= 2);
-	print $outdebug ">$read,$type,OldStrand=$strand,NewStrand=$newstrand,$chr,CT0=$CT0,CC0=$CC0,GA0=$GA0,GG0=$GG0,CT1=$CT1,CC1=$CC1,GA1=$GA1,GG1=$GG1\n";
-	print $outdebug "$refPrint\n";
-	print $outdebug "$seqPrint\n";
-	print $outdebug "$CTPrint\n";
+#	print $outdebug ">$read,$type,OldStrand=$strand,NewStrand=$newstrand,$chr,CT0=$CT0,CC0=$CC0,GA0=$GA0,GG0=$GG0,CT1=$CT1,CC1=$CC1,GA1=$GA1,GG1=$GG1\n";
+#	print $outdebug "$refPrint\n";
+#	print $outdebug "$seqPrint\n";
+#	print $outdebug "$CTPrint\n";
 	print $outsam "$read\t$type\t$strand\t$newstrand\t$chr\t$CTPrint\t$CT0,$CC0,$GA0,$GG0,$CT1,$CC1,$GA1,$GG1\n";
+	print "file=$LCY$samFile$N, linecount=$linecount, read=$read, die coz no info\n" if not defined $GG1;
 #	print "$read\t$chr\tstrand=$strand, new=$newstrand\n" . join("", @{$ref3}) . "
 #	CC = $CC1 / $CC0
 #	CT = $CT1 / $CT0
@@ -159,32 +160,46 @@ sub parse_seqFile {
 sub parse_logFile {
 	my ($logFile) = @_;
 	die "\n\nCan't find $logFile! Please run footLoop.pl first before running this!\n\n" if not -e $logFile;
-	print "LOGFILE=$logFile\n";
+#ADD
+	$logFile = "$folder/.PARAMS";
+	print "\t\tLOGFILE=$logFile\n";
 	my ($samFile, $seqFile, $genez);
 	if (-e $logFile) {
 		my @line = `cat $logFile`;
 		for (my $i = 0; $i < @line; $i++) {
 			my $line = $line[$i]; chomp($line);
-			if ($line =~ /^!samFile=/) {
-				($samFile) = $line =~ /^!samFile=(.+)$/;
+			if ($line =~ /footLoop.pl,samFile/) {
+				($samFile) = $line =~ /samFile,(.+)$/;
 			}
-			if ($line =~ /^!seqFile=/) {
-				($seqFile) = $line =~ /^!seqFile=(.+)$/;
+			if ($line =~ /footLoop.pl,seqFile/) {
+				($seqFile) = $line =~ /seqFile,(.+)$/;
 			}
-			if ($line =~ /gene=.+length=/) {
-				my ($gene, $length) = $line =~ /^.+gene=(.+) length=(\d+)$/;
-				die if not defined $gene or not defined $length;
-				$genez->{$gene} = $length;
-				print "gene $gene = $length bp\n";
+			if ($line =~ /footLoop.pl,geneIndexFile/) {
+				my ($geneIndexFile) = $line =~ /geneIndexFile,(.+)$/;
+				my @line = `cut -f1-4 $geneIndexFile`;
+				foreach my $line (@line) {
+					chomp($line); next if $line =~ /^#/;
+					my ($chr, $beg, $end, $gene) = split("\t", $line);
+					my $length = $end - $beg;
+					$gene = uc($gene);
+					$genez->{$gene} = $length;
+					print "\t\tfootLoop_2_sam_to_peak.pl: gene $gene = $length bp\n";
+				}
 			}
-#			if ($line =~ /2. Parsing in sequence for genes from sequence file/) {
-#				for (my $j = $i+1; $j < @line; $j++) {
-#					#print "\t$line\n";
-#					last if $line =~ /SUCCESS.+Sequence has been parsed from fasta file/;
-#					}
-#				}
+			
+#			if ($line =~ /^!samFile=/) {
+#				($samFile) = $line =~ /^!samFile=(.+)$/;
 #			}
-			last if $line =~ /footLoop_2_sam_to_peak.pl/;
+#			if ($line =~ /^!seqFile=/) {
+#				($seqFile) = $line =~ /^!seqFile=(.+)$/;
+#			}
+#			if ($line =~ /gene=.+length=/) {
+#				my ($gene, $length) = $line =~ /^.+gene=(.+) length=(\d+)$/;
+#				die if not defined $gene or not defined $length;
+#				$genez->{$gene} = $length;
+#				print "gene $gene = $length bp\n";
+#			}
+#			last if $line =~ /footLoop_2_sam_to_peak.pl/;
 		}
 	}
 	return($samFile, $seqFile, $genez);

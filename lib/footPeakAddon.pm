@@ -12,7 +12,8 @@ my $homedir = $ENV{"HOME"};
 my $footLoopDir = dirname(dirname abs_path $0) . "/footLoop";
 
 sub main {
-#(($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ));
+	# From footPeak.pl: 
+	# (($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ));
 	my ($input1, $faFile, $mygene, $minDis, $resDir, $minLen, $SEQ) = @_;
 	my @foldershort = split("\/", $resDir);
 	my $foldershort = pop(@foldershort);
@@ -20,16 +21,13 @@ sub main {
 	print date() . "Input cannot be directry!\n" and exit 1 if -d $input1;
 	($input1) = getFullpath($input1);
 	my ($folder, $fileName) = getFilename($input1, "folderfull");
-#	$folder = $resDir;
+
 	makedir("$resDir/.CALL") if not -d "$resDir/\.CALL";
 	makedir("$resDir/PEAKS_GENOME") if not -d "$resDir/PEAKS_GENOME";
 	makedir("$resDir/PEAKS_LOCAL") if not -d "$resDir/PEAKS_LOCAL";
 	makedir("$resDir/PNG") if not -d "$resDir/PNG";
 	makedir("$resDir/PDF") if not -d "$resDir/PDF";
 	open (my $outLog, ">>", "$resDir/footLoop_addition_logFile.txt") or die;
-#      $SEQ->{$def}{seq} = \@seq;
-#      $SEQ->{$def}{loc} = findCGPos(\@seq);
-#      $SEQ->{$def}{coor} = "$chr\t$beg\t$end\t$def\t$zero\t$strand";
 	
 	my @coor = split("\t", $SEQ->{$mygene}{coor});
 	my (%pk, %Rscripts, %files);
@@ -178,7 +176,6 @@ sub main {
 	}
 	if (not defined $sampleName) {
 		$sampleName = $foldershort;
-#		$sampleName =~ s/\//_/g;
 	}
 	system("footClust.pl -n $resDir -g $gene") == 0 or die "Failed to run footClust.pl : $!\n";
 	system("footClust2.pl -n $resDir -g $gene") == 0 or die "Failed to run footClust2.pl : $!\n";
@@ -226,7 +223,7 @@ sub main {
 			my $pdfout = "$resDir/PDF/$sampleName\_$currFilename.pdf";
 			next if not -e $currFile;
 			next if linecount($currFile) <= 1;
-			my $Rscript = ".libPaths( c(.libPaths(), \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\", \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\") )\nlibrary(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(gridExtra)\nlibrary(RColorBrewer)\n";
+			my $Rscript = ".libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\", \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\", .libPaths()) )\nlibrary(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(gridExtra)\nlibrary(RColorBrewer)\n";
 			$Rscript .= "
 				df = read.table(\"$currFile\",skip=1,sep=\"\\t\")
 				colnames(df) = c(\"V1\",seq(1,dim(df)[2]-1))
@@ -237,7 +234,7 @@ sub main {
 					mysum = apply(df[,-1],1,sum)
 					df = df[order(mysum),]
 				}
-				df\$id = gsub(\"^.+/([0-9]+)/ccs\", \"\\\\1\", df\$V1, perl=T)
+				df\$id = gsub(\"^.+/([0-9]+)/ccs.\*\$\", \"\\\\1\", df\$V1, perl=T)
 			";
 			# cluster
 			if (-e $curr_cluster_file and -s $curr_cluster_file > 0) {

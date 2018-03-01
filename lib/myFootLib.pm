@@ -135,6 +135,10 @@ sub checkBismarkIndex {
 }
 sub LOG {
    my ($outLog, $text, $STEP, $STEPCOUNT) = @_;
+	if (defined $STEP and $STEP eq "NA") {
+		print $outLog $text;
+		return;
+	}
 	if (defined $STEP) {
 		$STEP += $STEPCOUNT if defined $STEPCOUNT;
 		$text =~ s/\$STEP/$STEP/g;

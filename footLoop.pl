@@ -2,9 +2,9 @@
 # Version 160831_Fixed_PrintOutput at the same file (step 8)
 use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
 #use Getopt::Std::WithCheck;
-use vars   qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f);
-my @opts = qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f);
-getopts("r:g:i:n:L:x:y:q:HhZFfp");
+use vars   qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f $opt_l);
+my @opts = qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_l);
+getopts("r:g:i:n:L:x:y:q:HhZFpl:");
 BEGIN {
 	my ($bedtools) = `bedtools --version`;
 	my ($bowtie2) = `bowtie2 --version`;
@@ -39,16 +39,19 @@ use myFootLib; use FAlite;
 my $homedir = $ENV{"HOME"};
 my $footLoopDir = dirname(dirname abs_path $0) . "/footLoop";
 ($opt_r, $opt_i, $opt_n, $opt_g, $opt_x, $opt_y) = run_example() if @ARGV and $ARGV[0] eq "ex";
+
 ###################
 # 0. Check Sanity #
 ##################
 
 my %OPTS  = ('r' => $opt_r, 'g' => $opt_g, 'i' => $opt_i, 'n' => $opt_n, 
 				 'L' => $opt_L, 'x' => $opt_x, 'y' => $opt_y, 'p' => $opt_p, 
-				 'q' => $opt_q, 'F' => 'NONE', 'f' => 'NONE', 'Z' => 'NONE',
-				 'p' => 'NONE', 'L' => $opt_L, 'q' => $opt_q, 'e' => 'NONE');
-my %OPTS2 = ('p' => $opt_p, 'Z' => $opt_Z, 'F' => $opt_F, 'f' => $opt_f);
+				 'q' => $opt_q, 'F' => 'NONE', 'Z' => 'NONE',
+				 'p' => 'NONE', 'L' => $opt_L, 'q' => $opt_q, 'l' => $opt_l);
+my %OPTS2 = ('p' => $opt_p, 'Z' => $opt_Z, 'F' => $opt_F);
+
 sanityCheck(\%OPTS, \%OPTS2);
+
 ###################
 # 1. Define Input #
 ###################
@@ -65,7 +68,13 @@ my $samFile	   = ($readFile =~ /.f(ast)?q(.gz)?$/) ? $outDir .  "/$readName\_bis
 my $uuid       = getuuid();
 my $date       = getDate();
 my $origDir    = $outDir . "/.0_Orig";
+my ($label)    = defined $opt_l ? $opt_l : $origDir =~ /PCB\d+/i ? $origDir =~ /(PCB\d+)/i : $outDir;
+	$label =~ s/[\/\.\-]/_/g if ($label eq $outDir);
+	$label = uc($label) if $label =~ /PCB/i;
+	$label =~ s/PCB0+([1-9])/PCB$1/ if $label =~ /PCB0+[1-9]/;
+	$OPTS{l} = $label;
 
+print date() . "FATAL ERROR ON LABEL -l\n" and die if not defined $label;
 my $STEP = 0;
 
 # Make directory
@@ -73,10 +82,14 @@ makedir($outDir);
 
 # Make log file
 my $logFile = "$outDir/logFile.txt";
-open(my $outLog, '>', $logFile);
-
+open(my $outReadLog, ">", "$outDir/.PARAMS") or print "\n${LRD}FATAL!$N Failed to write to $LCY$outDir/.PARAMS$N: $!\n" and die;
+open(my $outLog, '>', $logFile) or print "\n${LRD}FATAL!$N Failed to write to $LCY$logFile$N: $!\n" and die;
+LOG($outReadLog, "footLoop.pl,uuid,$uuid\n");
+LOG($outReadLog, "footLoop.pl,date,$date\n");
 # Record all options
-record_options(\%OPTS, \%OPTS2, $outLog);
+
+record_options(\%OPTS, \%OPTS2, $outReadLog, $outLog);
+
 
 #######################################
 # 1. Preprocess Index and Fasta Files #
@@ -85,7 +98,7 @@ record_options(\%OPTS, \%OPTS2, $outLog);
 
 # Add buffers to geneIndexFile (bedtools_bed_change.pl) and get their sequences using fastaFromBed, then get their info from fasta=$seqFile
 
-my ($SEQ, $geneIndexHash, $seqFile, $bismark_folder) = parse_geneIndexFile($geneIndexFile, $genomeFile, $outDir, $outLog, $minReadL);
+my ($SEQ, $geneIndexHash, $seqFile, $bismark_folder) = parse_geneIndexFile($geneIndexFile, $genomeFile, $outDir, $minReadL, $outReadLog, $outLog);
 
 LOGSTEP($outLog);
 
@@ -98,7 +111,7 @@ LOGSTEP($outLog);
 make_bismark_index($seqFile, $bismark_folder, $bismarkOpt, $outLog);
 
 # Run Bismark
-($samFile) = run_bismark($readFile, $outDir, $samFile, $opt_F, $outLog);
+($samFile) = run_bismark($readFile, $outDir, $samFile, $opt_F, $outReadLog, $outLog);
 
 LOGSTEP($outLog);
 
@@ -110,7 +123,8 @@ LOGSTEP($outLog);
 # Do footLoop_2_sam_to_peak.pl
 # - Determine strand of read based on # of conversion
 # - Determine bad regions in read (indels) which wont be used in peak calling
-($samFile, $origDir) = fix_samFile($samFile, $seqFile, $outLog); #becomes .fixed
+($samFile, $origDir) = fix_samFile($samFile, $seqFile, $outReadLog, $outLog); #becomes .fixed
+LOG($outReadLog, "footLoop.pl,origDir,$origDir\n");
 my ($samFileName) = getFilename($samFile);
 
 LOGSTEP($outLog);
@@ -120,7 +134,7 @@ LOGSTEP($outLog);
 ################################
 ($STEP) = LOGSTEP($outLog, "BEG", $STEP, 1, "Parse and Filter Sam File\n");#$N $bismarkOpt $bismark_folder $readFile\n");
 
-parse_samFile($samFile, $seqFile, $outLog);
+parse_samFile($samFile, $seqFile, $outReadLog, $outLog);
 
 LOGSTEP($outLog);
 
@@ -355,8 +369,9 @@ sub run_example {
 	my $opt_n = "$exFolder/CALM3/CALM3out/";
 	return($opt_r, $opt_i, $opt_n, $opt_g, -100, 100);
 }
+
 sub fix_samFile {
-	my ($samFile, $seqFile, $outLog) = @_;
+	my ($samFile, $seqFile, $outReadLog, $outLog) = @_;
 	LOG($outLog, "\n\ta. Fixing sam file $CY$samFile$N with footLoop_2_sam_to_peak.pl\n");
 	my ($samMD5) = getMD5($samFile);
 	my $origDir = "$outDir/.0_orig_$samMD5/";
@@ -367,49 +382,54 @@ sub fix_samFile {
 	my $samFileGZ = "$origDir/$samFileName.fixed.gz";
 	$checkSam = 0 if not -e "$origDir/$samFileName.fixed" and not -e "$origDir/$samFileName.fixed.gz";
 	makedir($origDir);
-	if (-e "$origDir/$samFileName.fixed.gz") {
-		my ($samLineCount2) = linecount("$origDir/$samFileName.fixed.gz");
-		my ($samLineCount1) = linecount($samFile);
-		$checkSam = $samLineCount1 - 500 > $samLineCount2 ? 0 : 2;
-		LOG($outLog, "\tfootLoop.pl subroutine fix_samFile:: fixed sam file $LCY$origDir/$samFileName.fixed.gz$N exists but total row is less than total samFile $samFile row ($samLineCount1 - 500 > samFile.fixed.gz: $samLineCount2)!\n") if $checkSam == 0;
-		LOG($outLog, "\tfootLoop.pl subroutine fix_samFile::$LGN SUCCESS!!$N fixed sam file $LCY$origDir/$samFileName.fixed.gz$N exists (MD5=$LGN$samMD5$N) and total row $LGN($samLineCount2)$N >= total samFile row $LGN($samLineCount1 - 500)$N ($LCY$samFile$N)!\n") if $checkSam == 2;
+	if (defined $opt_F) {
+		$checkSam = 0;
 	}
-	if (-e "$origDir/$samFileName.fixed" and $checkSam == 0) {
-		my ($samLineCount2) = linecount("$origDir/$samFileName.fixed");
-		my ($samLineCount1) = linecount($samFile);
-		$checkSam = $samLineCount1 - 500 > $samLineCount2 ? 0 : 1;
-		LOG($outLog, "\tfootLoop.pl subroutine fix_samFile:: .gz does not exist and fixed sam file $LCY$origDir/$samFileName.fixed$N exists but total row is less than total samFile $samFile row ($samLineCount1 - 500 > samFile.fixed: $samLineCount2)!\n") if $checkSam == 0;
-		LOG($outLog, "\tfootLoop.pl subroutine fix_samFile::$LGN SUCCESS!!$N fixed sam file $LCY$origDir/$samFileName.fixed$N exists (MD5=$LGN$samMD5$N) and total row $LGN($samLineCount2)$N >= total samFile row $LGN($samLineCount1 - 500)$N ($LCY$samFile$N)!\n") if $checkSam == 1;
+	else {
+		if (-e "$origDir/$samFileName.fixed.gz") {
+			my ($samLineCount2) = linecount("$origDir/$samFileName.fixed.gz");
+			my ($samLineCount1) = linecount($samFile);
+			$checkSam = $samLineCount1 - 500 > $samLineCount2 ? 0 : 2;
+			LOG($outLog, "\tfootLoop.pl subroutine fix_samFile:: fixed sam file $LCY$origDir/$samFileName.fixed.gz$N exists but total row is less than total samFile $samFile row ($samLineCount1 - 500 > samFile.fixed.gz: $samLineCount2)!\n") if $checkSam == 0;
+			LOG($outLog, "\tfootLoop.pl subroutine fix_samFile::$LGN SUCCESS!!$N fixed sam file $LCY$origDir/$samFileName.fixed.gz$N exists (MD5=$LGN$samMD5$N) and total row $LGN($samLineCount2)$N >= total samFile row $LGN($samLineCount1 - 500)$N ($LCY$samFile$N)!\n") if $checkSam == 2;
+		}
+		if (-e "$origDir/$samFileName.fixed" and $checkSam == 0) {
+			my ($samLineCount2) = linecount("$origDir/$samFileName.fixed");
+			my ($samLineCount1) = linecount($samFile);
+			$checkSam = $samLineCount1 - 500 > $samLineCount2 ? 0 : 1;
+			LOG($outLog, "\tfootLoop.pl subroutine fix_samFile:: .gz does not exist and fixed sam file $LCY$origDir/$samFileName.fixed$N exists but total row is less than total samFile $samFile row ($samLineCount1 - 500 > samFile.fixed: $samLineCount2)!\n") if $checkSam == 0;
+			LOG($outLog, "\tfootLoop.pl subroutine fix_samFile::$LGN SUCCESS!!$N fixed sam file $LCY$origDir/$samFileName.fixed$N exists (MD5=$LGN$samMD5$N) and total row $LGN($samLineCount2)$N >= total samFile row $LGN($samLineCount1 - 500)$N ($LCY$samFile$N)!\n") if $checkSam == 1;
+		}
 	}
 	if ($checkSam == 0) {
 		LOG($outLog, "\tfootLoop.pl subroutine fix_samFile:: fixed sam file $LCY$origDir/$samFileName.fixed$N or .gz does not exist!\n");
 		LOG($outLog, "\t${YW}footLoop_2_sam_to_peak.pl -f $outDir -s $seqFile -o $origDir$N\n");
 		system("footLoop_2_sam_to_peak.pl -f $outDir -o $origDir") == 0 or LOG($outLog, "Failed to run footLoop_2_sam_to_peak.pl -f $outDir -o $origDir: $!\n") and exit 1;
+		LOG($outReadLog, "footLoop.pl,fix_samFile,footLoop_2_sam_to_peak.pl -f $outDir -o $origDir\n","NA");
+		LOG($outLog, "\tgzip $origDir/$samFileName.fixed");
+		system("gzip -f $origDir/$samFileName.fixed") == 0 or LOG($outLog, "\tFailed to gzip $origDir/$samFileName.fixed: $!\n");
 		$checkSam = 1;
 	}
 	else {
 		LOG($outLog, "\t${LGN}WAS NOT RUN$N: ${YW}::: footLoop_2_sam_to_peak.pl -f $outDir -s $seqFile -o $origDir :::$N\n");
-	}
-	
-	if ($checkSam == 1) {
 		# rm old (bad) .gz if it exists
 		LOG($outLog, "\t/bin/rm $samFileGZ") if -e '$samFileGZ';
 		system("/bin/rm $samFileGZ") == 0 or LOG($outLog, 'Failed to rm $samFileGZ: $!\n') if -e '$samFileGZ';
 		# gzip the new .fixed
 		LOG($outLog, "\tgzip $origDir/$samFileName.fixed");
-		system("gzip $origDir/$samFileName.fixed") == 0 or LOG($outLog, "\tFailed to gzip $origDir/$samFileName.fixed: $!\n");
+		system("gzip -f $origDir/$samFileName.fixed") == 0 or LOG($outLog, "\tFailed to gzip $origDir/$samFileName.fixed: $!\n");
 	}
 
 	# re-md5 samfile gz
 	LOG($outLog, "\t${YW}md5sum $samFileGZ > $origDir/.$samFileName.fixed.gz.md5$N\n");
-	system("md5sum $samFileGZ > $origDir/.$samFileName.fixed.gz.md5") == 0 or LOG($outLog, "Failed to md5sum $origDir/$samFileName.fixed > $origDir/.$samFileName.fixed.gz.md5: $!\n") and exit 1;
-	LOG($outLog, "!samFixed=$samFileGZ\n");
-	LOG($outLog, "!samFixedMD5=$samMD5\n");
+	system("md5sum $samFileGZ > $origDir/.$samFileName.fixed.gz.md5") == 0 or LOG($outLog, "Failed to md5sum $samFileGZ > $origDir/.$samFileName.fixed.gz.md5: $!\n") and exit 1;
+	LOG($outReadLog, "footLoop.pl,samFixedFile,$samFileGZ\n","NA");
+	LOG($outReadLog, "footLoop.pl,samFixedFileMD5,$samMD5\n","NA");
 	return($samFile, $origDir);
 }
 
 sub parse_samFile {
-	my ($samFile, $seqFile, $outLog) = @_;
+	my ($samFile, $seqFile, $outReadLog, $outLog) = @_;
 	my ($samFileName) = getFilename($samFile);
 
 	LOG($outLog, "\ta. Parsing sam file $CY$samFile$N and getting only high quality reads\n");
@@ -483,7 +503,7 @@ sub parse_samFile {
 		}
 	}
 	LOG($outLog, "\n\tb.Logging sam file $CY$samFile$N\n");
-	log_samFile($SEQ, $samStats, $origDir);
+	log_samFile($SEQ, $samStats, $origDir, $outReadLog, $outLog);
 }
 
 sub check_sam_field {
@@ -499,7 +519,7 @@ sub check_sam_field {
 }
 
 sub log_samFile {
-	my ($SEQ, $samStats, $origDir) = @_;
+	my ($SEQ, $samStats, $origDir, $outReadLog, $outLog) = @_;
 	foreach my $genez (sort keys %{$SEQ}) {
 		my $outTXTFilePos  = "$origDir/$genez\_Pos.orig";
 		my $outTXTFileNeg  = "$origDir/$genez\_Neg.orig";
@@ -513,17 +533,17 @@ sub log_samFile {
 	open (my $inSamFix, "zcat $origDir/$samFileName.fixed.gz|") or LOG($outLog, "Failed to open $origDir/$samFileName.fixed.gz: $!\n") and exit 1;
 	while (my $line = <$inSamFix>) {
 		chomp($line);
-		my ($read,$type, $oldStrand, $strand, $genez, $pos, $info) = split("\t", $line);
-		my ($CT0, $CC0, $GA0, $GG0, $CT1, $CC1, $GA1, $GG1) = split(",", $info);
+		my ($read, $type, $oldStrand, $strand, $genez, $pos, $info) = split("\t", $line);
 		if (not defined $SEQ->{$genez} or not defined $info) {
 			LOG($outLog, "\tERROR in $LCY$origDir/$samFileName.fixed$N: gene=$genez but \$SEQ->{\$genez} is not defined!line=\n$line\n\n") if not defined $SEQ->{$genez};
-			LOG($outLog, "\tERROR in $LCY$origDir/$samFileName.fixed$N: gene=$genez and seq genez is $SEQ->{$genez} but info is not defined!line=\n$line\n\n") if defined $SEQ->{$genez} and not defined $info;
+			DIELOG($outLog, "\tERROR in $LCY$origDir/$samFileName.fixed$N: gene=$genez and seq genez is $SEQ->{$genez} but info is not defined!line=\n$line\n\n") if defined $SEQ->{$genez} and not defined $info;
 			$skipped ++;
 			next;
 		}
 		if (not defined $SEQ->{$genez}{read}{$read}) {
 			next;
 		}
+		my ($CT0, $CC0, $GA0, $GG0, $CT1, $CC1, $GA1, $GG1) = split(",", $info);
 	#	my $oldStrand = $SEQ->{$genez}{read}{$read};
 		if ($type eq "6_BOTH") {
 			print {$SEQ->{$genez}{outTXTUnk}} "$read\tBP\t$pos\n" if $strand eq 0;
@@ -549,6 +569,8 @@ sub log_samFile {
 	close $inSamFix;
 	LOG($outLog, "\t$LCY$origDir/$samFileName.fixed$N: skipped = $LGN$skipped$N\n");
 
+	LOG($outReadLog, "footLoop.pl,read_passed_filter,header\ttotal\tpositive\tnegative\n");
+	LOG($outReadLog, "footLoop.pl,read_passed_filter,record\t$samStats->{total}\t$passedFilterP\t$passedFilterN\n");
 
 	print $outLog "
 Reads that passed filters:
@@ -586,6 +608,9 @@ Too Short   = $SEQ->{$gene}{badlength}
 Low Quality = $SEQ->{$gene}{lowq}
 ";
 	LOG($outLog, $text);
+	LOG($outReadLog, "footLoop.pl,read_passed_filter_gene,header\tgene\ttotal\tused\tpositive\tnegative\tunkpos\tunkneg\ttooshort\tlowqual\n");
+	LOG($outReadLog, "footLoop.pl,read_passed_filter_gene,record\t$gene\t$SEQ->{$gene}{total}\t$SEQ->{$gene}{used}\t$SEQ->{$gene}{pos}\t$SEQ->{$gene}{neg}\t$SEQ->{$gene}{unkpos}\t$SEQ->{$gene}{unkneg}\t$SEQ->{$gene}{badlength}\t$SEQ->{$gene}{lowq}\n");
+	LOG($outReadLog, "footLoop.pl,gene_skipped_low_read,$zero\n");
 	}
 	
 	$zero = $zero eq "" ? "(None)\n" : "\n$zero\n";
@@ -637,115 +662,226 @@ sub make_bismark_index {
 	my ($geneIndexFa, $bismark_folder, $bismarkOpt, $outLog) = @_;
 	LOG($outLog, "\n\ta. Running bismark_genome_preparation$N --bowtie2 $bismark_folder$N\n");
 	my $run_boolean = "\t${LGN}WAS NOT RUN$N:${YW} ";
-	my $cmd = "bismark_genome_preparation --bowtie2 $bismark_folder && md5sum $geneIndexFa > $bismark_folder/Bisulfite_Genome/.md5sum.md5";
+	my $cmd = "bismark_genome_preparation --bowtie2 $bismark_folder > $bismark_folder/LOG.txt 2>&1 && md5sum $geneIndexFa > $bismark_folder/Bisulfite_Genome/.MD5SUM";
+#"bismark_genome_preparation --bowtie2 $bismark_folder && md5sum $geneIndexFa > $bismark_folder/Bisulfite_Genome/.MD5SUM";
 	my ($check, $md5sum, $md5sum2) = (0);
-	my $bismark_folder_exist = (-d "$bismark_folder/Bisulfite_Genome/" and -e "$bismark_folder/Bisulfite_Genome/.md5sum.md5") ? 1 : 0;
+	my $bismark_folder_exist = (-d "$bismark_folder/Bisulfite_Genome/" and -e "$bismark_folder/Bisulfite_Genome/.MD5SUM") ? 1 : 0;
 	if ($bismark_folder_exist == 1) {
 		LOG($outLog, "\tOlder bismark folder $CY$bismark_folder/BIsulfite_Genome/$N exist! Checking MD5 if they're the same as current fasta file.\n");
-		($md5sum)  = getMD5("$bismark_folder/Bisulfite_Genome/.md5sum.md5");
+		($md5sum)  = `cat $bismark_folder/Bisulfite_Genome/.MD5SUM` =~ /^(\w+)[\t ]/;
 		($md5sum2) = getMD5($geneIndexFa);
 		$bismark_folder_exist = 0 if $md5sum ne $md5sum2;
 	}
 	$run_boolean = "" if $bismark_folder_exist == 0;
 	if ($bismark_folder_exist == 0) {
+#		die "bismark folder = $LCY$bismark_folder$N\n";
 		LOG($outLog, "\tEither bismark folder didn't exist or older bisulfite genome found but$LRD different$N (md5sum old = $CY$md5sum$N, new = $CY$md5sum2)$N\n") if defined $md5sum;
-		system("bismark_genome_preparation --bowtie2 $bismark_folder > $bismark_folder/LOG.txt 2>&1 && md5sum $geneIndexFa > $bismark_folder/Bisulfite_Genome/.md5sum.md5") == 0 or die "Failed to run bismark genome preparation: $!\n";
+		system($cmd) == 0 or die "Failed to run bismark genome preparation: $!\n";
 	}
 	else { 
 		LOG($outLog, "\t${GN}SUCCESS$N: $CY$bismark_folder\/Bisulfite_Genome$N already exist (md5sum old = $CY$md5sum$N, new = $CY$md5sum2)$N\n");
 	}
-	LOG($outLog, "${run_boolean} $N ::: $cmd :::\n");
+	LOG($outLog, "${run_boolean} $YW ::: $cmd :::$N\n");
+#	die "OK\n";#bismark folder = $LCY$bismark_folder$N\n";
 }
 
 sub run_bismark {
-	my ($readFile, $outDir, $mysam, $force, $outLog) = @_;
-	LOG($outLog, "\n\tb. Running bismark$N\n");
+	my ($readFile, $outDir, $mysam, $opt_F, $outReadLog, $outLog) = @_;
+	my $MAP = "";
+	LOG($outLog, "\n\tb. Running bismark\n");
 	my ($mysamFilename) = getFilename($mysam, "full");
-	my $run_boolean = "\t${LGN}WAS NOT RUN$N:${YW} ";
+	my $run_boolean = "\n\t${LGN}WAS NOT RUN$N:${YW} ";
 	if (-e $mysam and not -e "$outDir/$mysamFilename") {
 		system("/bin/ln -s $mysam $outDir/$mysamFilename") == 0 or LOG($outLog, "Failed to /bin/ln $mysam $outDir/$mysamFilename: $!\n") and exit 1;
 	}
-	if (defined $force or not -e $mysam) {
-		$run_boolean = "$YW\n";
+	if (defined $opt_F or not -e $mysam) {
+		$run_boolean = "\n$YW\t ";
 		if ($opt_p) {
 			my $outFolder = $outDir . "/.bismark_paralel/";
 			if (-d $outFolder) {
 				my @files = <$outFolder/*>;
 				if (@files != 0) {
-					my $date2 = date();
-					makedir("$outFolder/backup_$date2/");
-					LOG($outLog, "\tmoving all in $outFolder into $outFolder/backup (with date=$date2)\n\t$YW/bin/mv $outFolder/* $outFolder/backup_$date2/$N");
-					system("/bin/mv $outFolder/* $outFolder/backup_$date2/");
+#					my $date2 = date();
+#					makedir("$outFolder/backup_$date2/");
+#					LOG($outLog, "\tmoving all in $outFolder into $outFolder/backup (with date=$date2)\n\t$YW/bin/mv $outFolder/* $outFolder/backup_$date2/$N");
+					system("/bin/rm $outFolder/*");# $outFolder/backup_$date2/");
 				}
 			}
 			makedir($outFolder) if not -d $outFolder;
 			LOG($outLog, "\t  Splitting $CY$readFile$N by 1000 sequences!\n\n####### SPLITRESULT LOG ########");	
 			my $splitresult = `SplitFastq.pl -i $readFile -o $outFolder -n 1000`;
+			LOG($outReadLog, "footLoop.pl,run_bismark,SplitFastq.pl -i $readFile -o $outFolder -n 1000\n");
+
 			LOG($outLog, "$splitresult\n");	
 			print "####### SPLITRESULT LOG #######\n\n\t  Running bismark in paralel!\n";
 			my $result = system("run_script_in_paralel2.pl -v \"srun -p high --mem 8000 bismark -o $outDir/.bismark_paralel/ $bismarkOpt $bismark_folder FILENAME >> FILENAME.bismark.log 2>&1\" $outFolder .part 20");
+			LOG($outReadLog, "footLoop.pl,run_bismark,\"run_script_in_paralel2.pl -v \\\"srun -p high --mem 8000 bismark -o $outDir/.bismark_paralel/ $bismarkOpt $bismark_folder FILENAME >> FILENAME.bismark.log 2>&1\\\" $outFolder .part 20");
 			my @partSam = <$outFolder/*.part_bismark*.sam>; my $totalPartSam = @partSam;
 			LOG($outLog, "\t  All part.sam has been made (total = $totalPartSam). Now making $CY$mysam$N and then removing the part sam\n");
+			my @HEADER; my @REPORT;
 			for (my $p = 0; $p < @partSam; $p++) {
 				my $partSam = $partSam[$p];
 				print "\t\tPutting $partSam into $mysam and removing it!\n";
 				system("cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >  $mysam") == 0 or die "Failed to cat $partSam: $!\n" if $p == 0;
 				system("cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >> $mysam") == 0 or die "Failed to cat $partSam: $!\n" if $p != 0;
-				print "\t- Removing $CY$partSam$N: /bin/rm $partSam\n";
-				system("/bin/rm $partSam") == 0 or die "Failed to /bin/rm $partSam: $!\n";
+				LOG($outReadLog, "footLoop.pl,run_bismark,cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >  $mysam") if $p == 0;
+				LOG($outReadLog, "footLoop.pl,run_bismark,cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >> $mysam") if $p != 0;
+				my ($bismark_report) = $partSam =~ /^(.+).sam/; $bismark_report .= "_SE_report.txt";
+				my ($header, $report) = parse_bismark_report($bismark_report);
+				my @header = @{$header};
+				my @report = @{$report};
+				@HEADER = @header if $p == 0;
+				for (my $q = 0; $q < @header; $q++) {
+					die "undefined $q header\n" if not defined $header[$q];
+					die if $header[$q] ne $HEADER[$q];
+					$REPORT[$q] += $report[$q] if $header[$q] !~ /^perc_/;
+					$REPORT[$q] += $report[0]*$report[$q] if $header[$q] =~ /^perc_/;
+				}
+#				print "\t- Removing $CY$partSam$N: /bin/rm $partSam\n";
+#				system("/bin/rm $partSam") == 0 or die "Failed to /bin/rm $partSam: $!\n";
 			}
+			for (my $q = 0; $q < @HEADER; $q++) {
+				$REPORT[$q] = int(100*$REPORT[$q]/$REPORT[0]+0.5)/100 if $HEADER[$q] =~ /^perc_/;
+			}
+			$MAP  = "footLoop.pl,map," . "header\tlabel\t" . join("\t", @HEADER) . "\tfootLoop_outDir\tuuid\n";
+		   $MAP .= "footLoop.pl,map," . "record\t$label\t" . join("\t", @REPORT) . "\t$outDir\t$uuid\n";
 		}
 		else {
+			LOG($outLog, "\t  bismark -o <outDir> $LCY$bismarkOpt$N <bismark_folder> <readFile> > <outDir/.bismark_log> 2>&1\n");
+			LOG($outReadLog, "footLoop.pl,bismark,bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1\n","NA");
 			my $result = system("bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1");
 
 			if ($result != 0) {
-				LOG($outLog, "\t${LRD}Bisulfte_Genome seems to be corrupted so re-running:\n\t${YW}-bismark_genome_preparation$N --bowtie2 $bismark_folder\n");
+				LOG($outLog, "\t\t${LRD}Bisulfte_Genome seems to be corrupted so re-running:\n\t${YW}-bismark_genome_preparation$N --bowtie2 $bismark_folder\n");
 				make_bismark_index($seqFile, $bismark_folder, $bismarkOpt, $outLog);
 				system("bismark_genome_preparation --bowtie2 $bismark_folder") == 0 or die "Failed to run bismark genome preparation: $!\n";
+				LOG($outReadLog, "footLoop.pl,bismark,bismark_genome_preparation --bowtie2 $bismark_folder","NA");
 				system("bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1") == 0 or die "$LRD!!!$N\tFailed to run bismark: $!\n";
+				LOG($outReadLog, "footLoop.pl,bismark,bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1");
 			}
 			LOG($outLog, "\t${GN}SUCCESS$N: Output $mysam\n");
+			my ($bismark_report) = "$mysam" =~ /^(.+).sam/; $bismark_report .= "_SE_report.txt";
+			my ($header, $report, $MAPTEMP) = parse_bismark_report($bismark_report);
+			$MAP = $MAPTEMP;
 		}
 	}
 	else {
+		print "A\n";
 		LOG($outLog, "\t${GN}SUCCESS$N: Output already exist: $CY$mysam$N\n");
+		my ($bismark_report) = "$mysam" =~ /^(.+).sam/; $bismark_report .= "_SE_report.txt";
+		my ($header, $report, $MAPTEMP) = parse_bismark_report($bismark_report);
+		$MAP = $MAPTEMP;
 	}
 	LOG($outLog, "${run_boolean}::: bismark $bismarkOpt $bismark_folder $readFile :::$N\n");
-	LOG($outLog, "!samFile=$outDir/$mysamFilename\n");
+
+	# print to $outReadLog
+	LOG($outReadLog, "footLoop.pl,samFile,$outDir/$mysamFilename\n","NA");
+	LOG($outReadLog, $MAP,"NA");
+
 	return("$outDir/$mysamFilename");
 }
+
+sub parse_bismark_report {
+	my ($bismark_report_file) = @_;
+	open (my $inz, "<", $bismark_report_file) or LOG($outLog, "Failed to read from $LCY$bismark_report_file$N: $!\n") and die;
+	my @report; my @header;
+	while (my $line = <$inz>) {
+		chomp($line);
+		if ($line =~ /^Sequences analysed in total:/) {
+			my ($num) = $line =~ /in total:[ \t]+(\d+)[ \t]*$/;
+			LOG($outLog, "footLoop.pl::parse_bismark_report failed to get total read from log $LCY$bismark_report_file$N!\n") if not defined $num;
+			push(@report, $num);
+			push(@header, "total_read");
+		}
+		if ($line =~ /^Mapping efficiency/) {
+			my ($num) = $line =~ /efficiency:[ \t]+(\d+\.?\d*)\%[ \t]*$/;
+			LOG($outLog, "footLoop.pl::parse_bismark_report failed to get Percent Mapping Efficiency from log $LCY$bismark_report_file$N!\n") if not defined $num;
+			push(@report, $num);
+			push(@header, "perc_mapped_read");
+		}
+		if ($line =~ /^Sequences which were discarded because genomic sequence could not be extracted/) {
+			my ($num) = $line =~ /extracted:[ \t]+(\d+\.?\d*)[ \t]*$/;
+			LOG($outLog, "footLoop.pl::parse_bismark_report failed to get Cannot Extract Chr from log $LCY$bismark_report_file$N!\n") if not defined $num;
+			push(@report, $num);
+			push(@header, "cannot_extract_chr");
+		}
+		if ($line =~ /^Total number of C's analysed:/) {
+			my ($num) = $line =~ /Total number of C's analysed:[ \t]+(\d+\.?\d*)[ \t]*$/;
+			LOG($outLog, "footLoop.pl::parse_bismark_report failed to get Total C analysed from log $LCY$bismark_report_file$N!\n") if not defined $num;
+			push(@report, $num);
+			push(@header, "total_C");
+		}
+		if ($line =~ /^C methylated in CpG context:/) {
+			my ($num) = $line =~ /C methylated in CpG context:[ \t]+(\d+\.?\d*)\%[ \t]*$/;
+			LOG($outLog, "footLoop.pl::parse_bismark_report failed to get Total methylated C in CpG from log $LCY$bismark_report_file$N!\n") if not defined $num;
+			push(@report, $num);
+			push(@header, "perc_meth_CpG");
+		}
+		if ($line =~ /^C methylated in CHG context:/) {
+			my ($num) = $line =~ /C methylated in CHG context:[ \t]+(\d+\.?\d*)\%[ \t]*$/;
+			LOG($outLog, "footLoop.pl::parse_bismark_report failed to get Total methylated C in CHG from log $LCY$bismark_report_file$N!\n") if not defined $num;
+			push(@report, $num);
+			push(@header, "perc_meth_CHG");
+		}
+		if ($line =~ /^C methylated in CHH context:/) {
+			my ($num) = $line =~ /C methylated in CHH context:[ \t]+(\d+\.?\d*)\%[ \t]*$/;
+			LOG($outLog, "footLoop.pl::parse_bismark_report failed to get Total methylated C in CHH from log $LCY$bismark_report_file$N!\n") if not defined $num;
+			push(@report, $num);
+			push(@header, "perc_meth_CHH");
+		}
+		if ($line =~ /^C methylated in Unknown context:/) {
+			my ($num) = $line =~ /C methylated in Unknown context:[ \t]+(\d+\.?\d*)\%[ \t]*$/;
+			LOG($outLog, "footLoop.pl::parse_bismark_report failed to get Total methylated C in Unknown from log $LCY$bismark_report_file$N!\n") if not defined $num;
+			push(@report, $num);
+			push(@header, "perc_meth_Unknown");
+		}
+	}
+#	print join("\t", @header) . "\n" . join("\t", @report) . "\n\n";
+	close $inz;
+	my $MAP  = "footLoop.pl,map," . "header\tlabel\t" . join("\t", @header) . "\tfootLoop_outDir\tuuid\n";
+	   $MAP .= "footLoop.pl,map," . "record\t$label\t" . join("\t", @report) . "\t$outDir\t$uuid\n";
+	return(\@header, \@report, $MAP);
+
+}
+
 
 sub get_geneIndex_fasta {
 	my ($geneIndexFile, $outDir, $logFile, $outLog) = @_;
 	my $geneIndexName = getFilename($geneIndexFile);
 	my $run_boolean = "\t${LGN}WAS NOT RUN$N:${YW} ";
 	my $geneIndexFileNew = "$outDir/$geneIndexName\_$bufferL\_$bufferR\_bp.bed";
-	LOG($outLog, "\ta. Transforming $LCY $geneIndexFile$N into$LCY $geneIndexFileNew$N\n");
+	LOG($outLog, "\n\ta. Transforming $LCY $geneIndexFile$N into$LCY $geneIndexFileNew$N\n");
 	if ($bufferL eq 0 and $bufferR eq 0) {
 		LOG($outLog, "$YW\t::: /bin/cp $geneIndexFile $geneIndexFileNew :::$N\n");
 		system("/bin/cp $geneIndexFile $geneIndexFileNew") == 0 or LOG($outLog, "\tfootLoop.pl::get_geneIndex_fasta: Failed to$YW /bin/cp $geneIndexFile $geneIndexFileNew$N: $!\n") and exit 1;
+		LOG($outLog, "\t${GN}SUCCESS$N: Created index file $LGN$geneIndexFileNew$N from $LCY$geneIndexFile$N\n");
 	}
 	else {
 		LOG($outLog, "$YW\t::: bedtools_bed_change.pl -m -x $bufferL -y $bufferR -i $geneIndexFile -o $geneIndexFileNew >> $logFile 2>&1 :::$N\n") == 0 or LOG($outLog, "Failed to get (beg $bufferL, end $bufferR) bp of $geneIndexFile!\n") and exit 1;
 		system("bedtools_bed_change.pl -m -x $bufferL -y $bufferR -i $geneIndexFile -o $geneIndexFileNew >> $logFile 2>&1") == 0 or LOG($outLog, "\tfootLoop.pl::get_geneIndex_fasta: Failed to$YW bedtools_bed_change.pl -m -x $bufferL -y $bufferR -i $geneIndexFile -o $geneIndexFileNew >> $logFile 2>&1$N\n: $!\n") and exit 1;
+		LOG($outLog, "\t${GN}SUCCESS$N: Created index file $LGN$geneIndexFileNew$N from bedtools bed change of $LCY$geneIndexFile$N\n");
 	}
 	return($geneIndexFileNew);
 }
 
 sub parse_geneIndexFile {
-	my ($geneIndexFile, $genomeFile, $outDir, $outLog, $minReadL) = @_;
+	my ($geneIndexFile, $genomeFile, $outDir, $minReadL, $outReadLog, $outLog) = @_;
 
 	$geneIndexFile = get_geneIndex_fasta($geneIndexFile, $outDir, $logFile, $outLog);
-	my $geneIndex;
+	LOG($outReadLog, "footLoop.pl,geneIndexFile,$geneIndexFile\n","NA");
+	my $geneIndex; my $linecount = 0;
 	open (my $geneIndexIn, "<", $geneIndexFile) or die "Cannot read from $geneIndexFile: $!\n";
+	LOG($outLog, "\t\t${GR}From geneIndexFile:$N\n");
 	while (my $line = <$geneIndexIn>) {
-		chomp($line);
+		chomp($line); $linecount ++;
 		my ($chr, $beg, $end, $gene) = split("\t", $line);
 		$gene = uc($gene);
-		LOG($outLog, "\tgeneIndexFile=$geneIndexFile,gene=$gene,beg=$beg,end=$end\n");
+		LOG($outLog, "\t\t$GR$linecount: gene=$gene,beg=$beg,end=$end,length=" . ($end-$beg) . "$N\n");
 		$geneIndex->{$gene} = $beg;
 	}
 	close $geneIndexIn;
+	LOG($outLog, "\t${GN}SUCCESS$N: Parsed gene coordinates from index file $LGN$geneIndexFile$N\n");
+
 	my $geneIndexName = getFilename($geneIndexFile, "full");
 	my $geneIndexFaTemp = $outDir . "/.geneIndex/$geneIndexName.fa";
 	makedir($geneIndexFaTemp, 1);
@@ -769,17 +905,21 @@ sub parse_geneIndexFile {
 	LOG($outLog, "\nERROR: geneIndexHash is not defined!\n") and exit 1 if not defined $geneIndex;
 	LOG($outLog, "\nERROR: geneIndexFa is not defined!\n")   and exit 1 if not defined $geneIndexFa;
 	my $SEQ = parse_fasta($geneIndexFa, $outLog, $minReadL);
-	LOG($outLog, "!seqFile=$geneIndexFa\n");
+	LOG($outReadLog, "footLoop.pl,-g,$genomeFile\n","NA");
+	LOG($outReadLog, "footLoop.pl,seqFile,$geneIndexFa\n","NA");
 	return ($SEQ, $geneIndex, $geneIndexFa, "$outDir/.geneIndex/$geneIndexFaMD5/");
 	#my ($SEQ, $geneIndexHash, $seqFile, $bismark_folder) = parse_geneIndexFile($geneIndexFile, $outDir, $outLog, $seqFile, $minReadL);
 }
 
 sub parse_fasta {
 	my ($seqFile, $outLog, $minReadL) = @_;
-	LOG($outLog, "\tc. Parsing in gene sequence and infos from seqFile=$CY$seqFile$N\n");
+	LOG($outLog, "\n\tc. Parsing in gene sequence and infos from seqFile=$CY$seqFile$N\n");
 	open(my $SEQIN, "<", $seqFile) or die "\n$LRD!!!$N\tFATAL ERROR: Could not open $CY$seqFile$N: $!";
 	my $fasta = new FAlite($SEQIN);
+	my $linecount = 0;
+	LOG($outLog, "\t\t${GR}From fasta file:$N\n");
 	while (my $entry = $fasta->nextEntry()) {
+		$linecount ++;
 		my $def = $entry->def; $def =~ s/^>//;
 		my $gene = uc($def);
 		my $seqz = uc($entry->seq);
@@ -793,7 +933,7 @@ sub parse_fasta {
 		$SEQ->{$gene}{pos}       = 0;
 		$SEQ->{$gene}{neg}       = 0;
 		$SEQ->{$gene}{orig}      = $def;
-		LOG($outLog, "\t\tgene=$gene length=$SEQ->{$gene}{geneL}\n");
+		LOG($outLog, "\t\t$GR$linecount:gene=$gene,length=$SEQ->{$gene}{geneL}$N\n");
 	}
 	close $SEQIN;
 	LOG($outLog, "\t${GN}SUCCESS$N: Sequence has been parsed from fasta file $CY$seqFile$N\n");
@@ -820,7 +960,7 @@ sub uppercaseFasta {
 #=SUB convert_seq {
 
 sub sanityCheck {
-
+	print "\n\nUse -Z if you're running invitro plasmid data!\n\n";
 	my ($opts) = @_;
 
 	my ($usageshort, $usage, $usagelong) = getUsage();
@@ -842,21 +982,23 @@ sub sanityCheck {
 	die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -g <ref_genome.fa [hg19.fa]> not defined\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not defined($opt_g);
 	die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -i $opt_i DOES NOT EXIST\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not -e ($opt_i);
 	die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -g $opt_g DOES NOT EXIST\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not -e ($opt_g);
-
 	if (not -d "$footLoopDir/.sortTMP/") {
 		system("mkdir $footLoopDir/.sortTMP/") == 0 or die "Failed to make directory $footLoopDir/.sortTMP/: $!\n";
 	}
 }
 
 sub record_options {
-	my ($opts, $opts2, $outLog) = @_;
+	my ($opts, $opts2, $outReadLog, $outLog) = @_;
 	my $optPrint = "$0";
 	foreach my $opt (sort keys %{$opts}) {
 		if (defined $opts->{$opt} and $opts->{$opt} eq "NONE") {
 			$optPrint .= " -$opt" if defined $opts2->{$opt};
+			LOG($outReadLog, "footLoop.pl,-$opt,\$TRUE\n","NA") if defined $opts2->{$opt};
+			LOG($outReadLog, "footLoop.pl,-$opt,\$FALSE\n","NA") if not defined $opts2->{$opt};
 		}
 		elsif (defined $opts->{$opt} and $opts->{$opt} ne "NONE") {
 			$optPrint .= " -$opt $opts->{$opt}";
+			LOG($outReadLog, "footLoop.pl,-$opt,$opts->{$opt}\n","NA");
 		}
 	}
 	my  $param = "
@@ -884,7 +1026,7 @@ sub check_if_result_exist {
 	return if not defined $resFiles;
 	my @resFiles = @{$resFiles};	
 	return if @resFiles == 0;
-	if (defined $opt_n and -d $opt_n and not defined $opt_f) {
+	if (defined $opt_n and -d $opt_n and not defined $opt_F) {
 		if (@{$resFiles} != 0) {
 			my $resFileCheck = 0;
 			foreach my $resFile (@{$resFiles}) {
@@ -1373,3 +1515,31 @@ sub convert_seq {
 		}
 	}
 	return(\%box);
+
+
+__END__
+		if ($line =~ /^Total methylated C's in CpG context:/) {
+			my ($num) = $line =~ /Total methylated C's in CpG context:[ \t]+(\d+\.?\d*)\%[ \t]*$/;
+			LOG($outLog, "footLoop.pl::parse_bismark_report failed to get Total methylated C in CpG from log $LCY$bismark_report_file$N!\n") if not defined $num;
+			push(@report, $num);
+			push(@header, "meth_CpG");
+		}
+		if ($line =~ /^Total methylated C's in CHG context:/) {
+			my ($num) = $line =~ /Total methylated C's in CHG context:[ \t]+(\d+\.?\d*)\%[ \t]*$/;
+			LOG($outLog, "footLoop.pl::parse_bismark_report failed to get Total methylated C in CHG from log $LCY$bismark_report_file$N!\n") if not defined $num;
+			push(@report, $num);
+			push(@header, "meth_CHG");
+		}
+		if ($line =~ /^Total methylated C's in CHH context:/) {
+			my ($num) = $line =~ /Total methylated C's in CHH context:[ \t]+(\d+\.?\d*)\%[ \t]*$/;
+			LOG($outLog, "footLoop.pl::parse_bismark_report failed to get Total methylated C in CHH from log $LCY$bismark_report_file$N!\n") if not defined $num;
+			push(@report, $num);
+			push(@header, "meth_CHH");
+		}
+		if ($line =~ /^Total methylated C's in Unknown context:/) {
+			my ($num) = $line =~ /Total methylated C's in Unknown context:[ \t]+(\d+\.?\d*)\%[ \t]*$/;
+			LOG($outLog, "footLoop.pl::parse_bismark_report failed to get Total methylated C in Unknown from log $LCY$bismark_report_file$N!\n") if not defined $num;
+			push(@report, $num);
+			push(@header, "meth_Unknown");
+		}
+

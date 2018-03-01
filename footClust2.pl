@@ -120,6 +120,7 @@ foreach my $gene (sort keys %{$data{file}}) {
 		my $bedFile   = $folder . "/" . $cluster_file . ".bed";
 		die "Fasta does not exist! ($fasta)\n" if not -e $fasta or -s $fasta == 0;
 		die "Bed does not exist! ($bedFile)\n" if not -e $bedFile or -s $bedFile == 0;
+		print "parsing bed of gene $gene bedFile $bedFile, fasta=$fasta\n";
 		my ($BED) = parse_bed($bedFile, $fa{$gene});
 		$BED = parse_fasta($BED, $fasta);
 		$BED = shuffle_orig($BED);
@@ -165,6 +166,7 @@ foreach my $gene (sort keys %{$data{file}}) {
 			}
 			print $out2 "\n";
 		}
+		print "Done\n";
 	}
 }
 
@@ -196,8 +198,9 @@ sub parse_bed {
 		my ($ref1) = $ref =~ /^(.{$beg})/;
 		my $lenref = length($ref) - $end;
 		my ($ref2) = $ref =~ /(.{$lenref})$/;
+		print "gene $gene beg=$beg, end=$end, length = " . length($ref) . ", lenref= $lenref\n";
 		$ref1 = "" if not defined $ref1;
-		$ref2 = "" if not defined $ref2;
+		$ref2 = "" if $lenref < 1 or not defined $ref2;
 		$ref1 .= "N$ref2";
 		if ($strand eq "-" or $strand eq "Neg") {
 			$ref1 = revcomp($ref1);
@@ -218,6 +221,8 @@ sub shuffle_orig {
 		my $ref = $BED->{$coor}{'1h_ref'};
 		my $lenseq = $BED->{$coor}{'2a_len'}{orig};
 		die "coor = $coor\n" if not defined $lenseq;
+		die "Undefined ref of gene $coor and lenref\n" if not defined $ref;
+
 		$BED->{$coor} = shuffle_fasta($BED->{$coor}, $ref, $lenseq, 1000);
 	}
 	return $BED;
@@ -288,7 +293,7 @@ sub parse_fasta {
 	while (my $entry = $fasta->nextEntry()) {
 		my $def = $entry->def; $def =~ s/^>//;
 		my $seq = $entry->seq;
-		next if length($seq) == 0;
+		next if length($seq) < 10;
 		$bed->{$def} = calculate_gcprofile($bed->{$def}, $seq, 2, "orig");
 #		print "def=$def lenseq=$bed->{$def}{'2a_len'}{orig}\n";
 	}
