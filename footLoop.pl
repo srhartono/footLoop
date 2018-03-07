@@ -2,9 +2,10 @@
 # Version 160831_Fixed_PrintOutput at the same file (step 8)
 use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
 #use Getopt::Std::WithCheck;
-use vars   qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f $opt_l);
+use vars   qw($opt_v $opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f $opt_l);
 my @opts = qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_l);
-getopts("r:g:i:n:L:x:y:q:HhZFpl:");
+
+getopts("vr:g:i:n:L:x:y:q:HhZFpl:");
 BEGIN {
 	my ($bedtools) = `bedtools --version`;
 	my ($bowtie2) = `bowtie2 --version`;
@@ -39,6 +40,21 @@ use myFootLib; use FAlite;
 my $homedir = $ENV{"HOME"};
 my $footLoopDir = dirname(dirname abs_path $0) . "/footLoop";
 ($opt_r, $opt_i, $opt_n, $opt_g, $opt_x, $opt_y) = run_example() if @ARGV and $ARGV[0] eq "ex";
+
+if (defined $opt_v) {
+	my @version = `cd $footLoopDir && git log | head `;
+	my $version = "UNKNOWN";
+	foreach my $line (@version[0..@version-1]) {
+		if ($line =~ /^\s+V\d+\.?\d*\w*\s*/) {
+			($version) = $line =~ /^\s+(V\d+\.?\d*\w*)\s*/;
+		}
+	}
+	if (not defined $version or (defined $version and $version eq "UNKNOWN")) {
+		($version) = `cd $footLoopDir && git log | head -n 1`;
+	}
+	print "\n\n$YW$0 $LGN$version$N\n\n";
+	exit;
+}
 
 ###################
 # 0. Check Sanity #
