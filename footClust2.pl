@@ -121,7 +121,7 @@ foreach my $gene (sort keys %{$data{file}}) {
 		die "Fasta does not exist! ($fasta)\n" if not -e $fasta or -s $fasta == 0;
 		die "Bed does not exist! ($bedFile)\n" if not -e $bedFile or -s $bedFile == 0;
 		print "parsing bed of gene $gene bedFile $bedFile, fasta=$fasta\n";
-		my ($BED) = parse_bed($bedFile, $fa{$gene});
+		my ($BED) = parse_bed($bedFile, $fa{$gene}, $outLog);
 		$BED = parse_fasta($BED, $fasta);
 		$BED = shuffle_orig($BED);
 		my %bed = %{$BED};
@@ -172,14 +172,16 @@ foreach my $gene (sort keys %{$data{file}}) {
 
 
 sub parse_bed {
-	my ($bedFile, $ref) = @_;
+	my ($bedFile, $ref, $outLog) = @_;
 	my %bed;
+	my $linecount = 0;
 	open (my $in, "<", $bedFile) or die;
 	while (my $line = <$in>) {
 		chomp($line);
 		next if ($line =~ /^#/);
 		my ($gene, $beg, $end, $cluster, $total_peak, $strand) = split("\t", $line);
 		next if $end - $beg < 10;
+		$linecount ++;
 		my $coor = "$gene:$beg-$end($strand)";
 		my ($CLUST, $POS) = $cluster =~ /^(\d+)\.(.+)$/;
 		if ($strand eq "-") {
@@ -198,7 +200,7 @@ sub parse_bed {
 		my ($ref1) = $ref =~ /^(.{$beg})/;
 		my $lenref = length($ref) - $end;
 		my ($ref2) = $ref =~ /(.{$lenref})$/;
-		print "gene $gene beg=$beg, end=$end, length = " . length($ref) . ", lenref= $lenref\n";
+		LOG($outLog, "\t$LGN$linecount$N: gene $LCY$gene$N beg=$LCY$beg$N, end=$LCY$end$N, length = " . length($ref) . ", lenref= $LCY$lenref$N\n") if $linecount < 10;
 		$ref1 = "" if not defined $ref1;
 		$ref2 = "" if $lenref < 1 or not defined $ref2;
 		$ref1 .= "N$ref2";
@@ -367,7 +369,7 @@ foreach my $input1 (sort @local_peak_files) {
 	my ($fullName1) = getFilename($input1, "full");
 
 	# get gene and strand from file name
-	my ($gene, $strand, $window, $thres, $type) = $fileName1 =~ /^(.+)\_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(GH|GC|CG|CH).PEAK/;
+	my ($label, $gene, $strand, $window, $thres, $type) = $fileName1 =~ /^(.+)_gene(.+)\_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(GH|GC|CG|CH).PEAK/;
 	LOG($outLog, date() . "Cannot parse gene name from file=$LCY$input1$N\n") unless defined $gene and defined $strand and defined $window and defined $thres and defined $type;
 	$thres *= 100 if $thres < 1;
 	$gene   = uc($gene);

@@ -15,6 +15,7 @@ sub main {
 	# From footPeak.pl: 
 	# (($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ));
 	my ($input1, $faFile, $mygene, $minDis, $resDir, $minLen, $SEQ) = @_;
+#	my ($label) = `cat $resDir/.LABEL`; chomp($label);
 	my @foldershort = split("\/", $resDir);
 	my $foldershort = pop(@foldershort);
 	print date() . "\nusage: $YW$0$N [-c to use cpg] $CY<CALM3_Pos_20_0.65_CG.PEAK>$N $CY<location with lots of C>$N\n\n" and exit 1 unless @_ == 7;
@@ -32,9 +33,9 @@ sub main {
 	my @coor = split("\t", $SEQ->{$mygene}{coor});
 	my (%pk, %Rscripts, %files);
 	my $total = make_total_hash();
-	my ($gene, $strand, $window, $thres, $type, $isPeak) = $fileName =~ /^(\w+)_(Unk|Pos|Neg)_(\d+)_(\d+\.?\d*)_(\w+)\.(PEAK|NOPK)$/;
+	my ($label, $gene, $strand, $window, $thres, $type, $isPeak) = $fileName =~ /^(.+)_gene(.+)_(Unk|Pos|Neg)_(\d+)_(\d+\.?\d*)_(\w+)\.(PEAK|NOPK)$/;
 	if (defined $mygene) {
-		LOG($outLog, date() . "footPeak.pl mygene=$mygene, input genez=$gene are not the same!\n") and exit 1 if uc($mygene) ne uc($gene);;
+		LOG($outLog, date() . "footPeak.pl filename=$LCY$fileName$N, mygene=$mygene, input genez=$gene are not the same!\n") and return -1 if uc($mygene) ne uc($gene);;
 	} else {$mygene = $gene;}
 	
 	my $bad = find_lots_of_C($faFile, $mygene, $outLog) if defined $faFile;
@@ -44,13 +45,13 @@ sub main {
 	my @types = qw(CH CG GH GC);
 	for (my $h = 0; $h < 4; $h++) {
 		my $type = $types[$h];
-		my $peakFile   = "$resDir/.CALL/$mygene\_$strand\_$window\_$thres\_$type.PEAK";
-		my $nopkFile   = "$resDir/.CALL/$mygene\_$strand\_$window\_$thres\_$type.NOPK";
+		my $peakFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.PEAK";
+		my $nopkFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.NOPK";
 		$files{$peakFile} = 1;
 		LOG($outLog, date . "h=$LGN$h\t$YW$peakFile\t$LCY$nopkFile\n$N");
 	
-		my ($folder1, $peakfileName) = getFilename($peakFile, "folder");
-		my ($folder2, $nopkfileName) = getFilename($nopkFile, "folder");
+		my ($folder1, $peakfileName) = getFilename($peakFile, "folderfull");
+		my ($folder2, $nopkfileName) = getFilename($nopkFile, "folderfull");
 
 		my $data;
 		my ($linecount, $totalpeak, $totalnopk, $totalline) = (0,0,0,0);
@@ -152,7 +153,7 @@ sub main {
 		close $outRPEAKS;
 	}
 	
-	open (my $outLGENE, ">", "$resDir/.0_RESULTS\_$mygene\_$strand\_$window\_$thres.TXT");
+	open (my $outLGENE, ">", "$resDir/.0_RESULTS\_$label\_gene$mygene\_$strand\_$window\_$thres.TXT");
 	for (my $h = 0; $h < 4; $h++) {
 		my $type = $types[$h];
 		my $totalPeak = $total->{$type}{peak};
@@ -167,7 +168,7 @@ sub main {
 		print $outLGENE "$foldershort\t$peakFile\t$mygene\t$type\t$total->{$type}{total}\t$totalPeak\t$total->{$type}{peak}\n";
 	}
 	close $outLGENE;
-	system("cat $resDir/.0_RESULTS\_$mygene\_$strand\_$window\_$thres.TXT");
+	system("cat $resDir/.0_RESULTS\_$label\_gene$mygene\_$strand\_$window\_$thres.TXT");
 	#my ($sampleName) = $folder =~ /\/?\d+_(m\d+_\d+)_\d+_\w+/;
 	my ($sampleName) = $folder =~ /^.+(PCB\d\d\d)/;
 	if ($folder =~ /debarcode/) {
@@ -219,8 +220,8 @@ sub main {
 			print "$p. Currfile = $currFile\n";
 			my ($currFolder, $currFilename) = getFilename($currFile, "folderfull");
 			#$currFilename =~ s/\.0_orig_//i;
-			my $pngout = "$resDir/PNG/$sampleName\_$currFilename.png";
-			my $pdfout = "$resDir/PDF/$sampleName\_$currFilename.pdf";
+			my $pngout = "$resDir/PNG/$currFilename.png";
+			my $pdfout = "$resDir/PDF/$currFilename.pdf";
 			next if not -e $currFile;
 			next if linecount($currFile) <= 1;
 			my $Rscript = ".libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\", \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\", .libPaths()) )\nlibrary(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(gridExtra)\nlibrary(RColorBrewer)\n";
@@ -234,7 +235,14 @@ sub main {
 					mysum = apply(df[,-1],1,sum)
 					df = df[order(mysum),]
 				}
-				df\$id = gsub(\"^.+/([0-9]+)/ccs.\*\$\", \"\\\\1\", df\$V1, perl=T)
+				
+				if (length(grep(\"ccs\",df\$V1)) > 0) {
+					df\$id = gsub(\"^.+/([0-9]+)/ccs.\*\$\", \"\\\\1\", df\$V1, perl=T)
+				} else if (length(grep(\"\\\\.[0-9]+\$\",df\$V1)) > 0) {
+					df\$id = gsub(\"^.+\\\\.([0-9]+)\$\", \"\\\\1\", df\$V1, perl=T)
+				} else {
+					df\$id = df\$V1
+				}
 			";
 			# cluster
 			if (-e $curr_cluster_file and -s $curr_cluster_file > 0) {

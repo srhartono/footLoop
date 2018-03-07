@@ -47,6 +47,16 @@ my $minDis 			= $opts->{k};
 my $outDir 			= $opts->{n};
 my $Kmerz			= $opts->{K};
 my $resDir        = $opts->{o};
+
+# naming
+if ($resDir =~ /PCB\d+/) {
+	($label) = $resDir =~ /(PCB\d+)/;
+}
+if ($resDir =~ /_BC\d+_PFC\d+_\w+\./) {
+	my ($label2) = $resDir =~ /_(BC\w+)\./;
+	$label = "$label\_$label2";
+}
+system("echo $label > $resDir/.LABEL");
 system("/bin/cp $seqFile $resDir");
 LOG($outLog, "seqFile=$seqFile\n");
 makedir("$resDir/.CALL") if not -d "$resDir/.CALL";
@@ -93,7 +103,8 @@ for (my $i = 0; $i < @origFile; $i++) {
 ##
 	my ($peakFolder, $peakFilename) = getFilename($peakFile, "folder");
 	$peakFilename =~ s/.orig$//;
-	my ($gene, $strand) = $peakFilename =~ /^(\w+)_(Pos|Neg|Unk)$/; $gene = uc($gene);
+	$peakFilename = "$label\_gene$peakFilename";
+	my ($gene, $strand) = $peakFilename =~ /^$label\_gene(.+)_(Pos|Neg|Unk)$/; $gene = uc($gene);
 	my ($totalPeak, $linecount, $peakcount, $total, %data, %end, %bad, %final, %group) = (0,0,0, scalar(@{$SEQ->{$gene}{seq}}));
 	print "FILENAME=$peakFilename, GENE=$gene\n";
 	LOG($outLog, "Died cannot get gene from peakfile $peakFile\n") and die unless defined $gene;
@@ -213,7 +224,8 @@ for (my $i = 0; $i < @origFile; $i++) {
 	}
 	LOG($outLog, "\n\n" . date() . "\n\n");
 	my $peakFilez = "$resDir/.CALL/$peakFilename\_$window\_$threshold\_CG.PEAK";
-	footPeakAddon::main(($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ));
+	my $footPeakres = footPeakAddon::main(($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ));
+	die "Failed footpeak\n" if defined $footPeakres and $footPeakres eq -1;
 }
 system("/bin/cp $opts->{origDir}/footPeak_logFile.txt $resDir/");
 #COMMENTCUT
@@ -881,7 +893,7 @@ sub parse_indexFile_and_seqFile {
 		LOG($outLog, "\tdef=$def, coor=$chr, $beg, $end, $def, $zero, $strand\n");
 	}
 
-	open (my $in, "<", $seqFile) or die;
+	open (my $in, "<", $seqFile) or DIELOG($outLog, "Failed to read from $LCY$seqFile$N: $!\n");
 	my $fasta = new FAlite($in);
 	while (my $entry = $fasta->nextEntry()) {
 		my $def = $entry->def; $def =~ s/^>//; $def = uc($def);
@@ -1160,8 +1172,8 @@ __END__
 #=cut
 #=comment
 	exit 0;
-open (my $outLen, ">", "$outDir/$peakFilename.len") or die "Cannot write to $outDir/$peakFilename.len: $!\n";
-open (my $outOriginal, ">", "$outDir/$peakFilename.original") or die "Cannot write to $outDir/$peakFilename.original: $!\n";
+open (my $outLen, ">", "$outDir/$label\_$peakFilename.len") or die "Cannot write to $outDir/$peakFilename.len: $!\n";
+open (my $outOriginal, ">", "$outDir/$label\_$peakFilename.original") or die "Cannot write to $outDir/$peakFilename.original: $!\n";
 #my $strand = $peakFile =~ /Pos/i ? "pos" : $peakFile =~ /Neg/i ? "neg" : die "Cannot determine strand for file $peakFile\n";
 open (my $outz, ">", "$outDir/$gene.group") or die "Cannot write to $outDir/$gene.group: $!\n";
 my %kmer;

@@ -89,7 +89,7 @@ foreach my $input1 (sort @local_peak_files) {
 	my ($fullName1) = getFilename($input1, "full");
 
 	# get gene and strand from file name
-	my ($gene, $strand, $window, $thres, $type) = $fileName1 =~ /^(.+)\_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(GH|GC|CG|CH).PEAK/;
+	my ($label, $gene, $strand, $window, $thres, $type) = $fileName1 =~ /^(.+)\_gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(GH|GC|CG|CH).PEAK/;
 	LOG($outLog, date() . "Cannot parse gene name from file=$LCY$input1$N\n") unless defined $gene and defined $strand and defined $window and defined $thres and defined $type;
 	$thres *= 100 if $thres < 1;
 	$gene   = uc($gene);
@@ -115,6 +115,7 @@ foreach my $input1 (sort @local_peak_files) {
 		$linecount ++;
 		my ($read, $beg, $end) = split("\t", $line);
 		my ($num) = $read =~ /^.+\/(\d+)\/ccs/; 
+			($num) = $read =~ /\.(\d+)$/ if not defined $num;
 		LOG($outLog, date() . "$LRD\tERROR$N:$LCY Read must end in this format$N: <anything>/<hole number>/ccs\n\n$read\n\n") and die if not defined $num;
 		my $check = 0;
 		$total_peak_all ++;
@@ -250,7 +251,19 @@ foreach my $input1 (sort @local_peak_files) {
 		print $out2 "$gene\t$beg2\t$end2\t$clust.END\t$total\t$strand\n";
 	}
 	close $out2;
-	system("fastaFromBed -fi $faFile -bed $outDir/.TEMP/$fullName1.clust.bed -fo $outDir/.TEMP/$fullName1.clust.fa -s");
+	open (my $faIn2, "<", $faFile) or die;
+	open (my $faOut, ">", "$faFile.footClustfastafile") or die;
+	my $fasta2 = new FAlite($faIn2);
+	while (my $entry = $fasta2->nextEntry()) {
+		my $def = uc($entry->def);
+		my $seq = $entry->seq;
+		print $faOut "$def\n$seq\n";
+	}
+	close $faIn2;
+	close $faOut;
+	system("/bin/rm $faFile.footClustfastafile.fai") if -e "$faFile.footClustfastafile.fai";
+	LOG($outLog, "$YW ::: fastaFromBed -fi $faFile.footClustfastafile -bed $outDir/.TEMP/$fullName1.clust.bed -fo $outDir/.TEMP/$fullName1.clust.fa -s ::: $N\n");
+	system("fastaFromBed -fi $faFile.footClustfastafile -bed $outDir/.TEMP/$fullName1.clust.bed -fo $outDir/.TEMP/$fullName1.clust.fa -s");
 
 	LOG($outLog, date() . "$LCY\tAnalyzing Sequence Content from$N $outDir/.TEMP/$fullName1.clust.fa\n");
 	open (my $faIn, "$outDir/.TEMP/$fullName1.clust.fa") or DIELOG($outLog, "Failed to read from $outDir/.TEMP/$fullName1.clust.fa: $!\n");
