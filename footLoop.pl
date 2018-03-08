@@ -41,17 +41,17 @@ my $homedir = $ENV{"HOME"};
 my $footLoopDir = dirname(dirname abs_path $0) . "/footLoop";
 ($opt_r, $opt_i, $opt_n, $opt_g, $opt_x, $opt_y) = run_example() if @ARGV and $ARGV[0] eq "ex";
 
+my @version = `cd $footLoopDir && git log | head `;
+my $version = "UNKNOWN";
+foreach my $line (@version[0..@version-1]) {
+	if ($line =~ /^\s+V\d+\.?\d*\w*\s*/) {
+		($version) = $line =~ /^\s+(V\d+\.?\d*\w*)\s*/;
+	}
+}
+if (not defined $version or (defined $version and $version eq "UNKNOWN")) {
+	($version) = `cd $footLoopDir && git log | head -n 1`;
+}
 if (defined $opt_v) {
-	my @version = `cd $footLoopDir && git log | head `;
-	my $version = "UNKNOWN";
-	foreach my $line (@version[0..@version-1]) {
-		if ($line =~ /^\s+V\d+\.?\d*\w*\s*/) {
-			($version) = $line =~ /^\s+(V\d+\.?\d*\w*)\s*/;
-		}
-	}
-	if (not defined $version or (defined $version and $version eq "UNKNOWN")) {
-		($version) = `cd $footLoopDir && git log | head -n 1`;
-	}
 	print "\n\n$YW$0 $LGN$version$N\n\n";
 	exit;
 }
@@ -104,8 +104,7 @@ LOG($outReadLog, "footLoop.pl,uuid,$uuid\n");
 LOG($outReadLog, "footLoop.pl,date,$date\n");
 # Record all options
 
-record_options(\%OPTS, \%OPTS2, $outReadLog, $outLog);
-
+record_options(\%OPTS, \%OPTS2, $outReadLog, $version, $outLog);
 
 #######################################
 # 1. Preprocess Index and Fasta Files #
@@ -1004,7 +1003,7 @@ sub sanityCheck {
 }
 
 sub record_options {
-	my ($opts, $opts2, $outReadLog, $outLog) = @_;
+	my ($opts, $opts2, $outReadLog, $version, $outLog) = @_;
 	my $optPrint = "$0";
 	foreach my $opt (sort keys %{$opts}) {
 		if (defined $opts->{$opt} and $opts->{$opt} eq "NONE") {
@@ -1019,7 +1018,8 @@ sub record_options {
 	}
 	my  $param = "
 ${YW}Initializing...$N
-	
+
+Version    : $version
 Date       : $date
 Run ID     : $uuid
 Run script : $optPrint

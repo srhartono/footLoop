@@ -22,6 +22,22 @@ BEGIN {
 use myFootLib; use FAlite; use footPeakAddon;
 use feature 'say';
 
+my $homedir = $ENV{"HOME"};
+my $footLoopDir = dirname(dirname abs_path $0) . "/footLoop";
+my @version = `cd $footLoopDir && git log | head `;
+my $version = "UNKNOWN";
+foreach my $line (@version[0..@version-1]) {
+   if ($line =~ /^\s+V\d+\.?\d*\w*\s*/) {
+      ($version) = $line =~ /^\s+(V\d+\.?\d*\w*)\s*/;
+   }
+}
+if (not defined $version or (defined $version and $version eq "UNKNOWN")) {
+   ($version) = `cd $footLoopDir && git log | head -n 1`;
+}
+if (defined $opt_v) {
+   print "\n\n$YW$0 $LGN$version$N\n\n";
+   exit;
+}
 my $date = getDate();
 my $uuid = getuuid();
 my $genewant = "NONE";# = "CALM3.m160130_030742_42145_c100934342550000001823210305251633_s1_p0/101566/ccs";
@@ -30,8 +46,7 @@ my ($footFolder) = $opt_n;
 my ($usage) = check_sanity($footFolder);
 my $logFile = "$footFolder/logFile.txt";
 
-my ($opts, $outLog) = parse_footLoop_logFile($logFile, $date, $uuid, $footFolder);
-
+my ($opts, $outLog) = parse_footLoop_logFile($logFile, $date, $uuid, $footFolder, $version);
 my $label         = $opts->{label};
 my $seqFile       = $opts->{seqFile};
 my $indexFile		= $opts->{geneIndexFile};
@@ -545,7 +560,7 @@ sub kmer {
 	return(\%kmer);
 }
 sub record_options {
-   my ($defOpts, $usrOpts, $usrOpts2, $other, $outLog, $logFile, $date, $uuid) = @_;
+   my ($defOpts, $usrOpts, $usrOpts2, $other, $outLog, $logFile, $date, $uuid, $version) = @_;
    my $optPrint = "$0";
 	my $optShort = "$0";
    foreach my $opt (sort keys %{$defOpts}) {
@@ -558,7 +573,7 @@ sub record_options {
 
 $YW<-----------------------------------------------$N
 ${YW}Initializing...$N
-   
+>footPeak.pl version : $version   
 >Run Params
 Date                : $date
 Run ID              : $uuid
@@ -597,7 +612,7 @@ footLoop samFixedMD5 : $defOpts->{samFixedMD5}
 }
 
 sub parse_footLoop_logFile {
-	my ($logFile, $date, $uuid, $footFolder) = @_;
+	my ($logFile, $date, $uuid, $footFolder, $version) = @_;
 	my @line = `cat $logFile`;
 	my $paramsFile = "$footFolder/.PARAMS";
 	my ($defOpts, $usrOpts, $usrOpts2) = set_default_opts();
@@ -686,7 +701,7 @@ sub parse_footLoop_logFile {
 			($defOpts->{$param}) = $value if $param ne "n";
 		}
 	}
-	record_options($defOpts, $usrOpts, $usrOpts2, $other, $outLog, $logFile, $date, $uuid);
+	record_options($defOpts, $usrOpts, $usrOpts2, $other, $outLog, $logFile, $date, $uuid, $version);
 	$defOpts->{o} = $defOpts->{n} if not defined $opt_o;
 	makedir($defOpts->{o}) if not -d $defOpts->{o};
 #	print "Output = $defOpts->{o}\n";
