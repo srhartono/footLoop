@@ -49,12 +49,16 @@ my $Kmerz			= $opts->{K};
 my $resDir        = $opts->{o};
 
 # naming
-if ($resDir =~ /PCB\d+/) {
-	($label) = $resDir =~ /(PCB\d+)/;
+if ($resDir =~ /PCB_?\d+/i) {
+	($label) = $resDir =~ /(PCB_?\d+)/i;
+	$label = uc($label);
+	$label =~ s/PCB_/PCB/g;
 }
-if ($resDir =~ /_BC\d+_PFC\d+_\w+\./) {
-	my ($label2) = $resDir =~ /_(BC\w+)\./;
+if ($resDir =~ /_BC\d+_PFC\d+_\w+\./i) {
+	my ($label2) = $resDir =~ /_(BC\w+)\./i;
 	$label = "$label\_$label2";
+	$label = uc($label);
+	$label =~ s/PCB_/PCB/g;
 }
 system("echo $label > $resDir/.LABEL");
 system("/bin/cp $seqFile $resDir");

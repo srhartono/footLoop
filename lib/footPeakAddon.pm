@@ -170,7 +170,7 @@ sub main {
 	close $outLGENE;
 	system("cat $resDir/.0_RESULTS\_$label\_gene$mygene\_$strand\_$window\_$thres.TXT");
 	#my ($sampleName) = $folder =~ /\/?\d+_(m\d+_\d+)_\d+_\w+/;
-	my ($sampleName) = $folder =~ /^.+(PCB\d\d\d)/;
+	my ($sampleName) = $folder =~ /^.+(PCB_?\d\d\d)/;
 	if ($folder =~ /debarcode/) {
 		my ($temp) = $folder =~ /_ccs_(\w+)/;
 		$sampleName = $sampleName . "_$temp";
