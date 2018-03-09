@@ -84,10 +84,30 @@ my $samFile	   = ($readFile =~ /.f(ast)?q(.gz)?$/) ? $outDir .  "/$readName\_bis
 my $uuid       = getuuid();
 my $date       = getDate();
 my $origDir    = $outDir . "/.0_Orig";
-my ($label)    = defined $opt_l ? $opt_l : $origDir =~ /PCB\d+/i ? $origDir =~ /(PCB\d+)/i : $outDir;
-	$label =~ s/[\/\.\-]/_/g if ($label eq $outDir);
-	$label = uc($label) if $label =~ /PCB/i;
-	$label =~ s/PCB0+([1-9])/PCB$1/ if $label =~ /PCB0+[1-9]/;
+my ($label)    = defined $opt_l ? $opt_l : $origDir =~ /PCB[\-_0]*\d+/i ? $origDir =~ /(PCB[\-_0]*\d+)/i : $outDir;
+if ($outDir =~ /PCB\d+/i) {
+   ($label) = $outDir =~ /(PCB\d+)/i;
+   $label = uc($label);
+   $label =~ s/PCB0(\d+)/PCB$1/ if $label =~ /PCB0\d+/;
+}
+if (not defined $label and $outDir =~ /PCB[0\-_]*\d+/i) {
+   ($label) = $outDir =~ /(PCB[0\-_]*\d+)/i;
+   $label = uc($label);
+   $label =~ s/PCB[0\-_]+(\d+)/PCB$1/g if $label =~ /PCB[0\-_]+\d+/;
+}
+if (not defined $label and $label =~ /PCB/) {
+   ($label) = $outDir =~ /(PCB.{1,5})\/?/;
+}
+if (not defined $label) {
+   die "Please make sure your output folder (-o) contain PCB(number) e.g. PCB12: 180202_PCB12_footloop_output\n\n";
+}
+
+if ($outDir =~ /_BC\d+_PFC\d+_\w+\./i) {
+   my ($label2) = $outDir =~ /_(BC\w+)\./i;
+   $label = "$label\_$label2";
+   $label = uc($label);
+   $label =~ s/PCB[0\-_]+(\d+)/PCB$1/g;
+}
 	$OPTS{l} = $label;
 
 print date() . "FATAL ERROR ON LABEL -l\n" and die if not defined $label;

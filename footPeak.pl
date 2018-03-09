@@ -64,16 +64,27 @@ my $Kmerz			= $opts->{K};
 my $resDir        = $opts->{o};
 
 # naming
-if ($resDir =~ /PCB_?\d+/i) {
-	($label) = $resDir =~ /(PCB_?\d+)/i;
+if ($resDir =~ /PCB\d+/i) {
+	($label) = $resDir =~ /(PCB\d+)/i;
 	$label = uc($label);
-	$label =~ s/PCB_/PCB/g;
+	$label =~ s/PCB0(\d+)/PCB$1/ if $label =~ /PCB0\d+/;
+}
+if (not defined $label and $resDir =~ /PCB[0\-_]*\d+/i) {
+	($label) = $resDir =~ /(PCB[0\-_]*\d+)/i;
+	$label = uc($label);
+	$label =~ s/PCB[0\-_]+(\d+)/PCB$1/g if $label =~ /PCB[0\-_]+\d+/;
+}
+if (not defined $label and $label =~ /PCB/) {
+	($label) = $resDir =~ /(PCB.{1,5})\/?/;
+}
+if (not defined $label) {
+	die "Please make sure your output folder (-o) contain PCB(number) e.g. PCB12: 180202_PCB12_footpeak_output (no space/dash between PCB and number)\n\n";
 }
 if ($resDir =~ /_BC\d+_PFC\d+_\w+\./i) {
 	my ($label2) = $resDir =~ /_(BC\w+)\./i;
 	$label = "$label\_$label2";
 	$label = uc($label);
-	$label =~ s/PCB_/PCB/g;
+	$label =~ s/PCB[0\-_]+(\d+)/PCB$1/g;
 }
 system("echo $label > $resDir/.LABEL");
 system("/bin/cp $seqFile $resDir");
