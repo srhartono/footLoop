@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+
 # 0 is bad or not data (6)
 # 2 is non C/G
 # 4 is CH non conv
