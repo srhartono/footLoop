@@ -129,7 +129,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 	my $Q = new Thread::Queue;
 	my $peakFile = $origFile[$i];
 #debug
-#	next if $peakFile !~ /FUS_Pos/;#/(AIRN_PFC66_FORWARD_Neg|CALM3_Pos)/;
+#	next if $peakFile !~ /CALM3_Pos/;#/(AIRN_PFC66_FORWARD_Neg|CALM3_Pos)/;
 ##
 	my ($peakFolder, $peakFilename) = getFilename($peakFile, "folder");
 	$peakFilename =~ s/.orig$//;
@@ -164,6 +164,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 		my ($name, $type, $val) = split("\t", $line);
 		$val = [split("", $val)];
 		$name = "$gene.$name";
+#		next if $name ne "CALM3.m161213_104500_42145_c101053012550000001823240212291662_s1_p0/112356/ccs";
 		print "Line error skipped: $line\n" and next if not defined($name) or length($val) == 0;
 		my ($count, $beg, $end) = (0,0,0);
 		my $check = 1 if $name eq $genewant;
@@ -363,13 +364,14 @@ sub getPeak {
 					$con = det_CG_con($con, $nucpos1, 1);
 					LOG($outLog, "i=$i, j=$j: nuc.i=$LCY$nucpos1$N, nuc.j(nucpos1)=$nucpos1: file.orig value isn't one of the listed at $LGN" . __LINE__ . "$N\n") if $nucpos1 !~ /^[BCDcdMNFEeOJGHghUVKIiW\-_\.TA123PQR456XYZ]$/;
 					$peak->{CH}[$SEQ->{$gene}{loc}{pos1}{$j}] = det_peak($peak->{CH}[$SEQ->{$gene}{loc}{pos1}{$j}], $nucpos1, "CH");
-					$peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j}] = det_peak($peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j}], $nucpos1, "CG");
+#					$peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j}] = det_peak($peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j}], $nucpos1, "CG");
+					$peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j}] = det_peak($peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j}], $nucpos1, "CG", $SEQ->{$gene}{loc}{pos1}{$j});
 				}
 				else {
 					my ($nucpos0, $nucpos2) = ($nuc->[$SEQ->{$gene}{loc}{pos1}{$j-1}], $nuc->[$SEQ->{$gene}{loc}{pos1}{$j+$window-1}]);
 					$con = det_CG_con($con, $nucpos0, -1, $nucpos2, 1);
 					$peak->{CH}[$SEQ->{$gene}{loc}{pos1}{$j+$window-1}] = det_peak($peak->{CH}[$SEQ->{$gene}{loc}{pos1}{$j+$window-1}], $nucpos2, "CH");
-					$peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j+$window-1}] = det_peak($peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j+$window-1}], $nucpos2, "CG");
+					$peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j+$window-1}] = det_peak($peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j+$window-1}], $nucpos2, "CG",$SEQ->{$gene}{loc}{pos1}{$j+$window-1});
 				}
 #				$chunkC .= $nucpos1;
 			}
@@ -404,16 +406,17 @@ sub getPeak {
 	return ($peak, $peakCH, $peakCH, $peakGC, $peakGH);
 }
 sub det_peak { # time= 10 line/s per strand (49 l/s -> 39 l/s)
-	my ($peak, $nuc, $type) = @_;
+	my ($peak, $nuc, $type, $pos) = @_;
+	$pos = "NA" if not defined $pos;
 #	return 1; #debug
 	return $peak if $peak ne '!';
-	my @N =	$type eq 'CH' ? ('0', '0'   , 'cd', 'CDMNPQ', '12' , 'B-' ) :
-				$type eq 'CG' ? ('e', 'EQR' , 'cd', 'CDMNPQ', '123', 'BF-') :
-				$type eq 'GH' ? ('0', '0'   , 'gh', 'GHUVXY', '45' , 'J-' ) :
-				$type eq 'GC' ? ('i', 'IWZ' , 'gh', 'GHUVXY', '456', 'JK-') : 
+	my @N =	$type eq 'CH' ? ('0', '0'   , 'cd', 'CDMNPQ', '12' , 'B\-' ) :
+				$type eq 'CG' ? ('e', 'EQR' , 'cd', 'CDMNPQ', '123', 'BF\-') :
+				$type eq 'GH' ? ('0', '0'   , 'gh', 'GHUVXY', '45' , 'J\-' ) :
+				$type eq 'GC' ? ('i', 'IWZ' , 'gh', 'GHUVXY', '456', 'JK\-') : 
 				die "det_peak TYPE IS NOT CH/CG/GH/GC? ($type) at line $LGN" . __LINE__ . "$N\n";
 	return 7 if $nuc eq $N[0]; # conv CG
-	return 5 if $nuc eq $N[1]; # nonconverted CG
+	return 5 if $nuc =~ /[$N[1]]/; # nonconverted CG
 	return 6 if $nuc =~ /[$N[2]]/; #conv CH
 	return 4 if $nuc =~ /[$N[3]]/; #nonconverted CH, or PQR = bad region plus MNOPQR = not C->C or C->T
 	return 0 if $nuc =~ /[$N[4]]/; # 123 = C is located in bad region, and is C->C or C->T
