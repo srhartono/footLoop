@@ -5,7 +5,7 @@ use vars qw($opt_v $opt_i $opt_n $opt_m $opt_r $opt_s $opt_d);
 getopts("vi:n:m:r:s:d:");
 
 $opt_d = 98 if not defined $opt_d;
-$opt_s = 4200 if not defined $opt_s;
+#$opt_s = 4200 if not defined $opt_s;
 $opt_r = 10 if not defined $opt_r;
 $opt_n = 250 if not defined $opt_n;
 $opt_m = "2p" if not defined $opt_m;
@@ -53,15 +53,15 @@ On containment parametes:
 
 " unless defined $input1;
 
-die "-s seed for random number generator must be positive integer (current: $opt_s)\n" if $opt_s !~ /^\d+/;
+die "-s seed for random number generator must be positive integer (current: $opt_s)\n" if defined $opt_s and $opt_s !~ /^\d+/;
 die "-d minidentity must be positive integer (current: $opt_d)\n" if $opt_d !~ /^\d+/;
 die "-n total simulation must be positive integer (current: $opt_n)\n" if $opt_n !~ /^\d+/;
 die "-m max edits must be positive integer with or w/o p (current: $opt_m)\n" if $opt_m !~ /^\d+\.?\d*p?$/;
 die "-r total randomly chosen read must be positive integer (current: $opt_r)\n" if $opt_r !~ /^\d+e?\d*$/;
 die "-r must be <= 100! (current: $opt_r)\n" if $opt_r > 100;
 die "-d must be <= 100! (current: $opt_d)\n" if $opt_d > 100;
-srand($opt_s);
-
+srand($opt_s) if defined $opt_s;
+my $rand = defined $opt_s ? "-s $opt_s" : "";
 my $maxeditscheck = $MAXEDITS . "bp";
 if ($MAXEDITS =~ /^\d+\.?\d*p$/) {
 	($maxeditscheck) = $MAXEDITS =~ /^(\d+\.?\d*)p$/;
@@ -78,7 +78,7 @@ if ($opt_r =~ /^\d+e\d+$/) {
 print "\n\e[1;33m================================== RUN PARAMETES ======================================\e[0m\n\n";
 print "
 
-Run script             = $0 -i $opt_i -r $opt_r -n $opt_n -d $opt_d -m $opt_m -s $opt_s
+Run script             = $0 -i $opt_i -r $opt_r -n $opt_n -d $opt_d -m $opt_m $rand
 -i Fastq file          = $input1
 -r random chosen read  = $random
 -n total simulation    = $simtot
