@@ -6,7 +6,7 @@ getopts("vi:n:m:r:s:d:");
 
 $opt_d = 98 if not defined $opt_d;
 #$opt_s = 4200 if not defined $opt_s;
-$opt_r = 10 if not defined $opt_r;
+$opt_r = 20 if not defined $opt_r;
 $opt_n = 250 if not defined $opt_n;
 $opt_m = "2p" if not defined $opt_m;
 
@@ -15,8 +15,7 @@ die "
 Usage: $0 -i <fastq.fq>
 
 -s : [positive integer, default 4200] random number generator
--r : [positive integer, default: 10] total number of reads to be randomly chosen is up to this (must be less than 100)
-     total randomly chosen can be less than -r, but never more than -r
+-r : [positive integer, default: 20] total number of reads to be randomly chosen is up to this.
 -n : [positive integer, default: 250] total simulation per read.
      Don't use too few (e.g. 20) as there'll be too few samples to be statistically meaningful
      The more -n, the longer it'll take (exponentially).
@@ -58,7 +57,7 @@ die "-d minidentity must be positive integer (current: $opt_d)\n" if $opt_d !~ /
 die "-n total simulation must be positive integer (current: $opt_n)\n" if $opt_n !~ /^\d+/;
 die "-m max edits must be positive integer with or w/o p (current: $opt_m)\n" if $opt_m !~ /^\d+\.?\d*p?$/;
 die "-r total randomly chosen read must be positive integer (current: $opt_r)\n" if $opt_r !~ /^\d+e?\d*$/;
-die "-r must be <= 100! (current: $opt_r)\n" if $opt_r > 100;
+#die "-r must be <= 1000! (current: $opt_r)\n" if $opt_r > 1000;
 die "-d must be <= 100! (current: $opt_d)\n" if $opt_d > 100;
 srand($opt_s) if defined $opt_s;
 my $rand = defined $opt_s ? "-s $opt_s" : "";
@@ -86,7 +85,29 @@ Run script             = $0 -i $opt_i -r $opt_r -n $opt_n -d $opt_d -m $opt_m $r
 
 ";
 
-my %data; my $total_done = 0;
+my ($total_linecount) = `zcat $input1 | wc -l` =~ /^(\d+)/ if $input1 =~ /.gz$/;
+($total_linecount) = `wc -l $input1` =~ /^(\d+)/ if $input1 !~ /.gz$/;
+die if $total_linecount % 4 != 0;
+$total_linecount /= 4;
+my @random; my %random;
+for (my $i = 0; $i < $total_linecount; $i++) {
+	push(@random, $i);
+}
+for (my $i = 0; $i < $total_linecount * 5; $i++) {
+	my $rand1 = int(rand(@random));
+	my $randval1 = $random[$rand1];
+	my $rand2 = int(rand(@random));
+	my $randval2 = $random[$rand1];
+	$random[$rand1] = $randval2;
+	$random[$rand2] = $randval1;
+}
+for (my $i = 0; $i < $total_linecount; $i++) {
+	$random{$random[$i]} = 1;
+	last if $i > $random;
+}
+print "Done randoming $random numbers!\n";
+
+my %data; my $total_done = 0; my $linecount = -1; my $too_short = 0;
 my $in1;
 system("mkdir \"$input1.pbsim\"") == 0 or die "Failed to create directory $input1.pbsim: $!\n" if not -d "$input1.pbsim";
 open ($in1, "<", $input1) or die "Cannot read from $input1: $!\n" if $input1 !~ /gz$/;
@@ -94,6 +115,7 @@ open ($in1, "zcat $input1|") or die "Cannot read from zcat $input1: $!\n" if $in
 open (my $outStat, ">", "$input1.dedupe_stat.csv") or die;
 print $outStat "no,read_number,length_seq,maxedits_bp,total_reads,perc_duplicates,perc_containment,perc_remaining\n";
 while (my $line = <$in1>) {
+	$linecount ++;
 	chomp($line);
 	my ($read) = $line; $read =~ s/^\@//;
 	my $read2 = $read; 
@@ -123,10 +145,23 @@ while (my $line = <$in1>) {
 	#+
 	$line = <$in1>; chomp($line);
 	#qual
-
-	next if $lenseq < 1000;
-	next if rand(25) > 1;
-
+	next if not defined $random{$linecount};
+	if ($lenseq < 1000) {
+		$too_short ++;
+#		print "\tlinecount=$linecount read number=$read2 too short ($lenseq), replaced with: ";
+		my $add = 0;
+		while ($linecount+$add < $total_linecount) {
+			$add ++;
+			next if defined $random{$linecount+$add};
+			$random{$linecount+$add} = 2; $too_short --; 
+			#print "linecount=" . ($linecount+$add). "\n"; 
+			last;
+		}
+		if ($linecount + $add >= $total_linecount) {
+			#print " ... Can't find replacement!\n";
+		}
+		next;
+	}
 
 	system("mkdir \"$input1.pbsim/$read2\"") == 0 or die "Failed to create directory $input1.pbsim/$read2: $!\n" if not -d "$input1.pbsim/$read2";
 	open (my $out1, ">", "$input1.pbsim/$read2/$read2.fa") or die "Cannot write to $input1.pbsim/$read2/$read2.fa: $!\n";
@@ -176,7 +211,7 @@ while (my $line = <$in1>) {
 	$res = $tot == 0 ? 0 : int(1000*$res/$tot+0.5)/10;
 	print "\n\e[1;33m====================================== RESULT =======================================\e[0m\n\n\n" if $total_done == 0;
 	print "(also created in .csv format (google sheet friendly) at \e[1;33m$input1.dedupe_stat.csv\e[0m)\n\n" if $total_done == 0;
-	print "\e[1;33m$total_done\e[0m. ccs read_number=\e[1;33m$read2\e[0m; length_seq=\e[1;32m$lenseq\e[0m; maxedits (\e[1;32m$MAXEDITS\e[0m)=\e[1;32m$maxedits\e[0m; total_reads=\e[1;32m$tot\e[0m, duplicates=\e[1;32m$dup\%\e[0m, containment=\e[1;32m$con\%\e[0m, remaining=\e[1;32m$res\%\e[0m\n";
+	print "\e[1;33m$total_done\e[0m. line number=$linecount ccs read_number=\e[1;33m$read2\e[0m; length_seq=\e[1;32m$lenseq\e[0m; maxedits=\e[1;32m$maxedits\e[0m; total_reads=\e[1;32m$tot\e[0m, duplicates=\e[1;32m$dup\%\e[0m, containment=\e[1;32m$con\%\e[0m, remaining=\e[1;32m$res\%\e[0m\n";
 	print $outStat "$total_done,$read2,$lenseq,$maxedits,$tot,$dup,$con,$res\n";
 	push(@{$data{tot}}, $tot);
 	push(@{$data{dup}}, $dup);
@@ -186,7 +221,7 @@ while (my $line = <$in1>) {
 	$total_done ++;
 #	die "RES: tot=$tot dup=$dup con=$con res=$res\n" if
 #	print "Done $total_done\n" if $total_done % 10 == 0;
-	last if $total_done > $random;
+	last if $total_done >= $random;
 }
 close $in1;
 my $tot = int(100*tmm(@{$data{tot}})+0.5)/100;
