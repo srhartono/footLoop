@@ -16,8 +16,8 @@ Usage: $0 -i <fastq.fq>
 
 -s : [positive integer, default 4200] random number generator
 -r : [positive integer, default: 20] total number of reads to be randomly chosen is up to this.
--n : [positive integer, default: 250] total simulation per read.
-     Don't use too few (e.g. 20) as there'll be too few samples to be statistically meaningful
+-n : [positive integer, default: 250] pbsim total read depth (total simulated read ~ depth x 4)
+     Don't use too few (e.g. 20) as it'll create too few samples to be statistically meaningful
      The more -n, the longer it'll take (exponentially).
 -d : [default: 98] percent identity for dedupe.sh minidentity parameter.
 -m : [default: 2\% read length]  dedupe.sh maxedits parameter.
@@ -236,8 +236,8 @@ my $lenseq = int(100*tmm(@{$data{lenseq}})+0.5)/100;
 my $lenseqsd = int(100*tmmsd(@{$data{lenseq}})+0.5)/100;
 
 print "\n\e[1;33m================================== STATISTICS OF ALL ===================================\e[0m\n\n\n";
-print "Out of \e[1;32m $total_done \e[0m randomly chosen reads ($simtot simulated reads each):\n";
-print "length seq  = \e[1;32m$lenseq\e[0m bp +/= \e[1;32m$lenseqsd \e[0m \%\n";
+print "Out of \e[1;32m $total_done \e[0m randomly chosen reads (~ (4 x $simtot) simulated reads each):\n";
+print "length seq  = \e[1;32m$lenseq\e[0m bp +/= \e[1;32m$lenseqsd \e[0m bp\n";
 print "total reads = \e[1;32m$tot\e[0m reads +/= \e[1;32m$totsd\e[0m reads\n";
 print "duplicates  = \e[1;32m$dup\e[0m \% +/= \e[1;32m$dupsd \e[0m \%\n";
 print "containment = \e[1;32m$con\e[0m \% +/= \e[1;32m$consd \e[0m \%\n";
