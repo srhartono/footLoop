@@ -133,6 +133,8 @@ sub main {
 	my ($chr0, $beg0, $end0, $name0, $val0, $strand0) = @coor;
 	die "Undefined beg or end at coor=\n" . join("\n", @coor) . "\n" if not defined $beg0 or not defined $end0;
 	
+	system("footPeak_HMM.pl -n $resDir");
+
 	foreach my $file (sort keys %pk) {
 		my ($pk_filename) = getFilename($file, 'full');
 		open (my $outPEAKS, ">", "$resDir/PEAKS_GENOME/$pk_filename.genome.bed")   or LOG($outLog, "\tFailed to write into $resDir/PEAKS_GENOME/$pk_filename.genome.bed: $!\n")  and exit 1;
