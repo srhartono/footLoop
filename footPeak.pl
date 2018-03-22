@@ -220,7 +220,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 			}
 			$Q = new Thread::Queue();
 		}
-		last if $linecount > 100;
+		#last if $linecount > 100;
 	}
 
 	if (defined $Q->pending) {
