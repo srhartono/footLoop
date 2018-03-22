@@ -108,11 +108,25 @@ foreach my $gene (sort keys %{$data{skip}}) {
 LOG($outLog, "\n" . date() . "\tSkipped $LGN$skipped$N genes!\n\n");
 
 my $cluster_count = -1;
+my $label = "";
+if (-e "$footPeakFolder/.LABEL") {
+	($label) = `cat $footPeakFolder/.LABEL`;
+	chomp($label);
+}
+else {
+	DIELOG($outLog, "Failed to parse label from .LABEL in $footPeakFolder/.LABEL\n");
+}
+
 foreach my $gene (sort keys %{$data{file}}) {
 	foreach my $cluster_file (sort keys %{$data{file}{$gene}}) {
 		$cluster_count ++;
-		my $strand2 = $cluster_file =~ /_Pos_/ ? "Pos" : $cluster_file =~ /_Neg_/ ? "Neg" : "Unk";
-		my ($thres, $window, $type) = $cluster_file =~ /^.*$gene\_$strand2\_(\d+\.?\d*)_(\d+\.?\d*)_(CG|CH|GH|GC)/;
+		my ($cluster_file_name) = getFilename($cluster_file, "full");
+		my ($label2, $gene, $strand, $window, $thres, $type) = parseName($cluster_file_name);# =~ /^(.+)_gene(.+)_(Unk|Pos|Neg)_(\d+)_(\d+\.?\d*)_(\w+)\.(PEAK|NOPK)$/;
+		LOG($outLog, "Using label=$label2. Inconsistent label in filename $LCY$cluster_file_name$N\nLabel from $footPeakFolder/.LABEL: $label\nBut from fileName: $label2\n\n") if $label2 ne $label;
+		$label = $label2;
+
+		#my $strand2 = $cluster_file =~ /_Pos_/ ? "Pos" : $cluster_file =~ /_Neg_/ ? "Neg" : "Unk";
+		#my ($thres, $window, $type) = $cluster_file =~ /^.*$gene\_$strand2\_(\d+\.?\d*)_(\d+\.?\d*)_(CG|CH|GH|GC)/;
 #		die "thres = $thres,winow=$window, file=$cluster_file\n";
 #		next if $cluster_file =~ /(CG|GC)/;
 		my $folder = $data{file}{$gene}{$cluster_file}{folder};

@@ -15,7 +15,7 @@ sub main {
 	# From footPeak.pl: 
 	# (($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ));
 	my ($input1, $faFile, $mygene, $minDis, $resDir, $minLen, $SEQ) = @_;
-#	my ($label) = `cat $resDir/.LABEL`; chomp($label);
+
 	my @foldershort = split("\/", $resDir);
 	my $foldershort = pop(@foldershort);
 	print date() . "\nusage: $YW$0$N [-c to use cpg] $CY<CALM3_Pos_20_0.65_CG.PEAK>$N $CY<location with lots of C>$N\n\n" and exit 1 unless @_ == 7;
@@ -29,11 +29,25 @@ sub main {
 	makedir("$resDir/PNG") if not -d "$resDir/PNG";
 	makedir("$resDir/PDF") if not -d "$resDir/PDF";
 	open (my $outLog, ">>", "$resDir/footLoop_addition_logFile.txt") or die;
+
 	
 	my @coor = split("\t", $SEQ->{$mygene}{coor});
 	my (%pk, %Rscripts, %files);
 	my $total = make_total_hash();
-	my ($label, $gene, $strand, $window, $thres, $type, $isPeak) = $fileName =~ /^(.+)_gene(.+)_(Unk|Pos|Neg)_(\d+)_(\d+\.?\d*)_(\w+)\.(PEAK|NOPK)$/;
+
+	my $label = "";
+	if (-e "$resDir/.LABEL") {
+	   ($label) = `cat $resDir/.LABEL`;
+	   chomp($label);
+	}
+	else {
+		DIELOG($outLog, "Failed to parse label from .LABEL in $resDir/.LABEL\n");
+	}
+	my ($label2, $gene, $strand, $window, $thres, $type) = parseName($fileName);# =~ /^(.+)_gene(.+)_(Unk|Pos|Neg)_(\d+)_(\d+\.?\d*)_(\w+)\.(PEAK|NOPK)$/;
+	my $isPeak = $fileName =~ /\.PEAK/ ? "PEAK" : "NOPK";
+	LOG($outLog, "Using label=$label2. Inconsistent label in filename $LCY$fileName$N\nLabel from $resDir/.LABEL: $label\nBut from fileName: $label2\n\n") if $label ne $label2;
+	$label = $label2;
+
 	if (defined $mygene) {
 		LOG($outLog, date() . "footPeak.pl filename=$LCY$fileName$N, mygene=$mygene, input genez=$gene are not the same!\n") and return -1 if uc($mygene) ne uc($gene);;
 	} else {$mygene = $gene;}

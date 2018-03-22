@@ -57,6 +57,7 @@ tmm
 tmmsd
 tmmse
 parse_cigar
+parseName
 LOG
 makehash
 DIE
@@ -85,6 +86,20 @@ $LPR
 
 #################################
 
+sub parseName {
+	my ($filename) = @_;
+	if ($filename =~ /\//) {
+		my @filename = split("/", $filename);
+		$filename = pop(@filename);
+	}
+	my ($label, $gene, $strand, $window, $thres, $type) = $filename =~ /^(.+)_gene(.+)_(Pos|Neg|Unk)_(.+)_(.+)_(CH|CG|GH|GC)/;
+	
+	if (not defined $label or not defined $gene or not defined $strand or not defined $window or not defined $thres or not defined $type) {
+		print "Cannot parse label gene strand window thres type from filename=$LCY$filename$N\n\nMake sure that filename format is: (.+)_gene(.+)_(Pos|Neg|Unk)_(.+)_(.+)_(CH|CG|GH|GC)\n\n";
+		return -1;
+	}
+	return ($label, $gene, $strand, $window, $thres, $type);
+}
 sub DIE {
 	return "\n$DIES Died at file $CY " . __FILE__ . " $N at line $LGN " . __LINE__ . " $N";
 }

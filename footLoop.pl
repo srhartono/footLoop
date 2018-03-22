@@ -111,6 +111,11 @@ if ($outDir =~ /_BC\d+_PFC\d+_\w+\./i) {
 	$OPTS{l} = $label;
 
 print date() . "FATAL ERROR ON LABEL -l\n" and die if not defined $label;
+
+open (my $outLabel, ">", "$outDir/.LABEL") or die "Failed to write to $outDir/.LABEL: $!\n";
+print $outLabel "$label\n";
+close $outLabel;
+
 my $STEP = 0;
 
 # Make directory

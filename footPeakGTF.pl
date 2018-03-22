@@ -39,18 +39,31 @@ my $coor = parse_geneIndexFile($footLoopFolder, $outLog);
 
 my (@callFiles) = <$footPeakFolder/.CALL/*.out>;
 
+my $label = "";
+if (-e "$footPeakFolder/.LABEL") {
+   ($label) = `cat $footPeakFolder/.LABEL`;
+   chomp($label);
+}
+else {
+   DIELOG($outLog, "Failed to parse label from .LABEL in $footPeakFolder/.LABEL\n");
+}
+
+
 foreach my $callFile (sort @callFiles) {
 	my ($folder1, $fileName1) = getFilename($callFile, "folderfull");
-	my ($label, $gene, $strand, $window, $threshold, $type) = $fileName1 =~ /^(.+)_gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(GC|GH|CG|CH)/;
+   my ($label2, $gene, $strand, $window, $thres, $type) = parseName($fileName1);# =~ /^(.+)_gene(.+)_(Unk|Pos|Neg)_(\d+)_(\d+\.?\d*)_(\w+)\.(PEAK|NOPK)$/;
+   LOG($outLog, "Using label=$label2. Inconsistent label in filename $LCY$fileName1$N\nLabel from $footPeakFolder/.LABEL: $label\nBut from fileName: $label2\n\n") if $label2 ne $label;
+   $label = $label2;
+#	my ($label, $gene, $strand, $window, $thres, $type) = $fileName1 =~ /^(.+)_gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(GC|GH|CG|CH)/;
 	my $STRAND = $coor->{$gene}{strand};
-	my $clustFile = $callFile =~ /.PEAK.out/ ? "$footPeakFolder/FOOTCLUST/.TEMP/$label\_gene$gene\_$strand\_$window\_$threshold\_$type.PEAK.local.bed.clust" : "";
+	my $clustFile = $callFile =~ /.PEAK.out/ ? "$footPeakFolder/FOOTCLUST/.TEMP/$label\_gene$gene\_$strand\_$window\_$thres\_$type.PEAK.local.bed.clust" : "";
 	makedir("$outFolder/ALL");
 	makedir("$outFolder/PEAK");
 	makedir("$outFolder/NOPK");
 	makedir("$outFolder/PEAKNEG");
 	makedir("$outFolder/NOPKNEG");
 	my ($peak) = $callFile =~ /.PEAK.out/ ? "PEAK" : "NOPK";
-	my $outName = "$label\_gene$gene\_$strand\_$window\_$threshold\_$type.$peak";
+	my $outName = "$label\_gene$gene\_$strand\_$window\_$thres\_$type.$peak";
 	my $output = "$outFolder/ALL/$outName.gtf";
 	if ($peak eq "PEAK") {
 		$output = "$outFolder/PEAK/$outName.gtf" if $strand eq "Pos" and $STRAND eq "+" and $type eq "CG" and $gene =~ /FORWARD/;

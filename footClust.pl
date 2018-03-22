@@ -76,6 +76,14 @@ LOG($outLog, $init);
 ####################
 # Processing Input #
 ####################
+my $label = "";
+if (-e "$footPeakFolder/.LABEL") {
+	($label) = `cat $footPeakFolder/.LABEL`;
+	chomp($label);
+}
+else {
+	DIELOG($outLog, "Failed to parse label from .LABEL in $footPeakFolder/.LABEL\n");
+}
 my $files_log = "#FOLDER=$footPeakFolder\n";
 my $input1_count = -1;
 foreach my $input1 (sort @local_peak_files) {
@@ -85,12 +93,16 @@ foreach my $input1 (sort @local_peak_files) {
 
 	# remove double // from folder
 	$input1 =~ s/[\/]+/\//g;
-	my ($folder1, $fileName1) = getFilename($input1, "folder");
+	my ($folder1, $fileName1) = getFilename($input1, "folderfull");
 	my ($fullName1) = getFilename($input1, "full");
 
 	# get gene and strand from file name
-	my ($label, $gene, $strand, $window, $thres, $type) = $fileName1 =~ /^(.+)\_gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(GH|GC|CG|CH).PEAK/;
-	LOG($outLog, date() . "Cannot parse gene name from file=$LCY$input1$N\n") unless defined $gene and defined $strand and defined $window and defined $thres and defined $type;
+   my ($label2, $gene, $strand, $window, $thres, $type) = parseName($fileName1);# =~ /^(.+)_gene(.+)_(Unk|Pos|Neg)_(\d+)_(\d+\.?\d*)_(\w+)\.(PEAK|NOPK)$/;
+   LOG($outLog, "Using label=$label2. Inconsistent label in filename $LCY$fileName1$N\nLabel from $footPeakFolder/.LABEL: $label\nBut from fileName: $label2\n\n") if $label ne $label2;
+   $label = $label2;
+#	my ($label2, $gene, $strand, $window, $thres, $type) = $fileName1 =~ /^(.+)\_gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(GH|GC|CG|CH).PEAK/;
+#	LOG($outLog, date() . "Cannot parse gene name from file=$LCY$input1$N\n") unless defined $gene and defined $strand and defined $window and defined $thres and defined $type;
+
 	$thres *= 100 if $thres < 1;
 	$gene   = uc($gene);
 	$strand = $strand eq "Neg" ? "-" : "+";

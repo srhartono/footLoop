@@ -65,28 +65,39 @@ my $Kmerz			= $opts->{K};
 my $resDir        = $opts->{o};
 
 # naming
-if ($resDir =~ /PCB\d+/i) {
-	($label) = $resDir =~ /(PCB\d+)/i;
-	$label = uc($label);
-	$label =~ s/PCB0(\d+)/PCB$1/ if $label =~ /PCB0\d+/;
+
+if (-e "$footFolder/.LABEL") {
+	($label) = `cat $footFolder/.LABEL`;
+	chomp($label);
 }
-if (not defined $label and $resDir =~ /PCB[0\-_]*\d+/i) {
-	($label) = $resDir =~ /(PCB[0\-_]*\d+)/i;
-	$label = uc($label);
-	$label =~ s/PCB[0\-_]+(\d+)/PCB$1/g if $label =~ /PCB[0\-_]+\d+/;
+if (not defined $label or (defined $label and $label !~ /PCB/i)) {
+	if ($resDir =~ /PCB\d+/i) {
+		($label) = $resDir =~ /(PCB\d+)/i;
+		$label = uc($label);
+		$label =~ s/PCB0(\d+)/PCB$1/ if $label =~ /PCB0\d+/;
+	}
+	if (not defined $label and $resDir =~ /PCB[0\-_]*\d+/i) {
+		($label) = $resDir =~ /(PCB[0\-_]*\d+)/i;
+		$label = uc($label);
+		$label =~ s/PCB[0\-_]+(\d+)/PCB$1/g if $label =~ /PCB[0\-_]+\d+/;
+	}
+	if (not defined $label and $label =~ /PCB/) {
+		($label) = $resDir =~ /(PCB.{1,5})\/?/;
+	}
+	if (not defined $label or (defined $label and $label !~ /PCB/i)) {
+		die "Please make sure your output folder (-o) contain PCB(number) e.g. PCB12: 180202_PCB12_footpeak_output (no space/dash between PCB and number)\n\n";
+	}
+	else {
+		LOG($outLog, "!label=$label\n");
+	}
+	if ($resDir =~ /_BC\d+_PFC\d+_\w+\./i) {
+		my ($label2) = $resDir =~ /_(BC\w+)\./i;
+		$label = "$label\_$label2";
+		$label = uc($label);
+		$label =~ s/PCB[0\-_]+(\d+)/PCB$1/g;
+	}
 }
-if (not defined $label and $label =~ /PCB/) {
-	($label) = $resDir =~ /(PCB.{1,5})\/?/;
-}
-if (not defined $label) {
-	die "Please make sure your output folder (-o) contain PCB(number) e.g. PCB12: 180202_PCB12_footpeak_output (no space/dash between PCB and number)\n\n";
-}
-if ($resDir =~ /_BC\d+_PFC\d+_\w+\./i) {
-	my ($label2) = $resDir =~ /_(BC\w+)\./i;
-	$label = "$label\_$label2";
-	$label = uc($label);
-	$label =~ s/PCB[0\-_]+(\d+)/PCB$1/g;
-}
+
 system("echo $label > $resDir/.LABEL");
 system("/bin/cp $seqFile $resDir");
 LOG($outLog, "seqFile=$seqFile\n");
@@ -114,17 +125,17 @@ my $SEQ = parse_indexFile_and_seqFile($indexFile, $seqFile, $outLog);
 #           |  Peak1   |                      | Peak 2  |         # if max non-9 buffer length is < 300
 #           |              Peak 1                       |         # if max non-9 buffer length is < 500
 my @origFile = <$origFolder/*.orig>;
-open (my $outLogAddon, ">", "$origFolder/footLoop_addition_logFile.txt") or die;
+open (my $outLogAddon, ">", "$resDir/footLoop_addition_logFile.txt") or DIELOG($outLog, "Failed to write to $resDir/footLoop_addition_logFile.txt: $!\n");
 close $outLogAddon;
 my $out;
 my $R;
 my @total_Rscript = <$origFolder/*.R>;
 my @total_png = <$origFolder/*.png>;
-makedir("$origFolder/remove2/") if not -d "$origFolder/remove2/";
-system("/bin/mv $origFolder/remove/ $origFolder/remove2") if -d "$origFolder/remove";
-system("/bin/mv $origFolder/*.R $origFolder/remove2") if @total_Rscript > 0;
-system("/bin/mv $origFolder/*.png $origFolder/remove2") if @total_png > 0;
-system("/bin/mv $origFolder/remove2/ $origFolder/remove/");
+#makedir("$origFolder/remove2/") if not -d "$origFolder/remove2/";
+#system("/bin/mv $origFolder/remove/ $origFolder/remove2") if -d "$origFolder/remove";
+#system("/bin/mv $origFolder/*.R $origFolder/remove2") if @total_Rscript > 0;
+#system("/bin/mv $origFolder/*.png $origFolder/remove2") if @total_png > 0;
+#system("/bin/mv $origFolder/remove2/ $origFolder/remove/");
 print "Doing origFile = " . scalar(@origFile) . "\n";
 for (my $i = 0; $i < @origFile; $i++) {
 	my $Q = new Thread::Queue;
@@ -132,10 +143,10 @@ for (my $i = 0; $i < @origFile; $i++) {
 #debug
 #	next if $peakFile !~ /FUS_Pos/;#CALM3_Pos/;#/(AIRN_PFC66_FORWARD_Neg|CALM3_Pos)/;
 ##
-	my ($peakFolder, $peakFilename) = getFilename($peakFile, "folder");
+	my ($peakFolder, $peakFilename) = getFilename($peakFile, "folderfull");
 	$peakFilename =~ s/.orig$//;
 	$peakFilename = "$label\_gene$peakFilename";
-	my ($gene, $strand) = $peakFilename =~ /^$label\_gene(.+)_(Pos|Neg|Unk)$/; $gene = uc($gene);
+	my ($gene, $strand) = $peakFilename =~ /_gene(.+)_(Pos|Neg|Unk)$/; $gene = uc($gene);
 	my ($totalPeak, $linecount, $peakcount, $total, %data, %end, %bad, %final, %group) = (0,0,0, scalar(@{$SEQ->{$gene}{seq}}));
 	print "FILENAME=$peakFilename, GENE=$gene\n";
 	LOG($outLog, "Died cannot get gene from peakfile $peakFile\n") and die unless defined $gene;
@@ -145,8 +156,8 @@ for (my $i = 0; $i < @origFile; $i++) {
 	foreach my $type (sort keys %pk) {
 		my $outpeak = "PEAK$type";
 		my $outnopk = "NOPK$type";
-		open ($out->{$outpeak}, ">", "$resDir/.CALL/$peakFilename\_$window\_$threshold\_$type.PEAK") or LOG($outLog, "Failed to write to $resDir/$peakFilename\_$window\_$threshold\_CG.PEAK: $!\n") and die;
-		open ($out->{$outnopk}, ">", "$resDir/.CALL/$peakFilename\_$window\_$threshold\_$type.NOPK") or LOG($outLog, "Failed to write to $resDir/$peakFilename\_$window\_$threshold\_CG.NOPK: $!\n") and die;
+		open ($out->{$outpeak}, ">", "$resDir/.CALL/$peakFilename\_$window\_$threshold\_$type.PEAK") or DIELOG($outLog, "Failed to write to $resDir/.CALL/$peakFilename\_$window\_$threshold\_CG.PEAK: $!\n");
+		open ($out->{$outnopk}, ">", "$resDir/.CALL/$peakFilename\_$window\_$threshold\_$type.NOPK") or DIELOG($outLog, "Failed to write to $resDir/.CALL/$peakFilename\_$window\_$threshold\_CG.NOPK: $!\n");
 	}
 	open (my $in1, "<", $peakFile) or die "Cannot read from $peakFile: $!\n";
 	my ($l0, $t0) = (0,Benchmark->new());
@@ -209,7 +220,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 			}
 			$Q = new Thread::Queue();
 		}
-		#last if $linecount > 600;
+		last if $linecount > 100;
 	}
 
 	if (defined $Q->pending) {
@@ -259,7 +270,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 	my $footPeakres = footPeakAddon::main(($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ));
 	die "Failed footpeak\n" if defined $footPeakres and $footPeakres eq -1;
 }
-system("/bin/cp $opts->{origDir}/footPeak_logFile.txt $resDir/");
+#system("/bin/cp $opts->{origDir}/footPeak_logFile.txt $resDir/");
 #COMMENTCUT
 #	my $t1 = Benchmark->new();
 #	my ($td) = timestr(timediff($t1, $t0)) =~ /(\-?\d+\.?\d*) wallclock/;
@@ -581,7 +592,7 @@ sub record_options {
    foreach my $opt (sort keys %{$defOpts}) {
 		next if $opt !~ /^.$/;
       my $val = $defOpts->{$opt};
-      $optPrint .= $val eq "FALSE" ? "" : $val eq "" ? " -opt " : $val eq "MYTRUE" ? " -$opt" : " -$opt $val";
+      $optPrint .= $val eq "FALSE" ? "" : $val eq "" ? " -$opt " : $val eq "MYTRUE" ? " -$opt" : " -$opt $val";
 		$optShort .= (not defined $usrOpts->{$opt}) ? "" : $val eq "FALSE" ? "" : $val eq "" ? "" : $val eq "MYTRUE" ? " -$opt" : " -$opt $val";
    }
    my  $param = "
@@ -680,9 +691,8 @@ sub parse_footLoop_logFile {
 			print "Undefined origDir from input=$inputFolder, line=$line\n" and die if not defined $other->{origDir};
 			print "origDir $other->{origDir} does not exist!\n" and die if not -d $other->{origDir};
 			$defOpts->{origDir} = $other->{origDir};
-			open ($outLog, ">", "$other->{origDir}/footPeak_logFile.txt") or print "Failed to write to $other->{origDir}/footPeak_logFile.txt: $!\n" and die;
 			($other->{md5}) = $other->{origDir} =~ /\.0_orig_(\w{32})/;
-			LOG($outLog, "Can't parse md5 from outdir (outdir=$defOpts->{origDir})\n") and die if not defined $other->{md5};
+			print "Can't parse md5 from outdir (outdir=$defOpts->{origDir})\n" and die if not defined $other->{md5};
 		}
 #		if ($line =~ /geneIndexFile=/) {
 #			($defOpts->{geneIndexFile}) = $line =~ /geneIndexFile=(.+)$/ if $line !~ /,gene=.+,beg=\d+,end=\d+$/;
@@ -716,9 +726,10 @@ sub parse_footLoop_logFile {
 			($defOpts->{$param}) = $value if $param ne "n";
 		}
 	}
-	record_options($defOpts, $usrOpts, $usrOpts2, $other, $outLog, $logFile, $date, $uuid, $version);
 	$defOpts->{o} = $defOpts->{n} if not defined $opt_o;
 	makedir($defOpts->{o}) if not -d $defOpts->{o};
+	open ($outLog, ">", "$defOpts->{o}/footPeak_logFile.txt") or print "Failed to write to $defOpts->{o}/footPeak_logFile.txt: $!\n" and die;
+	record_options($defOpts, $usrOpts, $usrOpts2, $other, $outLog, $logFile, $date, $uuid, $version);
 #	print "Output = $defOpts->{o}\n";
 	return($defOpts, $outLog);
 }
