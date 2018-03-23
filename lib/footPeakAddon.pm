@@ -480,15 +480,16 @@ grid.arrange(p,p2,ncol=1,nrow=2,heights=c(ratio1,ratio2));\ndev.off()\n";
 		LOG($outLog, "R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n");
 		my $RLOG = 0;
 		$RLOG = system("R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1");
+		my $prevRLOG = $RLOG;
 		if ($RLOG ne 0) {
-			if (not -e $outRscript.LOG) {
+			if (not -e "$outRscript.LOG") {
 				$RLOG = "\t$outRscript.LOG cannot be found!\n";
 			}
 			else {
 				my @RLOG = `tail -n 5 $outRscript.LOG`;
 				$RLOG = "\t" . join("\n\t", @RLOG);
 			}
-			LOG($outLog, date() . "\t${LRD}Failed$N to run_Rscript.pl $outRscript: $!, LOG:\n$RLOG\n");
+			LOG($outLog, date() . "\t${LRD}Failed$N to run_Rscript.pl $outRscript: $prevRLOG, LOG:\n$RLOG\n");
 		}
 		else {
 			LOG($outLog, date() . "\t${LGN}Success$N on running run_Rscript.pl $LCY$outRscript$N\n");
