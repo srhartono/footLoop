@@ -132,15 +132,15 @@ foreach my $gene (sort keys %{$data{file}}) {
 		my $folder = $data{file}{$gene}{$cluster_file}{folder};
 		my $fasta = $folder . "/" . $cluster_file . ".fa";
 		my $bedFile   = $folder . "/" . $cluster_file . ".bed";
-		die "Fasta does not exist! ($fasta)\n" if not -e $fasta or -s $fasta == 0;
-		die "Bed does not exist! ($bedFile)\n" if not -e $bedFile or -s $bedFile == 0;
+		print "Fasta does not exist! ($fasta)\n" and next if not -e $fasta or -s $fasta == 0;
+		print "Bed does not exist! ($bedFile)\n" and next if not -e $bedFile or -s $bedFile == 0;
 		print "parsing bed of gene $gene bedFile $bedFile, fasta=$fasta\n";
-		my ($BED) = parse_bed($bedFile, $fa{$gene}, $outLog);
-		$BED = parse_fasta($BED, $fasta);
+		my ($BED) = parse_bed($bedFile, $fa{$gene}, $outLog); next if not defined $BED;
+		$BED = parse_fasta($BED, $fasta); next if not defined $BED;
 		$BED = shuffle_orig($BED);
 		my %bed = %{$BED};
 		my $want = "coor|gene|beg|end|cluster|total_peak|strand|pos|len|cpg|gc|skew";
-		open (my $out2, ">", "$footPeakFolder/$cluster_file.kmer") or die "Cannot write to $LCY$footPeakFolder/$cluster_file$N: $!\n";
+		open (my $out2, ">", "$footPeakFolder/$cluster_file.kmer") or print "Cannot write to $LCY$footPeakFolder/$cluster_file$N: $!\n" and next;
 		foreach my $coor (sort {$bed{$a}{"1d_cluster"} cmp $bed{$b}{"1d_cluster"}} keys %bed) {
 			print $out2 "coor\ttype" if $cluster_count == 0;
 			foreach my $key (sort keys %{$bed{$coor}}) {
@@ -189,7 +189,7 @@ sub parse_bed {
 	my ($bedFile, $ref, $outLog) = @_;
 	my %bed;
 	my $linecount = 0;
-	open (my $in, "<", $bedFile) or die;
+	open (my $in, "<", $bedFile) or print "footClust2.pl: Cannot read from $bedFile: $!\n" and return;
 	while (my $line = <$in>) {
 		chomp($line);
 		next if ($line =~ /^#/);
@@ -304,7 +304,7 @@ sub shuffle_fasta {
 
 sub parse_fasta {
 	my ($bed, $fastaFile) = @_;
-	open (my $in, "<", $fastaFile) or die;
+	open (my $in, "<", $fastaFile) or print "footClust2.pl: Cannot read from $fastaFile: $!\n" and return;
 	my $fasta = new FAlite($in);
 	while (my $entry = $fasta->nextEntry()) {
 		my $def = $entry->def; $def =~ s/^>//;

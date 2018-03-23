@@ -109,7 +109,7 @@ foreach my $input1 (sort @local_peak_files) {
 	my ($pcb) = $footPeakFolder =~ /(PCB\d+)/; $pcb = "PCBUNK" if not defined $pcb;
 	# check peak file. Skip if there's less than 10 peaks
 	my ($total_line) = `wc -l $input1` =~ /^(\d+)/;
-	if ($total_line < 10) {
+	if ($total_line <= 10) {
 		LOG($outLog, "\n--------------\n\n$LGN$input1_count$N. ${LRD}NEXTED $N: $input1 ${LCY}because total peaks is less than 10 $N($LGN$total_line$N)\n\n");
 		$files_log .= "$pcb\t$gene\t$strand\t$window\t$thres\t$type\t${LRD}Skip$N\ttotal_peak_all=$total_line\ttotal_read_unique=-1\ttotal_peak_used=-1\tPEAKS_LOCAL=PEAKS_LOCAL/$fullName1\tPEAK_FILE=NA\n";
 		next;

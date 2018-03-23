@@ -194,8 +194,8 @@ sub main {
 	if (not defined $sampleName) {
 		$sampleName = $foldershort;
 	}
-	system("footClust.pl -n $resDir -g $gene") == 0 or die "Failed to run footClust.pl : $!\n";
-	system("footClust2.pl -n $resDir -g $gene") == 0 or die "Failed to run footClust2.pl : $!\n";
+	system("footClust.pl -n $resDir -g $gene") == 0 or LOG($outLog, "Failed to run footClust.pl : $!\n");
+	system("footClust2.pl -n $resDir -g $gene") == 0 or LOG($outLog, "Failed to run footClust2.pl : $!\n");
 	foreach my $file (sort keys %files) {
 #		my $outPEAKS, ">", "$resDir/PEAKS_GENOME/$pk_filename.genome.bed")   or LOG($outLog, "\tFailed to write into $resDir/PEAKS_GENOME/$pk_filename.genome.bed: $!\n")  and exit 1;
 #		open (my $outRPEAKS, ">", "$resDir/PEAKS_LOCAL/$pk_filename.local.bed") or LOG($outLog, "\tFailed to write into $resDir/PEAKS_LOCAL/$pk_filename.local.bed: $!\n") and exit 1;
@@ -478,7 +478,21 @@ grid.arrange(p,p2,ncol=1,nrow=2,heights=c(ratio1,ratio2));\ndev.off()\n";
 	foreach my $outRscript (sort keys %Rscripts) {
 		print "$outRscript\n";
 		LOG($outLog, "R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n");
-		system("R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1") == 0 or LOG($outLog, date() . "Failed to run_Rscript.pl $outRscript: $!\n");
+		my $RLOG = 0;
+		$RLOG = system("R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1");
+		if ($RLOG ne 0) {
+			if (not -e $outRscript.LOG) {
+				$RLOG = "\t$outRscript.LOG cannot be found!\n";
+			}
+			else {
+				my @RLOG = `tail -n 5 $outRscript.LOG`;
+				$RLOG = "\t" . join("\n\t", @RLOG);
+			}
+			LOG($outLog, date() . "\t${LRD}Failed$N to run_Rscript.pl $outRscript: $!, LOG:\n$RLOG\n");
+		}
+		else {
+			LOG($outLog, date() . "\t${LGN}Success$N on running run_Rscript.pl $LCY$outRscript$N\n");
+		}
 	}
 #	LOG($outLog, date . "\tcd $resDir && run_Rscript.pl *MakeHeatmap.R\n");
 #	system("cd $resDir && run_Rscript.pl *MakeHeatmap.R") if not defined $opt_x and defined $opt_R;
