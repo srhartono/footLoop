@@ -27,7 +27,17 @@ sub main {
 	makedir("$resDir/PEAKS_GENOME") if not -d "$resDir/PEAKS_GENOME";
 	makedir("$resDir/PEAKS_LOCAL") if not -d "$resDir/PEAKS_LOCAL";
 	makedir("$resDir/PNG") if not -d "$resDir/PNG";
+	makedir("$resDir/PNG/PEAK") if not -d "$resDir/PNG/PEAK";
+	makedir("$resDir/PNG/PEAKNEG") if not -d "$resDir/PNG/PEAKNEG";
+	makedir("$resDir/PNG/NOPK") if not -d "$resDir/PNG/NOPK";
+	makedir("$resDir/PNG/NOPKNEG") if not -d "$resDir/PNG/NOPKNEG";
+	makedir("$resDir/PNG/ALL/") if not -d "$resDir/PNG/ALL/";
 	makedir("$resDir/PDF") if not -d "$resDir/PDF";
+	makedir("$resDir/PDF/PEAK") if not -d "$resDir/PDF/PEAK";
+	makedir("$resDir/PDF/PEAKNEG") if not -d "$resDir/PDF/PEAKNEG";
+	makedir("$resDir/PDF/NOPK") if not -d "$resDir/PDF/NOPK";
+	makedir("$resDir/PDF/NOPKNEG") if not -d "$resDir/PDF/NOPKNEG";
+	makedir("$resDir/PDF/ALL/") if not -d "$resDir/PDF/ALL/";
 	open (my $outLog, ">>", "$resDir/footLoop_addition_logFile.txt") or die;
 
 	
@@ -145,9 +155,10 @@ sub main {
 		LOG($outLog, date . "$peakPrint\n$nopkPrint\n");
 	}
 	my ($chr0, $beg0, $end0, $name0, $val0, $strand0) = @coor;
+	my $STRAND = $strand0;
 	die "Undefined beg or end at coor=\n" . join("\n", @coor) . "\n" if not defined $beg0 or not defined $end0;
 	
-	system("footPeak_HMM.pl -n $resDir");
+#	system("footPeak_HMM.pl -n $resDir");
 
 	foreach my $file (sort keys %pk) {
 		my ($pk_filename) = getFilename($file, 'full');
@@ -235,9 +246,40 @@ sub main {
 			$curr_cluster_file =~ s/PEAK/NOPK/ if $p != 0;
 			print "$p. Currfile = $currFile\n";
 			my ($currFolder, $currFilename) = getFilename($currFile, "folderfull");
+			my ($label3, $gene3, $strand3, $window3, $thres3, $type3) = parseName($currFilename);
 			#$currFilename =~ s/\.0_orig_//i;
-			my $pngout = "$resDir/PNG/$currFilename.png";
-			my $pdfout = "$resDir/PDF/$currFilename.pdf";
+			
+			my $pngoutDir;
+			if (($STRAND eq "+" or $STRAND eq "Pos") and $strand3 eq "Pos" and $type3 eq "CH" and $label3 =~ /PCB([1-9]$|10|12)/i) {
+				$pngoutDir = $p == 0 ? "PEAK/" : "NOPK/";
+			}
+			elsif (($STRAND eq "-" or $STRAND eq "Neg") and $strand3 eq "Neg" and $type3 eq "GH" and $label3 =~ /PCB([1-9]$|10|12)/i) {
+				$pngoutDir = $p == 0 ? "PEAK/" : "NOPK/";
+			}
+			elsif (($STRAND eq "+" or $STRAND eq "Pos") and $strand3 eq "Neg" and $type3 eq "GH" and $label3 =~ /PCB([1-9]$|10|12)/i) {
+				$pngoutDir = $p == 0 ? "PEAKNEG/" : "NOPKNEG/";
+			}
+			elsif (($STRAND eq "-" or $STRAND eq "Neg") and $strand3 eq "Pos" and $type3 eq "CH" and $label3 =~ /PCB([1-9]$|10|12)/i) {
+				$pngoutDir = $p == 0 ? "PEAKNEG/" : "NOPKNEG/";
+			}
+			elsif (($STRAND eq "+" or $STRAND eq "Pos") and $strand3 eq "Pos" and $type3 eq "CG" and $label3 =~ /PCB1[1345]/i) {
+				$pngoutDir = $p == 0 ? "PEAK/" : "NOPK/";
+			}
+			elsif (($STRAND eq "-" or $STRAND eq "Neg") and $strand3 eq "Neg" and $type3 eq "GC" and $label3 =~ /PCB1[1345]/i) {
+				$pngoutDir = $p == 0 ? "PEAK/" : "NOPK/";
+			}
+			elsif (($STRAND eq "+" or $STRAND eq "Pos") and $strand3 eq "Neg" and $type3 eq "GC" and $label3 =~ /PCB1[1345]/i) {
+				$pngoutDir = $p == 0 ? "PEAKNEG/" : "NOPKNEG/";
+			}
+			elsif (($STRAND eq "-" or $STRAND eq "Neg") and $strand3 eq "Pos" and $type3 eq "CG" and $label3 =~ /PCB1[1345]/i) {
+				$pngoutDir = $p == 0 ? "PEAKNEG/" : "NOPKNEG/";
+			}
+			else {
+				$pngoutDir = "ALL/";
+			}
+			my $pngout = "$resDir/PNG/$pngoutDir$currFilename.png";
+			my $pdfout = "$resDir/PDF/$pngoutDir$currFilename.pdf";
+			print "!HERE STRAND=$STRAND strand=$strand type=$type label=$label pngoutDir = $pngoutDir, p = $p, PNGOUT = $pngout\n";
 			next if not -e $currFile;
 			next if linecount($currFile) <= 1;
 			my $Rscript = ".libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\", \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\", .libPaths()) )\nlibrary(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(gridExtra)\nlibrary(RColorBrewer)\n";

@@ -54,6 +54,7 @@ foreach my $callFile (sort @callFiles) {
    my ($label2, $gene, $strand, $window, $thres, $type) = parseName($fileName1);# =~ /^(.+)_gene(.+)_(Unk|Pos|Neg)_(\d+)_(\d+\.?\d*)_(\w+)\.(PEAK|NOPK)$/;
    LOG($outLog, "Using label=$label2. Inconsistent label in filename $LCY$fileName1$N\nLabel from $footPeakFolder/.LABEL: $label\nBut from fileName: $label2\n\n") if $label2 ne $label;
    $label = $label2;
+#	next unless $label eq "PCB7" and $strand eq "Pos" and $gene eq "RPS24" and $type eq "CH";
 #	my ($label, $gene, $strand, $window, $thres, $type) = $fileName1 =~ /^(.+)_gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(GC|GH|CG|CH)/;
 	my $STRAND = $coor->{$gene}{strand};
 	my $clustFile = $callFile =~ /.PEAK.out/ ? "$footPeakFolder/FOOTCLUST/.TEMP/$label\_gene$gene\_$strand\_$window\_$thres\_$type.PEAK.local.bed.clust" : "";
@@ -152,6 +153,7 @@ sub turn_into_gtf {
 		}
 		($beg, $end) = ($seqborder1 + $BEG, $seqborder1 + $BEG + 1);
 		$maxborder0 = $end if $maxborder0 eq -1 or $maxborder0 < $end;
+#		print "BEG=$BEG, END=$END, maxborder = $maxborder0, end=$end\n" if $linecount % 100 == 0;
 		my $mid0 = int(($beg0+$end0)/2);
 		$print .= "$CHR\tNA\texon\t$beg\t$end\t0\t$STRAND\t0\tgene_id \"$num\"; transcript_id \"$num\"\n";# if (keys %clust) == 0;
 		if ((keys %clust) == 0) {
@@ -176,8 +178,9 @@ sub turn_into_gtf {
 			for (my $i = 0; $i < @{$printarr}; $i++) {
 				my $print = $printarr->[$i];
 				my $num = $numarr->[$i];
-				my $end0 = $maxborder0 + $BEG + $y;
+				my $end0 = $maxborder0 + $y; #+ $BEG;
 				my $end1 = $end0 + 1;
+#				print "end0=$end0 = maxborder0=$maxborder0 + BEG=$BEG = y=$y\n" if $i % 100 == 0;#if $num eq "113867" and $gene eq "RPS24" and $STRAND eq "+" and $label eq "PCB7";#output =~ PCB7_geneRPS24_Pos_20_0.35_CH.PEAK";
 				print $out "$CHR\tNA\texon\t$minborder0\t$minborder0\t0\t$STRAND\t0\tgene_id \"$num\"; transcript_id \"$num\"\n";
 				print $out "$print";
 				print $out "$CHR\tNA\texon\t$end0\t$end1\t0\t$STRAND\t0\tgene_id \"$num\"; transcript_id \"$num\"\n";
@@ -192,7 +195,7 @@ sub turn_into_gtf {
 						my $print = $peak{$mid}{$beg}{$end}{$read}{print};
 						my $num = $peak{$mid}{$beg}{$end}{$read}{num};
 						my $currpos = $linecount < 500 ? $pos : int($END + ($pos-$END)/$linecount*500);
-
+						#die "currpos = liencount=$linecount < 500 ? pos=$pos or END=$END + (pos=$pos - END=$END) / lnecount=$linecount * 500)\n" if $num eq "113867" and $outName eq "PCB7_geneRPS24_Pos_20_0.35_CH.PEAK";
 						print $out "$CHR\tNA\texon\t$minborder0\t$minborder0\t0\t$STRAND\t0\tgene_id \"$num\"; transcript_id \"$num\"\n";
 						print $out "$print";
 						print $out "$CHR\tNA\texon\t$currpos\t$currpos\t0\t$STRAND\t0\tgene_id \"$num\"; transcript_id \"$num\"\n";

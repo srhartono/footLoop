@@ -141,7 +141,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 	my $Q = new Thread::Queue;
 	my $peakFile = $origFile[$i];
 #debug
-#	next if $peakFile !~ /FUS_Pos/;#CALM3_Pos/;#/(AIRN_PFC66_FORWARD_Neg|CALM3_Pos)/;
+#	next if $peakFile !~ /CALM3_Pos/;#CALM3_Pos/;#/(AIRN_PFC66_FORWARD_Neg|CALM3_Pos)/;
 ##
 	my ($peakFolder, $peakFilename) = getFilename($peakFile, "folderfull");
 	$peakFilename =~ s/.orig$//;
