@@ -4,8 +4,8 @@ use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basen
 #use Getopt::Std::WithCheck;
 use vars   qw($opt_v $opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f $opt_l);
 my @opts = qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_l);
-
 getopts("vr:g:i:n:L:x:y:q:HhZFpl:");
+
 BEGIN {
 	my ($bedtools) = `bedtools --version`;
 	my ($bowtie2) = `bowtie2 --version`;
@@ -63,7 +63,7 @@ if (defined $opt_v) {
 my %OPTS  = ('r' => $opt_r, 'g' => $opt_g, 'i' => $opt_i, 'n' => $opt_n, 
 				 'L' => $opt_L, 'x' => $opt_x, 'y' => $opt_y, 'p' => $opt_p, 
 				 'q' => $opt_q, 'F' => 'NONE', 'Z' => 'NONE',
-				 'p' => 'NONE', 'L' => $opt_L, 'q' => $opt_q, 'l' => $opt_l);
+				 'p' => 'NONE', 'q' => $opt_q, 'l' => $opt_l);
 my %OPTS2 = ('p' => $opt_p, 'Z' => $opt_Z, 'F' => $opt_F);
 
 sanityCheck(\%OPTS, \%OPTS2);
@@ -75,7 +75,8 @@ my ($readFile, $genomeFile, $geneIndexFile, $outDir) = getFullpathAll($opt_r, $o
 my ($readFilename)  = getFilename($opt_r, "full");
 my ($geneIndexName) = getFilename($geneIndexFile);
 my $minMapQ    = (not defined($opt_q)) ? 0  : $opt_q;
-my ($minReadL)   = (not defined($opt_L)) ? 75 : $opt_L =~ /p$/i ? $opt_L =~ /^(.+)p$/i : $opt_L;
+$opt_L = "85p" if not defined $opt_L;
+my ($minReadL)   = (not defined($opt_L)) ? 85 : $opt_L =~ /p$/i ? $opt_L =~ /^(.+)p$/i : $opt_L;
 my $bufferL    = (not defined($opt_x)) ? 0  : $opt_x;
 my $bufferR    = (not defined($opt_y)) ? 0  : $opt_y;
 my $readName   = getFilename($readFile, "full");
