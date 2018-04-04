@@ -1,8 +1,8 @@
-package footPeakAddon;
+#!/usr/bin/perl
 
 use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_x $opt_R $opt_c $opt_t);
-
+use vars qw($opt_v $opt_n); #v $opt_x $opt_R $opt_c $opt_t $opt_n);
+getopts("n:v");
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
@@ -10,206 +10,109 @@ BEGIN {
 use myFootLib; use FAlite;
 my $homedir = $ENV{"HOME"};
 my $footLoopDir = dirname(dirname abs_path $0) . "/footLoop";
-
-sub main {
-	# From footPeak.pl: 
-	# (($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ));
-	my ($input1, $faFile, $mygene, $minDis, $resDir, $minLen, $SEQ) = @_;
-
-	my @foldershort = split("\/", $resDir);
-	my $foldershort = pop(@foldershort);
-	print date() . "\nusage: $YW$0$N [-c to use cpg] $CY<CALM3_Pos_20_0.65_CG.PEAK>$N $CY<location with lots of C>$N\n\n" and exit 1 unless @_ == 7;
-	print date() . "Input cannot be directry!\n" and exit 1 if -d $input1;
-	($input1) = getFullpath($input1);
-	my ($folder, $fileName) = getFilename($input1, "folderfull");
-
-	makedir("$resDir/.CALL") if not -d "$resDir/\.CALL";
-	makedir("$resDir/PEAKS_GENOME") if not -d "$resDir/PEAKS_GENOME";
-	makedir("$resDir/PEAKS_LOCAL") if not -d "$resDir/PEAKS_LOCAL";
-	makedir("$resDir/PNG") if not -d "$resDir/PNG";
-	makedir("$resDir/PNG/PEAK") if not -d "$resDir/PNG/PEAK";
-	makedir("$resDir/PNG/PEAKNEG") if not -d "$resDir/PNG/PEAKNEG";
-	makedir("$resDir/PNG/NOPK") if not -d "$resDir/PNG/NOPK";
-	makedir("$resDir/PNG/NOPKNEG") if not -d "$resDir/PNG/NOPKNEG";
-	makedir("$resDir/PNG/ALL/") if not -d "$resDir/PNG/ALL/";
-	makedir("$resDir/PDF") if not -d "$resDir/PDF";
-	makedir("$resDir/PDF/PEAK") if not -d "$resDir/PDF/PEAK";
-	makedir("$resDir/PDF/PEAKNEG") if not -d "$resDir/PDF/PEAKNEG";
-	makedir("$resDir/PDF/NOPK") if not -d "$resDir/PDF/NOPK";
-	makedir("$resDir/PDF/NOPKNEG") if not -d "$resDir/PDF/NOPKNEG";
-	makedir("$resDir/PDF/ALL/") if not -d "$resDir/PDF/ALL/";
-	open (my $outLog, ">>", "$resDir/footLoop_addition_logFile.txt") or die;
-
-	
-	my @coor = split("\t", $SEQ->{$mygene}{coor});
-	my (%pk, %Rscripts, %files);
-	my $total = make_total_hash();
-
-	my $label = "";
-	if (-e "$resDir/.LABEL") {
-	   ($label) = `cat $resDir/.LABEL`;
-	   chomp($label);
-	}
-	else {
-		DIELOG($outLog, "Failed to parse label from .LABEL in $resDir/.LABEL\n");
-	}
-	my ($label2, $gene, $strand, $window, $thres, $type) = parseName($fileName);# =~ /^(.+)_gene(.+)_(Unk|Pos|Neg)_(\d+)_(\d+\.?\d*)_(\w+)\.(PEAK|NOPK)$/;
-	my $isPeak = $fileName =~ /\.PEAK/ ? "PEAK" : "NOPK";
-	LOG($outLog, "Using label=$label2. Inconsistent label in filename $LCY$fileName$N\nLabel from $resDir/.LABEL: $label\nBut from fileName: $label2\n\n") if $label ne $label2;
-	$label = $label2;
-
-	if (defined $mygene) {
-		LOG($outLog, date() . "footPeak.pl filename=$LCY$fileName$N, mygene=$mygene, input genez=$gene are not the same!\n") and return -1 if uc($mygene) ne uc($gene);;
-	} else {$mygene = $gene;}
-	
-	my $bad = find_lots_of_C($faFile, $mygene, $outLog) if defined $faFile;
-
-	LOG($outLog, date() . "$input1; Undefined mygene=$mygene=, strand=$strand=, window=$window=, thres=$thres=, type=$type=, isPeak=$isPeak=\n") and exit 1 if not defined $isPeak or not defined $window;
-	LOG($outLog, date . "\n\nFolder $YW$folder$N: Processing files related to $LCY$input1$N\n");
-	my @types = qw(CH CG GH GC);
-	for (my $h = 0; $h < 4; $h++) {
-		my $type = $types[$h];
-		my $peakFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.PEAK";
-		my $nopkFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.NOPK";
-		$files{$peakFile} = 1;
-		LOG($outLog, date . "h=$LGN$h\t$YW$peakFile\t$LCY$nopkFile\n$N");
-	
-		my ($folder1, $peakfileName) = getFilename($peakFile, "folderfull");
-		my ($folder2, $nopkfileName) = getFilename($nopkFile, "folderfull");
-
-		my $data;
-		my ($linecount, $totalpeak, $totalnopk, $totalline) = (0,0,0,0);
-		if (-e $nopkFile) {
-			($totalline) = `wc -l $nopkFile` =~ /^(\d+)/;
-			$linecount = 0;
-			open (my $in1, "<", $nopkFile) or LOG($outLog, date() . "Cannot read from $nopkFile: $!\n") and exit 1;
-			LOG($outLog, date . "\tProcessing NOPK file $LPR$nopkFile$N ($LGN$totalline$N lines)\n");
-			while (my $line = <$in1>) {
-				chomp($line);
-				$linecount ++;
-				next if $linecount == 1; #header
-				LOG($outLog, date . "\tDone $totalnopk / $totalline\n") if $totalnopk % 500 == 0;
-				my ($name, $val, $totalPeak, $peaks) = parse_peak($line, $bad, $minDis, $minLen, $outLog);
-				$val = "$name\t" . join("\t", @{$val});
-				push(@{$data->{peak}}, $val) if $totalPeak > 0;
-				push(@{$data->{nopk}}, $val) if $totalPeak == 0;
-				$totalnopk ++;
-				$pk{$peakFile}{$name} = $peaks if defined $peaks;
-			}
-			close $in1;
-		}
-		my $peakCount = defined $data->{peak} ? @{$data->{peak}} : 0;
-		my $nopkCount = defined $data->{nopk} ? @{$data->{nopk}} : 0;
-		my $nopkPrint ="$folder2\t$nopkfileName\t$peakCount\t$nopkCount\t$totalnopk\t$totalline";
-		LOG($outLog, date() . "$nopkPrint\n");
-		$total->{$type}{peak}  += $peakCount;
-		$total->{$type}{nopk}  += $nopkCount;
-		$total->{$type}{total} += $totalnopk;
-		
-		if (-e $peakFile) {
-			($totalline) = `wc -l $peakFile` =~ /^(\d+)/;
-			$linecount = 0;
-			open (my $in1, "<", $peakFile) or LOG($outLog, date() . "Cannot read from $peakFile: $!\n") and exit 1;
-			LOG($outLog, date . "\tProcessing PEAK file $LPR$peakFile$N ($LGN$totalline$N lines)\n");
-			while (my $line = <$in1>) {
-				chomp($line);
-				$linecount ++;
-				next if $linecount == 1; #header
-				LOG($outLog, date . "\tDone $totalpeak / $totalline\n") if $totalpeak % 500 == 0;
-				my ($name, $val, $totalPeak, $peaks) = parse_peak($line, $bad, $minDis, $minLen, $outLog);
-				$val = "$name\t" . join("\t", @{$val});
-				push(@{$data->{peak}}, $val) if $totalPeak > 0;
-				push(@{$data->{nopk}}, $val) if $totalPeak == 0;
-				$totalpeak ++;
-				$pk{$peakFile}{$name} = $peaks if defined $peaks;
-			}
-			close $in1;
-		}
-		$peakCount = defined $data->{peak} ? @{$data->{peak}} - $peakCount : 0;
-		$nopkCount = defined $data->{nopk} ? @{$data->{nopk}} - $nopkCount : 0;
-		my $peakPrint ="$folder1\t$peakfileName\t$peakCount\t$nopkCount\t$totalpeak\t$totalline";
-		LOG($outLog, date() . "$peakPrint\n");
-		$total->{$type}{peak}  += $peakCount;
-		$total->{$type}{nopk}  += $nopkCount;
-		$total->{$type}{total} += $totalpeak;
-
-		if (defined $data->{peak}) {
-			die if @{$data->{peak}} != $total->{$type}{peak};
-			print "HERE: $folder1/$peakfileName.out\n";
-			open (my $out1, ">", "$resDir/.CALL/$peakfileName.out") or LOG($outLog, date() . "Cannot write to $peakfileName.out: $!\n") and exit 1;
-			foreach my $val (sort @{$data->{peak}}) {
-				print $out1 "$val\n";
-			}
-			close $out1;
-		}
-		if (defined $data->{nopk}) {
-			die if @{$data->{nopk}} != $total->{$type}{nopk};
-			print "HERE: $folder1/$nopkfileName.out\n";
-			open (my $out1, ">", "$resDir/.CALL/$nopkfileName.out") or LOG($outLog, date() . "Cannot write to $nopkfileName.out: $!\n") and exit 1;
-			foreach my $val (sort @{$data->{nopk}}) {
-				print $out1 "$val\n";
-			}
-			close $out1;
-		}		
-		LOG($outLog, date . "#Folder\tFile\tPeak\tnopk\tTotalRead\tTotalLineInFile\n") if $h == 0;
-		LOG($outLog, date . "$peakPrint\n$nopkPrint\n");
-	}
-	my ($chr0, $beg0, $end0, $name0, $val0, $strand0) = @coor;
-	my $STRAND = $strand0;
-	die "Undefined beg or end at coor=\n" . join("\n", @coor) . "\n" if not defined $beg0 or not defined $end0;
-	
-#	system("footPeak_HMM.pl -n $resDir");
-
-	foreach my $file (sort keys %pk) {
-		my ($pk_filename) = getFilename($file, 'full');
-		open (my $outPEAKS, ">", "$resDir/PEAKS_GENOME/$pk_filename.genome.bed")   or LOG($outLog, "\tFailed to write into $resDir/PEAKS_GENOME/$pk_filename.genome.bed: $!\n")  and exit 1;
-		open (my $outRPEAKS, ">", "$resDir/PEAKS_LOCAL/$pk_filename.local.bed") or LOG($outLog, "\tFailed to write into $resDir/PEAKS_LOCAL/$pk_filename.local.bed: $!\n") and exit 1;
-		my $currtype = $file =~ /_CH/ ? "CH" : $file =~ /_CG/ ? "CG" : $file =~ /_GH/ ? "GH" : $file =~ /_GC/ ? "GC" : "UNK";
-		LOG($outLog, "\tFailed to determine type (CH/CG/GH/GC) of file=$file.PEAKS: $!\n") if $currtype eq "UNK";
-		foreach my $name (sort keys %{$pk{$file}}) {
-			foreach my $peak (sort @{$pk{$file}{$name}}) {
-				my ($beg, $end) = split("-", $peak);
-				my $end1 = $end + $beg0;
-				my $beg1 = $beg + $beg0;
-				my ($junk, $readname) = $name =~ /^(\w+)\.(.+)$/;
-				print $outPEAKS  "$chr0\t$beg1\t$end1\t$name\t0\t$strand0\t$file\n";
-				print $outRPEAKS "$name\t$beg\t$end\n";
-			}
-		}
-		close $outPEAKS;
-		close $outRPEAKS;
-	}
-	
-	open (my $outLGENE, ">", "$resDir/.0_RESULTS\_$label\_gene$mygene\_$strand\_$window\_$thres.TXT");
-	for (my $h = 0; $h < 4; $h++) {
-		my $type = $types[$h];
-		my $totalPeak = $total->{$type}{peak};
-		my $totalNopk = $total->{$type}{nopk};
-		$total->{$type}{peak} = $total->{$type}{total} == 0 ? 0 : int(1000 * $total->{$type}{peak} / $total->{$type}{total}+0.5)/10;
-		$total->{$type}{nopk} = $total->{$type}{total} == 0 ? 0 : int(1000 * $total->{$type}{nopk} / $total->{$type}{total}+0.5)/10;
-		my @folder = split("/", $resDir);
-		my $foldershort = $folder[@folder-1];
-		   $foldershort = $folder[@folder-2] if not defined ($foldershort) or (defined $foldershort and $foldershort =~ /^[\s]*$/);
-		my $peakFile    = "$mygene\_$strand\_$window\_$thres\_$type.PEAK";
-		print $outLGENE "#folder\tpeakFile\tGene\tStrand\ttotal\tpeak.perc\n" if $type eq "CH";
-		print $outLGENE "$foldershort\t$peakFile\t$mygene\t$type\t$total->{$type}{total}\t$totalPeak\t$total->{$type}{peak}\n";
-	}
-	close $outLGENE;
-	system("cat $resDir/.0_RESULTS\_$label\_gene$mygene\_$strand\_$window\_$thres.TXT");
-	#my ($sampleName) = $folder =~ /\/?\d+_(m\d+_\d+)_\d+_\w+/;
-	my ($sampleName) = $folder =~ /^.+(PCB[\_\-]*\d+)/i;
-	if ($folder =~ /debarcode/) {
-		my ($temp) = $folder =~ /_ccs_(\w+)/;
-		$sampleName = $sampleName . "_$temp";
-	}
-	if (not defined $sampleName) {
-		$sampleName = $foldershort;
-	}
-	system("footClust.pl -n $resDir -g $gene") == 0 or LOG($outLog, "Failed to run footClust.pl : $!\n");
-	system("footClust2.pl -n $resDir -g $gene") == 0 or LOG($outLog, "Failed to run footClust2.pl : $!\n");
+my @version = `cd $footLoopDir && git log | head `;
+my $version = "UNKNOWN";
+foreach my $line (@version[0..@version-1]) {
+   if ($line =~ /^\s+V\d+\.?\d*\w*\s*/) {
+      ($version) = $line =~ /^\s+(V\d+\.?\d*\w*)\s*/;
+   }
 }
-=comment
+if (not defined $version or (defined $version and $version eq "UNKNOWN")) {
+   ($version) = `cd $footLoopDir && git log | head -n 1`;
+}
+if (defined $opt_v) {
+   print "\n\n$YW$0 $LGN$version$N\n\n";
+   exit;
+}
+
+die "\nUsage: $YW$0$N -n$LCY <footPeak output directory>$N\n\n" if not defined $opt_n;
+die "\nERROR: -n footPeak dir $LCY$opt_n$N doesn't exists!\n\nUsage: $YW$0$N -n <footPeak output directory>\n\n" if not -d $opt_n;
+
+my $uuid = getuuid();
+my $date = date();
+
+main($opt_n);
+sub main {
+	my ($resDir) = @_;
+	my %scp;
+   makedir("$resDir/.CALL") if not -d "$resDir/\.CALL";
+   makedir("$resDir/PEAKS_GENOME") if not -d "$resDir/PEAKS_GENOME";
+   makedir("$resDir/PEAKS_LOCAL") if not -d "$resDir/PEAKS_LOCAL";
+   makedir("$resDir/PNG") if not -d "$resDir/PNG";
+   makedir("$resDir/PNG/PEAK") if not -d "$resDir/PNG/PEAK";
+   makedir("$resDir/PNG/PEAKNEG") if not -d "$resDir/PNG/PEAKNEG";
+   makedir("$resDir/PNG/NOPK") if not -d "$resDir/PNG/NOPK";
+   makedir("$resDir/PNG/NOPKNEG") if not -d "$resDir/PNG/NOPKNEG";
+   makedir("$resDir/PNG/ALL/") if not -d "$resDir/PNG/ALL/";
+   makedir("$resDir/PDF") if not -d "$resDir/PDF";
+   makedir("$resDir/PDF/PEAK") if not -d "$resDir/PDF/PEAK";
+   makedir("$resDir/PDF/PEAKNEG") if not -d "$resDir/PDF/PEAKNEG";
+   makedir("$resDir/PDF/NOPK") if not -d "$resDir/PDF/NOPK";
+   makedir("$resDir/PDF/NOPKNEG") if not -d "$resDir/PDF/NOPKNEG";
+   makedir("$resDir/PDF/ALL/") if not -d "$resDir/PDF/ALL/";
+	my %files;
+	my ($footPeak_logFile) = "$resDir/footPeak_logFile.txt";
+	open (my $outLog, ">", "$resDir/footPeak_graph_logFile.txt") or die "\n\nFailed to write to $resDir/footPeak_graph_logFile.txt: $!\n\n";
+	LOG($outLog, ">footPeak_graph.pl version $version\n");
+	LOG($outLog, ">UUID: $uuid\n", "NA");
+	LOG($outLog, ">Date: $date\n", "NA");
+	LOG($outLog, ">Run script: $0 -n $opt_n\n", "NA");
+	my %coor;
+	my @lines = `cat $footPeak_logFile`;
+	my ($label) = `cat $resDir/.LABEL`; chomp($label);
+#	die "\n" if not -e "a";
+	DIELOG($outLog, "\n\ndied at footPeak_graph.pl: can't find $footPeak_logFile!\n\n") if not -e $footPeak_logFile;
+	DIELOG($outLog, "\n\ndied at footPeak_graph.pl: can't find $resDir/.LABEL!\n\n") if not -e "$resDir/.LABEL";
+	my ($thres, $window);
+	foreach my $line (@lines) {
+		chomp($line);
+		if ($line =~ /^[ \t]+def=.+, coor=.+/) {
+			$line =~ s/^\s+//;
+			$line =~ s/\s+$//;
+			my ($gene, $CHR, $BEG, $END, $GENE, $VAL, $STRAND) = $line =~ /^def=(.+), coor=(.+), (\d+), (\d+), (.+), (\-?\d+\.?\d*), ([\+\-])$/;
+			$GENE = uc($GENE);
+			DIELOG($outLog, "\n\ndied at processing $LCY$footPeak_logFile$N: can't parse index file def gene lines\n\n$line\n\n") if not defined $STRAND;
+			$coor{$GENE}{CHR} = $CHR;
+			$coor{$GENE}{BEG} = $BEG;
+			$coor{$GENE}{END} = $END;
+			$coor{$GENE}{VAL} = $VAL;
+			$coor{$GENE}{STRAND} = $STRAND eq "+" ? "Pos" : $STRAND eq "-" ? "Neg" : $STRAND =~ /^(Pos|Neg|Unk)$/ ? $STRAND : "Unk";
+		}
+		elsif ($line =~ /^-t thrshld\s+:/) {
+			($thres) = $line =~ /^-t thrshld\s+:\s+(\-?\d+\.?\d*)$/;
+		}
+		elsif ($line =~ /^-w window\s+:/) {
+			($window) = $line =~ /^-w window\s+:\s+(\-?\d+\.?\d*)$/;
+		}
+	}
+	my %gene;
+	my @types = qw(CH CG GH GC);
+	foreach my $GENE (sort keys %coor) {
+		my $mygene = $GENE;
+		my $strand = $coor{$GENE}{STRAND};
+		for (my $h = 0; $h < 4; $h++) {
+			my $type = $types[$h];
+			my $peakFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.PEAK";
+			$files{$peakFile} = $mygene;
+		}
+	}
+	my %Rscripts; 
+	my $lastfile = -1; #debug
+	LOG($outLog, "\n\nERROR: There is no file defined!\n") and die if (keys %files) == 0;#not defined $files_hash or (defined $files_hash and $files_hash !~ /HASH/);
+	my $fileCount = 0;
+	my $totalFile = (keys %files);
+	my $lastGENE = -1;
 	foreach my $file (sort keys %files) {
+		$fileCount ++;
+		my $GENE = $files{$file};
+		LOG($outLog, "\n$YW -------- $fileCount/$totalFile Doing $GENE ---------$N\n\n") if $GENE ne $lastGENE;
+		$lastGENE = $GENE;
+#debug
+		next if $file !~ /CALM3.+Pos.+GC/;
+#		last if $lastfile =~ /CALM3.+Pos.+/;
+#debugend
+		$lastfile = $file;
+		my $STRAND = $coor{$GENE}{STRAND};
 #		my $outPEAKS, ">", "$resDir/PEAKS_GENOME/$pk_filename.genome.bed")   or LOG($outLog, "\tFailed to write into $resDir/PEAKS_GENOME/$pk_filename.genome.bed: $!\n")  and exit 1;
 #		open (my $outRPEAKS, ">", "$resDir/PEAKS_LOCAL/$pk_filename.local.bed") or LOG($outLog, "\tFailed to write into $resDir/PEAKS_LOCAL/$pk_filename.local.bed: $!\n") and exit 1;
 		next if not defined $files{$file};
@@ -221,32 +124,39 @@ sub main {
 		$cluster_file =~ s/.out$/.local.bed.clust/;
 		my $kmer_file = "$resDir/FOOTCLUST/.TEMP/$pk_filename";
 		$kmer_file =~ s/.out$/.local.bed.clust.kmer/;
-		print "$file";
-		if (not -e $cluster_file) {
-			print "1=$LRD$cluster_file$N,";
-		}
-		if (-e $cluster_file) {
-			print "1=${LGN}$cluster_file$N,";
-		}
-		if (not -e $kmer_file) {
-			print "2=$LRD$kmer_file$N,";
-		}
-		if (-e $kmer_file) {
-			print "2=${LGN}$kmer_file$N,";
-		}
-		print "\n";
-		LOG($outLog, date() . "Doing $peakFile\n");
+	#	LOG($outLog, "$file");
+	#	if (not -e $cluster_file) {
+	#		LOG($outLog, "1=$LRD$cluster_file$N,");
+	#	}
+	#	if (-e $cluster_file) {
+	#		LOG($outLog, "1=${LGN}$cluster_file$N,");
+	#	}
+	#	if (not -e $kmer_file) {
+	#		LOG($outLog, "2=$LRD$kmer_file$N,");
+	#	}
+	#	if (-e $kmer_file) {
+	#		LOG($outLog, "2=${LGN}$kmer_file$N,");
+	#	}
+	#	LOG($outLog, "\n");
 #		my $nopkFile = $file . ".out"; 
 		my $totpeak = -e $peakFile ? linecount($peakFile) : 0;
 		my $totnopk = -e $nopkFile ? linecount($nopkFile) : 0;
 		my $bedFile = "$resDir/PEAKS_LOCAL/$pk_filename.local.bed";
 #		my $bedFile = $peakFile . ".RPEAKS"; 
 		$bedFile =~ s/.out.local.bed/.local.bed/;
+		my ($type) = $peakFile =~ /(CH|CG|GH|GC)/;
+		LOG($outLog, date() . " $LGN$fileCount/$totalFile$N: Parsing into R script: gene=$LPR$GENE$N, strand=$GN$STRAND$N, type=$YW$type$N, peak=$LGN$totpeak$N, nopeak=$LRD$totnopk$N)\n");
 		for (my $p = 0; $p < 2; $p ++) {
 			my $currFile = $p == 0 ? $peakFile : $nopkFile;
 			my $curr_cluster_file = $cluster_file;
 			$curr_cluster_file =~ s/PEAK/NOPK/ if $p != 0;
-			print "$p. Currfile = $currFile\n";
+			LOG($outLog, date() . " file #$YW$p.$N $LCY$currFile$N\n");
+			LOG($outLog, "\t\tCurrfile           = $LCY$currFile$N
+\t\tcurr_cluster_file  = $LCY$curr_cluster_file$N
+\t\tkmer_File          = $LPR$kmer_file$N
+\t\tbedFile            = $BU$bedFile$N
+\t\ttotpeak = $LGN$totpeak$N, nopk = $LGN$totnopk$N
+","NA");
 			my ($currFolder, $currFilename) = getFilename($currFile, "folderfull");
 			my ($label3, $gene3, $strand3, $window3, $thres3, $type3) = parseName($currFilename);
 			#$currFilename =~ s/\.0_orig_//i;
@@ -279,13 +189,22 @@ sub main {
 			else {
 				$pngoutDir = "ALL/";
 			}
+			my $resDir2 = getFullpath($resDir);
 			my $pngout = "$resDir/PNG/$pngoutDir$currFilename.png";
 			my $pdfout = "$resDir/PDF/$pngoutDir$currFilename.pdf";
-			#print "!HERE STRAND=$STRAND strand=$strand type=$type label=$label pngoutDir = $pngoutDir, p = $p, PNGOUT = $pngout\n";
+			$scp{"scp mitochi\@crick.cse.ucdavis.edu:$resDir2/PNG/$pngoutDir$currFilename.png ./"} = 1;
+			#LOG($outLog, "!HERE STRAND=$STRAND strand=$strand type=$type label=$label pngoutDir = $pngoutDir, p = $p, PNGOUT = $pngout\n");
 #			next if not -e $currFile;
 #			next if linecount($currFile) <= 1;
 			my $Rscript = ".libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\", \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\", .libPaths()) )\nlibrary(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(gridExtra)\nlibrary(RColorBrewer)\n";
-			if (-e $currFile and linecount($currFile) > 10) {
+			
+			#if (-e $currFile and linecount($currFile) > 10) {
+			my $totread = $totpeak + $totnopk;
+			if (not -e $currFile or (-e $currFile and linecount($currFile) <= 10)) {
+#				$Rscript .= "png(\"$pngout\",250,250)\nplot(seq(1,10),seq(1,10))\ntext(5,5,labels=c(\"PEAK = $totpeak, NOPK = $totnopk\"))\ndev.off()\n";
+				$Rscript .= "png(\"$pngout\",1000,1000)\nplot(NA,xlim=c(1,100),ylim=c(1,100),xlab=NA,ylab=NA,bty=\"n\")\ntext(50,50,cex=3,labels=c(\"$currFilename\n\nPEAK = $totpeak / $totread\"))\ndev.off()\n";
+			}
+			else {
 				my ($R) = Rscript($currFile, $bedFile, $curr_cluster_file, $totpeak, $totnopk, $pngout, $pdfout);
 
 				# Read Table
@@ -320,7 +239,8 @@ sub main {
 				$Rscript .= $R->{secondplotConversionGraph};
 
 				# Add Third Plot and Do PNG
-				$Rscript .= $R->{PDF};
+				$Rscript .= $R->{Scale};
+#				$Rscript .= $R->{PDF};
 				$Rscript .= $R->{PNG};
 			}
 			open (my $outRscript, ">", "$currFile.R") or (LOG($outLog, date() . "Failed to write R script into $currFile.R: $!\n") and print $outLog $Rscript and next);
@@ -329,10 +249,13 @@ sub main {
 			close $outRscript;
 		}
 	}
-	LOG($outLog, "\n\n");
+	LOG($outLog, "\n\n$YW ----------------- Running R Scripts ------------------$N\n\n");
+	$fileCount = 0;
+	$totalFile = (keys %Rscripts);
 	foreach my $outRscript (sort keys %Rscripts) {
-		print "$outRscript\n";
-		LOG($outLog, "R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n");
+		$fileCount ++;
+		LOG($outLog, "\n" . date() . "$LGN$fileCount/$totalFile$N. Running $LCY$outRscript$N\n");
+		LOG($outLog, date() . "\tR --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n");
 		my $RLOG = 0;
 		$RLOG = system("R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1");
 		my $prevRLOG = $RLOG;
@@ -352,8 +275,12 @@ sub main {
 	}
 #	LOG($outLog, date . "\tcd $resDir && run_Rscript.pl *MakeHeatmap.R\n");
 #	system("cd $resDir && run_Rscript.pl *MakeHeatmap.R") if not defined $opt_x and defined $opt_R;
+	LOG($outLog, "\n\n$YW ----------------- SCP PATHS ------------------$N\n\n");
+	foreach my $file (sort keys %scp) {
+		LOG($outLog, "$file\n");
+	}
 }
-=cut
+
 ###############
 # Subroutines #
 ###############
@@ -577,7 +504,7 @@ p =	ggplot(dm,aes(variable,y)) +
 p = 
 	p + 
 	geom_rect(data=clust2,aes(fill=as.factor(clust),x=xmin,y=ymin,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax)) +
-	geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=clust-10),hjust=0,size=15) +
+	geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=clust-10),hjust=0,size=15)
 
 ";
 
@@ -649,7 +576,7 @@ mynrow = 2
 totalheight = dim(df)[1] + 31.25
 totalwidth  = dim(df)[2] * 0.125
 totalratio  = c(ratio1, ratio2)
-	if (file.exists($curr_cluster_file) & file.info($curr_cluster_file)\$size > 0) {
+	if (file.exists(\"$curr_cluster_file\") & file.info(\"$curr_cluster_file\")\$size > 0) {
 		totalheight = totalheight + 26.5625
 		totalratio = c(totalratio, ratio3)
 		mynrow = 3
@@ -1012,3 +939,205 @@ END1
 		png(\"$pngout\",width=dim(df)[2]*2,height=dim(df)[1]*16 + 500)
 grid.arrange(p,p2,ncol=1,nrow=2,heights=c(ratio1,ratio2));\ndev.off()\n";
 			}
+
+
+__END__
+=comment
+sub main {
+	# From footPeak.pl: 
+	# (($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ));
+	my ($input1, $faFile, $mygene, $minDis, $resDir, $minLen, $SEQ) = @_;
+
+	my @foldershort = split("\/", $resDir);
+	my $foldershort = pop(@foldershort);
+	print date() . "\nusage: $YW$0$N [-c to use cpg] $CY<CALM3_Pos_20_0.65_CG.PEAK>$N $CY<location with lots of C>$N\n\n" and exit 1 unless @_ == 7;
+	print date() . "Input cannot be directry!\n" and exit 1 if -d $input1;
+	($input1) = getFullpath($input1);
+	my ($folder, $fileName) = getFilename($input1, "folderfull");
+
+	makedir("$resDir/.CALL") if not -d "$resDir/\.CALL";
+	makedir("$resDir/PEAKS_GENOME") if not -d "$resDir/PEAKS_GENOME";
+	makedir("$resDir/PEAKS_LOCAL") if not -d "$resDir/PEAKS_LOCAL";
+	makedir("$resDir/PNG") if not -d "$resDir/PNG";
+	makedir("$resDir/PNG/PEAK") if not -d "$resDir/PNG/PEAK";
+	makedir("$resDir/PNG/PEAKNEG") if not -d "$resDir/PNG/PEAKNEG";
+	makedir("$resDir/PNG/NOPK") if not -d "$resDir/PNG/NOPK";
+	makedir("$resDir/PNG/NOPKNEG") if not -d "$resDir/PNG/NOPKNEG";
+	makedir("$resDir/PNG/ALL/") if not -d "$resDir/PNG/ALL/";
+	makedir("$resDir/PDF") if not -d "$resDir/PDF";
+	makedir("$resDir/PDF/PEAK") if not -d "$resDir/PDF/PEAK";
+	makedir("$resDir/PDF/PEAKNEG") if not -d "$resDir/PDF/PEAKNEG";
+	makedir("$resDir/PDF/NOPK") if not -d "$resDir/PDF/NOPK";
+	makedir("$resDir/PDF/NOPKNEG") if not -d "$resDir/PDF/NOPKNEG";
+	makedir("$resDir/PDF/ALL/") if not -d "$resDir/PDF/ALL/";
+	open (my $outLog, ">>", "$resDir/footLoop_addition_logFile.txt") or die;
+
+	
+	my @coor = split("\t", $SEQ->{$mygene}{coor});
+	my (%pk, %Rscripts, %files);
+	my $total = make_total_hash();
+
+	my $label = "";
+	if (-e "$resDir/.LABEL") {
+	   ($label) = `cat $resDir/.LABEL`;
+	   chomp($label);
+	}
+	else {
+		DIELOG($outLog, "Failed to parse label from .LABEL in $resDir/.LABEL\n");
+	}
+	my ($label2, $gene, $strand, $window, $thres, $type) = parseName($fileName);# =~ /^(.+)_gene(.+)_(Unk|Pos|Neg)_(\d+)_(\d+\.?\d*)_(\w+)\.(PEAK|NOPK)$/;
+	my $isPeak = $fileName =~ /\.PEAK/ ? "PEAK" : "NOPK";
+	LOG($outLog, "Using label=$label2. Inconsistent label in filename $LCY$fileName$N\nLabel from $resDir/.LABEL: $label\nBut from fileName: $label2\n\n") if $label ne $label2;
+	$label = $label2;
+
+	if (defined $mygene) {
+		LOG($outLog, date() . "footPeak.pl filename=$LCY$fileName$N, mygene=$mygene, input genez=$gene are not the same!\n") and return -1 if uc($mygene) ne uc($gene);;
+	} else {$mygene = $gene;}
+	
+	my $bad = find_lots_of_C($faFile, $mygene, $outLog) if defined $faFile;
+
+	LOG($outLog, date() . "$input1; Undefined mygene=$mygene=, strand=$strand=, window=$window=, thres=$thres=, type=$type=, isPeak=$isPeak=\n") and exit 1 if not defined $isPeak or not defined $window;
+	LOG($outLog, date . "\n\nFolder $YW$folder$N: Processing files related to $LCY$input1$N\n");
+	my @types = qw(CH CG GH GC);
+	for (my $h = 0; $h < 4; $h++) {
+		my $type = $types[$h];
+		my $peakFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.PEAK";
+		my $nopkFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.NOPK";
+		$files{$peakFile} = 1;
+		LOG($outLog, date . "h=$LGN$h\t$YW$peakFile\t$LCY$nopkFile\n$N");
+	
+		my ($folder1, $peakfileName) = getFilename($peakFile, "folderfull");
+		my ($folder2, $nopkfileName) = getFilename($nopkFile, "folderfull");
+
+		my $data;
+		my ($linecount, $totalpeak, $totalnopk, $totalline) = (0,0,0,0);
+		if (-e $nopkFile) {
+			($totalline) = `wc -l $nopkFile` =~ /^(\d+)/;
+			$linecount = 0;
+			open (my $in1, "<", $nopkFile) or LOG($outLog, date() . "Cannot read from $nopkFile: $!\n") and exit 1;
+			LOG($outLog, date . "\tProcessing NOPK file $LPR$nopkFile$N ($LGN$totalline$N lines)\n");
+			while (my $line = <$in1>) {
+				chomp($line);
+				$linecount ++;
+				next if $linecount == 1; #header
+				LOG($outLog, date . "\tDone $totalnopk / $totalline\n") if $totalnopk % 500 == 0;
+				my ($name, $val, $totalPeak, $peaks) = parse_peak($line, $bad, $minDis, $minLen, $outLog);
+				$val = "$name\t" . join("\t", @{$val});
+				push(@{$data->{peak}}, $val) if $totalPeak > 0;
+				push(@{$data->{nopk}}, $val) if $totalPeak == 0;
+				$totalnopk ++;
+				$pk{$peakFile}{$name} = $peaks if defined $peaks;
+			}
+			close $in1;
+		}
+		my $peakCount = defined $data->{peak} ? @{$data->{peak}} : 0;
+		my $nopkCount = defined $data->{nopk} ? @{$data->{nopk}} : 0;
+		my $nopkPrint ="$folder2\t$nopkfileName\t$peakCount\t$nopkCount\t$totalnopk\t$totalline";
+		LOG($outLog, date() . "$nopkPrint\n");
+		$total->{$type}{peak}  += $peakCount;
+		$total->{$type}{nopk}  += $nopkCount;
+		$total->{$type}{total} += $totalnopk;
+		
+		if (-e $peakFile) {
+			($totalline) = `wc -l $peakFile` =~ /^(\d+)/;
+			$linecount = 0;
+			open (my $in1, "<", $peakFile) or LOG($outLog, date() . "Cannot read from $peakFile: $!\n") and exit 1;
+			LOG($outLog, date . "\tProcessing PEAK file $LPR$peakFile$N ($LGN$totalline$N lines)\n");
+			while (my $line = <$in1>) {
+				chomp($line);
+				$linecount ++;
+				next if $linecount == 1; #header
+				LOG($outLog, date . "\tDone $totalpeak / $totalline\n") if $totalpeak % 500 == 0;
+				my ($name, $val, $totalPeak, $peaks) = parse_peak($line, $bad, $minDis, $minLen, $outLog);
+				$val = "$name\t" . join("\t", @{$val});
+				push(@{$data->{peak}}, $val) if $totalPeak > 0;
+				push(@{$data->{nopk}}, $val) if $totalPeak == 0;
+				$totalpeak ++;
+				$pk{$peakFile}{$name} = $peaks if defined $peaks;
+			}
+			close $in1;
+		}
+		$peakCount = defined $data->{peak} ? @{$data->{peak}} - $peakCount : 0;
+		$nopkCount = defined $data->{nopk} ? @{$data->{nopk}} - $nopkCount : 0;
+		my $peakPrint ="$folder1\t$peakfileName\t$peakCount\t$nopkCount\t$totalpeak\t$totalline";
+		LOG($outLog, date() . "$peakPrint\n");
+		$total->{$type}{peak}  += $peakCount;
+		$total->{$type}{nopk}  += $nopkCount;
+		$total->{$type}{total} += $totalpeak;
+
+		if (defined $data->{peak}) {
+			die if @{$data->{peak}} != $total->{$type}{peak};
+			print "HERE: $folder1/$peakfileName.out\n";
+			open (my $out1, ">", "$resDir/.CALL/$peakfileName.out") or LOG($outLog, date() . "Cannot write to $peakfileName.out: $!\n") and exit 1;
+			foreach my $val (sort @{$data->{peak}}) {
+				print $out1 "$val\n";
+			}
+			close $out1;
+		}
+		if (defined $data->{nopk}) {
+			die if @{$data->{nopk}} != $total->{$type}{nopk};
+			print "HERE: $folder1/$nopkfileName.out\n";
+			open (my $out1, ">", "$resDir/.CALL/$nopkfileName.out") or LOG($outLog, date() . "Cannot write to $nopkfileName.out: $!\n") and exit 1;
+			foreach my $val (sort @{$data->{nopk}}) {
+				print $out1 "$val\n";
+			}
+			close $out1;
+		}		
+		LOG($outLog, date . "#Folder\tFile\tPeak\tnopk\tTotalRead\tTotalLineInFile\n") if $h == 0;
+		LOG($outLog, date . "$peakPrint\n$nopkPrint\n");
+	}
+	my ($chr0, $beg0, $end0, $name0, $val0, $strand0) = @coor;
+	my $STRAND = $strand0;
+	die "Undefined beg or end at coor=\n" . join("\n", @coor) . "\n" if not defined $beg0 or not defined $end0;
+	
+#	system("footPeak_HMM.pl -n $resDir");
+
+	foreach my $file (sort keys %pk) {
+		my ($pk_filename) = getFilename($file, 'full');
+		open (my $outPEAKS, ">", "$resDir/PEAKS_GENOME/$pk_filename.genome.bed")   or LOG($outLog, "\tFailed to write into $resDir/PEAKS_GENOME/$pk_filename.genome.bed: $!\n")  and exit 1;
+		open (my $outRPEAKS, ">", "$resDir/PEAKS_LOCAL/$pk_filename.local.bed") or LOG($outLog, "\tFailed to write into $resDir/PEAKS_LOCAL/$pk_filename.local.bed: $!\n") and exit 1;
+		my $currtype = $file =~ /_CH/ ? "CH" : $file =~ /_CG/ ? "CG" : $file =~ /_GH/ ? "GH" : $file =~ /_GC/ ? "GC" : "UNK";
+		LOG($outLog, "\tFailed to determine type (CH/CG/GH/GC) of file=$file.PEAKS: $!\n") if $currtype eq "UNK";
+		foreach my $name (sort keys %{$pk{$file}}) {
+			foreach my $peak (sort @{$pk{$file}{$name}}) {
+				my ($beg, $end) = split("-", $peak);
+				my $end1 = $end + $beg0;
+				my $beg1 = $beg + $beg0;
+				my ($junk, $readname) = $name =~ /^(\w+)\.(.+)$/;
+				print $outPEAKS  "$chr0\t$beg1\t$end1\t$name\t0\t$strand0\t$file\n";
+				print $outRPEAKS "$name\t$beg\t$end\n";
+			}
+		}
+		close $outPEAKS;
+		close $outRPEAKS;
+	}
+	
+	open (my $outLGENE, ">", "$resDir/.0_RESULTS\_$label\_gene$mygene\_$strand\_$window\_$thres.TXT");
+	for (my $h = 0; $h < 4; $h++) {
+		my $type = $types[$h];
+		my $totalPeak = $total->{$type}{peak};
+		my $totalNopk = $total->{$type}{nopk};
+		$total->{$type}{peak} = $total->{$type}{total} == 0 ? 0 : int(1000 * $total->{$type}{peak} / $total->{$type}{total}+0.5)/10;
+		$total->{$type}{nopk} = $total->{$type}{total} == 0 ? 0 : int(1000 * $total->{$type}{nopk} / $total->{$type}{total}+0.5)/10;
+		my @folder = split("/", $resDir);
+		my $foldershort = $folder[@folder-1];
+		   $foldershort = $folder[@folder-2] if not defined ($foldershort) or (defined $foldershort and $foldershort =~ /^[\s]*$/);
+		my $peakFile    = "$mygene\_$strand\_$window\_$thres\_$type.PEAK";
+		print $outLGENE "#folder\tpeakFile\tGene\tStrand\ttotal\tpeak.perc\n" if $type eq "CH";
+		print $outLGENE "$foldershort\t$peakFile\t$mygene\t$type\t$total->{$type}{total}\t$totalPeak\t$total->{$type}{peak}\n";
+	}
+	close $outLGENE;
+	system("cat $resDir/.0_RESULTS\_$label\_gene$mygene\_$strand\_$window\_$thres.TXT");
+	#my ($sampleName) = $folder =~ /\/?\d+_(m\d+_\d+)_\d+_\w+/;
+	my ($sampleName) = $folder =~ /^.+(PCB[\_\-]*\d+)/i;
+	if ($folder =~ /debarcode/) {
+		my ($temp) = $folder =~ /_ccs_(\w+)/;
+		$sampleName = $sampleName . "_$temp";
+	}
+	if (not defined $sampleName) {
+		$sampleName = $foldershort;
+	}
+	system("footClust.pl -n $resDir -g $gene") == 0 or LOG($outLog, "Failed to run footClust.pl : $!\n");
+	system("footClust2.pl -n $resDir -g $gene") == 0 or LOG($outLog, "Failed to run footClust2.pl : $!\n");
+=cut
+
