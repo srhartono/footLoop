@@ -86,7 +86,10 @@ my $uuid       = getuuid();
 my $date       = getDate();
 my $origDir    = $outDir . "/.0_Orig";
 my ($label)    = defined $opt_l ? $opt_l : $origDir =~ /PCB[\-_0]*\d+/i ? $origDir =~ /(PCB[\-_0]*\d+)/i : $outDir;
-if ($outDir =~ /PCB\d+/i) {
+if (defined $opt_l) {
+	$label = $opt_l;
+}
+elsif ($outDir =~ /PCB\d+/i) {
    ($label) = $outDir =~ /(PCB\d+)/i;
    $label = uc($label);
    $label =~ s/PCB0(\d+)/PCB$1/ if $label =~ /PCB0\d+/;
@@ -103,7 +106,7 @@ if (not defined $label) {
    die "Please make sure your output folder (-o) contain PCB(number) e.g. PCB12: 180202_PCB12_footloop_output\n\n";
 }
 
-if ($outDir =~ /_BC\d+_PFC\d+_\w+\./i) {
+if (not defined $opt_l and $outDir =~ /_BC\d+_PFC\d+_\w+\./i) {
    my ($label2) = $outDir =~ /_(BC\w+)\./i;
    $label = "$label\_$label2";
    $label = uc($label);

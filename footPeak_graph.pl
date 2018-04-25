@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_n); #v $opt_x $opt_R $opt_c $opt_t $opt_n);
-getopts("n:v");
+use vars qw($opt_w $opt_g $opt_v $opt_n); #v $opt_x $opt_R $opt_c $opt_t $opt_n);
+getopts("n:vg:w:");
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
@@ -25,7 +25,7 @@ if (defined $opt_v) {
    exit;
 }
 
-die "\nUsage: $YW$0$N -n$LCY <footPeak output directory>$N\n\n" if not defined $opt_n;
+die "\nUsage: $YW$0$N [Optional: -g $LGN<gene>$N] -n$LCY <footPeak output directory>$N\n\n" if not defined $opt_n;
 die "\nERROR: -n footPeak dir $LCY$opt_n$N doesn't exists!\n\nUsage: $YW$0$N -n <footPeak output directory>\n\n" if not -d $opt_n;
 
 my $uuid = getuuid();
@@ -107,8 +107,16 @@ sub main {
 		my $GENE = $files{$file};
 		LOG($outLog, "\n$YW -------- $fileCount/$totalFile Doing $GENE ---------$N\n\n") if $GENE ne $lastGENE;
 		$lastGENE = $GENE;
+		if (defined $opt_g and $GENE ne $opt_g) {
+			LOG($outLog, date() . " $LCY Skipped $GENE$N (requested gene is $LGN$opt_g$N\n");
+			next;
+		} 
+		if (defined $opt_w and $file !~ /$opt_w/) {
+			LOG($outLog, date() . " Skipped $LCY$file$N (requested want is $LGN$opt_w$N\n");
+			next;
+		} 
 #debug
-		next if $file !~ /CALM3.+Pos.+GC/;
+		#next if $file !~ /CALM3.+Pos.+GC/;
 #		last if $lastfile =~ /CALM3.+Pos.+/;
 #debugend
 		$lastfile = $file;
@@ -253,6 +261,7 @@ sub main {
 	$fileCount = 0;
 	$totalFile = (keys %Rscripts);
 	foreach my $outRscript (sort keys %Rscripts) {
+		LOG($outLog, date() . " $LCY Skipped $outRscript$N (requested gene is $LGN$opt_g$N\n") and next if defined $opt_g and $outRscript !~ /$opt_g/;
 		$fileCount ++;
 		LOG($outLog, "\n" . date() . "$LGN$fileCount/$totalFile$N. Running $LCY$outRscript$N\n");
 		LOG($outLog, date() . "\tR --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n");
@@ -428,9 +437,9 @@ p3 = ggplot(df3,aes(x,y)) +
 	size=0.8,fill=rgb(0,0,0,alpha=0),color=rgb(0,0,0,alpha=0.25)) +
 	geom_rect(data=df4,aes(xmin=xmin,xmax=xmax,ymin=ymin,
 		ymax=ymax,x=xmin,y=ymin,color=as.factor(df4\$clust2)),
-		size=4,fill=rgb(0,0,0,alpha=0)) +
+		size=1,fill=rgb(0,0,0,alpha=0)) +
 	geom_rect(data=df4,aes(fill=as.factor(df4\$clust2),x=1,y=1,xmin=1,xmax=30,ymin=ymin,ymax=ymax)) +
-	geom_text(data=df4,aes(x=10,y=(ymin+ymax)/2,label=clust2-10),hjust=0,size=15) +
+	geom_text(data=df4,aes(x=10,y=(ymin+ymax)/2,label=clust2-10),hjust=0,size=5) +
 	theme_bw() + theme(legend.position=\"none\") + coord_cartesian(ylim=c(-1,6)) +
 	scale_fill_manual(values=c(df3col,\"11\"=\"#e41a1c\",\"12\"=\"#377eb8\",
 	\"13\"=\"#4daf4a\",\"14\"=\"#984ea3\",\"15\"=\"#ff7f00\")) +

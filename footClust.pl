@@ -35,7 +35,7 @@ my $date = getDate();
 my ($dist, $footPeakFolder, $gene) = ($opt_d, $opt_n, $opt_g);
 
 # sanity check -n footPeakFolder
-die "\nUsage: $YW$0$N $CY-n <footPeak's output folder (footPeak's -o)>$N\n\n" unless defined $opt_n and -d $opt_n;
+die "\nUsage: $YW$0$N $GN-g gene$N $CY-n <footPeak's output folder (footPeak's -o)>$N\n\n" unless defined $opt_n and -d $opt_n;
 ($footPeakFolder) = getFullpath($footPeakFolder);
 my $outDir = "$footPeakFolder/FOOTCLUST/";
 makedir($outDir);
@@ -89,7 +89,9 @@ my $input1_count = -1;
 foreach my $input1 (sort @local_peak_files) {
 	$input1_count ++;
 #DEBUG
-	next if $input1 !~ /$gene/i;	
+	if (defined $gene) {
+		next if $input1 !~ /$gene/i;	
+	}
 
 	# remove double // from folder
 	$input1 =~ s/[\/]+/\//g;
@@ -186,27 +188,43 @@ foreach my $input1 (sort @local_peak_files) {
 	library(ggplot2)
 	df = read.table(\"$outDir/.TEMP/$fullName1.temp\",row.names=1,header=T,sep=\"\\t\")
 	lenz = length(unique(paste(df\$beg,df\$end)))
+	k.best = 0
 	if (lenz > 20) {
-		lenz = 5
+		set.seed(420)
+		for (i in 2:30) {
+			k = kmeans(df,i)
+			mylen = length(k[k\$withinss/1e6 > 3])
+			if (mylen == 0) {
+				k.best = i
+				break
+			}
+		}
+		if (k.best == 0) {
+			lenz = 5
+		} else { lenz = k.best}
+		df\$cluster = k\$cluster
 	} else if (lenz > 5) {
-		lenz = 2
+		k = kmeans(df,2)
+		df\$cluster = k\$cluster
 	} else {
-		lenz = 1
+		df\$cluster = 1
 	}
-	dm = kmeans(df,lenz,nstart=20)
-	df\$cluster = dm\$cluster
-	df = df[order(df\$cluster, df[,1], df[,2]),]
+	#dm = kmeans(df,lenz,nstart=20)
+	df = df[order(df\$cluster, as.integer(df[,1]/200), as.integer(df[,2]/200)),]
 	df\$y = seq(1,dim(df)[1])
 	df\$ymax = seq(2,dim(df)[1]+1)
 	colnames(df) = c(\"x\",\"xmax\",\"clust\",\"y\",\"ymax\")
 	df2 = as.data.frame(aggregate(df[,c(1,2)],by=list(df\$clust),function(x)mean(x,trim=0.05)))
 	colnames(df2) = c(\"clust\",\"x2\",\"y2\")
-	df2 = df2[order(df2\$x2, df2\$y2),]
+	df2 = df2[order(as.integer(df2\$x2/200), as.integer(df2\$y2/100)),]
 	df2\$clust2 = seq(1,dim(df2)[1])
 	df\$id = rownames(df)
 	df = as.data.frame(merge(df,df2[,c(1,4)]))
 	df\$clust = df\$clust2
-	df = df[order(df\$clust, df\$x, df\$xmax),]
+	mylen=500;#as.integer((df\$xmax-df\$x)/300)*100
+#	mylen[mylen < 100] = 100
+#	mylen[mylen > 500] = 500
+	df = df[order(df\$clust, as.integer(df\$x/mylen), as.integer(df\$xmax/mylen)),]
 	df\$y = seq(1,dim(df)[1])
 	df\$ymax = seq(2,dim(df)[1]+1)
 	df[,c(1,6)] = df[,c(6,1)]

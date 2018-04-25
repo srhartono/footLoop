@@ -48,6 +48,7 @@ my ($usage) = check_sanity($footFolder);
 my $logFile = "$footFolder/logFile.txt";
 
 my ($opts, $outLog) = parse_footLoop_logFile($logFile, $date, $uuid, $footFolder, $version);
+$opts->{label}    = defined $opt_l ? $opt_l : $opts->{label};
 my $label         = $opts->{label};
 my $seqFile       = $opts->{seqFile};
 my $indexFile		= $opts->{geneIndexFile};
@@ -66,23 +67,26 @@ my $resDir        = $opts->{o};
 
 # naming
 
-if (-e "$footFolder/.LABEL") {
+if (defined $opt_l) {
+	print "label = $label\n";
+}
+elsif (-e "$footFolder/.LABEL") {
 	($label) = `cat $footFolder/.LABEL`;
 	chomp($label);
 }
 if (not defined $label or (defined $label and $label !~ /PCB/i)) {
 	if ($resDir =~ /PCB\d+/i) {
-		($label) = $resDir =~ /(PCB\d+)/i;
+		($label) = $resDir =~ /(PCB\d+(_BC\d+\_[A-Z]+)?)/i;
 		$label = uc($label);
-		$label =~ s/PCB0(\d+)/PCB$1/ if $label =~ /PCB0\d+/;
+		$label =~ s/PCB0+(\d+)/PCB$1/ if $label =~ /PCB0+\d+/;
 	}
 	if (not defined $label and $resDir =~ /PCB[0\-_]*\d+/i) {
-		($label) = $resDir =~ /(PCB[0\-_]*\d+)/i;
+		($label) = $resDir =~ /(PCB[0\-_]*\d+(_BC\d+\_[A-Z]+)?)/i;
 		$label = uc($label);
 		$label =~ s/PCB[0\-_]+(\d+)/PCB$1/g if $label =~ /PCB[0\-_]+\d+/;
 	}
 	if (not defined $label and $label =~ /PCB/) {
-		($label) = $resDir =~ /(PCB.{1,5})\/?/;
+		($label) = $resDir =~ /(PCB.{1,5}(_BC\d+\_[A-Z]+)?)\/?/;
 	}
 	if (not defined $label or (defined $label and $label !~ /PCB/i)) {
 		die "Please make sure your output folder (-o) contain PCB(number) e.g. PCB12: 180202_PCB12_footpeak_output (no space/dash between PCB and number)\n\n";
@@ -97,7 +101,7 @@ if (not defined $label or (defined $label and $label !~ /PCB/i)) {
 		$label =~ s/PCB[0\-_]+(\d+)/PCB$1/g;
 	}
 }
-
+#die "resdir = $resDir, LABEL = $label\n";
 system("echo $label > $resDir/.LABEL");
 system("/bin/cp $seqFile $resDir");
 LOG($outLog, "seqFile=$seqFile\n");
@@ -728,6 +732,7 @@ sub parse_footLoop_logFile {
 	}
 	$defOpts->{o} = $defOpts->{n} if not defined $opt_o;
 	makedir($defOpts->{o}) if not -d $defOpts->{o};
+	#die "opt = $opt_o = $defOpts->{o}\n";
 	open ($outLog, ">", "$defOpts->{o}/footPeak_logFile.txt") or print "Failed to write to $defOpts->{o}/footPeak_logFile.txt: $!\n" and die;
 	record_options($defOpts, $usrOpts, $usrOpts2, $other, $outLog, $logFile, $date, $uuid, $version);
 #	print "Output = $defOpts->{o}\n";
@@ -852,7 +857,7 @@ sub set_default_opts {
 		$defOpts{$opt} = $usrOpts{$opt};
 		if (-d $usrOpts{$opt}) {
 			$usrOpts{$opt} = "./$usrOpts{$opt}" if $usrOpts{$opt} !~ /\/.+$/;
-			$defOpts{$opt} = getFullpath($usrOpts{$opt}) . "/";
+			$defOpts{$opt} = getFullpath($usrOpts{$opt});#, 1) . "/" if $opt eq "o";
 		}
 	}
 	# This below is to print

@@ -39,8 +39,6 @@ my ($footPeakFolder) = ($opt_n);
 die "\nUsage: $YW$0$N $CY-n <footPeak's output folder (footPeak's -o)>$N\n\n" unless defined $opt_n and -d $opt_n;
 ($footPeakFolder) = getFullpath($footPeakFolder);
 my $outDir = "$footPeakFolder/FOOTCLUST/";
-makedir("$outDir/.CALL/");
-die "Failed to create output directory $LCY$outDir/.CALL/$N!\n" unless -d "$outDir/.CALL";
 
 # establish log file
 open (my $outLog, ">", "$outDir/logFile_footClust2.txt") or die "Failed to create outLog file $outDir/logFile_footClust2.txt: $!\n";
@@ -118,17 +116,14 @@ else {
 }
 
 foreach my $gene (sort keys %{$data{file}}) {
+	my %print;
 	foreach my $cluster_file (sort keys %{$data{file}{$gene}}) {
 		$cluster_count ++;
 		my ($cluster_file_name) = getFilename($cluster_file, "full");
-		my ($label2, $gene, $strand, $window, $thres, $type) = parseName($cluster_file_name);# =~ /^(.+)_gene(.+)_(Unk|Pos|Neg)_(\d+)_(\d+\.?\d*)_(\w+)\.(PEAK|NOPK)$/;
+		my ($label2, $gene, $strand, $window, $thres, $type) = parseName($cluster_file_name);
 		LOG($outLog, "Using label=$label2. Inconsistent label in filename $LCY$cluster_file_name$N\nLabel from $footPeakFolder/.LABEL: $label\nBut from fileName: $label2\n\n") if $label2 ne $label;
 		$label = $label2;
 
-		#my $strand2 = $cluster_file =~ /_Pos_/ ? "Pos" : $cluster_file =~ /_Neg_/ ? "Neg" : "Unk";
-		#my ($thres, $window, $type) = $cluster_file =~ /^.*$gene\_$strand2\_(\d+\.?\d*)_(\d+\.?\d*)_(CG|CH|GH|GC)/;
-#		die "thres = $thres,winow=$window, file=$cluster_file\n";
-#		next if $cluster_file =~ /(CG|GC)/;
 		my $folder = $data{file}{$gene}{$cluster_file}{folder};
 		my $fasta = $folder . "/" . $cluster_file . ".fa";
 		my $bedFile   = $folder . "/" . $cluster_file . ".bed";
@@ -139,26 +134,48 @@ foreach my $gene (sort keys %{$data{file}}) {
 		$BED = parse_fasta($BED, $fasta); next if not defined $BED;
 		$BED = shuffle_orig($BED);
 		my %bed = %{$BED};
-		my $want = "coor|gene|beg|end|cluster|total_peak|strand|pos|len|cpg|gc|skew";
-		open (my $out2, ">", "$footPeakFolder/$cluster_file.kmer") or print "Cannot write to $LCY$footPeakFolder/$cluster_file$N: $!\n" and next;
-		foreach my $coor (sort {$bed{$a}{"1d_cluster"} cmp $bed{$b}{"1d_cluster"}} keys %bed) {
-			print $out2 "coor\ttype" if $cluster_count == 0;
+		my $want = "coor|gene|beg|end|cluster|total_peak|strand|pos|len|cpg|gc|skew2|ggg";
+		my $kmerFile = $cluster_file; $kmerFile =~ s/.TEMP\/?//; 
+		$kmerFile = "$footPeakFolder/$kmerFile.kmer";
+		open (my $out2, ">", "$kmerFile") or print "Cannot write to $LCY$footPeakFolder/$cluster_file$N: $!\n" and next;
+		my $keyz;
+		foreach my $coor (keys %bed) {
+			foreach my $key (keys %{$bed{$coor}}) {
+				$keyz = "1d_cluster" if defined $bed{$coor}{"1d_cluster"};
+				$keyz = $key if $key =~ /_cluster$/ and not defined $bed{$coor}{"1d_cluster"};
+				last if defined $keyz;
+			}
+			last if defined $keyz;
+		}
+		if (not defined $keyz) {
+			foreach my $coor (keys %bed) {
+				foreach my $key (keys %{$bed{$coor}}) {
+					$keyz = $key if $key =~ /_cluster$/;
+					last if defined $keyz;
+				}
+				last if defined $keyz;
+			}
+		}
+		foreach my $coor (sort {$bed{$a}{$keyz} cmp $bed{$b}{$keyz}} keys %bed) {
+			my $typez = $coor =~ /BEG/ ? 1 : $coor =~ /MID/ ? 2 : $coor =~ /END/ ? 3 : $coor =~ /WHOLE/ ? 4 : 5;
+			$print{$typez}{$coor} .= "coor\ttype" if $cluster_count == 0;
 			foreach my $key (sort keys %{$bed{$coor}}) {
 				next if $key !~ /($want)/;
-				my ($header) = $key =~ /^\d+[a-z]_(\w+)$/;
+				my ($header) = $key =~ /^\d+[a-zA-Z]?_(\w+)$/;
 					($header) = $key =~ /^.+_(\w+)$/ if not defined $header;
 				if ($bed{$coor}{$key} =~ /^HASH/ and defined $bed{$coor}{$key}{shuf} and $bed{$coor}{$key}{shuf} ne "NA") {
-					print $out2 "\t$header.orig\t$header.shuf\t$header.odds\t$header.pval" if $cluster_count == 0;
+					$print{$typez}{$coor} .= "\t$header.orig\t$header.shuf\t$header.odds\t$header.pval" if $cluster_count == 0;
 				}
 				else {
-					print $out2 "\t$header" if $cluster_count == 0;
+					$print{$typez}{$coor} .= "\t$header" if $cluster_count == 0;
 				}
 			}
+			$print{$typez}{$coor} .= "\n";
 			last;
 		}
-		print $out2 "\n";
-		foreach my $coor (sort {$bed{$a}{"1d_cluster"} cmp $bed{$b}{"1d_cluster"}} keys %bed) {
-			print $out2 "$coor\t$type";
+		foreach my $coor (sort {$bed{$a}{$keyz} cmp $bed{$b}{$keyz}} keys %bed) {
+			my $typez = $coor =~ /BEG/ ? 1 : $coor =~ /MID/ ? 2 : $coor =~ /END/ ? 3 : $coor =~ /WHOLE/ ? 4 : 5;
+			$print{$typez}{$coor} .= "$coor\t$type";
 			foreach my $key (sort keys %{$bed{$coor}}) {
 				next if $key !~ /($want)/;
 				if ($bed{$coor}{$key} =~ /^HASH/) {# and defined $bed{$coor}{$key}{shuf} and $bed{$coor}{$key}{shuf} ne "NA") {
@@ -167,18 +184,23 @@ foreach my $gene (sort keys %{$data{file}}) {
 					my $pval = defined ($bed{$coor}{$key}{pval}) ? $bed{$coor}{$key}{pval} : "NA";
 					my $odds = defined ($bed{$coor}{$key}{odds}) ? $bed{$coor}{$key}{odds} : "NA";
 					if ($bed{$coor}{$key}{shuf} ne "NA") {
-						print $out2 "\t$orig\t$shuf\t$odds\t$pval";
+						$print{$typez}{$coor} .= "\t$orig\t$shuf\t$odds\t$pval";
 					}
 					else {
-						print $out2 "\t$orig";
+						$print{$typez}{$coor} .= "\t$orig";
 					}
 				}
 				else {
 #				if ($key !~ /^2\w_/ or not defined $bed{$coor}{$key}{orig} or not defined $bed{$coor}{$key}{shuf} ) {
-					print $out2 "\t$bed{$coor}{$key}";
+					$print{$typez}{$coor} .= "\t$bed{$coor}{$key}";
 				}
 			}
-			print $out2 "\n";
+			$print{$typez}{$coor} .= "\n";
+		}
+		foreach my $typez (sort {$a <=> $b} keys %print) {
+			foreach my $coor (sort keys %{$print{$typez}}) {
+				print $out2 $print{$typez}{$coor};
+			}
 		}
 		print "Done\n";
 	}
@@ -222,10 +244,6 @@ sub parse_bed {
 			$ref1 = revcomp($ref1);
 		}
 		$bed{$coor}{'1h_ref'} = $ref1;
-		# shuffle the ref1
-#		my $times = 20;
-#		my $shuf = shuffle_fasta($ref1, $end - $beg, $times);
-		#$bed{$coor} = calculate_gcprofile($bed{$coor}, $ref1, 2, "shuf");
 	}
 	close $in;
 	return (\%bed);
@@ -246,7 +264,6 @@ sub shuffle_orig {
 
 sub shuffle_fasta {
 	my ($BED, $ref, $lenseq, $times) = @_;
-#	$ref = substr($ref, 0, 250);
 	my $lenref = length($ref);
 	my $gcprof;
 	for (my $i = 0; $i < $times; $i++) {
@@ -259,20 +276,16 @@ sub shuffle_fasta {
 				my $randbeg = int(rand($lenref-$add));
 				my $add2 = length($ref2) > $lenseq + $count - $add ? ($lenseq + $count - length($ref2)) : $add;
 				$ref2 .= "N" . substr($ref, $randbeg, $add2);
-			#	print "$count: add=$add, $randbeg + $add2, len = " . length($ref2) . " les than $lenseq + $count: $ref2\n";
 				$count ++;
 			}
-			#print "len = " . length($ref2) . ", length seq = $lenseq + $count\n";
 		}
 		else {
 			my $randbeg = int(rand($lenref-$lenseq));
 			$ref2 = substr($ref, $randbeg, $lenseq);
 			
 		}
-#		print "len = " . length($ref2) . ", length seq = $lenseq\n";
 		$gcprof->[$i] = calculate_gcprofile($gcprof->[$i], $ref2, 2, "shuf");
 	}
-#		print "$i";
 	foreach my $key (sort keys %{$gcprof->[0]}) {
 		if ($key !~ /(cpg|gc|skew|kmer)/) {
 			$BED->{$key}{shuf} = "NA";
@@ -287,7 +300,6 @@ sub shuffle_fasta {
 			my $shuf = $gcprof->[$i]{$key}{shuf};
 			$nge ++ if $orig >= $shuf;
 			$nle ++ if $orig <= $shuf;
-#			print "\t$gcprof->[$i]{$key}{shuf}" if $key =~ /(cpg|gc|skew)/;
 			$temp[$i] = $gcprof->[$i]{$key}{shuf} if $key =~ /(cpg|gc|skew|kmer)/;
 		}
 		$BED->{$key}{pval} = $nge > $nle ? myformat(($nle+1)/($ntot+1)) : myformat(($nge+1)/($ntot+1));
@@ -297,7 +309,6 @@ sub shuffle_fasta {
 		$BED->{$key}{odds} = ($orig > 0 and $shuf > 0) ? (0.1+$orig) / (0.1+$shuf) : ($orig < 0 and $shuf < 0) ? (abs($shuf)+0.1) / (abs($orig)+0.1) : $orig < 0 ? -1 * (abs($orig)+0.1) / 0.1 : (abs($orig+0.1)) / 0.1;
 		$BED->{$key}{odds} = myformat($BED->{$key}{odds});
 		my $odds = $BED->{$key}{odds};
-#		print "$key $odds: $orig vs. $shuf, p=$pval\n";
 	}
 	return $BED;
 }
@@ -326,22 +337,35 @@ sub calculate_gcprofile {
 	my ($T) = $seq =~ tr/T/T/;
 	my ($N) = $seq =~ tr/N/N/;
 	my $CG = 0;
-	while ($seq =~ /CG/g) {
+	my $GGG = 0;
+	my $seq2 = $seq;
+	while ($seq2 =~ /CG/g) {
 		$CG ++;
 	}
+	undef($seq2);
+	my $seq3 = $seq;
+	while ($seq3 =~ /GGG/g) {
+		$GGG ++;
+	}
+	undef($seq3);
 	my $len = length($seq) - length($N);
 	my $gc = int(100 * ($G+$C) / $len+0.5)/100;
-	my $skew  = $gc == 0 ? 0 : int(100 * (abs($G-$C)+1)  / ($G+$C+1)  +0.5)/100;
+	my $skew  = $gc == 0 ? 0 : int(100 * (abs($G-$C))  / ($G+$C)  +0.5)/100;
 		$skew *= -1 if $C > $G;
-	my $skew2 = $gc == 0 ? 0 : int(100 * (abs($G-$C)+10) / ($G+$C+10) + 0.5)/100;
-		$skew2 *= -1 if $C > $G;
-	my $cpg = int(100 * ($CG+1) / (($C+1) * ($G+1)) * $len + 0.5)/100;
+	my $skew2 = $gc == 0 ? 0 : int(100 * (abs($G-$C)) / ($G+$C) + 0.5)/100;
+	my $mod = $len == 0 ? 0 : $C > $G ? -1 * $C/$len : $G / $len;
+		$skew2 *= $mod;
+	my $cpg = ($C == 0 or $G == 0) ? 1 : int(100 * ($CG) / (($C) * ($G)) * $len + 0.5)/100;
+	my $ggg = $G == 0 ? 1 : myformat(($len**2 * $GGG) / $G**3);
 	$bed->{$number . 'a_len'}{$type} = $len;
 	$bed->{$number . 'b_cpg'}{$type} = $cpg;
 	$bed->{$number . 'c_gc'}{$type} = $gc;
 	$bed->{$number . 'd_skew'}{$type} = $skew;
 	$bed->{$number . 'e_skew2'}{$type} = $skew2;
-	$bed->{$number . 'f_acgt'}{$type} = "CG=$CG, C=$C, G=$G, A=$A, T=$T, len=$len";
+	$bed->{$number . 'f_ggg'}{$type} = $ggg;
+	$bed->{$number . 'h_acgt'}{$type} = "CG=$CG, C=$C, G=$G, A=$A, T=$T, len=$len";
+#!change this on line 136: my $want = "coor|gene|beg|end|cluster|total_peak|strand|pos|len|cpg|gc|skew|skew2|ggg";
+
 	return $bed;
 }
 

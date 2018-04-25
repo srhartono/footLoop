@@ -25,6 +25,7 @@ our $LPR		="\e[1;35m";
 our $DIES   ="$LRD!!!\t$N";
 
 our @EXPORT = qw(
+parse_indexFile
 myformat
 perc
 fold
@@ -85,6 +86,25 @@ $LPR
 
 
 #################################
+
+sub parse_indexFile {
+	my ($indexFile) = @_;
+	my %data;
+	open (my $in, "<", $indexFile) or die "Failed to read from $indexFile: $!\n";
+	while (my $line = <$in>) {
+		chomp($line);
+		next if $line =~ /^\#/;
+		my ($chr, $beg, $end, $gene, $zero, $strand) = split("\t", $line);
+		die "\n\nmyFootLib.pm parse_indexFile: ERROR: chr undefined from indexFile $LCY$indexFile$N line=\n\n$line\n\n" if not defined $chr;
+		die "\n\nmyFootLib.pm parse_indexFile: ERROR: beg undefined from indexFile $LCY$indexFile$N line=\n\n$line\n\n" if not defined $beg;
+		die "\n\nmyFootLib.pm parse_indexFile: ERROR: end undefined from indexFile $LCY$indexFile$N line=\n\n$line\n\n" if not defined $end;
+		die "\n\nmyFootLib.pm parse_indexFile: ERROR: gene undefined from indexFile $LCY$indexFile$N line=\n\n$line\n\n" if not defined $gene;
+		die "\n\nmyFootLib.pm parse_indexFile: ERROR: strand undefined from indexFile $LCY$indexFile$N line=\n\n$line\n\n" if not defined $strand;
+		%{$data{$gene}} = ("chr"=>$chr,"beg"=>$beg,"end"=>$end,"strand"=>$strand);
+	}
+	close $in;
+	return \%data;
+}
 
 sub parseName {
 	my ($filename) = @_;
@@ -171,7 +191,7 @@ sub DIELOG {
 	}
    print $outLog $text;
 	print $text;
-	die "\n";
+	die "DEAD\n";
 }
 
 sub getDate {
@@ -191,14 +211,15 @@ sub getFilename {
 	# $folder   = "folder1/folder2"
 	# @names2   = (filename, txt, bed)
 	# shortname = "filename"
-	$fh = "./" . $fh if $fh !~ /\//;
 	if ($fh =~ /\/$/) {$fh =~ s/\/+$//;}
+	$fh = "./" . $fh if $fh !~ /\//;
 	my (@names)   = split("\/", $fh);
 	my $fullname  = pop(@names);
 	my $folder    = @names != 1 ? join("\/", @names) : $names[0] =~ /^\.\.$/ ? "../" : $names[0] eq "." ? "./" : $names[0] =~ /^\.\/$/ ? "./" : $names[0] =~ /^\w+/ ? "$names[0]/" : die "Can't extract folder from $fh :( (names = @names)\n";
 	my @names2    = split(".", $fullname);
 	my $shortname = @names2 == 0 ? $fullname : $names2[0];
 #	print "Names=" . join(",", @names) . "\n\nFOLDER=$CY$folder$N, $shortname\n\n";
+	$folder = "./" if $folder eq "";
 	return($shortname)                      if not defined($type);
 	return($folder, $fullname)              if $type eq "folderfull";
 	return($folder, $shortname)             if $type eq "folder";
@@ -207,7 +228,15 @@ sub getFilename {
 }
 
 sub getFullpath {
-	my ($fh) = @_;
+	my ($fh, $die) = @_;
+	$fh =~ s/\/+/\//g;
+	$fh = "./" if $fh eq "." or $fh eq "." or $fh eq "" or not defined $fh;
+	if (-d $fh) {
+		my $folder = `cd $fh && pwd`;
+		chomp($folder);
+		die "fh = $fh, folder = $folder\n" if defined $die;
+		return $folder;
+	}
 	$fh = "./$fh" if $fh !~ /^(\/|\.)/;
 	my ($folder, $fullname) = getFilename($fh, "folderfull");
 	my $currdir = `pwd`; chomp($currdir);
@@ -215,6 +244,7 @@ sub getFullpath {
 	($folder) = `cd \"$folder\" && pwd`;
 	chdir $currdir;
 	chomp($folder);
+	$folder = "./" if $folder eq "";
 	return("$folder/$fullname");
 }
 
@@ -469,34 +499,28 @@ sub sum {
 }
 
 sub myformat {
-	my ($number) = @_;
+	my ($number, $note) = @_;
+	$note = "" if not defined $note;
+	$number =~ s/^\\\-/-/;
+	print "\n\n$LRD WARNING!$N at myFOotLib.pl::myformat number=$CY$number$N does not look like number!\nNOTE: \"$note\"\n\n" and return ($number) if $number !~ /^\-?\d+\.?\d*e?\-?\d*$/;
+	return $number if $number == 0;
 	my $mod = $number < 0 ? -1 : 1;
-	if (abs($number) > 5) {
-		return($mod*int(abs($number)*10+0.5)/10);
+	$number *= -1 if $number < 0;
+	if ($number > 5) {
+		return($mod*int($number*10+0.5)/10);
 	}
-	elsif (abs($number) > 1 and abs($number) <= 5) {
-		return($mod*int(abs($number)*100+0.5)/100);
+	elsif ($number > 0.1 and $number <= 5) {
+		return($mod*int($number*100+0.5)/100);
 	}
-	elsif (abs($number) > 0.1) {
-		return($mod*int(abs($number)*100+0.5)/100);
+	elsif ($number > 0.0000001 and $number !~ /e/i) {
+		return($mod*abs($number));
+#		my ($zero) = $number =~ /0\.(0+)[1-9]/;
+#		($number) = $number =~ /^(0\.0+[1-9]\d?)/;
+#		$zero = 10**(length($zero) + 3);
+#		return($mod*int($number*10**$zero +0.5)/10**$zero);
 	}
-	elsif (abs($number) > 0.01) {
-		return($mod*int(abs($number)*1000+0.5)/1000);
-	}
-	elsif (abs($number) > 0.001) {
-		return($mod*int(abs($number)*10000+0.5)/10000);
-	}
-	elsif (abs($number) > 0.0001) {
-		return($mod*int(abs($number)*100000+0.5)/100000);
-	}
-	elsif (abs($number) > 0.00001) {
-		return($mod*int(abs($number)*1000000+0.5)/1000000);
-	}
-	elsif (abs($number) > 0.000001) {
-		return($mod*int(abs($number)*10000000+0.5)/10000000);
-	}
-	else {
-		return($mod*int(abs($number)*100000000+0.5)/100000000);
+	else {# ($number =~ /^\-?\d+\.?\d*e\-?\d+/) 
+		return ($mod*abs($number));
 	}
 }
 sub perc {
@@ -732,3 +756,26 @@ foreach my $opt (sort @opts) {
    print "$key -> $opts{$key}\n";
 }
 print "opts:\n" . join("\n", @opts) . "\n";die;
+
+__END__
+	else 
+	if ($number =~ /^\-?0\.[0]*[1-9]\d*e?\-?\d*$/) {
+		return($mod*abs($number));
+		$number = abs($number);
+		print "$number\n";
+		my ($zero) = $number =~ /^0\.(0*)[1-9]\d?\d?\d*\d?\-?\d*$/;
+		$zero = defined $zero ? length($zero)+1 : 1; #0.00123 = zero is 2 but times 10**5 to 123 divide by 10**2 = 1.23
+		my ($scient) = $number =~ /e(\-?\d+)$/ if $number =~ /e\-?\d+$/;
+		($number) = $number =~ /^(.+)e.+$/ if defined $scient;
+		print "$number\n";
+		$scient = 0 if not defined $scient;
+		print "number=$number scient = $scient\n";
+		$scient = $scient < 0 ? -1 * $zero + $scient : $zero + $scient;
+		print "scient = $scient\n";
+		print "$mod*abs(int($number * 10**($zero+2)+0.5)/10**2) . e$scient\n";
+		return($mod*abs(int($number * 10**($zero+2)+0.5)/10**2) . "e$scient");
+	}
+	else {
+		return $number;	
+	}
+
