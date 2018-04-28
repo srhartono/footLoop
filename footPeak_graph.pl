@@ -200,6 +200,7 @@ sub main {
 			my $resDir2 = getFullpath($resDir);
 			my $pngout = "$resDir/PNG/$pngoutDir$currFilename.png";
 			my $pdfout = "$resDir/PDF/$pngoutDir$currFilename.pdf";
+			my $lenpdfout = "$resDir/PDF/$pngoutDir$currFilename\_length.pdf";
 			$scp{"scp mitochi\@crick.cse.ucdavis.edu:$resDir2/PNG/$pngoutDir$currFilename.png ./"} = 1;
 			#LOG($outLog, "!HERE STRAND=$STRAND strand=$strand type=$type label=$label pngoutDir = $pngoutDir, p = $p, PNGOUT = $pngout\n");
 #			next if not -e $currFile;
@@ -213,7 +214,7 @@ sub main {
 				$Rscript .= "png(\"$pngout\",1000,1000)\nplot(NA,xlim=c(1,100),ylim=c(1,100),xlab=NA,ylab=NA,bty=\"n\")\ntext(50,50,cex=3,labels=c(\"$currFilename\n\nPEAK = $totpeak / $totread\"))\ndev.off()\n";
 			}
 			else {
-				my ($R) = Rscript($currFile, $bedFile, $curr_cluster_file, $totpeak, $totnopk, $pngout, $pdfout);
+				my ($R) = Rscript($currFile, $bedFile, $curr_cluster_file, $totpeak, $totnopk, $pngout, $pdfout, $lenpdfout);
 
 				# Read Table
 				$Rscript .= $R->{readTable};
@@ -296,8 +297,10 @@ sub main {
 
 
 sub Rscript {
-	my ($currFile, $bedFile, $curr_cluster_file, $totpeak, $totnopk, $pngout, $pdfout) = @_;
+	my ($currFile, $bedFile, $curr_cluster_file, $totpeak, $totnopk, $pngout, $pdfout, $lenpdfout) = @_;
 	my $R;
+	my ($bedFolder, $bedFilename) = getFilename($bedFile, "folderfull");
+	($bedFilename) =~ s/(CG|CH|GC|GH).+$/$1/;
 
 # -------------------- $R->{readTable}
 	$R->{readTable} = "	
@@ -527,6 +530,30 @@ if (length(bed) != 0 & dim(bed)[1] > 0) {
 		p + 
 		geom_rect(data=bed,aes(xmin=V2,xmax=V3,ymin=y-0.5,ymax=y+0.5),
 			size=0.5,fill=rgb(0,0,0,alpha=0),color=rgb(1,0,0,alpha=0.25))
+
+	bed.q = quantile(bed\$V3-bed\$V2,probs=c(0.25,0.5,0.75))
+	bed.maxy = max(bed\$V3-bed\$V2)
+	if (bed.maxy <= 3000) {
+		bed.maxy= 3000
+	}
+	p.bed = ggplot(bed,aes(x=1,y=V3-V2)) + 
+			  annotate(geom=\"segment\",x=1,xend=1,y=0,yend=bed.maxy,lty=2,size=0.25,color=\"grey\") +
+           annotate(geom=\"segment\",x=0.95,xend=1.05,y=bed.q[1],yend=bed.q[1],lty=2,size=0.5,color=\"black\") +
+           annotate(geom=\"segment\",x=0.95,xend=1.05,y=bed.q[2],yend=bed.q[2],lty=1,size=1,color=\"black\") +
+           annotate(geom=\"segment\",x=0.95,xend=1.05,y=bed.q[3],yend=bed.q[3],lty=2,size=0.5,color=\"black\") +
+           annotate(geom=\"point\",x=1,y=bed.q[1],size=1,color=\"black\") +
+           annotate(geom=\"point\",x=1,y=bed.q[2],size=2,color=\"black\") +
+           annotate(geom=\"text\",x=1.1,y=bed.q[2]+50,label=as.character(bed.q[2]),size=4,color=\"black\") +
+           annotate(geom=\"point\",x=1,y=bed.q[3],size=1,color=\"black\") +
+			  geom_violin(fill=rgb(1,1,1,0)) +
+			  theme_bw() + theme(panel.grid=element_blank(),legend.position=\"none\",
+					axis.ticks.x=element_blank(),axis.text.x=element_blank()) +
+			  ylab(\"Peak length (bp)\") + xlab(\"$bedFilename\") +
+			  coord_cartesian(ylim=c(-100,bed.maxy))
+
+	pdf(\"$lenpdfout\",width=7,height=7)
+	grid.arrange(p.bed)
+	dev.off()
 }
 
 ";
