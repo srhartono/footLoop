@@ -108,21 +108,20 @@ foreach my $input1 (sort @local_peak_files) {
 	$thres *= 100 if $thres < 1;
 	$gene   = uc($gene);
 	$strand = $strand eq "Neg" ? "-" : "+";
-	my ($pcb) = $footPeakFolder =~ /(PCB\d+)/; $pcb = "PCBUNK" if not defined $pcb;
 	# check peak file. Skip if there's less than 10 peaks
 	my ($total_line) = `wc -l $input1` =~ /^(\d+)/;
 	if ($total_line <= 10) {
 		LOG($outLog, "\n--------------\n\n$LGN$input1_count$N. ${LRD}NEXTED $N: $input1 ${LCY}because total peaks is less than 10 $N($LGN$total_line$N)\n\n");
-		$files_log .= "$pcb\t$gene\t$strand\t$window\t$thres\t$type\t${LRD}Skip$N\ttotal_peak_all=$total_line\ttotal_read_unique=-1\ttotal_peak_used=-1\tPEAKS_LOCAL=PEAKS_LOCAL/$fullName1\tPEAK_FILE=NA\n";
+		$files_log .= "$label\t$gene\t$strand\t$window\t$thres\t$type\t${LRD}Skip$N\ttotal_peak_all=$total_line\ttotal_read_unique=-1\ttotal_peak_used=-1\tPEAKS_LOCAL=PEAKS_LOCAL/$fullName1\tPEAK_FILE=NA\n";
 		next;
 	}
-	$files_log .= "$pcb\t$gene\t$strand\t$window\t$thres\t$type\t${LGN}Ran$N\ttotal_peak_all=$total_line";
+	$files_log .= "$label\t$gene\t$strand\t$window\t$thres\t$type\t${LGN}Ran$N\ttotal_peak_all=$total_line";
 
 	# Actual parse of peak file
 	my ($linecount, $total_peak_used, $total_peak_all, %data) = (0,0,0);
 	open (my $in1, "sort -k1,1 -k2,2n -k3,3n $input1|") or LOG($outLog, date() . "Cannot read from $input1: $!\n") and die;
 	LOG($outLog, "\n--------------\n\n$LGN$input1_count$N. ${LCY}RUNNING$N: $input1\n");
-	LOG($outLog, date() . "$LCY\tInfo$N: pcb=$pcb,gene=$gene,strand=$strand,window=$window,thres=$thres,type=$type\n");
+	LOG($outLog, date() . "$LCY\tInfo$N: pcb=$label,gene=$gene,strand=$strand,window=$window,thres=$thres,type=$type\n");
 	LOG($outLog, date() . "$LCY\tExample Lines$N:\n");
 	while (my $line = <$in1>) {
 		chomp($line);
@@ -309,42 +308,3 @@ open (my $outz, ">", "$outDir/.0_LOG_FILESRAN") or DIELOG($outLog, "Failed tow r
 print $outz $files_log;
 close $outz;
 LOG($outLog, "\n$YW ----------- FILES RAN ---------- $N\n\n" . date() . "$LCY\tSummary of run$N: $outDir/.0_LOG_FILESRAN\n\n$files_log\n\n")
-	
-	
-	
-	
-	
-	
-	
-__END__
-	close $out1;
-	
-	#df = read.table("CALM3_Pos_20_0.65_CH.PEAK.local.bed.temp",row.names=1,header=F,sep="\t")
-	
-	set.seed(420)
-	library(ggplot2)
-	df = read.table("CALM3_Pos_20_0.65_CH.PEAK.local.bed.temp",row.names=1,header=T,sep="\t")
-	dm = kmeans(df,6,nstart=20)
-	df$cluster = dm$cluster
-	df = df[order(df$cluster, df[,1], df[,2]),]
-	df$y = seq(1,dim(df)[1])
-	df$ymax = seq(2,dim(df)[1]+1)
-	colnames(df) = c("x","xmax","clust","y","ymax")
-	df2 = as.data.frame(aggregate(df[,c(1,2)],by=list(df$clust),function(x)mean(x,trim=0.05)))
-	colnames(df2) = c("clust","x2","y2")
-	df2 = df2[order(df2$x2, df2$y2),]
-	df2$clust2 = seq(1,dim(df2)[1])
-	df$id = rownames(df)
-	df = as.data.frame(merge(df,df2[,c(1,4)]))
-	df$clust = df$clust2
-	df = df[order(df$clust, df$x, df$xmax),]
-	df$y = seq(1,dim(df)[1])
-	df$ymax = seq(2,dim(df)[1]+1)
-	df[,c(1,6)] = df[,c(6,1)]
-	colnames(df)[c(1,6)] = colnames(df)[c(6,1)]
-	df = df[,-7]
-	png("CALM3_Pos_20_0.65_CH.PEAK.local.bed.clust.png",height=(dim(df)[1])*5,width=max(df$xmax)+10)
-	ggplot(df, aes(x,y)) + geom_rect(aes(xmin=x,ymin=y,xmax=xmax,ymax=ymax,fill=as.factor(clust))) + theme_bw() + 
-	coord_fixed(ratio=10)
-	dev.off()
-	

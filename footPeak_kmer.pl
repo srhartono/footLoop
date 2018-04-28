@@ -41,8 +41,8 @@ die "\nUsage: $YW$0$N $CY-n <footPeak's output folder (footPeak's -o)>$N\n\n" un
 my $outDir = "$footPeakFolder/FOOTCLUST/";
 
 # establish log file
-open (my $outLog, ">", "$outDir/logFile_footClust2.txt") or die "Failed to create outLog file $outDir/logFile_footClust2.txt: $!\n";
-LOG($outLog, "\n\n$YW -------- PARSING LOG FILE -------- $N\n\n");
+open (my $outLog, ">", "$outDir/logFile_footPeak_kmer.txt") or die "Failed to create outLog file $outDir/logFile_footPeak_kmer.txt: $!\n";
+LOG($outLog, " \n\n$YW -------- PARSING LOG FILE -------- $N\n\n");
 
 # get .fa file from footPeakFolder and copy
 my ($faFile) = <$outDir/*.fa>;
@@ -58,6 +58,15 @@ while (my $entry = $fasta->nextEntry()) {
 }
 close $inFA;
 
+my $label = "";
+if (-e "$footPeakFolder/.LABEL") {
+	($label) = `cat $footPeakFolder/.LABEL`;
+	chomp($label);
+}
+else {
+	DIELOG($outLog, "Failed to parse label from .LABEL in $footPeakFolder/.LABEL\n");
+}
+
 # get .local.bed peak files used for clustering
 my $folder;
 my %data;
@@ -68,7 +77,7 @@ while (my $line = <$inLog>) {
 		($folder) = $line =~ /^#FOLDER=(.+)$/;
 		next;
 	}
-	my ($pcb, $gene, $strand, $window, $thres, $type, $skip, $total_peak_all, $total_read_unique, $total_peak_used, $peaks_local_file, $peaks_file, $cluster_file) = split("\t", $line);
+	my ($label2, $gene, $strand, $window, $thres, $type, $skip, $total_peak_all, $total_read_unique, $total_peak_used, $peaks_local_file, $peaks_file, $cluster_file) = split("\t", $line);
 	$gene = uc($gene);
 	$data{skip}{$gene} ++ if $skip =~ /Skip/;
 	next if $skip =~ /Skip/;
@@ -80,11 +89,11 @@ while (my $line = <$inLog>) {
 	DIELOG($outLog, date() . __LINE__ . "Failed to parse peaks_local file from $peaks_local_file\n") if $peaks_local_file =~ /\=/;
 	$strand = $cluster_file =~ /_Pos_/ ? "Pos" : $cluster_file =~ /_Neg_/ ? "Neg" : "Unk";
 	my $type2 = (($strand eq "Pos" and $type =~ /^C/) or ($strand eq "Neg" and $type =~ /^G/)) ? "${LGN}GOOD$N" : "${LRD}WEIRD$N";
-	LOG($outLog, date() . "$type2, pcb=$pcb, gene=$gene, strand=$strand, window=$window, thres=$thres, type=$type, skip=$skip, total_peak_all=$total_peak_all, total_read_unique=$total_read_unique, total_peak_used=$total_peak_used, peaks_local_file=$peaks_local_file, peaks_file=$peaks_file, cluster_file=$cluster_file\n");
+	LOG($outLog, date() . "$type2, label=$label, gene=$gene, strand=$strand, window=$window, thres=$thres, type=$type, skip=$skip, total_peak_all=$total_peak_all, total_read_unique=$total_read_unique, total_peak_used=$total_peak_used, peaks_local_file=$peaks_local_file, peaks_file=$peaks_file, cluster_file=$cluster_file\n");
 	$data{good}{$gene} ++;
 	%{$data{file}{$gene}{$cluster_file}} = (
 		folder => $folder,
-		pcb => $pcb,
+		label => $label,
 		gene => $gene,
 		strand => $strand,
 		window => $window,
@@ -106,19 +115,12 @@ foreach my $gene (sort keys %{$data{skip}}) {
 LOG($outLog, "\n" . date() . "\tSkipped $LGN$skipped$N genes!\n\n");
 
 my $cluster_count = -1;
-my $label = "";
-if (-e "$footPeakFolder/.LABEL") {
-	($label) = `cat $footPeakFolder/.LABEL`;
-	chomp($label);
-}
-else {
-	DIELOG($outLog, "Failed to parse label from .LABEL in $footPeakFolder/.LABEL\n");
-}
 
 foreach my $gene (sort keys %{$data{file}}) {
 	my %print;
 	foreach my $cluster_file (sort keys %{$data{file}{$gene}}) {
 		$cluster_count ++;
+		LOG($outLog, date() . " $YW$cluster_count$N. Parsing $LCY$cluster_file$N\n");
 		my ($cluster_file_name) = getFilename($cluster_file, "full");
 		my ($label2, $gene, $strand, $window, $thres, $type) = parseName($cluster_file_name);
 		LOG($outLog, "Using label=$label2. Inconsistent label in filename $LCY$cluster_file_name$N\nLabel from $footPeakFolder/.LABEL: $label\nBut from fileName: $label2\n\n") if $label2 ne $label;
@@ -127,16 +129,18 @@ foreach my $gene (sort keys %{$data{file}}) {
 		my $folder = $data{file}{$gene}{$cluster_file}{folder};
 		my $fasta = $folder . "/" . $cluster_file . ".fa";
 		my $bedFile   = $folder . "/" . $cluster_file . ".bed";
-		print "Fasta does not exist! ($fasta)\n" and next if not -e $fasta or -s $fasta == 0;
-		print "Bed does not exist! ($bedFile)\n" and next if not -e $bedFile or -s $bedFile == 0;
-		print "parsing bed of gene $gene bedFile $bedFile, fasta=$fasta\n";
-		my ($BED) = parse_bed($bedFile, $fa{$gene}, $outLog); next if not defined $BED;
+		if (not -e $fasta or -s $fasta == 0) {LOG($outLog, date() . " Fasta does not exist! ($fasta)\n"); next;}
+		if (not -e $bedFile or -s $bedFile == 0) {LOG($outLog, date() . " Bed does not exist! ($bedFile)\n"); next;}
+		LOG($outLog, date() . "\t- gene=$LGN$gene$N\n" . date() . "\t- bedFile=$LCY$bedFile$N\n" . date() . "\t- fasta=$LCY$fasta$N\n");
+		my ($BED) = parse_bed($bedFile, $fa{$gene}, $outLog); 
+		if (not defined $BED) {LOG($outLog, date() . " BED cannot be parsed from $bedFile so skipped!\n"); next;}
 		$BED = parse_fasta($BED, $fasta); next if not defined $BED;
 		$BED = shuffle_orig($BED);
 		my %bed = %{$BED};
 		my $want = "coor|gene|beg|end|cluster|total_peak|strand|pos|len|cpg|gc|skew2|ggg";
 		my $kmerFile = $cluster_file; $kmerFile =~ s/.TEMP\/?//; 
 		$kmerFile = "$footPeakFolder/$kmerFile.kmer";
+		my $headerPrint = "";
 		open (my $out2, ">", "$kmerFile") or print "Cannot write to $LCY$footPeakFolder/$cluster_file$N: $!\n" and next;
 		my $keyz;
 		foreach my $coor (keys %bed) {
@@ -158,19 +162,19 @@ foreach my $gene (sort keys %{$data{file}}) {
 		}
 		foreach my $coor (sort {$bed{$a}{$keyz} cmp $bed{$b}{$keyz}} keys %bed) {
 			my $typez = $coor =~ /BEG/ ? 1 : $coor =~ /MID/ ? 2 : $coor =~ /END/ ? 3 : $coor =~ /WHOLE/ ? 4 : 5;
-			$print{$typez}{$coor} .= "coor\ttype" if $cluster_count == 0;
+			$headerPrint .= "coor\ttype" if $cluster_count == 0;
 			foreach my $key (sort keys %{$bed{$coor}}) {
 				next if $key !~ /($want)/;
 				my ($header) = $key =~ /^\d+[a-zA-Z]?_(\w+)$/;
 					($header) = $key =~ /^.+_(\w+)$/ if not defined $header;
 				if ($bed{$coor}{$key} =~ /^HASH/ and defined $bed{$coor}{$key}{shuf} and $bed{$coor}{$key}{shuf} ne "NA") {
-					$print{$typez}{$coor} .= "\t$header.orig\t$header.shuf\t$header.odds\t$header.pval" if $cluster_count == 0;
+					$headerPrint .= "\t$header.orig\t$header.shuf\t$header.odds\t$header.pval" if $cluster_count == 0;
 				}
 				else {
-					$print{$typez}{$coor} .= "\t$header" if $cluster_count == 0;
+					$headerPrint .= "\t$header" if $cluster_count == 0;
 				}
 			}
-			$print{$typez}{$coor} .= "\n";
+			$headerPrint .= "\n";
 			last;
 		}
 		foreach my $coor (sort {$bed{$a}{$keyz} cmp $bed{$b}{$keyz}} keys %bed) {
@@ -183,6 +187,10 @@ foreach my $gene (sort keys %{$data{file}}) {
 					my $shuf = defined ($bed{$coor}{$key}{shuf}) ? $bed{$coor}{$key}{shuf} : "NA";
 					my $pval = defined ($bed{$coor}{$key}{pval}) ? $bed{$coor}{$key}{pval} : "NA";
 					my $odds = defined ($bed{$coor}{$key}{odds}) ? $bed{$coor}{$key}{odds} : "NA";
+					$orig = $orig eq "NA" ? "NA" : ($orig > 0.01 || $orig < -0.01) ? int($orig * 1000)/1000 : ($orig > 0.0001 || $orig < -0.0001) ? int($orig * 100000)/100000 : $orig;
+					$shuf = $shuf eq "NA" ? "NA" : ($shuf > 0.01 || $shuf < -0.01) ? int($shuf * 1000)/1000 : ($shuf > 0.0001 || $shuf < -0.0001) ? int($shuf * 100000)/100000 : $shuf;
+					$pval = $pval eq "NA" ? "NA" : ($pval > 0.01 || $pval < -0.01) ? int($pval * 1000)/1000 : ($pval > 0.0001 || $pval < -0.0001) ? int($pval * 100000)/100000 : $pval;
+					$odds = $odds eq "NA" ? "NA" : ($odds > 0.01 || $odds < -0.01) ? int($odds * 1000)/1000 : ($odds > 0.0001 || $odds < -0.0001) ? int($odds * 100000)/100000 : $odds;
 					if ($bed{$coor}{$key}{shuf} ne "NA") {
 						$print{$typez}{$coor} .= "\t$orig\t$shuf\t$odds\t$pval";
 					}
@@ -197,6 +205,7 @@ foreach my $gene (sort keys %{$data{file}}) {
 			}
 			$print{$typez}{$coor} .= "\n";
 		}
+		print $out2 "#" . $headerPrint;
 		foreach my $typez (sort {$a <=> $b} keys %print) {
 			foreach my $coor (sort keys %{$print{$typez}}) {
 				print $out2 $print{$typez}{$coor};
@@ -211,7 +220,7 @@ sub parse_bed {
 	my ($bedFile, $ref, $outLog) = @_;
 	my %bed;
 	my $linecount = 0;
-	open (my $in, "<", $bedFile) or print "footClust2.pl: Cannot read from $bedFile: $!\n" and return;
+	open (my $in, "<", $bedFile) or print "footPeak_kmer.pl: Cannot read from $bedFile: $!\n" and return;
 	while (my $line = <$in>) {
 		chomp($line);
 		next if ($line =~ /^#/);
@@ -236,7 +245,7 @@ sub parse_bed {
 		my ($ref1) = $ref =~ /^(.{$beg})/;
 		my $lenref = length($ref) - $end;
 		my ($ref2) = $ref =~ /(.{$lenref})$/;
-		LOG($outLog, "\t$LGN$linecount$N: gene $LCY$gene$N beg=$LCY$beg$N, end=$LCY$end$N, length = " . length($ref) . ", lenref= $LCY$lenref$N\n") if $linecount < 10;
+		LOG($outLog, date() . " \tbedfile line #$LGN$linecount$N: gene $LCY$gene$N beg=$LCY$beg$N, end=$LCY$end$N, length = " . length($ref) . ", lenref= $LCY$lenref$N\n") if $linecount < 10;
 		$ref1 = "" if not defined $ref1;
 		$ref2 = "" if $lenref < 1 or not defined $ref2;
 		$ref1 .= "N$ref2";
@@ -315,7 +324,7 @@ sub shuffle_fasta {
 
 sub parse_fasta {
 	my ($bed, $fastaFile) = @_;
-	open (my $in, "<", $fastaFile) or print "footClust2.pl: Cannot read from $fastaFile: $!\n" and return;
+	open (my $in, "<", $fastaFile) or print "footPeak_kmer.pl: Cannot read from $fastaFile: $!\n" and return;
 	my $fasta = new FAlite($in);
 	while (my $entry = $fasta->nextEntry()) {
 		my $def = $entry->def; $def =~ s/^>//;
@@ -364,243 +373,10 @@ sub calculate_gcprofile {
 	$bed->{$number . 'e_skew2'}{$type} = $skew2;
 	$bed->{$number . 'f_ggg'}{$type} = $ggg;
 	$bed->{$number . 'h_acgt'}{$type} = "CG=$CG, C=$C, G=$G, A=$A, T=$T, len=$len";
-#!change this on line 136: my $want = "coor|gene|beg|end|cluster|total_peak|strand|pos|len|cpg|gc|skew|skew2|ggg";
-
 	return $bed;
 }
 
 
-sub calculate_kmer {
+sub calculate_kmer { #TBA
 	my ($seq) = @_;
-	
-
 }
-
-__END__
-my @local_peak_files = <$footPeakFolder/PEAKS_LOCAL/*.local.bed>;
-LOG($outLog, date() . "\nError: cannot find any .local.bed peak files in $LCY$footPeakFolder$N\n\n") and die if not -d "$footPeakFolder/PEAKS_LOCAL/" or @local_peak_files == 0;
-
-# Log initialization info
-my $init = "\n\n$YW ------------- INIT ------------- $N\n" . "\n
-Date                       = $date;
-Command                    = $0 -d $dist -n $footPeakFolder
-${LGN}FootPeakFolder    $N = $footPeakFolder
-${LGN}Fasta File        $N = $faFile
-${LGN}Inbetween Min Dist$N = $dist\n\n
-$YW -------- RUN (" . scalar(@local_peak_files) . " files) --------- $N\n\n";
-LOG($outLog, $init);
-
-
-####################
-# Processing Input #
-####################
-my $files_log = "#FOLDER=$footPeakFolder\n";
-my $input1_count = -1;
-foreach my $input1 (sort @local_peak_files) {
-	$input1_count ++;
-#DEBUG
-#	next if $input1 !~ /CALM3/;	
-
-	# remove double // from folder
-	$input1 =~ s/[\/]+/\//g;
-	my ($folder1, $fileName1) = getFilename($input1, "folder");
-	my ($fullName1) = getFilename($input1, "full");
-
-	# get gene and strand from file name
-	my ($label, $gene, $strand, $window, $thres, $type) = $fileName1 =~ /^(.+)_gene(.+)\_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(GH|GC|CG|CH).PEAK/;
-	LOG($outLog, date() . "Cannot parse gene name from file=$LCY$input1$N\n") unless defined $gene and defined $strand and defined $window and defined $thres and defined $type;
-	$thres *= 100 if $thres < 1;
-	$gene   = uc($gene);
-	$strand = $strand eq "Neg" ? "-" : "+";
-	my ($pcb) = $footPeakFolder =~ /(PCB\d+)/; $pcb = "PCBUNK" if not defined $pcb;
-	# check peak file. Skip if there's less than 10 peaks
-	my ($total_line) = `wc -l $input1` =~ /^(\d+)/;
-	if ($total_line < 10) {
-		LOG($outLog, "\n--------------\n\n$LGN$input1_count$N. ${LRD}NEXTED $N: $input1 ${LCY}because total peaks is less than 10 $N($LGN$total_line$N)\n\n");
-		$files_log .= "$pcb\t$gene\t$strand\t$window\t$thres\t$type\t${LRD}Skip$N\ttotal_peak_all=$total_line\ttotal_read_unique=-1\ttotal_peak_used=-1\tPEAKS_LOCAL=PEAKS_LOCAL/$fullName1\tPEAK_FILE=NA\n";
-		next;
-	}
-	$files_log .= "$pcb\t$gene\t$strand\t$window\t$thres\t$type\t${LGN}Ran$N\ttotal_peak_all=$total_line";
-
-	# Actual parse of peak file
-	my ($linecount, $total_peak_used, $total_peak_all, %data) = (0,0,0);
-	open (my $in1, "sort -k1,1 -k2,2n -k3,3n $input1|") or LOG($outLog, date() . "Cannot read from $input1: $!\n") and die;
-	LOG($outLog, "\n--------------\n\n$LGN$input1_count$N. ${LCY}RUNNING$N: $input1\n");
-	LOG($outLog, date() . "$LCY\tInfo$N: pcb=$pcb,gene=$gene,strand=$strand,window=$window,thres=$thres,type=$type\n");
-	LOG($outLog, date() . "$LCY\tExample Lines$N:\n");
-	while (my $line = <$in1>) {
-		chomp($line);
-		$linecount ++;
-		my ($read, $beg, $end) = split("\t", $line);
-		my ($num) = $read =~ /^.+\/(\d+)\/ccs/; 
-		LOG($outLog, date() . "$LRD\tERROR$N:$LCY Read must end in this format$N: <anything>/<hole number>/ccs\n\n$read\n\n") and die if not defined $num;
-		my $check = 0;
-		$total_peak_all ++;
-
-		# reads with multiple peaks separated by less than distance (250) is merged together
-		if (defined $data{$num}) {
-			for (my $i = 0; $i < @{$data{$num}}; $i++) {
-				my $beg2 = $data{$num}[$i][0];
-				my $end2 = $data{$num}[$i][1];
-				if ($beg < $end2 + $dist) {
-					$data{$num}[$i][1] = $end;
-					$check = 1;
-					LOG($outLog, date() . "$LGN\tline=$linecount$N: readnum=$num MERGED beg2=$beg2 end2=$end2 with beg=$beg end=$end into beg3=$beg2 end3=$end\n") if $linecount < 5;
-					last;
-				}
-			}
-		}
-
-		# if 1 peak or peak is far then create new peak
-		if ($check == 0) {
-			push(@{$data{$num}}, [$beg,$end,$read,$gene]);
-			$total_peak_used ++;
-			LOG($outLog, date() . "$LGN\tline=$linecount$N: readnum=$num beg=$beg end=$end\n") if $linecount < 5;
-		}
-	}
-	close $in1;
-
-	# Put info into files log for next script	
-	my $total_read_unique = (keys %data);
-	my ($fileNameShort) = $fullName1 =~ /^(.+_(GH|CH|GC|CG))/;
-	die "Cannot get filenameshort of $input1 ($LCY$fullName1$N)\n" unless defined $fileNameShort;
-	my $peakFile = "$footPeakFolder/.CALL/$fileNameShort.PEAK.out";
-	die "Cannot find PEAK file of $input1 ($LCY$peakFile$N)\n" unless -e $peakFile;
-	$files_log .= "\ttotal_read_unique=$total_read_unique\ttotal_peak_used=$total_peak_used\tPEAKS_LOCAL=PEAKS_LOCAL/$fullName1\tPEAK_FILE=$peakFile\tCLUSTER_FILE=FOOTCLUST/.TEMP/$fullName1.clust\n";
-
-	# Calculate average beg/mid/end and write a temp bed file for each peak
-	LOG($outLog, date() . "$LCY\tInfo 2$N: total_peak_all=$LGN$total_peak_all$N,total_read_unique=$LGN$total_read_unique$N,total_peak_used=$LGN$total_peak_used$N\n");
-	open (my $out1, ">", "$outDir/.TEMP/$fullName1.temp") or DIELOG($outLog, date() . __LINE__ . "\tCannot write to $LCY$fileName1.temp$N: $!\n");
-	print $out1 "id\tbeg\tend\n";
-	foreach my $num (sort keys %data) {
-		for (my $i = 0; $i < @{$data{$num}}; $i++) {
-			my $beg = $data{$num}[$i][0];
-			my $end = $data{$num}[$i][1];
-			my $read = $data{$num}[$i][2];
-			print $out1 "$num.$i\t$beg\t$end\n";
-		}
-	}
-	close $out1;
-
-	# Write and run R script
-	LOG($outLog, date() . "$LCY\tRunning R script$N $outDir/.TEMP/$fullName1.temp.R\n");
-	my $Rscript = "
-	
-	set.seed(420)
-	setwd(\"$outDir\");
-	library(ggplot2)
-	df = read.table(\"$outDir/.TEMP/$fullName1.temp\",row.names=1,header=T,sep=\"\\t\")
-	dm = kmeans(df,5,nstart=20)
-	df\$cluster = dm\$cluster
-	df = df[order(df\$cluster, df[,1], df[,2]),]
-	df\$y = seq(1,dim(df)[1])
-	df\$ymax = seq(2,dim(df)[1]+1)
-	colnames(df) = c(\"x\",\"xmax\",\"clust\",\"y\",\"ymax\")
-	df2 = as.data.frame(aggregate(df[,c(1,2)],by=list(df\$clust),function(x)mean(x,trim=0.05)))
-	colnames(df2) = c(\"clust\",\"x2\",\"y2\")
-	df2 = df2[order(df2\$x2, df2\$y2),]
-	df2\$clust2 = seq(1,dim(df2)[1])
-	df\$id = rownames(df)
-	df = as.data.frame(merge(df,df2[,c(1,4)]))
-	df\$clust = df\$clust2
-	df = df[order(df\$clust, df\$x, df\$xmax),]
-	df\$y = seq(1,dim(df)[1])
-	df\$ymax = seq(2,dim(df)[1]+1)
-	df[,c(1,6)] = df[,c(6,1)]
-	colnames(df)[c(1,6)] = colnames(df)[c(6,1)]
-	df = df[,-7]
-	png(\"$outDir/PNG/$fullName1.clust.png\",height=(dim(df)[1])*5,width=max(df\$xmax)+10)
-	ggplot(df, aes(x,y)) + geom_rect(aes(xmin=x,ymin=y,xmax=xmax,ymax=ymax,fill=as.factor(clust))) + theme_bw() + 
-	theme(panel.grid=element_blank()) + coord_fixed(ratio=10)
-	dev.off()
-	write.table(df,\"$outDir/.TEMP/$fullName1.clust\",quote=F,row.names=F,col.names=T,sep=\"\\t\")
-	";
-	open (my $outR, ">", "$outDir/.TEMP/$fullName1.temp.R") or DIELOG($outLog, date() . __LINE__ . "Failed to write to $outDir/.TEMP/$fullName1.temp.R: $!\n");
-	print $outR $Rscript;
-	system("R --vanilla --no-save < $outDir/.TEMP/$fullName1.temp.R > $outDir/.TEMP/$fullName1.temp.R.log 2>&1");
-	close $outR;
-	my @Rlog = `tail -n 1 $outDir/.TEMP/$fullName1.temp.R.log`;
-	LOG($outLog, date() . "$LCY\tR logs$N:\n\t\t\t\t" . join("\n\t\t\t\t", @Rlog) . "\n");
-	
-	# process clust
-	LOG($outLog, date() . "$LCY\tCreating fasta file for each cluster$N $outDir/.TEMP/$fullName1.clust.fa\n");
-	my %cl;
-	open (my $in2, "<", "$outDir/.TEMP/$fullName1.clust") or DIELOG($outLog, date() . __LINE__ . "\tFailed to read from $outDir/.TEMP/$fullName1.clust: $!\n");
-	while (my $line = <$in2>) {
-		chomp($line);
-		next if $line =~ /(clust|xmax|ymax)/;
-		my ($num, $beg, $end, $y, $y2, $clust) = split("\t", $line);
-		my ($ind) = "";
-		($num, $ind) = $num =~ /^(\d+)\.(\d+)$/ if $num =~ /^\d+\.\d+$/;
-		LOG($outLog, date() . "Cannot parse num from line=$line\n") if not defined $num;
-		my ($mid) = int(($end + $beg)/2+0.5);
-		push(@{$cl{$clust}{beg}}, $beg);
-		push(@{$cl{$clust}{end}}, $end);
-	}
-	close $in2;
-	
-	# process clust: get average beg/end point
-	open (my $out2, ">", "$outDir/.TEMP/$fullName1.clust.bed") or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $outDir/.TEMP/$fullName1.clust.bed: $!\n");
-	print $out2 "#gene\tbeg\tend\tcluster\ttotal_peak\tstrand\n";
-	foreach my $clust (sort {$a <=> $b} keys %cl) {
-		my $beg = int(tmm(@{$cl{$clust}{beg}})+0.5);
-		my $end = int(tmm(@{$cl{$clust}{end}})+0.5);
-		my $total = @{$cl{$clust}{beg}};
-		print $out2 "$gene\t$beg\t$end\t$clust\t$total\t$strand\n";
-	}
-	close $out2;
-	system("fastaFromBed -fi $faFile -bed $outDir/.TEMP/$fullName1.clust.bed -fo $outDir/.TEMP/$fullName1.clust.fa -s");
-
-	LOG($outLog, date() . "$LCY\tAnalyzing Sequence Content from$N $outDir/.TEMP/$fullName1.clust.fa\n");
-	open (my $faIn, "$outDir/.TEMP/$fullName1.clust.fa") or DIELOG($outLog, "Failed to read from $outDir/.TEMP/$fullName1.clust.fa: $!\n");
-	my $fasta = new FAlite($faIn); $linecount = 0;
-	while (my $entry = $fasta->nextEntry()) {
-		$linecount ++;
-		my $def = uc($entry->def); $def =~ s/^>//;
-		my $seq = uc($entry->seq());
-		print ">$def\n$seq\n\n" if $linecount == 1;
-	}
-}	
-open (my $outz, ">", "$outDir/.0_LOG_FILESRAN") or DIELOG($outLog, "Failed tow rite to $outDir/.0_LOG_FILESRAN:$!\n");
-print $outz $files_log;
-close $outz;
-LOG($outLog, "\n$YW ----------- FILES RAN ---------- $N\n\n" . date() . "$LCY\tSummary of run$N: $outDir/.0_LOG_FILESRAN\n\n$files_log\n\n")
-	
-	
-	
-	
-	
-	
-	
-__END__
-	close $out1;
-	
-	#df = read.table("CALM3_Pos_20_0.65_CH.PEAK.local.bed.temp",row.names=1,header=F,sep="\t")
-	
-	set.seed(420)
-	library(ggplot2)
-	df = read.table("CALM3_Pos_20_0.65_CH.PEAK.local.bed.temp",row.names=1,header=T,sep="\t")
-	dm = kmeans(df,6,nstart=20)
-	df$cluster = dm$cluster
-	df = df[order(df$cluster, df[,1], df[,2]),]
-	df$y = seq(1,dim(df)[1])
-	df$ymax = seq(2,dim(df)[1]+1)
-	colnames(df) = c("x","xmax","clust","y","ymax")
-	df2 = as.data.frame(aggregate(df[,c(1,2)],by=list(df$clust),function(x)mean(x,trim=0.05)))
-	colnames(df2) = c("clust","x2","y2")
-	df2 = df2[order(df2$x2, df2$y2),]
-	df2$clust2 = seq(1,dim(df2)[1])
-	df$id = rownames(df)
-	df = as.data.frame(merge(df,df2[,c(1,4)]))
-	df$clust = df$clust2
-	df = df[order(df$clust, df$x, df$xmax),]
-	df$y = seq(1,dim(df)[1])
-	df$ymax = seq(2,dim(df)[1]+1)
-	df[,c(1,6)] = df[,c(6,1)]
-	colnames(df)[c(1,6)] = colnames(df)[c(6,1)]
-	df = df[,-7]
-	png("CALM3_Pos_20_0.65_CH.PEAK.local.bed.clust.png",height=(dim(df)[1])*5,width=max(df$xmax)+10)
-	ggplot(df, aes(x,y)) + geom_rect(aes(xmin=x,ymin=y,xmax=xmax,ymax=ymax,fill=as.factor(clust))) + theme_bw() + 
-	coord_fixed(ratio=10)
-	dev.off()
-	
