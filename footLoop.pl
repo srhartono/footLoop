@@ -912,6 +912,30 @@ sub get_geneIndex_fasta {
 sub parse_geneIndexFile {
 	my ($geneIndexFile, $genomeFile, $outDir, $minReadL, $outReadLog, $outLog) = @_;
 
+	my $geneIndexlinecount = 0;
+	open (my $geneIndexInCheck, "<", $geneIndexFile) or DIELOG($outLog, "\nCannot read from geneIndexFile $geneIndexFile: $!\n");
+	while (my $line = <$geneIndexInCheck>) {
+		chomp($line); $geneIndexlinecount ++;
+		next if $line =~ /^#/;
+		my @arr = split("\t", $line);
+		if (@arr < 6) {
+			DIELOG($outLog, "\nERROR: geneIndexFile (-i $geneIndexFile) has to be a 6 column bed format! Offending line linecount = $geneIndexlinecount\n\n$line\n\n");
+		}
+		if ($arr[1] !~ /^\d+$/) {
+			DIELOG($outLog, "\nERROR: geneIndexFile (-i $geneIndexFile) column 1 isn't integer! ($arr[1]) Offending line linecount = $geneIndexlinecount\n\n$line\n\n");
+		}
+		if ($arr[2] !~ /^\d+$/) {
+			DIELOG($outLog, "\nERROR: geneIndexFile (-i $geneIndexFile) column 2 isn't integer! ($arr[2]) Offending line linecount = $geneIndexlinecount\n\n$line\n\n");
+		}
+		if ($arr[4] !~ /^\-?\d+\.?\d*e?\-?\d*\.?\d*$/i) {
+			DIELOG($outLog, "\nERROR: geneIndexFile (-i $geneIndexFile) column 4 isn't numeric ($arr[4]) Offending line linecount = $geneIndexlinecount\n\n$line\n\n");
+		}
+		if ($arr[5] !~ /^[\+\-]$/) {
+			DIELOG($outLog, "\nERROR: geneIndexFile (-i $geneIndexFile) column 6 isn't strand (- or +)! Offending line linecount = $geneIndexlinecount\n\n$line\n\n");
+		}
+	}
+	close $geneIndexInCheck;
+
 	$geneIndexFile = get_geneIndex_fasta($geneIndexFile, $outDir, $logFile, $outLog);
 	LOG($outReadLog, "footLoop.pl,geneIndexFile,$geneIndexFile\n","NA");
 	my $geneIndex; my $linecount = 0;

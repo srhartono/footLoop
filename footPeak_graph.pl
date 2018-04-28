@@ -71,7 +71,7 @@ sub main {
 			$line =~ s/\s+$//;
 			my ($gene, $CHR, $BEG, $END, $GENE, $VAL, $STRAND) = $line =~ /^def=(.+), coor=(.+), (\d+), (\d+), (.+), (\-?\d+\.?\d*), ([\+\-])$/;
 			$GENE = uc($GENE);
-			DIELOG($outLog, "\n\ndied at processing $LCY$footPeak_logFile$N: can't parse index file def gene lines\n\n$line\n\n") if not defined $STRAND;
+			DIELOG($outLog, "\n\ndied at processing $LCY$footPeak_logFile$N: can't parse index file def gene lqines\n\n$line\n\n") if not defined $STRAND;
 			$coor{$GENE}{CHR} = $CHR;
 			$coor{$GENE}{BEG} = $BEG;
 			$coor{$GENE}{END} = $END;
