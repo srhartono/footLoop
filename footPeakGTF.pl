@@ -2,8 +2,8 @@
 
 use warnings;use strict;use Getopt::Std;
 use Cwd qw(abs_path);use File::Basename qw(dirname);
-use vars qw($opt_i $opt_f $opt_x $opt_y $opt_o $opt_p $opt_t $opt_n);
-getopts("i:f:x:y:o:p:t:n:");
+use vars qw($opt_i $opt_f $opt_x $opt_y $opt_o $opt_p $opt_t $opt_n $opt_G);
+getopts("i:f:x:y:o:p:t:n:G:");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -12,7 +12,7 @@ BEGIN {
 use myFootLib;use FAlite;
 
 my ($footPeakFolder) = ($opt_n);
-my $usage = "Usage: -n <footPeak output folder>\n";
+my $usage = "\nUsage: $YW$0$LGN [Optional: -G <gene to process>]$N -n $LCY<footPeak output folder>$N\n";
 die $usage if not defined $opt_n;
 
 my $outFolder = "$footPeakFolder/GTF";
@@ -50,6 +50,10 @@ else {
 
 
 foreach my $callFile (sort @callFiles) {
+   if (defined $opt_G and $callFile !~ /$opt_G/i) {
+      LOG($outLog, date() . " Skipped $LCY$callFile$N as it doesn't contain $LGN-G $opt_G$N\n");
+      next;
+   }
 	my ($folder1, $fileName1) = getFilename($callFile, "folderfull");
    my ($label2, $gene, $strand, $window, $thres, $type) = parseName($fileName1);# =~ /^(.+)_gene(.+)_(Unk|Pos|Neg)_(\d+)_(\d+\.?\d*)_(\w+)\.(PEAK|NOPK)$/;
    LOG($outLog, "Using label=$label2. Inconsistent label in filename $LCY$fileName1$N\nLabel from $footPeakFolder/.LABEL: $label\nBut from fileName: $label2\n\n") if $label2 ne $label;

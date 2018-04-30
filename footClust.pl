@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 	
 use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_d $opt_n $opt_g);
-getopts("vd:n:g:");
+use vars qw($opt_v $opt_d $opt_n $opt_G);
+getopts("vd:n:G:");
 
 #########
 # BEGIN #
@@ -32,10 +32,10 @@ use myFootLib; use FAlite;
 
 my $date = getDate();
 
-my ($dist, $footPeakFolder, $gene) = ($opt_d, $opt_n, $opt_g);
+my ($dist, $footPeakFolder) = ($opt_d, $opt_n);
 
 # sanity check -n footPeakFolder
-die "\nUsage: $YW$0$N $GN-g gene$N $CY-n <footPeak's output folder (footPeak's -o)>$N\n\n" unless defined $opt_n and -d $opt_n;
+die "\nUsage: $YW$0$N $LGN-g gene$N $CY-n <footPeak's output folder (footPeak's -o)>$N\n\n" unless defined $opt_n and -d $opt_n;
 ($footPeakFolder) = getFullpath($footPeakFolder);
 my $outDir = "$footPeakFolder/FOOTCLUST/";
 makedir($outDir);
@@ -89,8 +89,9 @@ my $input1_count = -1;
 foreach my $input1 (sort @local_peak_files) {
 	$input1_count ++;
 #DEBUG
-	if (defined $gene) {
-		next if $input1 !~ /$gene/i;	
+	if (defined $opt_G and $input1 !~ /$opt_G/i) {
+		LOG($outLog, date() . " Skipped $LCY$input1$N as it doesn't contain $LGN-G $opt_G$N\n");
+		next;
 	}
 
 	# remove double // from folder

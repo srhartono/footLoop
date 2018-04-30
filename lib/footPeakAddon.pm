@@ -205,8 +205,8 @@ sub main {
 	if (not defined $sampleName) {
 		$sampleName = $foldershort;
 	}
-	system("footClust.pl -n $resDir -g $gene") == 0 or LOG($outLog, "Failed to run footClust.pl : $!\n");
-	system("footClust2.pl -n $resDir -g $gene") == 0 or LOG($outLog, "Failed to run footClust2.pl : $!\n");
+	#system("footClust.pl -n $resDir -G $gene") == 0 or LOG($outLog, "Failed to run footClust.pl : $!\n");
+	#system("footPeak_kmer.pl -n $resDir -G $gene") == 0 or LOG($outLog, "Failed to run footClust2.pl : $!\n");
 }
 =comment
 	foreach my $file (sort keys %files) {

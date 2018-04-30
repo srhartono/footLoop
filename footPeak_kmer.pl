@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 	
 use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_d $opt_n $opt_g);
-getopts("vd:n:g:");
+use vars qw($opt_v $opt_d $opt_n $opt_G);
+getopts("vd:n:G:");
 
 #########
 # BEGIN #
@@ -34,9 +34,10 @@ use myFootLib; use FAlite;
 my $date = getDate();
 
 my ($footPeakFolder) = ($opt_n);
+my ($genewant) = $opt_G if defined $opt_G;
 
 # sanity check -n footPeakFolder
-die "\nUsage: $YW$0$N $CY-n <footPeak's output folder (footPeak's -o)>$N\n\n" unless defined $opt_n and -d $opt_n;
+die "\nUsage: $YW$0$LGN [Optional: -G (genewant)]$N $CY-n <footPeak's output folder (footPeak's -o)>$N\n\n" unless defined $opt_n and -d $opt_n;
 ($footPeakFolder) = getFullpath($footPeakFolder);
 my $outDir = "$footPeakFolder/FOOTCLUST/";
 
@@ -78,6 +79,10 @@ while (my $line = <$inLog>) {
 		next;
 	}
 	my ($label2, $gene, $strand, $window, $thres, $type, $skip, $total_peak_all, $total_read_unique, $total_peak_used, $peaks_local_file, $peaks_file, $cluster_file) = split("\t", $line);
+   if (defined $opt_G and $gene !~ /$opt_G/i) {
+      LOG($outLog, date() . " Skipped $LCY$gene$N as it doesn't contain $LGN-G $opt_G$N\n");
+      next;
+   }
 	$gene = uc($gene);
 	$data{skip}{$gene} ++ if $skip =~ /Skip/;
 	next if $skip =~ /Skip/;
@@ -225,6 +230,9 @@ sub parse_bed {
 		chomp($line);
 		next if ($line =~ /^#/);
 		my ($gene, $beg, $end, $cluster, $total_peak, $strand) = split("\t", $line);
+		if (defined $opt_G and $gene !~ /$opt_G/i) {
+			next;
+		}
 		next if $end - $beg < 10;
 		$linecount ++;
 		my $coor = "$gene:$beg-$end($strand)";

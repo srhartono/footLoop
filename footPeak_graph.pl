@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_w $opt_g $opt_v $opt_n); #v $opt_x $opt_R $opt_c $opt_t $opt_n);
-getopts("n:vg:w:");
+use vars qw($opt_w $opt_g $opt_G $opt_v $opt_n); #v $opt_x $opt_R $opt_c $opt_t $opt_n);
+getopts("n:vg:w:G:");
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
@@ -25,7 +25,7 @@ if (defined $opt_v) {
    exit;
 }
 
-die "\nUsage: $YW$0$N [Optional: -g $LGN<gene>$N] -n$LCY <footPeak output directory>$N\n\n" if not defined $opt_n;
+die "\nUsage: $YW$0$N [Optional: -G $LGN<gene to process>$N] -n$LCY <footPeak output directory>$N\n\n" if not defined $opt_n;
 die "\nERROR: -n footPeak dir $LCY$opt_n$N doesn't exists!\n\nUsage: $YW$0$N -n <footPeak output directory>\n\n" if not -d $opt_n;
 
 my $uuid = getuuid();
@@ -70,6 +70,10 @@ sub main {
 			$line =~ s/^\s+//;
 			$line =~ s/\s+$//;
 			my ($gene, $CHR, $BEG, $END, $GENE, $VAL, $STRAND) = $line =~ /^def=(.+), coor=(.+), (\d+), (\d+), (.+), (\-?\d+\.?\d*), ([\+\-])$/;
+	   	if (defined $opt_G and $gene !~ /$opt_G/i) {
+	   	   LOG($outLog, date() . " Skipped $LCY$gene$N as it doesn't contain $LGN-G $opt_G$N\n");
+	   	   next;
+	   	}
 			$GENE = uc($GENE);
 			DIELOG($outLog, "\n\ndied at processing $LCY$footPeak_logFile$N: can't parse index file def gene lqines\n\n$line\n\n") if not defined $STRAND;
 			$coor{$GENE}{CHR} = $CHR;
@@ -105,6 +109,10 @@ sub main {
 	foreach my $file (sort keys %files) {
 		$fileCount ++;
 		my $GENE = $files{$file};
+   	if (defined $opt_G and $file !~ /$opt_G/i) {
+   	   LOG($outLog, date() . " Skipped $LCY$file$N as it doesn't contain $LGN-G $opt_G$N\n");
+   	   next;
+   	}
 		LOG($outLog, "\n$YW -------- $fileCount/$totalFile Doing $GENE ---------$N\n\n") if $GENE ne $lastGENE;
 		$lastGENE = $GENE;
 		if (defined $opt_g and $GENE ne $opt_g) {
