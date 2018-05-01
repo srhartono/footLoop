@@ -84,6 +84,7 @@ sub main {
 		}
 		elsif ($line =~ /^-t thrshld\s+:/) {
 			($thres) = $line =~ /^-t thrshld\s+:\s+(\-?\d+\.?\d*)$/;
+			$thres = "0." . $thres if $thres > 1;#$thres =~ /^\d+$/;
 		}
 		elsif ($line =~ /^-w window\s+:/) {
 			($window) = $line =~ /^-w window\s+:\s+(\-?\d+\.?\d*)$/;
