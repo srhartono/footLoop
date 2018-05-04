@@ -29,6 +29,8 @@ if (defined $opt_v) {
 die "\nUsage: $YW$0$N [Optional: -G $LGN<gene to process>$N] -n$LCY <footPeak output directory>$N\n\n" if not defined $opt_n;
 die "\nERROR: -n footPeak dir $LCY$opt_n$N doesn't exists!\n\nUsage: $YW$0$N -n <footPeak output directory>\n\n" if not -d $opt_n;
 
+my ($user) = $homedir =~ /home\/(\w+)/;
+$user = "USER" if not defined $user;
 my $uuid = getuuid();
 my $date = date();
 
@@ -220,7 +222,7 @@ sub main {
 			my $pngout = "$resDir/PNG/$pngoutDir$currFilename.png";
 			my $pdfout = "$resDir/PDF/$pngoutDir$currFilename.pdf";
 			my $lenpdfout = "$resDir/PDF/$pngoutDir$currFilename\_length.pdf";
-			$scp{"scp mitochi\@crick.cse.ucdavis.edu:$resDir2/PNG/$pngoutDir$currFilename.png ./"} = 1;
+			$scp{"scp $user\@crick.cse.ucdavis.edu:$resDir2/PNG/$pngoutDir$currFilename.png ./"} = 1;
 			#LOG($outLog, "!HERE STRAND=$STRAND strand=$strand type=$type label=$label pngoutDir = $pngoutDir, p = $p, PNGOUT = $pngout\n");
 #			next if not -e $currFile;
 #			next if linecount($currFile) <= 1;
