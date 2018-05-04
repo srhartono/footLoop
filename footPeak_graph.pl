@@ -175,6 +175,15 @@ sub main {
 \t\tbedFile            = $BU$bedFile$N
 \t\ttotpeak = $LGN$totpeak$N, nopk = $LGN$totnopk$N
 ","NA");
+			my $max_cluster = 0;
+			if (-e $curr_cluster_file and -s $curr_cluster_file > 0) {
+				my @curr_cluster = `cut -f6 $curr_cluster_file|grep -v clust`; chomp(@curr_cluster);
+				foreach my $curr_cluster (sort {$b <=> $a} @curr_cluster) {
+					$max_cluster = $curr_cluster; last;
+				}
+			}
+			$max_cluster = 0 if not defined $max_cluster;
+			my $summary = $p == 0 ? "PEAK: $LGN$totpeak$N, cluster=$LCY$max_cluster$N" : "NOPK: $LGN$totnopk$N";
 			my ($currFolder, $currFilename) = getFilename($currFile, "folderfull");
 			my ($label3, $gene3, $strand3, $window3, $thres3, $type3) = parseName($currFilename);
 			#$currFilename =~ s/\.0_orig_//i;
@@ -264,7 +273,7 @@ sub main {
 			}
 			open (my $outRscript, ">", "$currFile.R") or (LOG($outLog, date() . "Failed to write R script into $currFile.R: $!\n") and print $outLog $Rscript and next);
 			print $outRscript $Rscript;
-			$Rscripts{"$currFile.R"} = 1;
+			$Rscripts{"$currFile.R"} = $summary;
 			close $outRscript;
 		}
 	}
@@ -274,7 +283,7 @@ sub main {
 	foreach my $outRscript (sort keys %Rscripts) {
 		LOG($outLog, date() . " $LCY Skipped $outRscript$N (requested gene is $LGN$opt_g$N\n") and next if defined $opt_g and $outRscript !~ /$opt_g/;
 		$fileCount ++;
-		LOG($outLog, "\n" . date() . "$LGN$fileCount/$totalFile$N. Running $LCY$outRscript$N\n");
+		LOG($outLog, "\n" . date() . "$LGN$fileCount/$totalFile$N. Running $LCY$outRscript$N: $Rscripts{$outRscript}\n");
 		LOG($outLog, date() . "\tR --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n");
 		my $RLOG = 0;
 		$RLOG = system("R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1");
@@ -317,6 +326,7 @@ sub Rscript {
 # Read Table
 df = read.table(\"$currFile\",skip=1,sep=\"\\t\")
 colnames(df) = c(\"V1\",seq(1,dim(df)[2]-1))
+cluster_color = c()
 
 # Sort table
 if (dim(df)[1] < 1000) {
@@ -412,9 +422,17 @@ for (i in (min(df5\$clust) : max(df5\$clust))) {
 df5 = data.frame(clust=seq(1,max(df5\$clust)),xmin=1,xmax=max(df5\$x),
 ymin=seq(1,max(df5\$clust))-0.5,ymax=seq(1,max(df5\$clust))+0.5)
 df3\$value = as.factor(df3\$value)
+clust = subset(clust,select=c(\"id\",\"y\"))
+df = merge(df,clust,by=\"id\")
+df = subset(df,select=-id)
+df3\$x = as.numeric(as.character(df3\$x))
+df3\$y = as.numeric(as.character(df3\$y))
+df3\$value  = as.numeric(as.character(df3\$value))
+df4\$clust2 = df4\$clust + 10
+
 greens = rev(brewer.pal(9,\"Greens\"))
 reds = brewer.pal(9,\"Reds\")
-df3col=c(
+p3.col=c(
 \"-99\" = \"grey\",
 \"-9\" = greens[1],
 \"-8\" = greens[2],
@@ -436,13 +454,28 @@ df3col=c(
 \"8\" = reds[8],
 \"9\" = reds[9],
 \"99\" = \"white\")
-clust = subset(clust,select=c(\"id\",\"y\"))
-df = merge(df,clust,by=\"id\")
-df = subset(df,select=-id)
-df3\$x = as.numeric(as.character(df3\$x))
-df3\$y = as.numeric(as.character(df3\$y))
-df3\$value  = as.numeric(as.character(df3\$value))
-df4\$clust2 = df4\$clust + 10
+
+get_cluster_color = function(cluster) {
+	#9 SET1 color
+	cluster_color_array = c(\"#e41a1c\",\"#377eb8\",\"#4daf4a\",\"#984ea3\",\"#ff7f00\",\"#ffff33\",\"#a65628\",\"#f781bf\",\"#999999\")
+   cluster_color_values = c()
+   cluster_color_names = c()
+   for (i in 1:length(unique(cluster))) {
+      curr.clust = cluster[i];
+      cluster_color_array.i = i \%\% 9;
+      if (cluster_color_array.i == 0) {
+         cluster_color_array.i = 9
+      }
+      cluster_color_names[i] = cluster_color_array[cluster_color_array.i]
+      cluster_color_values[i] = curr.clust
+   }
+   cluster_color = cluster_color_names
+   names(cluster_color)= cluster_color_values
+   cluster_color
+}
+cluster_color = get_cluster_color(unique(df4\$clust2))
+cluster_length = length(unique(df4\$clust2))
+print(cluster_color)
 
 p3 = ggplot(df3,aes(x,y)) +
 	geom_tile(aes(fill=as.factor(value))) +
@@ -453,11 +486,9 @@ p3 = ggplot(df3,aes(x,y)) +
 		size=1,fill=rgb(0,0,0,alpha=0)) +
 	geom_rect(data=df4,aes(fill=as.factor(df4\$clust2),x=1,y=1,xmin=1,xmax=30,ymin=ymin,ymax=ymax)) +
 	geom_text(data=df4,aes(x=10,y=(ymin+ymax)/2,label=clust2-10),hjust=0,size=5) +
-	theme_bw() + theme(legend.position=\"none\") + coord_cartesian(ylim=c(-1,6)) +
-	scale_fill_manual(values=c(df3col,\"11\"=\"#e41a1c\",\"12\"=\"#377eb8\",
-	\"13\"=\"#4daf4a\",\"14\"=\"#984ea3\",\"15\"=\"#ff7f00\")) +
-	scale_color_manual(values=c(df3col,\"11\"=\"#e41a1c\",\"12\"=\"#377eb8\",
-	\"13\"=\"#4daf4a\",\"14\"=\"#984ea3\",\"15\"=\"#ff7f00\")) +
+	theme_bw() + theme(legend.position=\"none\") + coord_cartesian(ylim=c(-1,cluster_length+2)) +
+	scale_fill_manual(values=c(p3.col,cluster_color)) +
+	scale_color_manual(values=c(p3.col,cluster_color)) +
 	scale_x_continuous(expand = c(0,0)) + scale_y_continuous(expand = c(0,0)) +
 	theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank())
 
@@ -487,11 +518,7 @@ bed = merge(subset(df,select=c(\"V1\",\"y\")),bed,by=\"V1\")
 dm = melt(df,id.vars=c(\"V1\",\"y\"))
 dm\$variable = as.numeric(as.character(dm\$variable))
 
-p =	ggplot(dm,aes(variable,y)) +  
-		geom_tile(aes(fill=as.factor(value))) + 
-	theme_bw() + theme(legend.position=\"none\") + 
-	scale_fill_manual(
-		values=c( 
+p.col = c(
 			\"0\"=\"grey\",
 			\"1\"=\"white\",
 			\"4\"=\"cornsilk\",
@@ -499,14 +526,15 @@ p =	ggplot(dm,aes(variable,y)) +
 			\"6\"=\"green4\",
 			\"7\"=\"seagreen4\",
 			\"8\"=\"red4\",
-			\"9\"=\"maroon4\",
-			\"11\"=\"#e41a1c\",
-			\"12\"=\"#377eb8\",
-			\"13\"=\"#4daf4a\",
-			\"14\"=\"#984ea3\",
-			\"15\"=\"#ff7f00\"
-		)
-	) +
+			\"9\"=\"maroon4\"
+)
+if (length(cluster_color) > 0) {
+	p.col = c(p.col, cluster_color)
+}
+p =	ggplot(dm,aes(variable,y)) +  
+		geom_tile(aes(fill=as.factor(value))) + 
+	theme_bw() + theme(legend.position=\"none\") + 
+	scale_fill_manual(values=c(p.col)) +
 	scale_x_continuous(expand = c(0,0)) + 
 	scale_y_continuous(expand = c(0,0)) +
 	theme(
