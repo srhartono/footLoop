@@ -365,13 +365,17 @@ if (length(grep(\"ccs\",df\$V1)) > 0) {
 clust = read.table(\"$curr_cluster_file\",header=T,sep=\"\\t\")
 clust = clust[grep(\"^[0-9]+\\\\.[0-9]+\$\",clust\$id,perl=T,invert=T),]
 clust\$y = seq(1,dim(clust)[1])
-clust = subset(clust,select=c(\"id\",\"y\",\"clust\"))
 clust2 = as.data.frame(aggregate(clust\$y,by=list(clust\$clust),min))
 clust2\$max = aggregate(clust\$y,by=list(clust\$clust),max)\$x
-colnames(clust2) = c(\"clust\",\"ymin\",\"ymax\")
+#clust2\$xpos0 = aggregate(clust\$x,by=list(clust\$clust),function(x)mean(x,trim=0.05))\$x
+#clust2\$xpos1 = aggregate(clust\$xmax,by=list(clust\$clust),function(x)mean(x,trim=0.05))\$x
+clust2\$xpos0 = aggregate(clust\$x,by=list(clust\$clust),min)\$x
+clust2\$xpos1 = aggregate(clust\$xmax,by=list(clust\$clust),max)\$x
+colnames(clust2) = c(\"clust\",\"ymin\",\"ymax\",\"xpos0\",\"xpos1\")
 clust2\$xmin = 1
-clust2\$xmax = 30
+clust2\$xmax = 70
 clust2\$clust = clust2\$clust + 10
+clust = subset(clust,select=c(\"id\",\"y\",\"clust\"))
 df3 = merge(df,clust,by=\"id\")
 df3 = subset(df3,select=c(-y,-id,-V1))
 df3clust = df3\$clust
@@ -537,6 +541,7 @@ p =	ggplot(dm,aes(variable,y)) +
 		geom_tile(aes(fill=as.factor(value))) + 
 	theme_bw() + theme(legend.position=\"none\") + 
 	scale_fill_manual(values=c(p.col)) +
+	scale_color_manual(values=c(p.col)) +
 	scale_x_continuous(expand = c(0,0)) + 
 	scale_y_continuous(expand = c(0,0)) +
 	theme(
@@ -556,7 +561,8 @@ p =	ggplot(dm,aes(variable,y)) +
 p = 
 	p + 
 	geom_rect(data=clust2,aes(fill=as.factor(clust),x=xmin,y=ymin,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax)) +
-	geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=clust-10),hjust=0,size=15)
+	geom_rect(data=clust2,aes(color=as.factor(clust),x=xpos0,y=ymin,xmin=xpos0,xmax=xpos1,ymin=ymin,ymax=ymax),fill=rgb(1,1,1,alpha=0),lwd=1) +
+	geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=clust-10),hjust=0,size=10)
 
 ";
 
@@ -627,7 +633,7 @@ if (dim(df2[df2\$y > 0,])[1] > 15) {
 } else {
 	df2 = data.frame(x=seq(1,dim(df)[2]), y=0, x2=seq(1,dim(df)[2]), y2=0);
 }
-
+ 
 # P2 % Conversion XY Plot
 p2 = 
 	ggplot(df2,aes(x2,y2)) + geom_point(aes(x=x,y=y),size=1) + geom_line(color=rgb(1,0,0,alpha=1)) + theme_bw()+
