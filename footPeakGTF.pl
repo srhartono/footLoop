@@ -104,6 +104,7 @@ close $outLog;
 sub turn_into_gtf {
 	my ($gene, $callFile, $coor, $output, $header, $outLog, $clustFile) = @_;
 	my %clust;
+	my %clustlen;
 	if ($clustFile ne "" and -e $clustFile) {
 		open (my $clustFileIn, "<", $clustFile) or DIELOG($outLog, "Failed to read from $clustFile: $!\n");
 		my $linecount = 0;
@@ -112,7 +113,18 @@ sub turn_into_gtf {
 			chomp($line); $linecount ++;
 			next if $line =~ /^id/;
 			my ($id, $x, $xmax, $y, $ymax, $clust) = split("\t", $line);
-			$clust{$id} = $total_line > 500 ? int($y/$total_line * 500) : $y;
+			my $idcount = 0;
+			($id, $idcount) = $id =~ /^(.+)\.(\d+)$/;
+			my $idlen = $xmax - $x;
+			if (not defined $clustlen{$id} or (defined $clustlen{$id} and $clustlen{$id} < $idlen)) {
+				$clust{$id} = $total_line > 500 ? int($y/$total_line * 500) : $y;
+				$clustlen{$id} = $idlen;
+#				print "$LGN!!ID $LGN 1803291104111173190$N idcount $idcount is now y=$y len = $idlen\n" if $id =~ /1803291104111173190/;
+			}
+			else {
+#				print "$LGN!!ID $LGN 1803291104111173190$N idcount $idcount len $idlen y=$y is less than $clustlen{$id} y=$clust{$id}\n" if $id =~ /1803291104111173190/;
+
+			}
 		}
 		print "$LGN exist$N $clustFile!\n";
 	}
@@ -133,10 +145,13 @@ sub turn_into_gtf {
 #		001100
 #		012345
 #		2 to 4
-		my $num = "";
-		if ($read =~ /ccs/) {($num) = $read =~ /\/(\d+)\/ccs/;}
-		else {($num) = $read =~ /\.(\d+)$/;}
+		my ($num1, $num2, $num3) = $read =~ /^.*\.?m(\d+_\d+).+\/(\d+)\/(ccs|\d+_\d+)/;
+		DIELOG($outLog, "\n\nERROR AT PARSING NUMBERS from read=$LGN$read$N\n\n") if not defined $num1 or not defined $num2 or not defined $num3;
+		$num3 = "0" if $num3 eq "ccs";
+		my $num = "$num1$num2$num3";
+      $num =~ s/_//g;
 		LOG($outLog, "\tRead=$read, Num=$num\n") if $linecount <= 3;
+#		print "\n!!$BU$read$N\n" if $num eq "1803291104111173190";
 
 #		$peak{$peak}{print} .= "$chr\tNA\texon\t$begPeak\t$endPeak\t0\t$strand\t0\tgene_id \"$name\"; transcript_id \"$name\"\n" if $vals[$i] =~ /^[9]$/;
 
@@ -165,12 +180,13 @@ sub turn_into_gtf {
 			$peak{$mid0}{$beg}{$end}{$read}{num} = $num;
 		}
 		else {
-			my $y = $clust{$num}; die if not defined $y;
+			my $y = $clust{$num}; die "Undef y atnum=$num\n" if not defined $y;
 			push(@{$peak{$y}{print}}, $print);
 			push(@{$peak{$y}{num}}, $num);
 #			push(@{$peak{$y}{end}}, $seqborder1 + $BEG + $y);
 		}
 	}
+	LOG($outLog, "\n\n" . date() . " Printing to output file $LCY$output$N\n\n");
 	open (my $out, ">", $output) or DIELOG($outLog, "Failed to write to $output: $!\n");
 	print $out "$header\n";
 	my $pos = $END;

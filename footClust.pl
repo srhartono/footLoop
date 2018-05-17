@@ -128,8 +128,18 @@ foreach my $input1 (sort @local_peak_files) {
 		chomp($line);
 		$linecount ++;
 		my ($read, $beg, $end) = split("\t", $line);
-		my ($num) = $read =~ /^.+\/(\d+)\/ccs/; 
-			($num) = $read =~ /\.(\d+)$/ if not defined $num;
+		my ($num1, $num2, $num3) = $read =~ /^.*\.?m(\d+_\d+).+\/(\d+)\/(ccs|\d+_\d+)/;
+		DIELOG($outLog, "\n\nERROR AT PARSING NUMBERS from read=$LGN$read$N\n\n") if not defined $num1 or not defined $num2 or not defined $num3;
+		$num3 = "0" if $num3 eq "ccs";
+		my $num = "$num1$num2$num3";
+		$num =~ s/_//g;
+		
+#		my ($num) = $read =~ /^.+\/(\d+)\/ccs/; 
+#		if (not defined $num) {
+#			my ($num1, $num2) = $read =~ /^.+\/(\d+)\/(\d+\_\d+)/;
+#			$num = "$num1\_$num2" if defined $num1 and defined $num2;
+#		}
+#		($num) = $read =~ /\.(\d+)$/ if not defined $num;
 		LOG($outLog, date() . "$LRD\tERROR$N:$LCY Read must end in this format$N: <anything>/<hole number>/ccs\n\n$read\n\n") and die if not defined $num;
 		my $check = 0;
 		$total_peak_all ++;
@@ -186,7 +196,7 @@ foreach my $input1 (sort @local_peak_files) {
 	set.seed(420)
 	setwd(\"$outDir\");
 	library(ggplot2)
-	df = read.table(\"$outDir/.TEMP/$fullName1.temp\",row.names=1,header=T,sep=\"\\t\")
+	df = read.table(\"$outDir/.TEMP/$fullName1.temp\",header=T,sep=\"\\t\",row.names=1,colClasses=c(\"factor\",\"integer\",\"integer\"))
 	lenz = length(unique(paste(df\$beg,df\$end)))
 	k.best = 0
 	if (lenz > 20) {

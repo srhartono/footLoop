@@ -166,8 +166,23 @@ sub main {
 		$bedFile =~ s/.out.local.bed/.local.bed/;
 		my ($type) = $peakFile =~ /(CH|CG|GH|GC)/;
 		LOG($outLog, date() . " $LGN$fileCount/$totalFile$N: Parsing into R script: gene=$LPR$GENE$N, strand=$GN$STRAND$N, type=$YW$type$N, peak=$LGN$totpeak$N, nopeak=$LRD$totnopk$N)\n");
+
+#		open (my $innopkFile, "<", $nopkFile) or DIELOG($outLog, "Failed to open $nopkFile: $!\n");
+#		open (my $outnopkFileID, ">", "$nopkFile.id") or DIELOG($outLog, "Failed to open $nopkFile.id: $!\n");
+#		while (my $line = <$innopkFile>) {
+#			chomp($line);
+#			my ($id) = split("\t", $line);
+#			my ($num1, $num2, $num3) = $id =~ /^.+m(\d+_\d+)_.+\/(\d+)\/(ccs|\d+_\d+)/;
+#			DIELOG($outLog, "\n\n" . date() . " Failed to parse numbers from nopkFile=$LCY$nopkFile$N id = $LPR$id$N\n\n") if not defined $num1 or not defined $num2 or not defined $num3;
+#			$num3 = 0 if $num3 eq "ccs";
+#			my $num = "$num1$num2$num3";
+#	      $num =~ s/_//g;
+#			print $outnopkFileID "$id\t$num\n";
+#		}
+
 		for (my $p = 0; $p < 2; $p ++) {
 			my $currFile = $p == 0 ? $peakFile : $nopkFile;
+			my $currFileID = $currFile . ".id";
 			my $curr_cluster_file = $cluster_file;
 			$curr_cluster_file =~ s/PEAK/NOPK/ if $p != 0;
 			LOG($outLog, date() . " file #$YW$p.$N $LCY$currFile$N\n");
@@ -230,11 +245,25 @@ sub main {
 			
 			#if (-e $currFile and linecount($currFile) > 10) {
 			my $totread = $totpeak + $totnopk;
-			if (not -e $currFile or (-e $currFile and linecount($currFile) <= 10)) {
+			if (not -e $currFile or (-e $currFile and linecount($currFile) <= 5)) {
 #				$Rscript .= "png(\"$pngout\",250,250)\nplot(seq(1,10),seq(1,10))\ntext(5,5,labels=c(\"PEAK = $totpeak, NOPK = $totnopk\"))\ndev.off()\n";
 				$Rscript .= "png(\"$pngout\",1000,1000)\nplot(NA,xlim=c(1,100),ylim=c(1,100),xlab=NA,ylab=NA,bty=\"n\")\ntext(50,50,cex=3,labels=c(\"$currFilename\n\nPEAK = $totpeak / $totread\"))\ndev.off()\n";
 			}
 			else {
+				open (my $incurrFile, "<", $currFile) or DIELOG($outLog, "Failed to open $currFile: $!\n");
+				open (my $outcurrFileID, ">", "$currFile.id") or DIELOG($outLog, "Failed to open $currFile.id: $!\n");
+				while (my $line = <$incurrFile>) {
+					chomp($line);
+					my ($id) = split("\t", $line);
+					my ($num1, $num2, $num3) = $id =~ /^.+m(\d+_\d+)_.+\/(\d+)\/(ccs|\d+_\d+)/;
+					DIELOG($outLog, "\n\n" . date() . " Failed to parse numbers from currFile=$LCY$currFile$N id = $LPR$id$N\n\n") if not defined $num1 or not defined $num2 or not defined $num3;
+					$num3 = 0 if $num3 eq "ccs";
+					my $num = "$num1$num2$num3";
+			      $num =~ s/_//g;
+					print $outcurrFileID "$id\t$num\n";
+				}
+				close $incurrFile;
+				close $outcurrFileID;
 				my ($R) = Rscript($currFile, $bedFile, $curr_cluster_file, $totpeak, $totnopk, $pngout, $pdfout, $lenpdfout);
 
 				# Read Table
@@ -319,6 +348,7 @@ sub main {
 
 sub Rscript {
 	my ($currFile, $bedFile, $curr_cluster_file, $totpeak, $totnopk, $pngout, $pdfout, $lenpdfout) = @_;
+	my $currFileID = $currFile . ".id";
 	my $R;
 	my ($bedFolder, $bedFilename) = getFilename($bedFile, "folderfull");
 	($bedFilename) =~ s/(CG|CH|GC|GH).+$/$1/;
@@ -326,8 +356,11 @@ sub Rscript {
 # -------------------- $R->{readTable}
 	$R->{readTable} = "	
 # Read Table
-df = read.table(\"$currFile\",skip=1,sep=\"\\t\")
+df = read.table(\"$currFile\",sep=\"\\t\")
+df.id = read.table(\"$currFileID\",sep=\"\\t\")
 colnames(df) = c(\"V1\",seq(1,dim(df)[2]-1))
+colnames(df.id) = c(\"V1\",\"ID\")
+df\$id = df.id\$ID
 cluster_color = c()
 
 # Sort table
@@ -348,14 +381,17 @@ if (dim(df)[1] < 1000) {
 	df = df[h\$order,]
 }
 
+
 # Get read number ID
-if (length(grep(\"ccs\",df\$V1)) > 0) {
-	df\$id = gsub(\"^.+/([0-9]+)/ccs.\*\$\", \"\\\\1\", df\$V1, perl=T)
-} else if (length(grep(\"\\\\.[0-9]+\$\",df\$V1)) > 0) {
-	df\$id = gsub(\"^.+\\\\.([0-9]+)\$\", \"\\\\1\", df\$V1, perl=T)
-} else {
-	df\$id = df\$V1
-}
+#if (length(grep(\"ccs\",df\$V1)) > 0) {
+#	df\$id = gsub(\"^.+/([0-9]+)/ccs.\*\$\", \"\\\\1\", df\$V1, perl=T)
+#} else if (length(grep(\"/[0-9]+/[0-9]+_[0-9]+\",df\$V1)) > 0) {
+#   df\$id = gsub(\"^.+/([0-9]+)/([0-9]+_[0-9]+).*\$\", \"\\\\1_\\\\2\", df\$V1, perl=T)
+#} else if (length(grep(\"\\\\.[0-9]+\$\",df\$V1)) > 0) {
+#	df\$id = gsub(\"^.+\\\\.([0-9]+)\$\", \"\\\\1\", df\$V1, perl=T)
+#} else {
+#	df\$id = df\$V1
+#}
 						";
 
 # -------------------- $R->{clusterFile}
@@ -363,7 +399,8 @@ if (length(grep(\"ccs\",df\$V1)) > 0) {
 	$R->{clusterFile} = "
 # Cluster
 clust = read.table(\"$curr_cluster_file\",header=T,sep=\"\\t\")
-clust = clust[grep(\"^[0-9]+\\\\.[0-9]+\$\",clust\$id,perl=T,invert=T),]
+clust\$id = gsub(\"^(.+)\\\\.[0-9]+\$\",\"\\\\1\",clust\$id,perl=T)
+#clust = clust[grep(\"^[0-9]+\\\\.[0-9]+\$\",clust\$id,perl=T,invert=T),]
 clust\$y = seq(1,dim(clust)[1])
 clust2 = as.data.frame(aggregate(clust\$y,by=list(clust\$clust),min))
 clust2\$max = aggregate(clust\$y,by=list(clust\$clust),max)\$x
@@ -525,7 +562,7 @@ dm = melt(df,id.vars=c(\"V1\",\"y\"))
 dm\$variable = as.numeric(as.character(dm\$variable))
 
 p.col = c(
-			\"0\"=\"grey\",
+			\"0\"=\"#f0f0f0\",
 			\"1\"=\"white\",
 			\"4\"=\"cornsilk\",
 			\"5\"=\"cornsilk\",

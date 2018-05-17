@@ -113,12 +113,16 @@ sub parseName {
 		$filename = pop(@filename);
 	}
 	my ($label, $gene, $strand, $window, $thres, $type) = $filename =~ /^(.+)_gene(.+)_(Pos|Neg|Unk)_(.+)_(.+)_(CH|CG|GH|GC)/;
-	
+	my ($bc, $plasmid, $desc) = ("", "", "");
+	if ($label =~ /^(.+)_bc.+_plasmid.+_desc.+$/i) {
+		($label, $bc, $plasmid, $desc) = $label =~ /^(.+)_bc(.+)_plasmid(.+)_desc(.+)$/;
+		die "\n\nmyFootLib::parseName: filename=$LGN$filename$N.\n\nCannot parse bc, plasmid, desc from label=$LPR$label$N\n\n" if not defined $bc or not defined $plasmid or not defined $desc;
+	}
 	if (not defined $label or not defined $gene or not defined $strand or not defined $window or not defined $thres or not defined $type) {
 		print "Cannot parse label gene strand window thres type from filename=$LCY$filename$N\n\nMake sure that filename format is: (.+)_gene(.+)_(Pos|Neg|Unk)_(.+)_(.+)_(CH|CG|GH|GC)\n\n";
 		return -1;
 	}
-	return ($label, $gene, $strand, $window, $thres, $type);
+	return ($label, $gene, $strand, $window, $thres, $type, $bc, $plasmid, $desc);
 }
 sub DIE {
 	return "\n$DIES Died at file $CY " . __FILE__ . " $N at line $LGN " . __LINE__ . " $N";
@@ -555,7 +559,7 @@ sub myeval {
 		for (my $i = 0; $i < @{$var}; $i++) {
 			$count ++;
 			my $val = defined ($var->[$i]) ? $var->[$i] : "VALUE_UNDEF";
-			$print .= "myeval ARRAY \%var failed at i=$LGN$'i'$N, value='$val'\n" if not defined $var->[$i];
+			$print .= "myeval ARRAY \%var failed at i=$LGN'$i'$N, value='$val'\n" if not defined $var->[$i];
 			$count ++ if not defined $var->[$i];
 		}
 	}
