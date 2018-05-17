@@ -245,7 +245,7 @@ foreach my $input1 (sort @local_peak_files) {
 	ggplot(df, aes(x,y)) + geom_rect(aes(xmin=x,ymin=y,xmax=xmax,ymax=ymax,fill=as.factor(clust))) + theme_bw() + 
 	theme(panel.grid=element_blank()) + coord_fixed(ratio=10)
 	dev.off()
-	write.table(df,\"$outDir/.TEMP/$fullName1.clust\",quote=F,row.names=F,col.names=T,sep=\"\\t\")
+	write.table(df,\"$outDir/.TEMP/$fullName1.clustz\",quote=F,row.names=F,col.names=T,sep=\"\\t\")
 	";
 	open (my $outR, ">", "$outDir/.TEMP/$fullName1.temp.R") or DIELOG($outLog, date() . __LINE__ . "Failed to write to $outDir/.TEMP/$fullName1.temp.R: $!\n");
 	print $outR $Rscript;
@@ -257,13 +257,20 @@ foreach my $input1 (sort @local_peak_files) {
 	# process clust
 	LOG($outLog, date() . "$LCY\tCreating fasta file for each cluster$N $outDir/.TEMP/$fullName1.clust.fa\n");
 	my %cl;
-	open (my $in2, "<", "$outDir/.TEMP/$fullName1.clust") or DIELOG($outLog, date() . __LINE__ . "\tFailed to read from $outDir/.TEMP/$fullName1.clust: $!\n");
+	my %clust; my %clustlen; my @clust; my $clustheader = "";
+	open (my $in2, "<", "$outDir/.TEMP/$fullName1.clustz") or DIELOG($outLog, date() . __LINE__ . "\tFailed to read from $outDir/.TEMP/$fullName1.clustz: $!\n");
 	while (my $line = <$in2>) {
 		chomp($line);
-		next if $line =~ /(clust|xmax|ymax)/;
+		if ($line =~ /(clust|xmax|ymax)/) {$clustheader = $line;next;}
 		my ($num, $beg, $end, $y, $y2, $clust) = split("\t", $line);
 		my ($ind) = "";
 		($num, $ind) = $num =~ /^(\d+)\.(\d+)$/ if $num =~ /^\d+\.\d+$/;
+		my $numlen = $end - $beg;
+		push(@clust, $num) if not grep(/^$num$/, @clust);
+		if (not defined $clustlen{$num} or (defined $clustlen{$num} and $clustlen{$num} < $numlen)) {
+			$clust{$num} = "$num\.0\t$beg\t$end\t$y\t$y2\t$clust";
+			$clustlen{$num} = $numlen;
+		}
 		LOG($outLog, date() . "Cannot parse num from line=$line\n") if not defined $num;
 		my ($mid) = int(($end + $beg)/2+0.5);
 		push(@{$cl{$clust}{beg}}, $beg);
@@ -271,7 +278,12 @@ foreach my $input1 (sort @local_peak_files) {
 		push(@{$cl{$clust}{end}}, $end);
 	}
 	close $in2;
-	
+	open (my $outz2, ">", "$outDir/.TEMP/$fullName1.clust") or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $outDir/.TEMP/$fullName1.clust: $!\n");
+	print $outz2 "$clustheader\n";
+	foreach my $num (@clust[0..@clust-1]) {
+		print $outz2 "$clust{$num}\n";
+	}
+	close $outz2;
 	# process clust: get average beg/end point
 	open (my $out2, ">", "$outDir/.TEMP/$fullName1.clust.bed") or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $outDir/.TEMP/$fullName1.clust.bed: $!\n");
 	print $out2 "#gene\tbeg\tend\tcluster\ttotal_peak\tstrand\n";
