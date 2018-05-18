@@ -35,16 +35,15 @@ print "\nOutput:\n";
 foreach my $line (@line[0..@line-1]) {
 	chomp($line);
 	$linecount ++;
-	next if $linecount == 0;
+#	next if $linecount == 0;
 	next if $line =~ /^\n$/;
 	next if $line !~ /[a-zA-Z0-9]+/;
-	next if $line =~ /^No/ or $line =~ /\ttarget/i;
+	next if $line =~ /^(\#|No)/i or $line =~ /\ttarget/i;
 	my $delim = $line =~ /\t/ ? "\\t" : $line =~ /,/ ? "," : $line =~ /[ ]/ ? " " : die "Cannot determine delimiter at line=$LCY\n$line\n$N\n";
 	my @arr = split("$delim", $line);
 	my ($no, $target, $size, $conc, $vol, $bc, $bcseq, $desc, $plasmid) = @arr;
 	if (@arr == 2) {
-		($bc, $bcseq) = @arr;
-		
+		($bc, $bcseq, $desc, $plasmid) = @arr;
 	}
 	else {
 		($no, $target, $size, $conc, $vol, $bc, $bcseq, $desc, $plasmid) = @arr;#split(",", $line)  if $line !~ /\t/;
@@ -52,8 +51,8 @@ foreach my $line (@line[0..@line-1]) {
 		$desc =~ s/[ ]+//g;
 		$plasmid =~ s/[ ]+//g;
 	}
-	$desc = "" if not defined $desc;
-	$plasmid = "" if not defined $plasmid;
+	$desc = "NA" if not defined $desc;
+	$plasmid = "NA" if not defined $plasmid;
 	$target = $bc if not defined $target;
 	$desc =~ s/(^[ \s]+|[ \s]+$|[\_\-\=\+\/\.\,\<\>\?\'\;\"\:\]\[\}\{\`\~\!\@\#\$\%\^\&\*\(\)\\]+)//g;
 	$bcseq =~ s/(^[ \s]+|[ \s]+$|[\_\-\=\+\/\.\,\<\>\?\'\;\"\:\]\[\}\{\`\~\!\@\#\$\%\^\&\*\(\)\\]+)//g;
@@ -69,7 +68,7 @@ foreach my $line (@line[0..@line-1]) {
 #	$bcseq =~ s/[ \s]+$//g;
 #	$bc =~ s/[ \s]+$//g;
 	my $bcbefore = $bc;
-	$bc = "bc$bc\_plasmid$plasmid\_desc$desc" if defined $plasmid and defined $desc;
+	$bc = "bc$bc\_plasmid$plasmid\_desc$desc" if $plasmid ne "NA" or $desc ne "NA";#defined $plasmid and defined $desc;
 #	$plasmid = "" if not defined $plasmid;
 #	$desc = "" if not defined $desc;
 #	$bc =~ s/_$//g;
@@ -81,6 +80,8 @@ foreach my $line (@line[0..@line-1]) {
 		$bc{uc($bcseq)}{total} = 0;
 		$bc{uc($bcseq)}{line} = $linecount;
 		$bc{uc($bcseq)}{bc} = $bc;
+		LOG($outLog, "\t$linecount\t$dbfolder/$inputName\_$bc.fastq\tbc=$bcbefore,plasmid=$plasmid,desc=$desc\n","NA");
+		print STDERR "\t$LGN$linecount\t$dbfolder/$inputName\_$bc.fastq$N\tbc=$LPR$bcbefore$N, plasmid=$LCY$plasmid$N, desc=$YW$desc$N\n";
 	}
 	else {
 		$bc{uc($bcseq)}{target} = $target;
@@ -157,8 +158,8 @@ No bc     : $seq_nobc
 
 ";
 foreach my $bcseq (sort {$bc{$a}{line} <=> $bc{$b}{line}} keys %bc) {
-	print $outLog "\t$bc{$bcseq}{bc}\t$bc{$bcseq}{total}\n";
-	print STDERR "\t$bc{$bcseq}{bc}\t$bc{$bcseq}{total}\n";
+	print $outLog "\t$bc{$bcseq}{bc}\t$bcseq\t$bc{$bcseq}{total}\n";
+	print STDERR "\t$bc{$bcseq}{bc}\t$bcseq\t$bc{$bcseq}{total}\n";
 }
 #print $outLog "\n";\n###print STDERR "\n";
 
