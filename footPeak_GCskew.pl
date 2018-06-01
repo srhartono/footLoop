@@ -1,14 +1,15 @@
 #!/usr/bin/perl
 
 use strict; use warnings; use mitochy; use Getopt::Std; use FAlite;
-use vars qw($opt_v $opt_i);
-getopts("vi:");
+use vars qw($opt_v $opt_n $opt_i);
+getopts("vn:i:");
 
-die "\nusage: $YW$0$N -i $CY<input1>$N\n\n" unless defined $opt_i and -d $opt_i;
-my ($folder) = $opt_i;
+die "\nusage: $YW$0$N -i $LGN<geneIndexFile>$N -n $CY<footPeak output folder>$N\n\n" unless defined $opt_n and defined $opt_i and -e $opt_i and -d $opt_n;
+my ($indexFile, $footPeak_folder) = ($opt_i, $opt_n);
 
 my %gene;
-my @line = `cat /group/stella/Work/Data/Fastq/110101_pacbio/1_Bed/180407_task1_GCskew/0_all_indexes_Alpha301.bed`;
+#my ($indexFile) = "/group/stella/Work/Data/Fastq/110101_pacbio/1_Bed/180407_task1_GCskew/0_all_indexes_Alpha301.bed";
+my @line = `cat $indexFile`;
 foreach my $line (@line) {
 	chomp($line);
 	my ($chr, $beg, $end, $gene, $zero, $strand, $feature) = split("\t", $line);
@@ -16,15 +17,83 @@ foreach my $line (@line) {
 	$gene{$gene}{feature} = $feature;
 }
 
-my @files = <$folder/*.tsv>;
+open (my $outLog, ">", "$footPeak_folder/footPeak_GCskew/footPeak_GCskew_logFile.txt") or die "Failed to write to $footPeak_folder/footPeak_GCskew/footPeak_GCskew_logFile.txt: $!\n";
+
+my ($footPeak_logFile) = "$footPeak_folder/footPeak_logFile.txt";
+my $footLoop_run_script = `grep -iP "footLoop Run script\\s*:.+-g .+.fa" $footPeak_logFile`;
+DIELOG($outLog, "Cannot find footLoop_run_script from footPeak logfile $footPeak_logFile\n") if not defined $footLoop_run_script or (defined $footLoop_run_script and $footLoop_run_script !~ /\w+/);
+my @footLoop_run_script = split(" ", $footLoop_run_script);
+my $genomeFile;
+for (my $i = 1; $i < @footLoop_run_script; $i++) {
+	next unless $footLoop_run_script[$i-1] eq "-g";
+	$genomeFile = $footLoop_run_script[$i];
+	last;
+}
+DIELOG($outLog, "Cannot find genome file from footPeak logfile $footPeak_logFile\n") if not defined $genomeFile or (defined $genomeFile and $genomeFile !~ /\w+/);
+print $outLog "\ngenomeFile = $LCY$genomeFile$N\n\n";
+
+makedir("$footPeak_folder/footPeak_GCskew/") if not -d "$footPeak_folder/footPeak_GCskew/";
+makedir("$footPeak_folder/footPeak_GCskew/.TEMP") if not -d "$footPeak_folder/footPeak_GCskew/.TEMP";
+
+# Get peaks from PEAKS_GENOME
+my @bedFiles = <$footPeak_folder/PEAKS_GENOME/*.genome.bed>;
+foreach my $bedFile (sort @bedFiles) {
+	preprocess_bed($bedFile, $outLog);
+}
+####### PARAMETERS
+sub preprocess_bed {
+	my ($bedFile, $outLog) = @_;
+	my ($bedFolder, $bedFilename) = getFilename($bedFile, "folderfull");
+	my $window = 100;
+	my $window2 = 200;
+	my $outputA = "$footPeak_folder/footPeak_GCskew/.TEMP/$bedFilename\_$window\_A.temp";
+	my $outputB = "$footPeak_folder/footPeak_GCskew/.TEMP/$bedFilename\_$window\_B.temp";
+	my $outputC = "$footPeak_folder/footPeak_GCskew/.TEMP/$bedFilename\_$window\_C.temp";
+	my $outputD = "$footPeak_folder/footPeak_GCskew/.TEMP/$bedFilename\_$window\_D.temp";
+	my $outputE = "$footPeak_folder/footPeak_GCskew/.TEMP/$bedFilename\_$window\_E.temp";
+	my $outputF = "$footPeak_folder/footPeak_GCskew/.TEMP/$bedFilename\_$window\_F.temp";
+	my $outputW = "$footPeak_folder/footPeak_GCskew/.TEMP/$bedFilename\_$window\_W.temp";
+
+#	system("run_script_in_paralel2.pl \"bedtools_bed_change.pl -a -x -$window2 -y 0 -i FILENAME -o $outputA\" . \"(CALM3_Pos.+CH|FUS_Pos.+CH|MRFAP1L1_Neg.+GH).PEAK.genome.bed\" 1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+#	system("run_script_in_paralel2.pl \"bedtools_bed_change.pl -a -x -$window -y $window -i FILENAME -o $outputB\" . \"(CALM3_Pos.+CH|FUS_Pos.+CH|MRFAP1L1_Neg.+GH).PEAK.genome.bed\" 1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+#	system("run_script_in_paralel2.pl \"bedtools_bed_change.pl -a -x 0 -y $window2 -i FILENAME -o $outputC\" . \"(CALM3_Pos.+CH|FUS_Pos.+CH|MRFAP1L1_Neg.+GH).PEAK.genome.bed\" 1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+##	system("run_script_in_paralel2.pl \"bedtools_bed_change.pl -x 0 -y 0 -i FILENAME -o $outputW\" . \"(CALM3_Pos.+CH|FUS_Pos.+CH|MRFAP1L1_Neg.+GH).PEAK.genome.bed\" 1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+#	system("run_script_in_paralel2.pl \"bedtools_bed_change.pl -b -x -$window2 -y 0 -i FILENAME -o $outputD\" . \"(CALM3_Pos.+CH|FUS_Pos.+CH|MRFAP1L1_Neg.+GH).PEAK.genome.bed\" 1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+#	system("run_script_in_paralel2.pl \"bedtools_bed_change.pl -b -x -$window -y $window -i FILENAME -o $outputE\" . \"(CALM3_Pos.+CH|FUS_Pos.+CH|MRFAP1L1_Neg.+GH).PEAK.genome.bed\" 1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+#	system("run_script_in_paralel2.pl \"bedtools_bed_change.pl -b -x 0 -y $window2 -i FILENAME -o $outputF\" . \"(CALM3_Pos.+CH|FUS_Pos.+CH|MRFAP1L1_Neg.+GH).PEAK.genome.bed\" 1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+#
+	system("run_script_in_paralel2.pl \"bedtools_bed_change.pl -a -x -$window2 -y 0 -i FILENAME -o $outputA\" $footPeak_folder/PEAKS_GENOME/ PEAK.genome.bed 1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	system("run_script_in_paralel2.pl \"bedtools_bed_change.pl -a -x -$window -y $window -i FILENAME -o $outputB\" $footPeak_folder/PEAKS_GENOME/ PEAK.genome.bed 1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	system("run_script_in_paralel2.pl \"bedtools_bed_change.pl -a -x 0 -y $window2 -i FILENAME -o $outputC\" $footPeak_folder/PEAKS_GENOME/ PEAK.genome.bed 1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	system("run_script_in_paralel2.pl \"bedtools_bed_change.pl -x 0 -y 0 -i FILENAME -o $outputW\" $footPeak_folder/PEAKS_GENOME/ PEAK.genome.bed 1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	system("run_script_in_paralel2.pl \"bedtools_bed_change.pl -b -x -$window2 -y 0 -i FILENAME -o $outputD\" $footPeak_folder/PEAKS_GENOME/ PEAK.genome.bed 1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	system("run_script_in_paralel2.pl \"bedtools_bed_change.pl -b -x -$window -y $window -i FILENAME -o $outputE\" $footPeak_folder/PEAKS_GENOME/ PEAK.genome.bed 1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	system("run_script_in_paralel2.pl \"bedtools_bed_change.pl -b -x 0 -y $window2 -i FILENAME -o $outputF\" $footPeak_folder/PEAKS_GENOME/ PEAK.genome.bed 1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+
+#	print "run_script_in_paralel2.pl \"bedtools_bed_change.pl -a -x -$window2 -y 0 -i FILENAME -o $outputA\" $footPeak_folder/PEAKS_GENOME/ PEAK.genome.bed 1\n";# or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+#	print "run_script_in_paralel2.pl \"bedtools_bed_change.pl -a -x -$window -y $window -i FILENAME -o $outputB\" $footPeak_folder/PEAKS_GENOME/ PEAK.genome.bed 1\n";# or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+#	print "run_script_in_paralel2.pl \"bedtools_bed_change.pl -a -x 0 -y $window2 -i FILENAME -o $outputC\" $footPeak_folder/PEAKS_GENOME/ PEAK.genome.bed 1\n";# or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+#	print "run_script_in_paralel2.pl \"bedtools_bed_change.pl -x 0 -y 0 -i FILENAME -o $outputW\" $footPeak_folder/PEAKS_GENOME/ PEAK.genome.bed 1\n";# or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+#	print "run_script_in_paralel2.pl \"bedtools_bed_change.pl -b -x -$window2 -y 0 -i FILENAME -o $outputD\" $footPeak_folder/PEAKS_GENOME/ PEAK.genome.bed 1\n";# or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+#	print "run_script_in_paralel2.pl \"bedtools_bed_change.pl -b -x -$window -y $window -i FILENAME -o $outputE\" $footPeak_folder/PEAKS_GENOME/ PEAK.genome.bed 1\n";# or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+#	print "run_script_in_paralel2.pl \"bedtools_bed_change.pl -b -x 0 -y $window2 -i FILENAME -o $outputF\" $footPeak_folder/PEAKS_GENOME/ PEAK.genome.bed 1\n";# or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+
+
+}
+system("run_script_in_paralel2.pl \"fastaFromBed -fi $genomeFile -bed FILENAME -fo FILENAME.fa -s -name\" $footPeak_folder/footPeak_GCskew/.TEMP/ \"_[ABCDEFW].temp\" 1") == 0 or DIELOG($outLog, "Failed to run fastaFromBed: $!\n");
+system("run_script_in_paralel2.pl \"rename.pl FILENAME PCB .PCB\" $footPeak_folder/footPeak_GCskew/.TEMP/ temp 1") == 0 or DIELOG($outLog, "Failed to run rename.pl: $!\n");
+system("run_script_in_paralel2.pl \"counter_cpg_indiv.pl -w 200 -s 1 -o $footPeak_folder/footPeak_GCskew/ -A FILENAME\" $footPeak_folder/footPeak_GCskew/.TEMP/ _100.+temp.fa 1") == 0 or DIELOG($outLog, "Failed to run counter_cpg_indiv.pl: $!\n");
+
+
+my @files = <$footPeak_folder/footPeak_GCskew/*.tsv>;
 my %data;
 my @header = ("label", "gene", "strand", "window", "threshold", "convtype", "wind2", "sample", "type");
-print "\n\nThere i no file with .tsv in $LCY$folder$N!\n" and exit if (@files == 0);
+print "\n\nThere i no file with .tsv in $LCY$footPeak_folder/footPeak_GCskew/$N!\n" and exit if (@files == 0);
 foreach my $input1 (sort @files) {
 	my ($WINDOW, $SAMPLE, $TYPE);
 	my ($folder1, $fileName1) = mitochy::getFilename($input1, "folderfull");
 	#my ($label, $barcode, $desc, $gene, $strand, $window, $threshold, $convtype, $wind2, $sample, $type) = $fileName1 =~ /^(PCB.+)_(BC\d+)?_?(\w+)?_?gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(CG|CH|GH|GC).PEAK.genome.bed_(\d+)_([A-Z]).temp.fa.(\w+).tsv/;
-	my @arr = $fileName1 =~ /^(PCB\w+)_gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(CG|CH|GH|GC).PEAK.genome.bed_(\d+)_([A-Z]).temp.fa.(\w+).tsv/;
+	my @arr = $fileName1 =~ /^(PCB.+)_gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(CG|CH|GH|GC).PEAK.genome.bed_(\d+)_([A-Z]).temp.fa.(\w+).tsv/;
 	$arr[0] =~ s/^(PCB\d+)_.+$/$1/;
 	my $outName = join("_", @arr[0..6]) . "_" . $arr[8];
 	for (my $i = 0; $i < @arr; $i++) {
@@ -46,7 +115,7 @@ foreach my $input1 (sort @files) {
 	close $in1;
 }
 
-open (my $out1, ">", "RESULT.TSV") or die "Cannot write to RESULT.TSV: $!\n";
+open (my $out1, ">", "$footPeak_folder/footPeak_GCskew/RESULT.TSV") or die "Cannot write to $footPeak_folder/footPeak_GCskew/RESULT.TSV: $!\n";
 foreach my $outName (sort keys %{$data{input}}) {
 	#open (my $out1, ">", "$outName.TSV") or die "Cannot write to $outName.TSV: $!\n";
 	my $WINDOW = $data{data}{$outName}{wind2};
@@ -67,7 +136,8 @@ foreach my $outName (sort keys %{$data{read}}) {
 	my $TYPE = $data{data}{$outName}{type};
 	my $SAMPLE = $data{data}{$outName}{sample};
 	my $GENE = $data{data}{$outName}{gene};
-	my $feature = $gene{$GENE}{feature}; print "Undef gene=$GENE feature\n" and next if not defined $feature;
+	my $feature = $gene{$GENE}{feature}; 
+	$feature = "FEATURE_UNKNOWN" if not defined $feature;#print "Undef gene=$GENE feature\n" and next if not defined $feature;
 	foreach my $read (sort keys %{$data{read}{$outName}}) {
 		print $out1 "$data{input}{$outName}{$SAMPLE}\t$read\t$WINDOW\t$TYPE\t$feature";
 		foreach my $sample (sort keys %{$data{read}{$outName}{$read}}) {

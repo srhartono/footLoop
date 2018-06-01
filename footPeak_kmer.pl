@@ -167,16 +167,16 @@ foreach my $gene (sort keys %{$data{file}}) {
 		}
 		foreach my $coor (sort {$bed{$a}{$keyz} cmp $bed{$b}{$keyz}} keys %bed) {
 			my $typez = $coor =~ /BEG/ ? 1 : $coor =~ /MID/ ? 2 : $coor =~ /END/ ? 3 : $coor =~ /WHOLE/ ? 4 : 5;
-			$headerPrint .= "coor\ttype" if $cluster_count == 0;
+			$headerPrint .= "coor\ttype";# if $cluster_count == 0;
 			foreach my $key (sort keys %{$bed{$coor}}) {
 				next if $key !~ /($want)/;
 				my ($header) = $key =~ /^\d+[a-zA-Z]?_(\w+)$/;
 					($header) = $key =~ /^.+_(\w+)$/ if not defined $header;
 				if ($bed{$coor}{$key} =~ /^HASH/ and defined $bed{$coor}{$key}{shuf} and $bed{$coor}{$key}{shuf} ne "NA") {
-					$headerPrint .= "\t$header.orig\t$header.shuf\t$header.odds\t$header.pval" if $cluster_count == 0;
+					$headerPrint .= "\t$header.orig\t$header.shuf\t$header.odds\t$header.pval";
 				}
 				else {
-					$headerPrint .= "\t$header" if $cluster_count == 0;
+					$headerPrint .= "\t$header";
 				}
 			}
 			$headerPrint .= "\n";
@@ -210,7 +210,7 @@ foreach my $gene (sort keys %{$data{file}}) {
 			}
 			$print{$typez}{$coor} .= "\n";
 		}
-		print $out2 "#" . $headerPrint;
+		print $out2 "\#$headerPrint";
 		foreach my $typez (sort {$a <=> $b} keys %print) {
 			foreach my $coor (sort keys %{$print{$typez}}) {
 				print $out2 $print{$typez}{$coor};

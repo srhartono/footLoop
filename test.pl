@@ -1,13 +1,12 @@
 #!/usr/bin/perl
 	
 use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_d $opt_n $opt_G);
-getopts("vd:n:G:");
+use vars qw($opt_v $opt_d $opt_n $opt_g);
+getopts("vd:n:g:");
 
 #########
 # BEGIN #
 #########
-#
 
 BEGIN {
    my ($bedtools) = `bedtools --version`;
@@ -33,10 +32,15 @@ use myFootLib; use FAlite;
 
 my $date = getDate();
 
-my ($dist, $footPeakFolder) = ($opt_d, $opt_n);
+my ($number) = @ARGV;
+die "usage: $0 <number>\n" if not defined $number;
+print myformat($number) . "\n";
+
+__END__
+my ($dist, $footPeakFolder, $gene) = ($opt_d, $opt_n, $opt_g);
 
 # sanity check -n footPeakFolder
-die "\nUsage: $YW$0$N $LGN-g gene$N $CY-n <footPeak's output folder (footPeak's -o)>$N\n\n" unless defined $opt_n and -d $opt_n;
+die "\nUsage: $YW$0$N $GN-g gene$N $CY-n <footPeak's output folder (footPeak's -o)>$N\n\n" unless defined $opt_n and -d $opt_n;
 ($footPeakFolder) = getFullpath($footPeakFolder);
 my $outDir = "$footPeakFolder/FOOTCLUST/";
 makedir($outDir);
@@ -90,9 +94,8 @@ my $input1_count = -1;
 foreach my $input1 (sort @local_peak_files) {
 	$input1_count ++;
 #DEBUG
-	if (defined $opt_G and $input1 !~ /$opt_G/i) {
-		LOG($outLog, date() . " Skipped $LCY$input1$N as it doesn't contain $LGN-G $opt_G$N\n");
-		next;
+	if (defined $gene) {
+		next if $input1 !~ /$gene/i;	
 	}
 
 	# remove double // from folder
@@ -110,37 +113,28 @@ foreach my $input1 (sort @local_peak_files) {
 	$thres *= 100 if $thres < 1;
 	$gene   = uc($gene);
 	$strand = $strand eq "Neg" ? "-" : "+";
+	my ($pcb) = $footPeakFolder =~ /(PCB\d+)/; $pcb = "PCBUNK" if not defined $pcb;
 	# check peak file. Skip if there's less than 10 peaks
 	my ($total_line) = `wc -l $input1` =~ /^(\d+)/;
 	if ($total_line <= 10) {
 		LOG($outLog, "\n--------------\n\n$LGN$input1_count$N. ${LRD}NEXTED $N: $input1 ${LCY}because total peaks is less than 10 $N($LGN$total_line$N)\n\n");
-		$files_log .= "$label\t$gene\t$strand\t$window\t$thres\t$type\t${LRD}Skip$N\ttotal_peak_all=$total_line\ttotal_read_unique=-1\ttotal_peak_used=-1\tPEAKS_LOCAL=PEAKS_LOCAL/$fullName1\tPEAK_FILE=NA\n";
+		$files_log .= "$pcb\t$gene\t$strand\t$window\t$thres\t$type\t${LRD}Skip$N\ttotal_peak_all=$total_line\ttotal_read_unique=-1\ttotal_peak_used=-1\tPEAKS_LOCAL=PEAKS_LOCAL/$fullName1\tPEAK_FILE=NA\n";
 		next;
 	}
-	$files_log .= "$label\t$gene\t$strand\t$window\t$thres\t$type\t${LGN}Ran$N\ttotal_peak_all=$total_line";
+	$files_log .= "$pcb\t$gene\t$strand\t$window\t$thres\t$type\t${LGN}Ran$N\ttotal_peak_all=$total_line";
 
 	# Actual parse of peak file
 	my ($linecount, $total_peak_used, $total_peak_all, %data) = (0,0,0);
 	open (my $in1, "sort -k1,1 -k2,2n -k3,3n $input1|") or LOG($outLog, date() . "Cannot read from $input1: $!\n") and die;
 	LOG($outLog, "\n--------------\n\n$LGN$input1_count$N. ${LCY}RUNNING$N: $input1\n");
-	LOG($outLog, date() . "$LCY\tInfo$N: pcb=$label,gene=$gene,strand=$strand,window=$window,thres=$thres,type=$type\n");
+	LOG($outLog, date() . "$LCY\tInfo$N: pcb=$pcb,gene=$gene,strand=$strand,window=$window,thres=$thres,type=$type\n");
 	LOG($outLog, date() . "$LCY\tExample Lines$N:\n");
 	while (my $line = <$in1>) {
 		chomp($line);
 		$linecount ++;
 		my ($read, $beg, $end) = split("\t", $line);
-		my ($num1, $num2, $num3) = $read =~ /^.*\.?m(\d+_\d+).+\/(\d+)\/(ccs|\d+_\d+)/;
-		DIELOG($outLog, "\n\nERROR AT PARSING NUMBERS from read=$LGN$read$N\n\n") if not defined $num1 or not defined $num2 or not defined $num3;
-		$num3 = "0" if $num3 eq "ccs";
-		my $num = "$num1$num2$num3";
-		$num =~ s/_//g;
-		
-#		my ($num) = $read =~ /^.+\/(\d+)\/ccs/; 
-#		if (not defined $num) {
-#			my ($num1, $num2) = $read =~ /^.+\/(\d+)\/(\d+\_\d+)/;
-#			$num = "$num1\_$num2" if defined $num1 and defined $num2;
-#		}
-#		($num) = $read =~ /\.(\d+)$/ if not defined $num;
+		my ($num) = $read =~ /^.+\/(\d+)\/ccs/; 
+			($num) = $read =~ /\.(\d+)$/ if not defined $num;
 		LOG($outLog, date() . "$LRD\tERROR$N:$LCY Read must end in this format$N: <anything>/<hole number>/ccs\n\n$read\n\n") and die if not defined $num;
 		my $check = 0;
 		$total_peak_all ++;
@@ -193,12 +187,11 @@ foreach my $input1 (sort @local_peak_files) {
 	# Write and run R script
 	LOG($outLog, date() . "$LCY\tRunning R script$N $outDir/.TEMP/$fullName1.temp.R\n");
 	my $Rscript = "
-	.libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\", \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\", .libPaths()) )\nlibrary(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(gridExtra)\nlibrary(RColorBrewer)
 	
 	set.seed(420)
 	setwd(\"$outDir\");
 	library(ggplot2)
-	df = read.table(\"$outDir/.TEMP/$fullName1.temp\",header=T,sep=\"\\t\",row.names=1,colClasses=c(\"factor\",\"integer\",\"integer\"))
+	df = read.table(\"$outDir/.TEMP/$fullName1.temp\",row.names=1,header=T,sep=\"\\t\")
 	lenz = length(unique(paste(df\$beg,df\$end)))
 	k.best = 0
 	if (lenz > 20) {
@@ -246,7 +239,7 @@ foreach my $input1 (sort @local_peak_files) {
 	ggplot(df, aes(x,y)) + geom_rect(aes(xmin=x,ymin=y,xmax=xmax,ymax=ymax,fill=as.factor(clust))) + theme_bw() + 
 	theme(panel.grid=element_blank()) + coord_fixed(ratio=10)
 	dev.off()
-	write.table(df,\"$outDir/.TEMP/$fullName1.clustz\",quote=F,row.names=F,col.names=T,sep=\"\\t\")
+	write.table(df,\"$outDir/.TEMP/$fullName1.clust\",quote=F,row.names=F,col.names=T,sep=\"\\t\")
 	";
 	open (my $outR, ">", "$outDir/.TEMP/$fullName1.temp.R") or DIELOG($outLog, date() . __LINE__ . "Failed to write to $outDir/.TEMP/$fullName1.temp.R: $!\n");
 	print $outR $Rscript;
@@ -258,20 +251,13 @@ foreach my $input1 (sort @local_peak_files) {
 	# process clust
 	LOG($outLog, date() . "$LCY\tCreating fasta file for each cluster$N $outDir/.TEMP/$fullName1.clust.fa\n");
 	my %cl;
-	my %clust; my %clustlen; my @clust; my $clustheader = "";
-	open (my $in2, "<", "$outDir/.TEMP/$fullName1.clustz") or DIELOG($outLog, date() . __LINE__ . "\tFailed to read from $outDir/.TEMP/$fullName1.clustz: $!\n");
+	open (my $in2, "<", "$outDir/.TEMP/$fullName1.clust") or DIELOG($outLog, date() . __LINE__ . "\tFailed to read from $outDir/.TEMP/$fullName1.clust: $!\n");
 	while (my $line = <$in2>) {
 		chomp($line);
-		if ($line =~ /(clust|xmax|ymax)/) {$clustheader = $line;next;}
+		next if $line =~ /(clust|xmax|ymax)/;
 		my ($num, $beg, $end, $y, $y2, $clust) = split("\t", $line);
 		my ($ind) = "";
 		($num, $ind) = $num =~ /^(\d+)\.(\d+)$/ if $num =~ /^\d+\.\d+$/;
-		my $numlen = $end - $beg;
-		push(@clust, $num) if not grep(/^$num$/, @clust);
-		if (not defined $clustlen{$num} or (defined $clustlen{$num} and $clustlen{$num} < $numlen)) {
-			$clust{$num} = "$num\.0\t$beg\t$end\t$y\t$y2\t$clust";
-			$clustlen{$num} = $numlen;
-		}
 		LOG($outLog, date() . "Cannot parse num from line=$line\n") if not defined $num;
 		my ($mid) = int(($end + $beg)/2+0.5);
 		push(@{$cl{$clust}{beg}}, $beg);
@@ -279,12 +265,7 @@ foreach my $input1 (sort @local_peak_files) {
 		push(@{$cl{$clust}{end}}, $end);
 	}
 	close $in2;
-	open (my $outz2, ">", "$outDir/.TEMP/$fullName1.clust") or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $outDir/.TEMP/$fullName1.clust: $!\n");
-	print $outz2 "$clustheader\n";
-	foreach my $num (@clust[0..@clust-1]) {
-		print $outz2 "$clust{$num}\n";
-	}
-	close $outz2;
+	
 	# process clust: get average beg/end point
 	open (my $out2, ">", "$outDir/.TEMP/$fullName1.clust.bed") or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $outDir/.TEMP/$fullName1.clust.bed: $!\n");
 	print $out2 "#gene\tbeg\tend\tcluster\ttotal_peak\tstrand\n";
@@ -333,3 +314,42 @@ open (my $outz, ">", "$outDir/.0_LOG_FILESRAN") or DIELOG($outLog, "Failed tow r
 print $outz $files_log;
 close $outz;
 LOG($outLog, "\n$YW ----------- FILES RAN ---------- $N\n\n" . date() . "$LCY\tSummary of run$N: $outDir/.0_LOG_FILESRAN\n\n$files_log\n\n")
+	
+	
+	
+	
+	
+	
+	
+__END__
+	close $out1;
+	
+	#df = read.table("CALM3_Pos_20_0.65_CH.PEAK.local.bed.temp",row.names=1,header=F,sep="\t")
+	
+	set.seed(420)
+	library(ggplot2)
+	df = read.table("CALM3_Pos_20_0.65_CH.PEAK.local.bed.temp",row.names=1,header=T,sep="\t")
+	dm = kmeans(df,6,nstart=20)
+	df$cluster = dm$cluster
+	df = df[order(df$cluster, df[,1], df[,2]),]
+	df$y = seq(1,dim(df)[1])
+	df$ymax = seq(2,dim(df)[1]+1)
+	colnames(df) = c("x","xmax","clust","y","ymax")
+	df2 = as.data.frame(aggregate(df[,c(1,2)],by=list(df$clust),function(x)mean(x,trim=0.05)))
+	colnames(df2) = c("clust","x2","y2")
+	df2 = df2[order(df2$x2, df2$y2),]
+	df2$clust2 = seq(1,dim(df2)[1])
+	df$id = rownames(df)
+	df = as.data.frame(merge(df,df2[,c(1,4)]))
+	df$clust = df$clust2
+	df = df[order(df$clust, df$x, df$xmax),]
+	df$y = seq(1,dim(df)[1])
+	df$ymax = seq(2,dim(df)[1]+1)
+	df[,c(1,6)] = df[,c(6,1)]
+	colnames(df)[c(1,6)] = colnames(df)[c(6,1)]
+	df = df[,-7]
+	png("CALM3_Pos_20_0.65_CH.PEAK.local.bed.clust.png",height=(dim(df)[1])*5,width=max(df$xmax)+10)
+	ggplot(df, aes(x,y)) + geom_rect(aes(xmin=x,ymin=y,xmax=xmax,ymax=ymax,fill=as.factor(clust))) + theme_bw() + 
+	coord_fixed(ratio=10)
+	dev.off()
+	
