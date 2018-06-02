@@ -255,7 +255,7 @@ sub main {
 				while (my $line = <$incurrFile>) {
 					chomp($line);
 					my ($id) = split("\t", $line);
-					my ($num1, $num2, $num3) = $id =~ /^.+m(\d+_\d+)_.+\/(\d+)\/(ccs|\d+_\d+)/;
+					my ($num1, $num2, $num3) = $id =~ /^.*m(\d+_\d+)_.+\/(\d+)\/(ccs|\d+_\d+)/;
 					DIELOG($outLog, "\n\n" . date() . " Failed to parse numbers from currFile=$LCY$currFile$N id = $LPR$id$N\n\n") if not defined $num1 or not defined $num2 or not defined $num3;
 					$num3 = 0 if $num3 eq "ccs";
 					my $num = "$num1$num2$num3";
