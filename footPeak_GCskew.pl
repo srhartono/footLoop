@@ -63,14 +63,14 @@ sub get_cluster {
 			my ($id, $x, $xmax, $y, $ymax, $clust) = split("\t", $line);
 			my ($id2, $number) = $id =~ /^(\d+)\.(\d+)$/;
 			($id2) = $id if not defined $id2;
-			print "id=$id, id2=$id2, number=$number, $line\n" if $linecount < 10;
+			#print "id=$id, id2=$id2, number=$number, $line\n" if $linecount < 10;
 			$id = $id2;
 			if (not defined $cluster->{$id}) {
 				$cluster->{$id}{clust} = $clust;
 				$cluster->{$id}{len} = ($xmax - $x);
 			}
 			elsif (defined $cluster->{$id} and $cluster->{$id}{len} < $xmax - $x) {
-				print "id=$id num=$number len=$cluster->{$id}{len} < $xmax-$x\n";
+			#	print "id=$id num=$number len=$cluster->{$id}{len} < $xmax-$x\n";
 				$cluster->{$id}{clust} = $clust;
 				$cluster->{$id}{len} = ($xmax - $x);
 			}
@@ -158,7 +158,7 @@ foreach my $input1 (sort @files) {
 		DIELOG($outLog, "Failed to parse id1/2/3 from read=$LCY$read$N, file=$LGN$input1$N\n") if not defined $id1 or not defined $id2 or not defined $id3;
 		my $id = "$id1$id2$id3"; $id =~ s/_//g;
 		my $cluster = $cluster->{$id}{clust}; $cluster = -1 if not defined $cluster;
-		print "id=$id, cluster=$cluster\n" if $linecount == 1;
+		#print "id=$id, cluster=$cluster\n" if $linecount == 1;
 		$data{id}{$outName}{$read} = $cluster;
 		$data{read}{$outName}{$read}{$SAMPLE} = $value;
 		$data{input}{$outName}{$SAMPLE} = join("_", @arr[0..5]);
