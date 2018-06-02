@@ -159,7 +159,8 @@ foreach my $input1 (sort @files) {
 		my $id = "$id1$id2$id3"; $id =~ s/_//g;
 		my $cluster = $cluster->{$id}{clust}; $cluster = -1 if not defined $cluster;
 		#print "id=$id, cluster=$cluster\n" if $linecount == 1;
-		$data{id}{$outName}{$read} = $cluster;
+		$data{cluster}{$outName}{$read} = $cluster;
+		$data{id}{$outName}{$read} = $id;
 		$data{read}{$outName}{$read}{$SAMPLE} = $value;
 		$data{input}{$outName}{$SAMPLE} = join("_", @arr[0..5]);
 	}	
@@ -172,11 +173,11 @@ foreach my $outName (sort keys %{$data{input}}) {
 	my $WINDOW = $data{data}{$outName}{wind2};
 	my $TYPE = $data{data}{$outName}{type};
 	my $SAMPLE = $data{data}{$outName}{sample};
-	print $out1 "file\tread\twindow\ttype\tfeature";
+	print $out1 "file\tid\tcluster\tread\twindow\ttype\tfeature";
 	foreach my $sample (sort keys %{$data{input}{$outName}}) {
 		print $out1 "\t$sample";
 	}
-	print $out1 "\tcluster\n";
+	print $out1 "\n";
 	last;
 	#close $out1;
 }
@@ -190,11 +191,11 @@ foreach my $outName (sort keys %{$data{read}}) {
 	my $feature = $gene{$GENE}{feature}; 
 	$feature = "FEATURE_UNKNOWN" if not defined $feature;#print "Undef gene=$GENE feature\n" and next if not defined $feature;
 	foreach my $read (sort keys %{$data{read}{$outName}}) {
-		print $out1 "$data{input}{$outName}{$SAMPLE}\t$read\t$WINDOW\t$TYPE\t$feature";
+		print $out1 "$data{input}{$outName}{$SAMPLE}\t$data{id}{$outName}{$read}\t$data{cluster}{$outName}{$read}\t$read\t$WINDOW\t$TYPE\t$feature";
 		foreach my $sample (sort keys %{$data{read}{$outName}{$read}}) {
 			print $out1 "\t$data{read}{$outName}{$read}{$sample}";
 		}
-		print $out1 "\t$data{id}{$outName}{$read}\n";
+		print $out1 "\n";
 	}
 	#close $out1;
 }
