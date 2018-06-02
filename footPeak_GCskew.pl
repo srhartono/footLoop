@@ -42,11 +42,11 @@ my @bedFiles = <$footPeak_folder/PEAKS_GENOME/*.genome.bed>;
 foreach my $bedFile (sort @bedFiles) {
 #	next if $bedFile !~ /CALM3_Pos.+CH/;
 	$cluster = get_cluster($bedFile, $cluster, $outLog);
-#	preprocess_bed($bedFile, $outLog);
+	preprocess_bed($bedFile, $outLog);
 }
-#system("run_script_in_paralel2.pl \"fastaFromBed -fi $genomeFile -bed FILENAME -fo FILENAME.fa -s -name\" $footPeak_folder/footPeak_GCskew/.TEMP/ \"_[ABCDEFW].temp\" 1") == 0 or DIELOG($outLog, "Failed to run fastaFromBed: $!\n");
-#system("run_script_in_paralel2.pl \"rename.pl FILENAME PCB .PCB\" $footPeak_folder/footPeak_GCskew/.TEMP/ temp 1") == 0 or DIELOG($outLog, "Failed to run rename.pl: $!\n");
-#system("run_script_in_paralel2.pl \"counter_cpg_indiv.pl -w 200 -s 1 -o $footPeak_folder/footPeak_GCskew/ -A FILENAME\" $footPeak_folder/footPeak_GCskew/.TEMP/ _100.+temp.fa 1") == 0 or DIELOG($outLog, "Failed to run counter_cpg_indiv.pl: $!\n");
+system("run_script_in_paralel2.pl \"fastaFromBed -fi $genomeFile -bed FILENAME -fo FILENAME.fa -s -name\" $footPeak_folder/footPeak_GCskew/.TEMP/ \"_[ABCDEFW].temp\" 1") == 0 or DIELOG($outLog, "Failed to run fastaFromBed: $!\n");
+system("run_script_in_paralel2.pl \"rename.pl FILENAME PCB .PCB\" $footPeak_folder/footPeak_GCskew/.TEMP/ temp 1") == 0 or DIELOG($outLog, "Failed to run rename.pl: $!\n");
+system("run_script_in_paralel2.pl \"counter_cpg_indiv.pl -w 200 -s 1 -o $footPeak_folder/footPeak_GCskew/ -A FILENAME\" $footPeak_folder/footPeak_GCskew/.TEMP/ _100.+temp.fa 1") == 0 or DIELOG($outLog, "Failed to run counter_cpg_indiv.pl: $!\n");
 ####### PARAMETERS
 sub get_cluster {
 	my ($bedFile, $cluster, $outLog) = @_; 
