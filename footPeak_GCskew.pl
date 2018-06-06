@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 use strict; use warnings; use mitochy; use Getopt::Std; use FAlite;
-use vars qw($opt_v $opt_n $opt_i);
-getopts("vn:i:");
+use vars qw($opt_v $opt_n $opt_i $opt_S);
+getopts("vn:i:S");
 
 die "\nusage: $YW$0$N -i $LGN<geneIndexFile>$N -n $CY<footPeak output folder>$N\n\n" unless defined $opt_n and defined $opt_i and -e $opt_i and -d $opt_n;
 my ($indexFile, $footPeak_folder) = ($opt_i, $opt_n);
@@ -17,10 +17,11 @@ foreach my $line (@line) {
 	$gene{$gene}{feature} = $feature;
 }
 
-makedir("$footPeak_folder/footPeak_GCskew/") if not -d "$footPeak_folder/footPeak_GCskew/";
-makedir("$footPeak_folder/footPeak_GCskew/.TEMP") if not -d "$footPeak_folder/footPeak_GCskew/.TEMP";
+my $outDir = "$footPeak_folder/footPeak_GCskew/";
+makedir($outDir) if not -d $outDir;
+makedir("$outDir/.TEMP") if not -d "$outDir.TEMP";
 
-open (my $outLog, ">", "$footPeak_folder/footPeak_GCskew/footPeak_GCskew_logFile.txt") or die "Failed to write to $footPeak_folder/footPeak_GCskew/footPeak_GCskew_logFile.txt: $!\n";
+open (my $outLog, ">", "$outDir/footPeak_GCskew_logFile.txt") or die "Failed to write to $outDir/footPeak_GCskew_logFile.txt: $!\n";
 
 my ($footPeak_logFile) = "$footPeak_folder/footPeak_logFile.txt";
 my $footLoop_run_script = `grep -iP "footLoop Run script\\s*:.+-g .+.fa" $footPeak_logFile`;
@@ -42,11 +43,14 @@ my @bedFiles = <$footPeak_folder/PEAKS_GENOME/*.genome.bed>;
 foreach my $bedFile (sort @bedFiles) {
 #	next if $bedFile !~ /CALM3_Pos.+CH/;
 	$cluster = get_cluster($bedFile, $cluster, $outLog);
-	preprocess_bed($bedFile, $outLog);
+	preprocess_bed($bedFile, $outLog) if defined $opt_S;
 }
-system("run_script_in_paralel2.pl \"fastaFromBed -fi $genomeFile -bed FILENAME -fo FILENAME.fa -s -name\" $footPeak_folder/footPeak_GCskew/.TEMP/ \"_[ABCDEFW].temp\" 1") == 0 or DIELOG($outLog, "Failed to run fastaFromBed: $!\n");
-system("run_script_in_paralel2.pl \"rename.pl FILENAME PCB .PCB\" $footPeak_folder/footPeak_GCskew/.TEMP/ temp 1") == 0 or DIELOG($outLog, "Failed to run rename.pl: $!\n");
-system("run_script_in_paralel2.pl \"counter_cpg_indiv.pl -w 200 -s 1 -o $footPeak_folder/footPeak_GCskew/ -A FILENAME\" $footPeak_folder/footPeak_GCskew/.TEMP/ _100.+temp.fa 1") == 0 or DIELOG($outLog, "Failed to run counter_cpg_indiv.pl: $!\n");
+if (defined ($opt_S)) {
+	system("run_script_in_paralel2.pl \"fastaFromBed -fi $genomeFile -bed FILENAME -fo FILENAME.fa -s -name\" $outDir.TEMP/ \"_[ABCDEFW].temp\" 1 > $outDir/.TEMP/fastaFromBed.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run fastaFromBed: $!\n");
+	system("run_script_in_paralel2.pl \"rename.pl FILENAME PCB .PCB\" $outDir.TEMP/ temp 1  > $outDir/.TEMP/rename.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run rename.pl: $!\n");
+	system("run_script_in_paralel2.pl \"counter_cpg_indiv.pl -w 200 -s 1 -o $outDir -A FILENAME\" $outDir.TEMP/ _100.+temp.fa 1  > $outDir/.TEMP/counter_cpg_indiv.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run counter_cpg_indiv.pl: $!\n");
+}
+
 ####### PARAMETERS
 sub get_cluster {
 	my ($bedFile, $cluster, $outLog) = @_; 
@@ -78,18 +82,19 @@ sub get_cluster {
 	}
 	return($cluster);
 }
+
 sub preprocess_bed {
 	my ($bedFile, $outLog) = @_; 
 	my ($bedFolder, $bedFilename) = getFilename($bedFile, "folderfull");
 	my $window = 100;
 	my $window2 = 200;
-	my $outputA = "$footPeak_folder/footPeak_GCskew/.TEMP/$bedFilename\_$window\_A.temp";
-	my $outputB = "$footPeak_folder/footPeak_GCskew/.TEMP/$bedFilename\_$window\_B.temp";
-	my $outputC = "$footPeak_folder/footPeak_GCskew/.TEMP/$bedFilename\_$window\_C.temp";
-	my $outputD = "$footPeak_folder/footPeak_GCskew/.TEMP/$bedFilename\_$window\_D.temp";
-	my $outputE = "$footPeak_folder/footPeak_GCskew/.TEMP/$bedFilename\_$window\_E.temp";
-	my $outputF = "$footPeak_folder/footPeak_GCskew/.TEMP/$bedFilename\_$window\_F.temp";
-	my $outputW = "$footPeak_folder/footPeak_GCskew/.TEMP/$bedFilename\_$window\_W.temp";
+	my $outputA = "$outDir/.TEMP/$bedFilename\_$window\_A.temp";
+	my $outputB = "$outDir/.TEMP/$bedFilename\_$window\_B.temp";
+	my $outputC = "$outDir/.TEMP/$bedFilename\_$window\_C.temp";
+	my $outputD = "$outDir/.TEMP/$bedFilename\_$window\_D.temp";
+	my $outputE = "$outDir/.TEMP/$bedFilename\_$window\_E.temp";
+	my $outputF = "$outDir/.TEMP/$bedFilename\_$window\_F.temp";
+	my $outputW = "$outDir/.TEMP/$bedFilename\_$window\_W.temp";
 
 	system("bedtools_bed_change.pl -a -x -$window2 -y 0 -i $bedFile -o $outputA > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
 	system("bedtools_bed_change.pl -a -x -$window -y $window -i $bedFile -o $outputB > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
@@ -126,11 +131,13 @@ sub preprocess_bed {
 }
 
 
-my @files = <$footPeak_folder/footPeak_GCskew/*.tsv>;
+my @files = <$outDir/*.tsv>;
+LOG($outLog, date() . "Processing " . scalar(@files) . " files in $LCY$outDir$N\n");
 my %data;
 my @header = ("label", "gene", "strand", "window", "threshold", "convtype", "wind2", "sample", "type");
-print "\n\nThere i no file with .tsv in $LCY$footPeak_folder/footPeak_GCskew/$N!\n" and exit if (@files == 0);
+print "\n\nThere i no file with .tsv in $LCY$outDir/$N!\n" and exit if (@files == 0);
 foreach my $input1 (sort @files) {
+	$input1 =~ s/\/+/\//g;
 	my ($WINDOW, $SAMPLE, $TYPE);
 	my ($folder1, $fileName1) = mitochy::getFilename($input1, "folderfull");
 	#my ($label, $barcode, $desc, $gene, $strand, $window, $threshold, $convtype, $wind2, $sample, $type) = $fileName1 =~ /^(PCB.+)_(BC\d+)?_?(\w+)?_?gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(CG|CH|GH|GC).PEAK.genome.bed_(\d+)_([A-Z]).temp.fa.(\w+).tsv/;
@@ -144,7 +151,7 @@ foreach my $input1 (sort @files) {
 		$SAMPLE = $arr[$i] if $header[$i] eq "sample";
 		$TYPE = $arr[$i] if $header[$i] eq "type";
 	}
-	print "$input1:$LCY$outName$N\n";
+	LOG($outLog, date() . "  - gene=$LGN$arr[1]$N pos=$LGN$arr[7]$N type=$LPR$arr[8]$N input=$outName$N\n","NA") if $arr[8] eq "skew";
 	open (my $in1, "<", $input1) or die "Cannot read from $input1: $!\n";
 	my $linecount = 0;
 	while (my $line = <$in1>) {
@@ -167,7 +174,7 @@ foreach my $input1 (sort @files) {
 	close $in1;
 }
 
-open (my $out1, ">", "$footPeak_folder/footPeak_GCskew/RESULT.TSV") or die "Cannot write to $footPeak_folder/footPeak_GCskew/RESULT.TSV: $!\n";
+open (my $out1, ">", "$outDir/RESULT.TSV") or die "Cannot write to $outDir/RESULT.TSV: $!\n";
 foreach my $outName (sort keys %{$data{input}}) {
 	#open (my $out1, ">", "$outName.TSV") or die "Cannot write to $outName.TSV: $!\n";
 	my $WINDOW = $data{data}{$outName}{wind2};
@@ -199,6 +206,71 @@ foreach my $outName (sort keys %{$data{read}}) {
 	}
 	#close $out1;
 }
+
+GCskew_Rscript($outDir, $outLog);
+
+sub GCskew_Rscript {
+	my ($outDir, $outLog) = @_;
+my $RESULT = $outDir . "/RESULT.TSV";
+my $LABEL = `cat $outDir/../.LABEL`; DIELOG($outLog, "Cannot find $outDir/../.LABEL!\n") if not defined $LABEL; chomp($LABEL);
+$LABEL = $outDir . "/$LABEL";
+my $Rscript = "
+.libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\",
+\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\",
+.libPaths()) )
+library(labeling)
+library(ggplot2)
+library(reshape2)
+library(grid)
+library(gridExtra)
+library(RColorBrewer)    
+library(ggplot2);
+library(reshape2);
+
+RESULT=\"$RESULT\";
+PDFCLUST = paste(\"$LABEL\_BYCLUST.pdf\",sep=\"\")
+PDFGENES = paste(\"$LABEL\_BYGENES.pdf\",sep=\"\")
+
+df = read.table(RESULT,header=T,sep=\"\t\")
+dm = melt(df,id.vars=c(\"file\",\"id\",\"cluster\",\"read\",\"window\",\"type\",\"feature\"));
+dm\$variable = factor(dm\$variable,levels=c(\"A\",\"B\",\"C\",\"W\",\"D\",\"E\",\"F\"))
+dm\$gene = paste(dm\$file,dm\$feature)
+genes = unique(dm\$gene)
+dm\$group = paste(dm\$cluster)
+pdf(PDFCLUST,width=7,height=7)
+for (i in 1:length(genes)) {
+   temp = dm[dm\$gene == genes[i] & dm\$type == \"skew\",]
+   clusterz = unique(temp\$cluster)
+   clusterz=clusterz[order(clusterz)]
+   for (j in 1:length(clusterz)) {
+      temp2 = temp[temp\$cluster == clusterz[j],]
+      p = ggplot(temp2,aes(variable,value)) + geom_boxplot(aes(fill=variable),outlier.shape=NA) +
+      theme_bw() + theme(panel.grid=element_blank()) + coord_cartesian(ylim=c(-1,1)) +
+      ylab(\"GC Skew\") + xlab(\"Sample\") + ggtitle(paste(genes[i], clusterz[j]))
+      print(p)
+   }
+}
+dev.off()
+
+pdf(PDFGENES,width=7,height=7)
+for (i in 1:length(genes)) {
+   temp = dm[dm\$gene == genes[i] & dm\$type == \"skew\",]
+   p = ggplot(temp,aes(variable,value)) + geom_boxplot(aes(fill=variable),outlier.shape=NA) +
+   theme_bw() + theme(panel.grid=element_blank()) + coord_cartesian(ylim=c(-1,1)) +
+   ylab(\"GC Skew\") + xlab(\"Sample\") + ggtitle(genes[i])
+   print(p)
+}
+dev.off()
+";
+
+open (my $outR, ">", "$outDir/RESULT.R") or DIELOG($outLog, date() . " Failed to write to $LCY$outDir/RESULT.R$N: $!\n");
+print $outR $Rscript;
+close $outR;
+system("run_Rscript.pl $outDir/RESULT.R");
+
+LOG($outLog, "\n\nTo Run R script do\nrun_Rscript.pl $outDir/RESULT.R\n\n");
+}
+
 __END__
 
 
