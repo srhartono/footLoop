@@ -8,11 +8,11 @@ die "\nusage: $YW$0$N -i $LGN<geneIndexFile>$N -n $CY<footPeak output folder>$N\
 my ($indexFile, $footPeak_folder) = ($opt_i, $opt_n);
 
 my %gene;
-#my ($indexFile) = "/group/stella/Work/Data/Fastq/110101_pacbio/1_Bed/180407_task1_GCskew/0_all_indexes_Alpha301.bed";
 my @line = `cat $indexFile`;
 foreach my $line (@line) {
 	chomp($line);
 	my ($chr, $beg, $end, $gene, $zero, $strand, $feature) = split("\t", $line);
+	$feature = "FEATURE_UNKNOWN" if not defined $feature;
 	die "Undefine gene at line=$line\n" if not defined $gene;
 	$gene{$gene}{feature} = $feature;
 }
@@ -211,9 +211,11 @@ GCskew_Rscript($outDir, $outLog);
 
 sub GCskew_Rscript {
 	my ($outDir, $outLog) = @_;
+my $outDirFullpath = getFullpath($outDir);
+
 my $RESULT = $outDir . "/RESULT.TSV";
 my $LABEL = `cat $outDir/../.LABEL`; DIELOG($outLog, "Cannot find $outDir/../.LABEL!\n") if not defined $LABEL; chomp($LABEL);
-$LABEL = $outDir . "/$LABEL";
+$LABEL = $outDirFullpath . "/$LABEL";
 my $Rscript = "
 .libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\",
 \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\",
@@ -233,6 +235,7 @@ PDFGENES = paste(\"$LABEL\_BYGENES.pdf\",sep=\"\")
 
 df = read.table(RESULT,header=T,sep=\"\t\")
 dm = melt(df,id.vars=c(\"file\",\"id\",\"cluster\",\"read\",\"window\",\"type\",\"feature\"));
+dm\$feature = factor(dm\$feature,levels=c(\"PROMOTER\",\"GENEBODY\",\"TERMINAL\",\"FEATURE_UNKNOWN\"));
 dm\$variable = factor(dm\$variable,levels=c(\"A\",\"B\",\"C\",\"W\",\"D\",\"E\",\"F\"))
 dm\$gene = paste(dm\$file,dm\$feature)
 genes = unique(dm\$gene)
@@ -246,7 +249,7 @@ for (i in 1:length(genes)) {
       temp2 = temp[temp\$cluster == clusterz[j],]
       p = ggplot(temp2,aes(variable,value)) + geom_boxplot(aes(fill=variable),outlier.shape=NA) +
       theme_bw() + theme(panel.grid=element_blank()) + coord_cartesian(ylim=c(-1,1)) +
-      ylab(\"GC Skew\") + xlab(\"Sample\") + ggtitle(paste(genes[i], clusterz[j]))
+      ylab(\"GC Skew\") + xlab(\"Sample\") + ggtitle(paste(genes[i], \"cluster\",clusterz[j]))
       print(p)
    }
 }
@@ -263,12 +266,30 @@ for (i in 1:length(genes)) {
 dev.off()
 ";
 
+LOG($outLog, date() . " $YW Running R script $LCY$outDir/RESULT.R$N\n");
 open (my $outR, ">", "$outDir/RESULT.R") or DIELOG($outLog, date() . " Failed to write to $LCY$outDir/RESULT.R$N: $!\n");
 print $outR $Rscript;
 close $outR;
-system("run_Rscript.pl $outDir/RESULT.R");
+system("run_Rscript.pl $outDir/RESULT.R > $outDir/RESULT.R.LOG 2>&1") == 0 or DIELOG($outLog, date() . " Failed to run $LCY$outDir/RESULT.R$N: $!\n");
+my $tailR = `tail $outDir/RESULT.R.LOG`;
 
-LOG($outLog, "\n\nTo Run R script do\nrun_Rscript.pl $outDir/RESULT.R\n\n");
+LOG($outLog, "\n\n" . date() . " ${LGN}SUCCESS on running $LCY$outDir/RESULT.R$YW.\nLast 5 rows of log message:$N\n$N$tailR
+
+
+${YW}To Run R script manually, do:$N
+run_Rscript.pl $outDir/RESULT.R
+
+
+${YW}Outputs:$N
+
+- $LGN#grouped by each gene:$N
+$LCY$LABEL\_BYGENES.pdf$N
+
+- $LGN#grouped by each gene and each cluster:$N
+$LCY$LABEL\_BYCLUST.pdf$N
+
+
+");
 }
 
 __END__
