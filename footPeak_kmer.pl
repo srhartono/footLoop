@@ -42,7 +42,7 @@ die "\nUsage: $YW$0$LGN [Optional: -G (genewant)]$N $CY-n <footPeak's output fol
 my $outDir = "$footPeakFolder/FOOTCLUST/";
 
 # establish log file
-open (my $outLog, ">", "$outDir/logFile_footPeak_kmer.txt") or die "Failed to create outLog file $outDir/logFile_footPeak_kmer.txt: $!\n";
+open (my $outLog, ">", "$outDir/logFile_footPeak_kmer.TEMP.txt") or die "Failed to create outLog file $outDir/logFile_footPeak_kmer.txt: $!\n";
 LOG($outLog, " \n\n$YW -------- PARSING LOG FILE -------- $N\n\n");
 
 # get .fa file from footPeakFolder and copy
@@ -79,8 +79,8 @@ while (my $line = <$inLog>) {
 		next;
 	}
 	my ($label2, $gene, $strand, $window, $thres, $type, $skip, $total_peak_all, $total_read_unique, $total_peak_used, $peaks_local_file, $peaks_file, $cluster_file) = split("\t", $line);
-   if (defined $opt_G and $gene !~ /$opt_G/i) {
-      LOG($outLog, date() . " Skipped $LCY$gene$N as it doesn't contain $LGN-G $opt_G$N\n");
+   if (defined $opt_G and $line !~ /$opt_G/i) {
+      LOG($outLog, date() . " Skipped $LCY$gene$N as it doesn't contain $LGN-G $opt_G$N\n","NA");
       next;
    }
 	$gene = uc($gene);
@@ -122,8 +122,8 @@ LOG($outLog, "\n" . date() . "\tSkipped $LGN$skipped$N genes!\n\n");
 my $cluster_count = -1;
 
 foreach my $gene (sort keys %{$data{file}}) {
-	my %print;
 	foreach my $cluster_file (sort keys %{$data{file}{$gene}}) {
+		my %print;
 		$cluster_count ++;
 		LOG($outLog, date() . " $YW$cluster_count$N. Parsing $LCY$cluster_file$N\n");
 		my ($cluster_file_name) = getFilename($cluster_file, "full");
@@ -185,7 +185,9 @@ foreach my $gene (sort keys %{$data{file}}) {
 		foreach my $coor (sort {$bed{$a}{$keyz} cmp $bed{$b}{$keyz}} keys %bed) {
 			my $typez = $coor =~ /BEG/ ? 1 : $coor =~ /MID/ ? 2 : $coor =~ /END/ ? 3 : $coor =~ /WHOLE/ ? 4 : 5;
 			$print{$typez}{$coor} .= "$coor\t$type";
+#			print "\tcoor=$coor typez=$typez\n";
 			foreach my $key (sort keys %{$bed{$coor}}) {
+#				print "\t\tkey=$key want=$want $LRD nexted$N\n" if $key !~ /($want)/;
 				next if $key !~ /($want)/;
 				if ($bed{$coor}{$key} =~ /^HASH/) {# and defined $bed{$coor}{$key}{shuf} and $bed{$coor}{$key}{shuf} ne "NA") {
 					my $orig = $bed{$coor}{$key}{orig};
@@ -198,13 +200,16 @@ foreach my $gene (sort keys %{$data{file}}) {
 					$odds = $odds eq "NA" ? "NA" : ($odds > 0.01 || $odds < -0.01) ? int($odds * 1000)/1000 : ($odds > 0.0001 || $odds < -0.0001) ? int($odds * 100000)/100000 : $odds;
 					if ($bed{$coor}{$key}{shuf} ne "NA") {
 						$print{$typez}{$coor} .= "\t$orig\t$shuf\t$odds\t$pval";
+#						print "\t\tkey=$key 1 orig=$orig shuf=$shuf\n";
 					}
 					else {
 						$print{$typez}{$coor} .= "\t$orig";
+#						print "\t\tkey=$key 2 orig=$orig shuf=NA\n";
 					}
 				}
 				else {
 #				if ($key !~ /^2\w_/ or not defined $bed{$coor}{$key}{orig} or not defined $bed{$coor}{$key}{shuf} ) {
+#					print "\t\tkey=$key value=$bed{$coor}{$key}\n";
 					$print{$typez}{$coor} .= "\t$bed{$coor}{$key}";
 				}
 			}
@@ -236,10 +241,19 @@ sub parse_bed {
 		next if $end - $beg < 10;
 		$linecount ++;
 		my $coor = "$gene:$beg-$end($strand)";
-		my ($CLUST, $POS) = $cluster =~ /^(\d+)\.(.+)$/;
+		my ($CLUST, $POS) = $cluster =~ /^(\d+)\.(.+)$/; 
+		# $CLUST is cluster number of the cluster
+		# $POS is the position type of cluster (BEG/MID/END/WHOLE)
+		# $cluster contain the cluster and position type info (e.g. 1.WHOLE or 2.BEG)
+		# e.g. $cluster is 17.BEG, then $CLUST = 17 and $POS = BEG
 		if ($strand eq "-") {
-			$CLUST = "END" if $cluster =~ /BEG/;
-			$CLUST = "BEG" if $cluster =~ /END/;
+			# BUG:
+			$POS = "END" if $cluster =~ /BEG/;
+			$POS = "BEG" if $cluster =~ /END/;
+			#$CLUST = "END" if $cluster =~ /BEG/; #<- BUG
+			#$CLUST = "BEG" if $cluster =~ /END/; #<- BUG
+			# I should've put $POS instead of $CLUST, as $CLUST hold cluster number.
+			# Otherwise, $CLUST will be changed from cluster number (e.g. 17) to type of cluster (e.g. END)
 		}
 		%{$bed{$coor}} = (
 			'1a_gene' => $gene,
@@ -250,10 +264,16 @@ sub parse_bed {
 			'1f_strand' => $strand,
 			'1g_pos' => $POS
 		);
+#		print "clster=$cluster beg=$beg end=$end total=$total_peak strand=$strand\n";
+		foreach my $coor (sort keys %bed) {
+			foreach my $key (sort keys %{$bed{$coor}}) {
+#				print "\t\tkey=$key value=$bed{$coor}{$key}\n" if $key ne "1h_ref";
+			}
+		}
 		my ($ref1) = $ref =~ /^(.{$beg})/;
 		my $lenref = length($ref) - $end;
 		my ($ref2) = $ref =~ /(.{$lenref})$/;
-		LOG($outLog, date() . " \tbedfile line #$LGN$linecount$N: gene $LCY$gene$N beg=$LCY$beg$N, end=$LCY$end$N, length = " . length($ref) . ", lenref= $LCY$lenref$N\n") if $linecount < 10;
+		LOG($outLog, date() . " \tbedfile line #$LGN$linecount$N: gene $LCY$gene$N beg=$LCY$beg$N, end=$LCY$end$N, length = " . length($ref) . ", lenref= $LCY$lenref$N\n","NA") if $linecount < 10;
 		$ref1 = "" if not defined $ref1;
 		$ref2 = "" if $lenref < 1 or not defined $ref2;
 		$ref1 .= "N$ref2";
