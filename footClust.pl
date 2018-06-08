@@ -74,6 +74,25 @@ $YW -------- RUN (" . scalar(@local_peak_files) . " files) --------- $N\n\n";
 LOG($outLog, $init);
 
 
+# Parse fasta file
+my %genes;
+open (my $faIn2, "<", $faFile) or die;
+open (my $faOut, ">", "$faFile.footClustfastafile") or die;
+my $fasta2 = new FAlite($faIn2);
+while (my $entry = $fasta2->nextEntry()) {
+	my $def = uc($entry->def);
+	my $seq = $entry->seq;
+	print $faOut "$def\n$seq\n";
+	my $length = length($seq);
+	$def =~ s/>//;
+	$genes{uc($def)} = $length;
+}
+close $faIn2;
+close $faOut;
+system("/bin/rm $faFile.footClustfastafile.fai") if -e "$faFile.footClustfastafile.fai";
+
+
+
 ####################
 # Processing Input #
 ####################
@@ -87,8 +106,9 @@ else {
 }
 my $files_log = "#FOLDER=$footPeakFolder\n";
 my $input1_count = -1;
+my $curr_gene = -1;
+my $type_count = -1;
 foreach my $input1 (sort @local_peak_files) {
-	$input1_count ++;
 #DEBUG
 	if (defined $opt_G and $input1 !~ /$opt_G/i) {
 		LOG($outLog, date() . " Skipped $LCY$input1$N as it doesn't contain $LGN-G $opt_G$N\n");
@@ -109,20 +129,28 @@ foreach my $input1 (sort @local_peak_files) {
 
 	$thres *= 100 if $thres < 1;
 	$gene   = uc($gene);
+
+	if ($curr_gene ne $gene) {
+		LOG($outLog, "\n$YW -------------- Processing $LGN$gene$N ------------- \n");
+		$input1_count ++;
+		$type_count = -1;
+	}
+	$type_count ++;
+	$curr_gene = $gene;
 	$strand = $strand eq "Neg" ? "-" : "+";
 	# check peak file. Skip if there's less than 10 peaks
 	my ($total_line) = `wc -l $input1` =~ /^(\d+)/;
-	if ($total_line <= 10) {
-		LOG($outLog, "\n--------------\n\n$LGN$input1_count$N. ${LRD}NEXTED $N: $input1 ${LCY}because total peaks is less than 10 $N($LGN$total_line$N)\n\n");
-		$files_log .= "$label\t$gene\t$strand\t$window\t$thres\t$type\t${LRD}Skip$N\ttotal_peak_all=$total_line\ttotal_read_unique=-1\ttotal_peak_used=-1\tPEAKS_LOCAL=PEAKS_LOCAL/$fullName1\tPEAK_FILE=NA\n";
-		next;
-	}
+	#if ($total_line <= 10) {
+	#	LOG($outLog, "\n--------------\n\n$LGN$input1_count$N. ${LRD}NEXTED $N: $input1 ${LCY}because total peaks is less than 10 $N($LGN$total_line$N)\n\n");
+	#	$files_log .= "$label\t$gene\t$strand\t$window\t$thres\t$type\t${LRD}Skip$N\ttotal_peak_all=$total_line\ttotal_read_unique=-1\ttotal_peak_used=-1\tPEAKS_LOCAL=PEAKS_LOCAL/$fullName1\tPEAK_FILE=NA\n";
+	#	next;
+	#}
 	$files_log .= "$label\t$gene\t$strand\t$window\t$thres\t$type\t${LGN}Ran$N\ttotal_peak_all=$total_line";
 
 	# Actual parse of peak file
 	my ($linecount, $total_peak_used, $total_peak_all, %data) = (0,0,0);
 	open (my $in1, "sort -k1,1 -k2,2n -k3,3n $input1|") or LOG($outLog, date() . "Cannot read from $input1: $!\n") and die;
-	LOG($outLog, "\n--------------\n\n$LGN$input1_count$N. ${LCY}RUNNING$N: $input1\n");
+	LOG($outLog, date() . "$LGN$input1_count.$type_count$N ${LCY}RUNNING$N: label=$LPR$label2$N gene=$LGN$gene$N strand=$LCY$strand$N window=$LGN$window$N thres=$LCY$thres$N type=$LGN$type$N input1=$input1\n");
 	LOG($outLog, date() . "$LCY\tInfo$N: pcb=$label,gene=$gene,strand=$strand,window=$window,thres=$thres,type=$type\n");
 	LOG($outLog, date() . "$LCY\tExample Lines$N:\n");
 	while (my $line = <$in1>) {
@@ -285,39 +313,43 @@ foreach my $input1 (sort @local_peak_files) {
 		print $outz2 "$clust{$num}\n";
 	}
 	close $outz2;
+
+	my ($ampliconLength) = $genes{uc($gene)};
+	DIELOG($outLog, date() . " Failed to get amplicon length frmo gene=" . uc($gene) . ": $!\n") if not defined $ampliconLength;
 	# process clust: get average beg/end point
 	open (my $out2, ">", "$outDir/.TEMP/$fullName1.clust.bed") or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $outDir/.TEMP/$fullName1.clust.bed: $!\n");
 	print $out2 "#gene\tbeg\tend\tcluster\ttotal_peak\tstrand\n";
 	foreach my $clust (sort {$a <=> $b} keys %cl) {
 		my $BEG   = int(tmm(@{$cl{$clust}{beg}})+0.5);
-		my $BEGSD = int(tmmsd(@{$cl{$clust}{beg}})+0.5);
-		my ($beg0, $end0) = ($BEG - $BEGSD, $BEG + $BEGSD);
 		my $MID   = int(tmm(@{$cl{$clust}{mid}})+0.5);
-		my $MIDSD = int(tmmsd(@{$cl{$clust}{mid}})+0.5);
-		my ($beg1, $end1) = ($MID - $MIDSD, $MID + $MIDSD);
 		my $END   = int(tmm(@{$cl{$clust}{end}})+0.5);
+		my $BEGSD = int(tmmsd(@{$cl{$clust}{beg}})+0.5);
+		my $MIDSD = int(tmmsd(@{$cl{$clust}{mid}})+0.5);
 		my $ENDSD = int(tmmsd(@{$cl{$clust}{end}})+0.5);
-		my ($beg2, $end2) = ($END - $ENDSD, $END + $ENDSD);
+		my ($begOfBEG, $endOfBEG) = ($BEG - $BEGSD, $BEG + $BEGSD);
+		my ($begOfMID, $endOfMID) = ($MID - $MIDSD, $MID + $MIDSD);
+		my ($begOfEND, $endOfEND) = ($END - $ENDSD, $END + $ENDSD);
+		my ($begOfALL, $endOfALL) = ($begOfBEG, $endOfEND);
+		if ($endOfEND > $ampliconLength) {
+			LOG($outLog, date() . "    INFO: clust=$clust $gene BEG=$BEG END=$END begOfBEG=$begOfBEG endOfEND = $endOfEND changed to ampliconLength=$ampliconLength\n");
+		}
+		($begOfBEG) = 1 if $begOfBEG < 1;
+		($endOfBEG) = $ampliconLength if $endOfBEG > $ampliconLength;
+		($begOfMID) = 1 if $begOfMID < 1;
+		($endOfMID) = $ampliconLength if $endOfMID > $ampliconLength;
+		($begOfEND) = 1 if $begOfEND < 1;
+		($endOfEND) = $ampliconLength if $endOfEND > $ampliconLength;
+		($begOfALL) = 1 if $begOfALL < 1;
+		($endOfALL) = $ampliconLength if $endOfALL > $ampliconLength;
 		my $total = @{$cl{$clust}{beg}};
-		print $out2 "$gene\t$beg0\t$end2\t$clust.WHOLE\t$total\t$strand\n";
-		print $out2 "$gene\t$beg0\t$end0\t$clust.BEG\t$total\t$strand\n";
-		print $out2 "$gene\t$beg1\t$end1\t$clust.MID\t$total\t$strand\n";
-		print $out2 "$gene\t$beg2\t$end2\t$clust.END\t$total\t$strand\n";
+		print $out2 "$gene\t$begOfALL\t$endOfALL\t$clust.WHOLE\t$total\t$strand\n";
+		print $out2 "$gene\t$begOfBEG\t$endOfBEG\t$clust.BEG\t$total\t$strand\n";
+		print $out2 "$gene\t$begOfMID\t$endOfMID\t$clust.MID\t$total\t$strand\n";
+		print $out2 "$gene\t$begOfEND\t$endOfEND\t$clust.END\t$total\t$strand\n";
 	}
 	close $out2;
-	open (my $faIn2, "<", $faFile) or die;
-	open (my $faOut, ">", "$faFile.footClustfastafile") or die;
-	my $fasta2 = new FAlite($faIn2);
-	while (my $entry = $fasta2->nextEntry()) {
-		my $def = uc($entry->def);
-		my $seq = $entry->seq;
-		print $faOut "$def\n$seq\n";
-	}
-	close $faIn2;
-	close $faOut;
-	system("/bin/rm $faFile.footClustfastafile.fai") if -e "$faFile.footClustfastafile.fai";
-	LOG($outLog, "$YW ::: fastaFromBed -fi $faFile.footClustfastafile -bed $outDir/.TEMP/$fullName1.clust.bed -fo $outDir/.TEMP/$fullName1.clust.fa -s ::: $N\n");
-	system("fastaFromBed -fi $faFile.footClustfastafile -bed $outDir/.TEMP/$fullName1.clust.bed -fo $outDir/.TEMP/$fullName1.clust.fa -s");
+	LOG($outLog, "$YW ::: fastaFromBed -fi $faFile.footClustfastafile -bed $outDir/.TEMP/$fullName1.clust.bed -fo $outDir/.TEMP/$fullName1.clust.fa -s ::: $N\n","NA");
+	system("fastaFromBed -fi $faFile.footClustfastafile -bed $outDir/.TEMP/$fullName1.clust.bed -fo $outDir/.TEMP/$fullName1.clust.fa -s > $outDir/.TEMP/$fullName1.clust.bed.LOG 2>&1") == 0 or LOG($outLog, date() . " Failed to fastaFromBed -fi$LCY $faFile.footClustfastafile$N -bed$LGN $outDir/.TEMP/$fullName1.clust.bed$N -fo$LPR $outDir/.TEMP/$fullName1.clust.fa$N -s >$YW $outDir/.TEMP/$fullName1.clust.bed.LOG$N 2>\&1: $!\n");
 
 	LOG($outLog, date() . "$LCY\tAnalyzing Sequence Content from$N $outDir/.TEMP/$fullName1.clust.fa\n");
 	open (my $faIn, "$outDir/.TEMP/$fullName1.clust.fa") or DIELOG($outLog, "Failed to read from $outDir/.TEMP/$fullName1.clust.fa: $!\n");
@@ -326,7 +358,8 @@ foreach my $input1 (sort @local_peak_files) {
 		$linecount ++;
 		my $def = uc($entry->def); $def =~ s/^>//;
 		my $seq = uc($entry->seq());
-		print ">$def\n$seq\n\n" if $linecount == 1;
+		my ($seqshort) = $seq =~ /^(.{0,10})/; $seqshort = "" if not defined $seqshort;
+		LOG($outLog, "def=$LCY>$def$N seq=$LGN$seqshort$N\n\n","NA") if $linecount == 1;
 	}
 }	
 open (my $outz, ">", "$outDir/.0_LOG_FILESRAN") or DIELOG($outLog, "Failed tow rite to $outDir/.0_LOG_FILESRAN:$!\n");

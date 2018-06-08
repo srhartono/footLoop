@@ -93,7 +93,7 @@ while (my $line = <$inLog>) {
 	($peaks_local_file) =~ s/^PEAKS_LOCAL=(.+)$/$1/; 
 	DIELOG($outLog, date() . __LINE__ . "Failed to parse peaks_local file from $peaks_local_file\n") if $peaks_local_file =~ /\=/;
 	$strand = $cluster_file =~ /_Pos_/ ? "Pos" : $cluster_file =~ /_Neg_/ ? "Neg" : "Unk";
-	my $type2 = (($strand eq "Pos" and $type =~ /^C/) or ($strand eq "Neg" and $type =~ /^G/)) ? "${LGN}GOOD$N" : "${LRD}WEIRD$N";
+	my $type2 = (($strand eq "Pos" and $type =~ /^C/) or ($strand eq "Neg" and $type =~ /^G/)) ? "${LGN}CORRECT_CONVERSION$N" : "${YW}REVERSED_CONVERSION$N";
 	LOG($outLog, date() . "$type2, label=$label, gene=$gene, strand=$strand, window=$window, thres=$thres, type=$type, skip=$skip, total_peak_all=$total_peak_all, total_read_unique=$total_read_unique, total_peak_used=$total_peak_used, peaks_local_file=$peaks_local_file, peaks_file=$peaks_file, cluster_file=$cluster_file\n");
 	$data{good}{$gene} ++;
 	%{$data{file}{$gene}{$cluster_file}} = (
@@ -139,8 +139,8 @@ foreach my $gene (sort keys %{$data{file}}) {
 		LOG($outLog, date() . "\t- gene=$LGN$gene$N\n" . date() . "\t- bedFile=$LCY$bedFile$N\n" . date() . "\t- fasta=$LCY$fasta$N\n");
 		my ($BED) = parse_bed($bedFile, $fa{$gene}, $outLog); 
 		if (not defined $BED) {LOG($outLog, date() . " BED cannot be parsed from $bedFile so skipped!\n"); next;}
-		$BED = parse_fasta($BED, $fasta); next if not defined $BED;
-		$BED = shuffle_orig($BED);
+		$BED = parse_fasta($BED, $fasta, $outLog); next if not defined $BED;
+		$BED = shuffle_orig($BED, $outLog);
 		my %bed = %{$BED};
 		my $want = "coor|gene|beg|end|cluster|total_peak|strand|pos|len|cpg|gc|skew2|ggg";
 		my $kmerFile = $cluster_file; $kmerFile =~ s/.TEMP\/?//; 
@@ -216,7 +216,7 @@ foreach my $gene (sort keys %{$data{file}}) {
 				print $out2 $print{$typez}{$coor};
 			}
 		}
-		print "Done\n";
+		LOG($outLog, "Done $cluster_file\n");
 	}
 }
 
@@ -267,12 +267,13 @@ sub parse_bed {
 }
 
 sub shuffle_orig {
-	my ($BED) = @_;
+	my ($BED, $outLog) = @_;
 	foreach my $coor (sort keys %{$BED}) {
 		my $ref = $BED->{$coor}{'1h_ref'};
 		my $lenseq = $BED->{$coor}{'2a_len'}{orig};
-		die "coor = $coor\n" if not defined $lenseq;
-		die "Undefined ref of gene $coor and lenref\n" if not defined $ref;
+		DIELOG($outLog, date() . " Lenseq isn't defined coor = $coor\n") if not defined $lenseq;
+		DIELOG($outLog, date() . " Lenseq isn't defined coor = $coor\n") if not defined $lenseq;
+		DIELOG($outLog, date() . " Undefined ref of gene $coor and lenref\n") if not defined $ref;
 
 		$BED->{$coor} = shuffle_fasta($BED->{$coor}, $ref, $lenseq, 1000);
 	}
@@ -331,8 +332,8 @@ sub shuffle_fasta {
 }
 
 sub parse_fasta {
-	my ($bed, $fastaFile) = @_;
-	open (my $in, "<", $fastaFile) or print "footPeak_kmer.pl: Cannot read from $fastaFile: $!\n" and return;
+	my ($bed, $fastaFile, $outLog) = @_;
+	open (my $in, "<", $fastaFile) or LOG ($outLog, "footPeak_kmer.pl: Cannot read from $fastaFile: $!\n") and return;
 	my $fasta = new FAlite($in);
 	while (my $entry = $fasta->nextEntry()) {
 		my $def = $entry->def; $def =~ s/^>//;
