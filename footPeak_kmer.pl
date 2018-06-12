@@ -142,7 +142,7 @@ foreach my $gene (sort keys %{$data{file}}) {
 		$BED = parse_fasta($BED, $fasta, $outLog); next if not defined $BED;
 		$BED = shuffle_orig($BED, $outLog);
 		my %bed = %{$BED};
-		my $want = "coor|gene|beg|end|cluster|total_peak|strand|pos|len|cpg|gc|skew2|ggg";
+		my $want = "coor|gene|beg|end|cluster|total_peak|total_read_unique|total_peak|strand|pos|len|cpg|gc|skew2|ggg";
 		my $kmerFile = $cluster_file; $kmerFile =~ s/.TEMP\/?//; 
 		$kmerFile = "$footPeakFolder/$kmerFile.kmer";
 		my $headerPrint = "";
@@ -165,7 +165,7 @@ foreach my $gene (sort keys %{$data{file}}) {
 				last if defined $keyz;
 			}
 		}
-		foreach my $coor (sort {$bed{$a}{$keyz} cmp $bed{$b}{$keyz}} keys %bed) {
+		foreach my $coor (sort {$bed{$a}{"1d_cluster"} <=> $bed{$b}{"1d_cluster"}} keys %bed) {
 			my $typez = $coor =~ /BEG/ ? 1 : $coor =~ /MID/ ? 2 : $coor =~ /END/ ? 3 : $coor =~ /WHOLE/ ? 4 : 5;
 			$headerPrint .= "coor\ttype";# if $cluster_count == 0;
 			foreach my $key (sort keys %{$bed{$coor}}) {
@@ -182,9 +182,14 @@ foreach my $gene (sort keys %{$data{file}}) {
 			$headerPrint .= "\n";
 			last;
 		}
-		foreach my $coor (sort {$bed{$a}{$keyz} cmp $bed{$b}{$keyz}} keys %bed) {
-			my $typez = $coor =~ /BEG/ ? 1 : $coor =~ /MID/ ? 2 : $coor =~ /END/ ? 3 : $coor =~ /WHOLE/ ? 4 : 5;
-			$print{$typez}{$coor} .= "$coor\t$type";
+		my $coorCount = 0;
+		foreach my $coor (sort {$bed{$a}{"1d_cluster"} <=> $bed{$b}{"1d_cluster"}} keys %bed) {
+			$coorCount ++;
+			my $postype = $bed{$coor}{"1h_pos"};
+			my $typez = $postype =~ /BEG/ ? 1 : $postype =~ /MID/ ? 2 : $postype =~ /END/ ? 3 : $postype =~ /WHOLE/ ? 4 : 5;
+			$print{$typez}{$coor}{coor} .= "$coor\t$type";
+			$print{$typez}{$coor}{coorCount} = $coorCount;
+			print "coorCount=$coorCount, typez=$typez, coor=$coor\t$type\n";
 #			print "\tcoor=$coor typez=$typez\n";
 			foreach my $key (sort keys %{$bed{$coor}}) {
 #				print "\t\tkey=$key want=$want $LRD nexted$N\n" if $key !~ /($want)/;
@@ -199,29 +204,31 @@ foreach my $gene (sort keys %{$data{file}}) {
 					$pval = $pval eq "NA" ? "NA" : ($pval > 0.01 || $pval < -0.01) ? int($pval * 1000)/1000 : ($pval > 0.0001 || $pval < -0.0001) ? int($pval * 100000)/100000 : $pval;
 					$odds = $odds eq "NA" ? "NA" : ($odds > 0.01 || $odds < -0.01) ? int($odds * 1000)/1000 : ($odds > 0.0001 || $odds < -0.0001) ? int($odds * 100000)/100000 : $odds;
 					if ($bed{$coor}{$key}{shuf} ne "NA") {
-						$print{$typez}{$coor} .= "\t$orig\t$shuf\t$odds\t$pval";
+						$print{$typez}{$coor}{coor} .= "\t$orig\t$shuf\t$odds\t$pval";
 #						print "\t\tkey=$key 1 orig=$orig shuf=$shuf\n";
 					}
 					else {
-						$print{$typez}{$coor} .= "\t$orig";
+						$print{$typez}{$coor}{coor} .= "\t$orig";
 #						print "\t\tkey=$key 2 orig=$orig shuf=NA\n";
 					}
 				}
 				else {
 #				if ($key !~ /^2\w_/ or not defined $bed{$coor}{$key}{orig} or not defined $bed{$coor}{$key}{shuf} ) {
 #					print "\t\tkey=$key value=$bed{$coor}{$key}\n";
-					$print{$typez}{$coor} .= "\t$bed{$coor}{$key}";
+					$print{$typez}{$coor}{coor} .= "\t$bed{$coor}{$key}";
 				}
 			}
-			$print{$typez}{$coor} .= "\n";
+			$print{$typez}{$coor}{coor} .= "\n";
 		}
 		print $out2 "\#$headerPrint";
 		foreach my $typez (sort {$a <=> $b} keys %print) {
-			foreach my $coor (sort keys %{$print{$typez}}) {
-				print $out2 $print{$typez}{$coor};
+			foreach my $coor (sort {$print{$typez}{$a}{coorCount} <=> $print{$typez}{$b}{coorCount}} keys %{$print{$typez}}) {
+				print $out2 $print{$typez}{$coor}{coor};
+				print $print{$typez}{$coor}{coor};
 			}
 		}
 		LOG($outLog, "Done $cluster_file\n");
+		print "less -S $kmerFile\n";
 	}
 }
 
@@ -234,7 +241,10 @@ sub parse_bed {
 	while (my $line = <$in>) {
 		chomp($line);
 		next if ($line =~ /^#/);
-		my ($gene, $beg, $end, $cluster, $total_peak, $strand) = split("\t", $line);
+		my ($gene, $beg, $end, $cluster, $total_read_unique, $strand) = split("\t", $line);
+		my $a = $total_read_unique;
+		my $total_peak = 0;
+		($total_read_unique,$total_peak) = $total_read_unique =~ /^(\d+)\.(\d+)$/;
 		if (defined $opt_G and $gene !~ /$opt_G/i) {
 			next;
 		}
@@ -260,9 +270,10 @@ sub parse_bed {
 			'1b_beg' => $beg,
 			'1c_end' => $end,
 			'1d_cluster' => $CLUST,
-			'1e_total_peak' => $total_peak,
-			'1f_strand' => $strand,
-			'1g_pos' => $POS
+			'1e_total_read_unique' => $total_read_unique,
+			'1f_total_peak' => $total_peak,
+			'1g_strand' => $strand,
+			'1h_pos' => $POS
 		);
 #		print "clster=$cluster beg=$beg end=$end total=$total_peak strand=$strand\n";
 		foreach my $coor (sort keys %bed) {

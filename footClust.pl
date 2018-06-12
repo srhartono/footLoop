@@ -288,12 +288,16 @@ foreach my $input1 (sort @local_peak_files) {
 	my %cl;
 	my %clust; my %clustlen; my @clust; my $clustheader = "";
 	open (my $in2, "<", "$outDir/.TEMP/$fullName1.clustz") or DIELOG($outLog, date() . __LINE__ . "\tFailed to read from $outDir/.TEMP/$fullName1.clustz: $!\n");
+	my $linecount5 = 0;
+	my %used;
 	while (my $line = <$in2>) {
+		$linecount5 ++;
 		chomp($line);
 		if ($line =~ /(clust|xmax|ymax)/) {$clustheader = $line;next;}
-		my ($num, $beg, $end, $y, $y2, $clust) = split("\t", $line);
-		my ($ind) = "";
-		($num, $ind) = $num =~ /^(\d+)\.(\d+)$/ if $num =~ /^\d+\.\d+$/;
+		my ($orignum, $beg, $end, $y, $y2, $clust) = split("\t", $line);
+		my ($num, $ind) = $orignum =~ /^(\d+)\.(\d+)$/ if $orignum =~ /^\d+\.\d+$/;
+		$ind = "" if not defined $ind;
+		LOG($outLog, "\t\torignum=$orignum, num=$num, ind=$ind\n") if $linecount5 < 5;
 		my $numlen = $end - $beg;
 		push(@clust, $num) if not grep(/^$num$/, @clust);
 		if (not defined $clustlen{$num} or (defined $clustlen{$num} and $clustlen{$num} < $numlen)) {
@@ -302,11 +306,19 @@ foreach my $input1 (sort @local_peak_files) {
 		}
 		LOG($outLog, date() . "Cannot parse num from line=$line\n") if not defined $num;
 		my ($mid) = int(($end + $beg)/2+0.5);
+		if (not defined $used{$num} or (defined $used{$num}{len} and $used{$num}{len} < ($end - $beg))) {
+			$used{$num}{clust} = $clust;
+			$used{$num}{len} = $end - $beg;
+		}
 		push(@{$cl{$clust}{beg}}, $beg);
 		push(@{$cl{$clust}{mid}}, $mid);
 		push(@{$cl{$clust}{end}}, $end);
 	}
 	close $in2;
+	foreach my $num (keys %used) {
+		my $clust = $used{$num}{clust};
+		$cl{$clust}{total_read_unique}{$num} = 1;
+	}
 	open (my $outz2, ">", "$outDir/.TEMP/$fullName1.clust") or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $outDir/.TEMP/$fullName1.clust: $!\n");
 	print $outz2 "$clustheader\n";
 	foreach my $num (@clust[0..@clust-1]) {
@@ -341,11 +353,13 @@ foreach my $input1 (sort @local_peak_files) {
 		($endOfEND) = $ampliconLength if $endOfEND > $ampliconLength;
 		($begOfALL) = 1 if $begOfALL < 1;
 		($endOfALL) = $ampliconLength if $endOfALL > $ampliconLength;
-		my $total = @{$cl{$clust}{beg}};
-		print $out2 "$gene\t$begOfALL\t$endOfALL\t$clust.WHOLE\t$total\t$strand\n";
-		print $out2 "$gene\t$begOfBEG\t$endOfBEG\t$clust.BEG\t$total\t$strand\n";
-		print $out2 "$gene\t$begOfMID\t$endOfMID\t$clust.MID\t$total\t$strand\n";
-		print $out2 "$gene\t$begOfEND\t$endOfEND\t$clust.END\t$total\t$strand\n";
+#		my $total = @{$cl{$clust}{beg}};
+		my $total_read = scalar(@{$cl{$clust}{beg}});
+		my $total_read_unique = scalar(keys %{$cl{$clust}{total_read_unique}});
+		print $out2 "$gene\t$begOfALL\t$endOfALL\t$clust.WHOLE\t$total_read_unique.$total_read\t$strand\n";
+		print $out2 "$gene\t$begOfBEG\t$endOfBEG\t$clust.BEG\t$total_read_unique.$total_read\t$strand\n";
+		print $out2 "$gene\t$begOfMID\t$endOfMID\t$clust.MID\t$total_read_unique.$total_read\t$strand\n";
+		print $out2 "$gene\t$begOfEND\t$endOfEND\t$clust.END\t$total_read_unique.$total_read\t$strand\n";
 	}
 	close $out2;
 	LOG($outLog, "$YW ::: fastaFromBed -fi $faFile.footClustfastafile -bed $outDir/.TEMP/$fullName1.clust.bed -fo $outDir/.TEMP/$fullName1.clust.fa -s ::: $N\n","NA");

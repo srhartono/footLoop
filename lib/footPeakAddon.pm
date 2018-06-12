@@ -180,7 +180,10 @@ sub main {
 		close $outRPEAKS;
 	}
 	
-	open (my $outLGENE, ">", "$resDir/.0_RESULTS\_$label\_gene$mygene\_$strand\_$window\_$thres.TXT");
+	makedir("$resDir/99_FOOTSTATS/") if not -d "$resDir/99_FOOTSTATS/";
+	makedir("$resDir/99_FOOTSTATS/.PEAKSTATSTEMP") if not -d "$resDir/99_FOOTSTATS/.PEAKSTATSTEMP";
+	open (my $outLGENE, ">", "$resDir/99_FOOTSTATS/.PEAKSTATSTEMP/.0_RESULTS\_$label\_gene$mygene\_$strand\_$window\_$thres.TXT");
+	print $outLGENE "#folder\tpeak_file\tgene\tread_strand\tread_unique_total\tread_unique_with_peak_total\tread_unique_with_peak_perc\n";
 	for (my $h = 0; $h < 4; $h++) {
 		my $type = $types[$h];
 		my $totalPeak = $total->{$type}{peak};
@@ -190,8 +193,7 @@ sub main {
 		my @folder = split("/", $resDir);
 		my $foldershort = $folder[@folder-1];
 		   $foldershort = $folder[@folder-2] if not defined ($foldershort) or (defined $foldershort and $foldershort =~ /^[\s]*$/);
-		my $peakFile    = "$mygene\_$strand\_$window\_$thres\_$type.PEAK";
-		print $outLGENE "#folder\tpeakFile\tGene\tStrand\ttotal\tpeak.perc\n" if $type eq "CH";
+		my $peakFile    = "$label\_gene$mygene\_$strand\_$window\_$thres\_$type.PEAK";
 		print $outLGENE "$foldershort\t$peakFile\t$mygene\t$type\t$total->{$type}{total}\t$totalPeak\t$total->{$type}{peak}\n";
 	}
 	close $outLGENE;
