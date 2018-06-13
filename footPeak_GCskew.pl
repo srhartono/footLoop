@@ -112,7 +112,7 @@ sub preprocess_bed {
 }
 
 
-my @files = <$outDir/*.tsv>;
+my @files = <$outDir/PCB*.tsv>;
 LOG($outLog, date() . "Processing " . scalar(@files) . " files in $LCY$outDir$N\n");
 my %data;
 my @header = ("label", "gene", "strand", "window", "threshold", "convtype", "wind2", "sample", "type");
@@ -122,8 +122,14 @@ foreach my $input1 (sort @files) {
 	my ($WINDOW, $SAMPLE, $TYPE);
 	my ($folder1, $fileName1) = mitochy::getFilename($input1, "folderfull");
 	#my ($label, $barcode, $desc, $gene, $strand, $window, $threshold, $convtype, $wind2, $sample, $type) = $fileName1 =~ /^(PCB.+)_(BC\d+)?_?(\w+)?_?gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(CG|CH|GH|GC).PEAK.genome.bed_(\d+)_([A-Z]).temp.fa.(\w+).tsv/;
+	next if $fileName1 !~ /^PCB/;
 	my @arr = $fileName1 =~ /^(PCB.+)_gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(CG|CH|GH|GC).PEAK.genome.bed_(\d+)_([A-Z]).temp.fa.(\w+).tsv/;
 	$arr[0] =~ s/^(PCB\d+)_.+$/$1/;
+	if (not defined $arr[0]) {
+		for (my $i = 0; $i < @arr; $i++) {
+			die "fileName=$fileName1 Undefined i=$i header=$header[$i] arr[i] undef\n" if not defined $arr[$i];# and $header[$i] !~ /(barcode|desc)/;
+		}
+	}
 	my $outName = join("_", @arr[0..6]) . "_" . $arr[8];
 	for (my $i = 0; $i < @arr; $i++) {
 		die "Undefined i=$i header=$header[$i] arr[i] undef\n" if not defined $arr[$i];# and $header[$i] !~ /(barcode|desc)/;
@@ -228,7 +234,7 @@ for (i in 1:length(genes)) {
    clusterz=clusterz[order(clusterz)]
    for (j in 1:length(clusterz)) {
       temp2 = temp[temp\$cluster == clusterz[j],]
-		counts = dim(temp2)[1]
+		counts = dim(temp2)[1] / length(unique(temp2\$variable))
       p = ggplot(temp2,aes(variable,value)) + geom_boxplot(aes(fill=variable),outlier.shape=NA) +
       theme_bw() + theme(panel.grid=element_blank(),legend.position=\"none\") + coord_cartesian(ylim=c(-1,1)) +
       ylab(\"GC Skew\") + xlab(\"Sample\") + ggtitle(paste(genes[i], \"cluster\",clusterz[j],\"\\ntotal read:\",counts))
