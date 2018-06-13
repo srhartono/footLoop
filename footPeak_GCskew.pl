@@ -246,7 +246,7 @@ dev.off()
 pdf(PDFGENES,width=7,height=7)
 for (i in 1:length(genes)) {
    temp = dm[dm\$gene == genes[i] & dm\$type == \"skew\",]
-	counts = dim(temp)[1]
+	counts = dim(temp)[1] / length(unique(temp\$variable))
    p = ggplot(temp,aes(variable,value)) + geom_boxplot(aes(fill=variable),outlier.shape=NA) +
    theme_bw() + theme(panel.grid=element_blank(),legend.position=\"none\") + coord_cartesian(ylim=c(-1,1)) +
    ylab(\"GC Skew\") + xlab(\"Sample\") + ggtitle(paste(genes[i],\"\\ntotal read:\",counts))
