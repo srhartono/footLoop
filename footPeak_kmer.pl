@@ -140,12 +140,14 @@ foreach my $gene (sort keys %{$data{file}}) {
 		my ($BED) = parse_bed($bedFile, $fa{$gene}, $outLog); 
 		if (not defined $BED) {LOG($outLog, date() . " BED cannot be parsed from $bedFile so skipped!\n"); next;}
 		$BED = parse_fasta($BED, $fasta, $outLog); next if not defined $BED;
+		LOG($outLog, date() . "\t- Shuffling!\n");
 		$BED = shuffle_orig($BED, $outLog);
 		my %bed = %{$BED};
 		my $want = "coor|gene|beg|end|cluster|total_peak|total_read_unique|total_peak|strand|pos|len|cpg|gc|skew2|ggg";
 		my $kmerFile = $cluster_file; $kmerFile =~ s/.TEMP\/?//; 
 		$kmerFile = "$footPeakFolder/$kmerFile.kmer";
 		my $headerPrint = "";
+		LOG($outLog, date() . "\t- Printing into kmer file $LCY$kmerFile$N!\n");
 		open (my $out2, ">", "$kmerFile") or print "Cannot write to $LCY$footPeakFolder/$cluster_file$N: $!\n" and next;
 		my $keyz;
 		foreach my $coor (keys %bed) {
@@ -278,7 +280,7 @@ sub parse_bed {
 #		print "clster=$cluster beg=$beg end=$end total=$total_peak strand=$strand\n";
 		foreach my $coor (sort keys %bed) {
 			foreach my $key (sort keys %{$bed{$coor}}) {
-#				print "\t\tkey=$key value=$bed{$coor}{$key}\n" if $key ne "1h_ref";
+#				print "\t\tkey=$key value=$bed{$coor}{$key}\n" if $key ne "1i_ref";
 			}
 		}
 		my ($ref1) = $ref =~ /^(.{$beg})/;
@@ -291,7 +293,8 @@ sub parse_bed {
 		if ($strand eq "-" or $strand eq "Neg") {
 			$ref1 = revcomp($ref1);
 		}
-		$bed{$coor}{'1h_ref'} = $ref1;
+		$bed{$coor}{'1i_ref'} = $ref1;
+		$bed{$coor}{'1j_lenref'} = length($ref);
 	}
 	close $in;
 	return (\%bed);
@@ -300,21 +303,26 @@ sub parse_bed {
 sub shuffle_orig {
 	my ($BED, $outLog) = @_;
 	foreach my $coor (sort keys %{$BED}) {
-		my $ref = $BED->{$coor}{'1h_ref'};
+		my $ref = $BED->{$coor}{'1i_ref'};
+		my $lenreforig = $BED->{$coor}{'1j_lenref'};
 		my $lenseq = $BED->{$coor}{'2a_len'}{orig};
 		DIELOG($outLog, date() . " Lenseq isn't defined coor = $coor\n") if not defined $lenseq;
 		DIELOG($outLog, date() . " Lenseq isn't defined coor = $coor\n") if not defined $lenseq;
 		DIELOG($outLog, date() . " Undefined ref of gene $coor and lenref\n") if not defined $ref;
-
-		$BED->{$coor} = shuffle_fasta($BED->{$coor}, $ref, $lenseq, 1000);
+		LOG($outLog, date() . "\t\tcoor=$LGN$coor$N, lenseq=$LCY$lenseq$N, lenref=$LPR" . length($ref) . "$N, lenreforig=$LGN$lenreforig$N\n");
+		$BED->{$coor} = shuffle_fasta($BED->{$coor}, $ref, $lenseq, $lenreforig, 1000);
 	}
 	return $BED;
 }
 
 sub shuffle_fasta {
-	my ($BED, $ref, $lenseq, $times) = @_;
+	my ($BED, $ref, $lenseq, $lenreforig, $times) = @_;
 	my $lenref = length($ref);
 	my $gcprof;
+	if ($lenref < 150 or $lenref < 0.1 * $lenreforig) {
+		$gcprof->[0] = calculate_gcprofile($gcprof->[0], $ref, 2, "shuf", -1);
+	}
+	else {
 	for (my $i = 0; $i < $times; $i++) {
 		my $ref2 = "";
 		# if length of remaining ref seq is less than length of peak, then randomly take 100bp chunks until same length
@@ -333,7 +341,8 @@ sub shuffle_fasta {
 			$ref2 = substr($ref, $randbeg, $lenseq);
 			
 		}
-		$gcprof->[$i] = calculate_gcprofile($gcprof->[$i], $ref2, 2, "shuf");
+		$gcprof->[$i] = calculate_gcprofile($gcprof->[$i], $ref2, 2, "shuf",0);
+	}
 	}
 	foreach my $key (sort keys %{$gcprof->[0]}) {
 		if ($key !~ /(cpg|gc|skew|kmer)/) {
@@ -343,21 +352,29 @@ sub shuffle_fasta {
 			next;
 		}
 		my $orig = $BED->{$key}{orig}; die "key=$key,\n" if not defined $orig;
-		my ($nge, $nle, $ntot) = (0,0,scalar(@{$gcprof}));
-		my @temp;
-		for (my $i = 0; $i < @{$gcprof}; $i++) {
-			my $shuf = $gcprof->[$i]{$key}{shuf};
-			$nge ++ if $orig >= $shuf;
-			$nle ++ if $orig <= $shuf;
-			$temp[$i] = $gcprof->[$i]{$key}{shuf} if $key =~ /(cpg|gc|skew|kmer)/;
+		if ($lenref < 150 or $lenref < 0.1 * $lenreforig) {
+			$BED->{$key}{pval} = -1;
+			$BED->{$key}{shuf} = -1;
+			$BED->{$key}{odds} = -1;
+			print "$key=NA\n";
 		}
-		$BED->{$key}{pval} = $nge > $nle ? myformat(($nle+1)/($ntot+1)) : myformat(($nge+1)/($ntot+1));
-		$BED->{$key}{shuf} = myformat(tmm(@temp));
-		my $shuf = $BED->{$key}{shuf};
-		my $pval = $BED->{$key}{pval};
-		$BED->{$key}{odds} = ($orig > 0 and $shuf > 0) ? (0.1+$orig) / (0.1+$shuf) : ($orig < 0 and $shuf < 0) ? (abs($shuf)+0.1) / (abs($orig)+0.1) : $orig < 0 ? -1 * (abs($orig)+0.1) / 0.1 : (abs($orig+0.1)) / 0.1;
-		$BED->{$key}{odds} = myformat($BED->{$key}{odds});
-		my $odds = $BED->{$key}{odds};
+		else {
+			my ($nge, $nle, $ntot) = (0,0,scalar(@{$gcprof}));
+			my @temp;
+			for (my $i = 0; $i < @{$gcprof}; $i++) {
+				my $shuf = $gcprof->[$i]{$key}{shuf};
+				$nge ++ if $orig >= $shuf;
+				$nle ++ if $orig <= $shuf;
+				$temp[$i] = $gcprof->[$i]{$key}{shuf} if $key =~ /(cpg|gc|skew|kmer)/;
+			}
+			$BED->{$key}{pval} = $nge > $nle ? myformat(($nle+1)/($ntot+1)) : myformat(($nge+1)/($ntot+1));
+			$BED->{$key}{shuf} = myformat(tmm(@temp));
+			my $shuf = $BED->{$key}{shuf};
+			my $pval = $BED->{$key}{pval};
+			$BED->{$key}{odds} = ($orig > 0 and $shuf > 0) ? (0.1+$orig) / (0.1+$shuf) : ($orig < 0 and $shuf < 0) ? (abs($shuf)+0.1) / (abs($orig)+0.1) : $orig < 0 ? -1 * (abs($orig)+0.1) / 0.1 : (abs($orig+0.1)) / 0.1;
+			$BED->{$key}{odds} = myformat($BED->{$key}{odds});
+			my $odds = $BED->{$key}{odds};
+		}
 	}
 	return $BED;
 }
@@ -378,7 +395,18 @@ sub parse_fasta {
 }
 
 sub calculate_gcprofile {
-	my ($bed, $seq, $number, $type) = @_;
+	my ($bed, $seq, $number, $type, $type2) = @_;
+	$type2 = 0 if not defined $type2;
+	if ($type2 eq -1) {
+		$bed->{$number . 'a_len'}{$type} = -1;
+		$bed->{$number . 'b_cpg'}{$type} = -1;
+		$bed->{$number . 'c_gc'}{$type} = -1;
+		$bed->{$number . 'd_skew'}{$type} = -1;
+		$bed->{$number . 'e_skew2'}{$type} = -1;
+		$bed->{$number . 'f_ggg'}{$type} = -1;
+		$bed->{$number . 'h_acgt'}{$type} = "CG=-1, C=-1, G=-1, A=-1, T=-1, len=-1";
+		return $bed;
+	}
 	$seq = uc($seq);
 	my ($G) = $seq =~ tr/G/G/;
 	my ($C) = $seq =~ tr/C/C/;
