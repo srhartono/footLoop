@@ -32,12 +32,11 @@ use myFootLib; use FAlite;
 ###############
 
 my $date = getDate();
-
+my $uuid = getuuid();
 my ($dist, $footPeakFolder) = ($opt_d, $opt_n);
 
 # sanity check -n footPeakFolder
 die "\nUsage: $YW$0$N $LGN-g gene$N $CY-n <footPeak's output folder (footPeak's -o)>$N\n\n" unless defined $opt_n and -d $opt_n;
-($footPeakFolder) = getFullpath($footPeakFolder);
 my $outDir = "$footPeakFolder/FOOTCLUST/";
 makedir($outDir);
 die "Failed to create output directory $LCY$outDir$N!\n" unless -d $outDir;
@@ -48,6 +47,44 @@ die "Failed to create output directory $LCY$outDir/PNG$N!\n" unless -d "$outDir/
 
 # establish log file
 open (my $outLog, ">", "$outDir/logFile_footClust.txt") or die "Failed to create outLog file $outDir/logFile_footClust.txt: $!\n";
+
+# parse footLoop log file
+($footPeakFolder) = getFullpath($footPeakFolder);
+my ($footPeak_logFile) = "$footPeakFolder/footPeak_logFile.txt";
+my ($footLoopFolder);
+my ($geneIndexFile);
+open (my $infootPeak_logFile, "<", $footPeak_logFile) or die;
+while (my $line = <$infootPeak_logFile>) {
+	chomp($line);
+		#>Options from footLoop.pl logfile=PCB9/0_Fastq/170804_pcb09_BSCset2_ccs_3minFP.fastq.gz.rmdup.fq.gz_MAP85pBUF100/logFile.txt	
+	if ($line =~ /^Run script full/) {
+		my @runscriptfull = split(" ", $line);
+		for (my $i = 0; $i < @runscriptfull; $i++) {
+			if ($runscriptfull[$i] eq "-n") {
+				($footLoopFolder) = $runscriptfull[$i+1];
+				last;
+
+			}
+		}
+		last;
+	}
+}
+die "Cannot find footLoop Folder from logfile $footPeak_logFile\n" unless defined $footLoopFolder and -d $footLoopFolder;
+close $infootPeak_logFile;
+my $footLoop_logFile = $footLoopFolder . "/logFile.txt";
+($geneIndexFile) = parse_footLoop_logFile($footLoop_logFile, $date, $uuid, $footLoopFolder);
+my %coor;
+open (my $inGeneIndexFile, "<", $geneIndexFile) or die;
+while (my $line = <$inGeneIndexFile>) {
+	chomp($line);
+	my ($chr, $beg, $end, $gene, $zero, $strand) = split("\t", $line);
+	$coor{uc($gene)}{chr} = $chr;
+	$coor{uc($gene)}{beg} = $beg;
+	$coor{uc($gene)}{end} = $end;
+	$coor{uc($gene)}{strand} = $strand;
+}
+close $inGeneIndexFile;
+LOG($outLog, "gene Index file = $geneIndexFile\n");
 
 # sanity check -d distance
 $dist = 250 if not defined $opt_d;
@@ -90,7 +127,6 @@ while (my $entry = $fasta2->nextEntry()) {
 close $faIn2;
 close $faOut;
 system("/bin/rm $faFile.footClustfastafile.fai") if -e "$faFile.footClustfastafile.fai";
-
 
 
 ####################
@@ -329,8 +365,14 @@ foreach my $input1 (sort @local_peak_files) {
 	my ($ampliconLength) = $genes{uc($gene)};
 	DIELOG($outLog, date() . " Failed to get amplicon length frmo gene=" . uc($gene) . ": $!\n") if not defined $ampliconLength;
 	# process clust: get average beg/end point
+	makedir("$outDir/CLUST_GENOME/") if not -d "$outDir/CLUST_GENOME";
+	my $outgenome = "$outDir/CLUST_GENOME/$fullName1.clust.bed";
+	$outgenome =~ s/.local/.genome/i;
 	open (my $out2, ">", "$outDir/.TEMP/$fullName1.clust.bed") or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $outDir/.TEMP/$fullName1.clust.bed: $!\n");
+	open (my $out3, ">", "$outgenome") or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $outgenome: $!\n");
 	print $out2 "#gene\tbeg\tend\tcluster\ttotal_peak\tstrand\n";
+	my ($coorCHR, $coorBEG, $coorEND, $coorSTRAND) = ($coor{uc($gene)}{chr}, $coor{uc($gene)}{beg}, $coor{uc($gene)}{end}, $coor{uc($gene)}{strand});
+	DIELOG($outLog, date() . "\tFailed to get coordinate for gene=" . uc($gene) . ", chr=$coorCHR beg=$coorBEG end=$coorEND strand=$coorSTRAND\n") if not defined $coorCHR or not defined $coorBEG or not defined $coorEND or not defined $coorSTRAND;
 	foreach my $clust (sort {$a <=> $b} keys %cl) {
 		my $BEG   = int(tmm(@{$cl{$clust}{beg}})+0.5);
 		my $MID   = int(tmm(@{$cl{$clust}{mid}})+0.5);
@@ -356,6 +398,10 @@ foreach my $input1 (sort @local_peak_files) {
 #		my $total = @{$cl{$clust}{beg}};
 		my $total_read = scalar(@{$cl{$clust}{beg}});
 		my $total_read_unique = scalar(keys %{$cl{$clust}{total_read_unique}});
+		my $begGENOME = $coorBEG + $begOfALL;
+		my $endGENOME = $coorBEG + $endOfALL;
+		print "$coorCHR\t$begGENOME\t$endGENOME\t$gene.$clust\t$total_read_unique.$total_read\t$coorSTRAND\n";
+		print $out3 "$coorCHR\t$begGENOME\t$endGENOME\t$gene.$clust\t$total_read_unique.$total_read\t$coorSTRAND\n";
 		print $out2 "$gene\t$begOfALL\t$endOfALL\t$clust.WHOLE\t$total_read_unique.$total_read\t$strand\n";
 		print $out2 "$gene\t$begOfBEG\t$endOfBEG\t$clust.BEG\t$total_read_unique.$total_read\t$strand\n";
 		print $out2 "$gene\t$begOfMID\t$endOfMID\t$clust.MID\t$total_read_unique.$total_read\t$strand\n";
@@ -379,4 +425,115 @@ foreach my $input1 (sort @local_peak_files) {
 open (my $outz, ">", "$outDir/.0_LOG_FILESRAN") or DIELOG($outLog, "Failed tow rite to $outDir/.0_LOG_FILESRAN:$!\n");
 print $outz $files_log;
 close $outz;
-LOG($outLog, "\n$YW ----------- FILES RAN ---------- $N\n\n" . date() . "$LCY\tSummary of run$N: $outDir/.0_LOG_FILESRAN\n\n$files_log\n\n")
+LOG($outLog, "\n$YW ----------- FILES RAN ---------- $N\n\n" . date() . "$LCY\tSummary of run$N: $outDir/.0_LOG_FILESRAN\n\n$files_log\n\n");
+
+
+sub parse_footLoop_logFile {
+   my ($logFile, $date, $uuid, $footFolder, $version) = @_;
+   #my @line = `cat $logFile`;
+   my $paramsFile = "$footFolder/.PARAMS";
+ #  my $inputFolder = $defOpts->{n};
+	my $geneIndexFile;
+   my @parline = `cat $paramsFile`;
+   foreach my $parline (@parline) {
+      if ($parline =~ /footLoop.pl,geneIndexFile,/) {
+         ($geneIndexFile) = $parline =~ /geneIndexFile,(.+)$/;
+      }
+	}
+	return($geneIndexFile);
+}
+
+__END__
+=comment
+      if ($parline =~ /footLoop.pl,geneIndexFile,/) {
+			($defOpts->{geneIndexFile}) = $parline =~ /geneIndexFile,(.+)$/;
+      }
+      if ($parline =~ /footLoop.pl,geneIndexFile,/) {
+         ($defOpts->{geneIndexFile}) = $parline =~ /geneIndexFile,(.+)$/;
+      }
+      if ($parline =~ /footLoop.pl,seqFile,/) {
+         ($defOpts->{seqFile}) = $parline =~ /seqFile,(.+)$/;
+      }
+      if ($parline =~ /footLoop.pl,samFile,/) {
+         ($defOpts->{samFile}) = $parline =~ /samFile,(.+)$/;
+      }
+      if ($parline =~ /footLoop.pl,samFixedFile,/) {
+         ($defOpts->{samFixed}) = $parline =~ /samFixedFile,(.+)$/;
+      }
+      if ($parline =~ /footLoop.pl,samFixedFileMD5,/) {
+         ($defOpts->{samFixedMD5}) = $parline =~ /samFixedFileMD5,(.+)$/;
+      }
+   }
+   # %others contain other parameters from footLoop that aren't options (e.g. uuid)
+   my ($other, $outLog);
+
+
+   foreach my $line (@line[0..@line-1]) {
+      if ($line =~ /^\s*Date\s*:/) {
+         ($other->{date}) = $line =~ /^Date\s+:\s*([a-zA-Z0-9\:\-].+)$/;
+         print "Undefined date from $line\n" and die if not defined $other->{date};
+      }
+      if ($line =~ /^\s*Run ID\s*:/) {
+         ($other->{uuid}) = $line =~ /^Run ID[ \t]+:[ \t]+([a-zA-Z0-9]+.+)$/;
+         print "Undefined uuid from $line\n" and die if not defined $other->{uuid};
+      }
+      if ($line =~ /^\s*Run script\s*:/) {
+         ($other->{footLoop_runscript}) = $line =~ /^Run script[ ]+:(.+)$/;
+         print "Undefined runscript from $line\n" and die if not defined $other->{footLoop_runscript};
+         ($defOpts, $other->{runscript}) = parse_runscript($defOpts, $usrOpts, $other->{footLoop_runscript});
+      }
+      if ($line =~ /^\s*Output\s*:/) {
+         my ($value) = $line =~ /Output.+(\.0_orig_\w{32})/;
+         die "Died at line=$line, value=?\n" if not defined $value;
+         $value = $footFolder . "/$value";
+         die "Died at line=$line, value=?\n" if not -d $value;
+         ($other->{origDir}) = $value;
+         print "Undefined origDir from input=$inputFolder, line=$line\n" and die if not defined $other->{origDir};
+         print "origDir $other->{origDir} does not exist!\n" and die if not -d $other->{origDir};
+         $defOpts->{origDir} = $other->{origDir};
+         ($other->{md5}) = $other->{origDir} =~ /\.0_orig_(\w{32})/;
+         print "Can't parse md5 from outdir (outdir=$defOpts->{origDir})\n" and die if not defined $other->{md5};
+      }
+#     if ($line =~ /geneIndexFile=/) {
+#        ($defOpts->{geneIndexFile}) = $line =~ /geneIndexFile=(.+)$/ if $line !~ /,gene=.+,beg=\d+,end=\d+$/;
+#        ($defOpts->{geneIndexFile}) = $line =~ /geneIndexFile=(.+),gene=.+,beg=\d+,end=\d+$/ if $line =~ /,gene=.+,beg=\d+,end=\d+$/;
+#        $defOpts->{geneIndexFile} = $footFolder . "/" .  getFilename($defOpts->{geneIndexFile});
+#     }
+
+      if ($line =~ /^!\w+=/) {
+         my ($param, $value) = $line =~ /^!(\w+)=(.+)$/;
+         my $param2 = defined $param ? $param : "__UNDEF__";
+         my $value2 = defined $value ? $value : "__UNDEF__";
+         if ($value =~ /\//) {
+            if ($value =~ /\/?\.0_orig\w{32}/) {
+               ($value) = $value =~ /^.+(\/?\.0_orig_\w{32})/;
+               $value = $footFolder . "/$value";
+               die "Died at line=line, param=$param, value=?\n" if not defined $value;
+            }
+            if ($value =~ /\/\.geneIndex/) {
+               ($value) = $value =~ /^.+(\/\.geneIndex.+)$/;
+               $value = $footFolder . "/$value";
+               die "Died at line=line, param=$param, value=?\n" if not defined $value;
+            }
+            else {
+               ($value) = getFilename($value, 'full');
+               $value = $footFolder . "/$value";
+               die "Died at line=line, param=$param, value=?\n" if not defined $value;
+            }
+         }
+         print "$param = $value\n";
+         print "Cannot parse param=$param2 and value=$value2 from line=$line\n" and die if not defined $param or not defined $value;
+         print "$param file $value does not exist!\n" and die if $value =~ /\/+/ and not -e $value;
+         ($defOpts->{$param}) = $value if $param ne "n";
+      }
+   }
+   $defOpts->{o} = $defOpts->{n} if not defined $opt_o;
+   makedir($defOpts->{o}) if not -d $defOpts->{o};
+   #die "opt = $opt_o = $defOpts->{o}\n";
+   open ($outLog, ">", "$defOpts->{o}/footPeak_logFile.txt") or print "Failed to write to $defOpts->{o}/footPeak_logFile.txt: $!\n" and die;
+   record_options($defOpts, $usrOpts, $usrOpts2, $other, $outLog, $logFile, $date, $uuid, $version);
+#  print "Output = $defOpts->{o}\n";
+   return($defOpts, $outLog);
+}
+
+=cut
