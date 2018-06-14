@@ -42,7 +42,7 @@ die "\nUsage: $YW$0$LGN [Optional: -G (genewant)]$N $CY-n <footPeak's output fol
 my $outDir = "$footPeakFolder/FOOTCLUST/";
 
 # establish log file
-open (my $outLog, ">", "$outDir/logFile_footPeak_kmer.txt") or die "Failed to create outLog file $outDir/logFile_footPeak_kmer.txt: $!\n";
+open (my $outLog, ">", "$footPeakFolder/footPeak_kmer_logFile.txt") or die "Failed to create outLog file $footPeakFolder/footPeak_kmer_logFile.txt: $!\n";
 LOG($outLog, " \n\n$YW -------- PARSING LOG FILE -------- $N\n\n");
 
 # get .fa file from footPeakFolder and copy
