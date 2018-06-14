@@ -121,8 +121,13 @@ LOG($outLog, "\n" . date() . "\tSkipped $LGN$skipped$N genes!\n\n");
 
 my $cluster_count = -1;
 
+my $printallheader = 0;
+makedir("$footPeakFolder/KMER/") if not -d "$footPeakFolder/KMER/";
+open (my $outAll, ">", "$footPeakFolder/KMER/ALL.KMER") or DIELOG($outLog, date() . " Failed to write to $footPeakFolder/KMER/ALL.KMER: $!\n");
 foreach my $gene (sort keys %{$data{file}}) {
 	foreach my $cluster_file (sort keys %{$data{file}{$gene}}) {
+		my ($cluster_folder, $cluster_fileName) = getFilename($cluster_file, "folderfull");
+		my $kmerFile = "$footPeakFolder/KMER/$cluster_fileName.kmer";
 		my %print;
 		$cluster_count ++;
 		LOG($outLog, date() . " $YW$cluster_count$N. Parsing $LCY$cluster_file$N\n");
@@ -144,8 +149,8 @@ foreach my $gene (sort keys %{$data{file}}) {
 		$BED = shuffle_orig($BED, $outLog);
 		my %bed = %{$BED};
 		my $want = "coor|gene|beg|end|cluster|total_peak|total_read_unique|total_peak|strand|pos|len|cpg|gc|skew2|ggg";
-		my $kmerFile = $cluster_file; $kmerFile =~ s/.TEMP\/?//; 
-		$kmerFile = "$footPeakFolder/$kmerFile.kmer";
+		#my $kmerFile = $cluster_file; $kmerFile =~ s/.TEMP\/?//; 
+		#$kmerFile = "$footPeakFolder/$kmerFile.kmer";
 		my $headerPrint = "";
 		LOG($outLog, date() . "\t- Printing into kmer file $LCY$kmerFile$N!\n");
 		open (my $out2, ">", "$kmerFile") or print "Cannot write to $LCY$footPeakFolder/$cluster_file$N: $!\n" and next;
@@ -174,7 +179,7 @@ foreach my $gene (sort keys %{$data{file}}) {
 				next if $key !~ /($want)/;
 				my ($header) = $key =~ /^\d+[a-zA-Z]?_(\w+)$/;
 					($header) = $key =~ /^.+_(\w+)$/ if not defined $header;
-				if ($bed{$coor}{$key} =~ /^HASH/ and defined $bed{$coor}{$key}{shuf} and $bed{$coor}{$key}{shuf} ne "NA") {
+				if ($bed{$coor}{$key} =~ /^HASH/ and defined $bed{$coor}{$key}{shuf} and $bed{$coor}{$key}{shuf} ne "NULL") {
 					$headerPrint .= "\t$header.orig\t$header.shuf\t$header.odds\t$header.pval";
 				}
 				else {
@@ -191,27 +196,27 @@ foreach my $gene (sort keys %{$data{file}}) {
 			my $typez = $postype =~ /BEG/ ? 1 : $postype =~ /MID/ ? 2 : $postype =~ /END/ ? 3 : $postype =~ /WHOLE/ ? 4 : 5;
 			$print{$typez}{$coor}{coor} .= "$coor\t$type";
 			$print{$typez}{$coor}{coorCount} = $coorCount;
-			print "coorCount=$coorCount, typez=$typez, coor=$coor\t$type\n";
+			LOG($outLog, date() . "coorCount=$coorCount, typez=$typez, coor=$coor\t$type\n","NA");
 #			print "\tcoor=$coor typez=$typez\n";
 			foreach my $key (sort keys %{$bed{$coor}}) {
 #				print "\t\tkey=$key want=$want $LRD nexted$N\n" if $key !~ /($want)/;
 				next if $key !~ /($want)/;
 				if ($bed{$coor}{$key} =~ /^HASH/) {# and defined $bed{$coor}{$key}{shuf} and $bed{$coor}{$key}{shuf} ne "NA") {
 					my $orig = $bed{$coor}{$key}{orig};
-					my $shuf = defined ($bed{$coor}{$key}{shuf}) ? $bed{$coor}{$key}{shuf} : "NA";
-					my $pval = defined ($bed{$coor}{$key}{pval}) ? $bed{$coor}{$key}{pval} : "NA";
-					my $odds = defined ($bed{$coor}{$key}{odds}) ? $bed{$coor}{$key}{odds} : "NA";
-					$orig = $orig eq "NA" ? "NA" : ($orig > 0.01 || $orig < -0.01) ? int($orig * 1000)/1000 : ($orig > 0.0001 || $orig < -0.0001) ? int($orig * 100000)/100000 : $orig;
-					$shuf = $shuf eq "NA" ? "NA" : ($shuf > 0.01 || $shuf < -0.01) ? int($shuf * 1000)/1000 : ($shuf > 0.0001 || $shuf < -0.0001) ? int($shuf * 100000)/100000 : $shuf;
-					$pval = $pval eq "NA" ? "NA" : ($pval > 0.01 || $pval < -0.01) ? int($pval * 1000)/1000 : ($pval > 0.0001 || $pval < -0.0001) ? int($pval * 100000)/100000 : $pval;
-					$odds = $odds eq "NA" ? "NA" : ($odds > 0.01 || $odds < -0.01) ? int($odds * 1000)/1000 : ($odds > 0.0001 || $odds < -0.0001) ? int($odds * 100000)/100000 : $odds;
-					if ($bed{$coor}{$key}{shuf} ne "NA") {
+					my $shuf = defined ($bed{$coor}{$key}{shuf}) ? $bed{$coor}{$key}{shuf} : "NULL";
+					my $pval = defined ($bed{$coor}{$key}{pval}) ? $bed{$coor}{$key}{pval} : "NULL";
+					my $odds = defined ($bed{$coor}{$key}{odds}) ? $bed{$coor}{$key}{odds} : "NULL";
+					$orig = $orig =~ /^(NULL|NA)$/ ? "NA" : ($orig > 0.01 || $orig < -0.01) ? int($orig * 1000)/1000 : ($orig > 0.0001 || $orig < -0.0001) ? int($orig * 100000)/100000 : $orig;
+					$shuf = $shuf =~ /^(NULL|NA)$/ ? "NA" : ($shuf > 0.01 || $shuf < -0.01) ? int($shuf * 1000)/1000 : ($shuf > 0.0001 || $shuf < -0.0001) ? int($shuf * 100000)/100000 : $shuf;
+					$pval = $pval =~ /^(NULL|NA)$/ ? "NA" : ($pval > 0.01 || $pval < -0.01) ? int($pval * 1000)/1000 : ($pval > 0.0001 || $pval < -0.0001) ? int($pval * 100000)/100000 : $pval;
+					$odds = $odds =~ /^(NULL|NA)$/ ? "NA" : ($odds > 0.01 || $odds < -0.01) ? int($odds * 1000)/1000 : ($odds > 0.0001 || $odds < -0.0001) ? int($odds * 100000)/100000 : $odds;
+					if ($bed{$coor}{$key}{shuf} ne "NULL") {
 						$print{$typez}{$coor}{coor} .= "\t$orig\t$shuf\t$odds\t$pval";
 #						print "\t\tkey=$key 1 orig=$orig shuf=$shuf\n";
 					}
 					else {
 						$print{$typez}{$coor}{coor} .= "\t$orig";
-#						print "\t\tkey=$key 2 orig=$orig shuf=NA\n";
+#						print "\t\tkey=$key 2 orig=$orig shuf=NULL\n";
 					}
 				}
 				else {
@@ -223,17 +228,19 @@ foreach my $gene (sort keys %{$data{file}}) {
 			$print{$typez}{$coor}{coor} .= "\n";
 		}
 		print $out2 "\#$headerPrint";
+		print $outAll "\#$headerPrint" if $printallheader == 0;
+		$printallheader = 1;
 		foreach my $typez (sort {$a <=> $b} keys %print) {
 			foreach my $coor (sort {$print{$typez}{$a}{coorCount} <=> $print{$typez}{$b}{coorCount}} keys %{$print{$typez}}) {
 				print $out2 $print{$typez}{$coor}{coor};
-				print $print{$typez}{$coor}{coor};
+				print $outAll $print{$typez}{$coor}{coor};
+				#print $print{$typez}{$coor}{coor};
 			}
 		}
-		LOG($outLog, "Done $cluster_file\n");
-		print "less -S $kmerFile\n";
+		LOG($outLog, date() . "Done $cluster_file. Output:\n$LPR$kmerFile$N\n\n");
 	}
 }
-
+LOG($outLog, "\n\n" . date() . " $LGN SUCCESS$N on running footPeak_kmer.pl! Outputs:\n\n1. ALL kmer combined:\n$LCY$footPeakFolder/KMER/ALL.KMER$N\n2. Individuals:\n$LGN$footPeakFolder/KMER/*.kmer$N\n\n");
 
 sub parse_bed {
 	my ($bedFile, $ref, $outLog) = @_;
@@ -344,19 +351,21 @@ sub shuffle_fasta {
 		$gcprof->[$i] = calculate_gcprofile($gcprof->[$i], $ref2, 2, "shuf",0);
 	}
 	}
+	my $printthis = 0;
 	foreach my $key (sort keys %{$gcprof->[0]}) {
 		if ($key !~ /(cpg|gc|skew|kmer)/) {
-			$BED->{$key}{shuf} = "NA";
-			$BED->{$key}{pval} = "NA";
-			$BED->{$key}{odds} = "NA";
+			$BED->{$key}{shuf} = "NULL";
+			$BED->{$key}{pval} = "NULL";
+			$BED->{$key}{odds} = "NULL";
 			next;
 		}
 		my $orig = $BED->{$key}{orig}; die "key=$key,\n" if not defined $orig;
 		if ($lenref < 150 or $lenref < 0.1 * $lenreforig) {
-			$BED->{$key}{pval} = -1;
-			$BED->{$key}{shuf} = -1;
-			$BED->{$key}{odds} = -1;
-			print "$key=NA\n";
+			$BED->{$key}{pval} = "NA";
+			$BED->{$key}{shuf} = "NA";
+			$BED->{$key}{odds} = "NA";
+			LOG($outLog, date() . "\t\t  $LRD---> SHUFFLE-ALBE REGION IS TOO SMALL!!$N All values are ${YW}NA$N!\n") if $printthis == 0;
+			$printthis = 1;
 		}
 		else {
 			my ($nge, $nle, $ntot) = (0,0,scalar(@{$gcprof}));
@@ -398,13 +407,13 @@ sub calculate_gcprofile {
 	my ($bed, $seq, $number, $type, $type2) = @_;
 	$type2 = 0 if not defined $type2;
 	if ($type2 eq -1) {
-		$bed->{$number . 'a_len'}{$type} = -1;
-		$bed->{$number . 'b_cpg'}{$type} = -1;
-		$bed->{$number . 'c_gc'}{$type} = -1;
-		$bed->{$number . 'd_skew'}{$type} = -1;
-		$bed->{$number . 'e_skew2'}{$type} = -1;
-		$bed->{$number . 'f_ggg'}{$type} = -1;
-		$bed->{$number . 'h_acgt'}{$type} = "CG=-1, C=-1, G=-1, A=-1, T=-1, len=-1";
+		$bed->{$number . 'a_len'}{$type} = "NA";
+		$bed->{$number . 'b_cpg'}{$type} = "NA";
+		$bed->{$number . 'c_gc'}{$type} = "NA";
+		$bed->{$number . 'd_skew'}{$type} = "NA";
+		$bed->{$number . 'e_skew2'}{$type} = "NA";
+		$bed->{$number . 'f_ggg'}{$type} = "NA";
+		$bed->{$number . 'h_acgt'}{$type} = "CG=NA, C=NA, G=NA, A=NA, T=NA, len=NA";
 		return $bed;
 	}
 	$seq = uc($seq);
