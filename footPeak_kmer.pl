@@ -25,12 +25,12 @@ BEGIN {
 #	print "\n\n\e[1;33m ------------ BEGIN ------------> \e[0m\n";
 }
 use myFootLib; use FAlite;
-use myFootLog;
+
 my $OPTS = "vp:"; getopts($OPTS);
 use vars   qw($opt_v $opt_p);
 my @VALS =   ($opt_v,$opt_p);
 
-my $MAINLOG = myFootLog::MAINLOG($0, \@VALS, $OPTS);
+#my $MAINLOG = myFootLog::MAINLOG($0, \@VALS, $OPTS);
 
 my $homedir = $ENV{"HOME"};
 my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
