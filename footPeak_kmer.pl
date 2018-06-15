@@ -25,28 +25,61 @@ BEGIN {
 #	print "\n\n\e[1;33m ------------ BEGIN ------------> \e[0m\n";
 }
 use myFootLib; use FAlite;
+use myFootLog;
+my $OPTS = "vp:"; getopts($OPTS);
+use vars   qw($opt_v $opt_p);
+my @VALS =   ($opt_v,$opt_p);
+
+my $MAINLOG = myFootLog::MAINLOG($0, \@VALS, $OPTS);
+
+my $homedir = $ENV{"HOME"};
+my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
+my @version = `cd $footLoopScriptsFolder && git log | head `;
+my $version = "UNKNOWN";
+foreach my $line (@version[0..@version-1]) {
+   if ($line =~ /^\s+V\d+\.?\d*\w*\s*/) {
+      ($version) = $line =~ /^\s+(V\d+\.?\d*\w*)\s*/;
+   }
+}
+if (not defined $version or (defined $version and $version eq "UNKNOWN")) {
+   ($version) = `cd $footLoopScriptsFolder && git log | head -n 1`;
+}
+if (defined $opt_v) {
+   print "\n\n$YW$0 $LGN$version$N\n\n";
+   exit;
+}
 
 ################
 # ARGV Parsing #
 ###############
 
 
-my $date = getDate();
-
 my ($footPeakFolder) = ($opt_n);
 my ($genewant) = $opt_G if defined $opt_G;
 
 # sanity check -n footPeakFolder
 die "\nUsage: $YW$0$LGN [Optional: -G (genewant)]$N $CY-n <footPeak's output folder (footPeak's -o)>$N\n\n" unless defined $opt_n and -d $opt_n;
-($footPeakFolder) = getFullpath($footPeakFolder);
-my $outDir = "$footPeakFolder/FOOTCLUST/";
 
-# establish log file
-open (my $outLog, ">", "$footPeakFolder/footPeak_kmer_logFile.txt") or die "Failed to create outLog file $footPeakFolder/footPeak_kmer_logFile.txt: $!\n";
-LOG($outLog, " \n\n$YW -------- PARSING LOG FILE -------- $N\n\n");
+($footPeakFolder) = getFullpath($footPeakFolder);
+my $footClustFolder = "$footPeakFolder/FOOTCLUST/";
+my $footKmerFolder  = "$footPeakFolder/KMER/";
+my $uuid = getuuid();
+my ($user) = $homedir =~ /home\/(\w+)/;
+my $date = date();
+
+############
+# LOG FILE #
+############
+open (my $outLog, ">", "$footPeakFolder/footPeak_kmer_logFile.txt") or die date() . ": Failed to create outLog file $footPeakFolder/footPeak_kmer_logFile.txt: $!\n";
+LOG($outLog, ">$0 version $version\n");
+LOG($outLog, ">UUID: $uuid\n", "NA");
+LOG($outLog, ">Date: $date\n", "NA");
+LOG($outLog, ">Run script: $0 -n $opt_n\n", "NA");
+
+
 
 # get .fa file from footPeakFolder and copy
-my ($faFile) = <$outDir/*.fa>;
+my ($faFile) = <$footClustFolder/*.fa>;
 LOG($outLog, date() . "\n$LRD Error$N: Cannot find any fasta file in $LCY$footPeakFolder$N\n\n") if not defined $faFile or not -e $faFile;
 $faFile =~ s/\/+/\//g;
 my %fa;
@@ -71,7 +104,8 @@ else {
 # get .local.bed peak files used for clustering
 my $folder;
 my %data;
-open (my $inLog, "<", "$outDir/.0_LOG_FILESRAN") or DIELOG($outLog, date() . __LINE__ . "Failed to read from $outDir/.0_LOG_FILESRAN: $!\n");
+LOG($outLog, " \n\n$YW -------- PARSING LOG FILE -------- $N\n\n");
+open (my $inLog, "<", "$footClustFolder/.0_LOG_FILESRAN") or DIELOG($outLog, date() . __LINE__ . "Failed to read from $footClustFolder/.0_LOG_FILESRAN: $!\n");
 while (my $line = <$inLog>) {
 	chomp($line);
 	if ($line =~ /^#FOLDER/) {
@@ -196,7 +230,7 @@ foreach my $gene (sort keys %{$data{file}}) {
 			my $typez = $postype =~ /BEG/ ? 1 : $postype =~ /MID/ ? 2 : $postype =~ /END/ ? 3 : $postype =~ /WHOLE/ ? 4 : 5;
 			$print{$typez}{$coor}{coor} .= "$coor\t$type";
 			$print{$typez}{$coor}{coorCount} = $coorCount;
-			LOG($outLog, date() . "coorCount=$coorCount, typez=$typez, coor=$coor\t$type\n","NA");
+			LOG($outLog, date() . "cluster = $bed{$coor}{\"1d_cluster\"}, $postype, coorCount=$coorCount, typez=$typez, coor=$coor\t$type\n");
 #			print "\tcoor=$coor typez=$typez\n";
 			foreach my $key (sort keys %{$bed{$coor}}) {
 #				print "\t\tkey=$key want=$want $LRD nexted$N\n" if $key !~ /($want)/;
@@ -251,13 +285,14 @@ sub parse_bed {
 		chomp($line);
 		next if ($line =~ /^#/);
 		my ($gene, $beg, $end, $cluster, $total_read_unique, $strand) = split("\t", $line);
+		print "$LGN$line\n";
 		my $a = $total_read_unique;
 		my $total_peak = 0;
 		($total_read_unique,$total_peak) = $total_read_unique =~ /^(\d+)\.(\d+)$/;
 		if (defined $opt_G and $gene !~ /$opt_G/i) {
 			next;
 		}
-		next if $end - $beg < 10;
+		#next if $end - $beg < 10;
 		$linecount ++;
 		my $coor = "$gene:$beg-$end($strand)";
 		my ($CLUST, $POS) = $cluster =~ /^(\d+)\.(.+)$/; 
@@ -313,10 +348,11 @@ sub shuffle_orig {
 		my $ref = $BED->{$coor}{'1i_ref'};
 		my $lenreforig = $BED->{$coor}{'1j_lenref'};
 		my $lenseq = $BED->{$coor}{'2a_len'}{orig};
-		DIELOG($outLog, date() . " Lenseq isn't defined coor = $coor\n") if not defined $lenseq;
+		$lenseq = "NA" if not defined $lenseq;
+		DIELOG($outLog, date() . "coor=$coor: Lenseq isn't defined coor = $coor\n") if not defined $lenseq;
 		DIELOG($outLog, date() . " Lenseq isn't defined coor = $coor\n") if not defined $lenseq;
 		DIELOG($outLog, date() . " Undefined ref of gene $coor and lenref\n") if not defined $ref;
-		LOG($outLog, date() . "\t\tcoor=$LGN$coor$N, lenseq=$LCY$lenseq$N, lenref=$LPR" . length($ref) . "$N, lenreforig=$LGN$lenreforig$N\n");
+		LOG($outLog, date() . "\t\tcoor=$LGN$coor$N, lenseq=$LCY$lenseq$N, lenref=$LPR" . length($ref) . "$N, lenreforig=$LGN$lenreforig$N\n","NA");
 		$BED->{$coor} = shuffle_fasta($BED->{$coor}, $ref, $lenseq, $lenreforig, 1000);
 	}
 	return $BED;
@@ -326,7 +362,7 @@ sub shuffle_fasta {
 	my ($BED, $ref, $lenseq, $lenreforig, $times) = @_;
 	my $lenref = length($ref);
 	my $gcprof;
-	if ($lenref < 150 or $lenref < 0.1 * $lenreforig) {
+	if ($lenseq eq "NA" or $lenseq < 10 or $lenref < 150 or $lenref < 0.1 * $lenreforig) {
 		$gcprof->[0] = calculate_gcprofile($gcprof->[0], $ref, 2, "shuf", -1);
 	}
 	else {
@@ -353,14 +389,15 @@ sub shuffle_fasta {
 	}
 	my $printthis = 0;
 	foreach my $key (sort keys %{$gcprof->[0]}) {
+		$BED->{$key}{orig} = "NA" if not defined $BED->{$key}{orig};
 		if ($key !~ /(cpg|gc|skew|kmer)/) {
 			$BED->{$key}{shuf} = "NULL";
 			$BED->{$key}{pval} = "NULL";
 			$BED->{$key}{odds} = "NULL";
 			next;
 		}
-		my $orig = $BED->{$key}{orig}; die "key=$key,\n" if not defined $orig;
-		if ($lenref < 150 or $lenref < 0.1 * $lenreforig) {
+		my $orig = $BED->{$key}{orig}; $orig = "NA" if not defined $orig;#die "key=$key,\n" if not defined $orig;
+		if ($lenseq eq "NA" or $lenseq < 10 or $lenref < 150 or $lenref < 0.1 * $lenreforig) {
 			$BED->{$key}{pval} = "NA";
 			$BED->{$key}{shuf} = "NA";
 			$BED->{$key}{odds} = "NA";
@@ -395,7 +432,7 @@ sub parse_fasta {
 	while (my $entry = $fasta->nextEntry()) {
 		my $def = $entry->def; $def =~ s/^>//;
 		my $seq = $entry->seq;
-		next if length($seq) < 10;
+		#next if length($seq) < 10;
 		$bed->{$def} = calculate_gcprofile($bed->{$def}, $seq, 2, "orig");
 #		print "def=$def lenseq=$bed->{$def}{'2a_len'}{orig}\n";
 	}
@@ -435,6 +472,16 @@ sub calculate_gcprofile {
 	}
 	undef($seq3);
 	my $len = length($seq) - length($N);
+	if ($len < 10) {
+		$bed->{$number . 'a_len'}{$type} = "NA";
+		$bed->{$number . 'b_cpg'}{$type} = "NA";
+		$bed->{$number . 'c_gc'}{$type} = "NA";
+		$bed->{$number . 'd_skew'}{$type} = "NA";
+		$bed->{$number . 'e_skew2'}{$type} = "NA";
+		$bed->{$number . 'f_ggg'}{$type} = "NA";
+		$bed->{$number . 'h_acgt'}{$type} = "CG=NA, C=NA, G=NA, A=NA, T=NA, len=NA";
+		return $bed;
+	}
 	my $gc = int(100 * ($G+$C) / $len+0.5)/100;
 	my $skew  = $gc == 0 ? 0 : int(100 * (abs($G-$C))  / ($G+$C)  +0.5)/100;
 		$skew *= -1 if $C > $G;
