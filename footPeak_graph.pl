@@ -2,8 +2,8 @@
 # V3.14
 
 use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_w $opt_g $opt_G $opt_v $opt_n $opt_r); #v $opt_x $opt_R $opt_c $opt_t $opt_n);
-getopts("n:vg:w:G:r:");
+use vars qw($opt_w $opt_g $opt_G $opt_v $opt_n $opt_r $opt_R); #v $opt_x $opt_R $opt_c $opt_t $opt_n);
+getopts("n:vg:w:G:r:R:");
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
@@ -29,16 +29,24 @@ if (defined $opt_v) {
 die "\nUsage: $YW$0$N -n$LCY <footPeak output directory>$N
 
 ${LGN}Optionals$N:
+
 -G $LGN<gene to process>$N] 
--r Option to run R scripts:
+
+-r Option to run R scripts $LCY(PNG)$N
    -r 0: do not run any R scripts
    -r 1: run only relevant R scripts (default)
    -r 2: run ALL R scripts
+
+-R Option to run R scripts $LCY(PDF)$N
+   -R 0: do not run any R scripts (default)
+   -R 1: run only relevant R scripts
+   -R 2: run ALL R scripts
 
 " if not defined $opt_n;
 die "\nERROR: -n footPeak dir $LCY$opt_n$N doesn't exists!\n\nUsage: $YW$0$N -n <footPeak output directory>\n\n" if not -d $opt_n;
 
 $opt_r = 1 if not defined $opt_r;
+$opt_R = 0 if not defined $opt_R;
 die "\nERROR: -r has to be 0, 1, or 2! (current: $opt_r)\n\n" if defined $opt_r and $opt_r !~ /^[012]$/;
 
 my ($user) = $homedir =~ /home\/(\w+)/;
@@ -55,17 +63,21 @@ sub main {
    makedir("$resDir/PEAKS_GENOME") if not -d "$resDir/PEAKS_GENOME";
    makedir("$resDir/PEAKS_LOCAL") if not -d "$resDir/PEAKS_LOCAL";
    makedir("$resDir/PNG") if not -d "$resDir/PNG";
-   makedir("$resDir/PNG/PEAK") if not -d "$resDir/PNG/PEAK";
-   makedir("$resDir/PNG/PEAKNEG") if not -d "$resDir/PNG/PEAKNEG";
-   makedir("$resDir/PNG/NOPK") if not -d "$resDir/PNG/NOPK";
-   makedir("$resDir/PNG/NOPKNEG") if not -d "$resDir/PNG/NOPKNEG";
-   makedir("$resDir/PNG/ALL/") if not -d "$resDir/PNG/ALL/";
-   makedir("$resDir/PDF") if not -d "$resDir/PDF";
-   makedir("$resDir/PDF/PEAK") if not -d "$resDir/PDF/PEAK";
-   makedir("$resDir/PDF/PEAKNEG") if not -d "$resDir/PDF/PEAKNEG";
-   makedir("$resDir/PDF/NOPK") if not -d "$resDir/PDF/NOPK";
-   makedir("$resDir/PDF/NOPKNEG") if not -d "$resDir/PDF/NOPKNEG";
-   makedir("$resDir/PDF/ALL/") if not -d "$resDir/PDF/ALL/";
+	
+	my ($OUTDIRS, $PEAK, $TEMP, $RCONV, $CPG, $ALL);
+	($OUTDIRS->{PNG}, $PEAK, $TEMP, $RCONV, $CPG, $ALL) = makeOutDir($resDirFullpath . "/PNG/");
+	($OUTDIRS->{PDF}) = makeOutDir($resDirFullpath . "/PDF/");
+ #  makedir("$resDir/PNG/PEAK") if not -d "$resDir/PNG/PEAK";
+ #  makedir("$resDir/PNG/PEAKNEG") if not -d "$resDir/PNG/PEAKNEG";
+ #  makedir("$resDir/PNG/NOPK") if not -d "$resDir/PNG/NOPK";
+ #  makedir("$resDir/PNG/NOPKNEG") if not -d "$resDir/PNG/NOPKNEG";
+ #  makedir("$resDir/PNG/ALL/") if not -d "$resDir/PNG/ALL/";
+ #  makedir("$resDir/PDF") if not -d "$resDir/PDF";
+ #  makedir("$resDir/PDF/PEAK") if not -d "$resDir/PDF/PEAK";
+ #  makedir("$resDir/PDF/PEAKNEG") if not -d "$resDir/PDF/PEAKNEG";
+ #  makedir("$resDir/PDF/NOPK") if not -d "$resDir/PDF/NOPK";
+ #  makedir("$resDir/PDF/NOPKNEG") if not -d "$resDir/PDF/NOPKNEG";
+ #  makedir("$resDir/PDF/ALL/") if not -d "$resDir/PDF/ALL/";
 	my %files;
 	my ($footPeak_logFile) = "$resDir/footPeak_logFile.txt";
 	open (my $outLog, ">", "$resDir/footPeak_graph_logFile.txt") or die "\n\nFailed to write to $resDir/footPeak_graph_logFile.txt: $!\n\n";
@@ -127,14 +139,22 @@ sub main {
 	my $fileCount = 0;
 	my $totalFile = (keys %files);
 	my $lastGENE = -1;
+
+	my $currfileCount = 0;
 	foreach my $file (sort keys %files) {
 		$fileCount ++;
 		my $GENE = $files{$file};
+		my $STRAND = $coor{$GENE}{STRAND};
+		my $geneStrandPrint = $STRAND eq "Pos" ? "$LRD$STRAND$N" : $STRAND eq "Neg" ? "$LCY$STRAND$N" : "$LGN$STRAND$N";
+
    	if (defined $opt_G and $file !~ /$opt_G/i) {
    	   LOG($outLog, date() . " Skipped $LCY$file$N as it doesn't contain $LGN-G $opt_G$N\n");
    	   next;
    	}
-		LOG($outLog, "\n$YW -------- $fileCount/$totalFile Doing $GENE ---------$N\n\n") if $GENE ne $lastGENE;
+		if ($GENE ne $lastGENE) {
+			LOG($outLog, "\n$YW -------- $fileCount/$totalFile Doing$LPR $GENE$N (STRAND = $geneStrandPrint) ---------$N\n\n") if $GENE ne $lastGENE;
+			$currfileCount = 0;
+		}
 		$lastGENE = $GENE;
 		if (defined $opt_g and $GENE ne $opt_g) {
 			LOG($outLog, date() . " $LCY Skipped $GENE$N (requested gene is $LGN$opt_g$N\n");
@@ -146,7 +166,6 @@ sub main {
 		} 
 
 		$lastfile = $file;
-		my $STRAND = $coor{$GENE}{STRAND};
 #		my $outPEAKS, ">", "$resDir/PEAKS_GENOME/$pk_filename.genome.bed")   or LOG($outLog, "\tFailed to write into $resDir/PEAKS_GENOME/$pk_filename.genome.bed: $!\n")  and exit 1;
 #		open (my $outRPEAKS, ">", "$resDir/PEAKS_LOCAL/$pk_filename.local.bed") or LOG($outLog, "\tFailed to write into $resDir/PEAKS_LOCAL/$pk_filename.local.bed: $!\n") and exit 1;
 		next if not defined $files{$file};
@@ -179,7 +198,7 @@ sub main {
 #		my $bedFile = $peakFile . ".RPEAKS"; 
 		$bedFile =~ s/.out.local.bed/.local.bed/;
 		my ($type) = $peakFile =~ /(CH|CG|GH|GC)/;
-		LOG($outLog, date() . " $LGN$fileCount/$totalFile$N: Parsing into R script: gene=$LPR$GENE$N, strand=$GN$STRAND$N, type=$YW$type$N, peak=$LGN$totpeak$N, nopeak=$LRD$totnopk$N)\n");
+		#LOG($outLog, date() . " $LGN$fileCount/$totalFile$N: Parsing into R script: gene=$LPR$GENE$N, strand=$GN$STRAND$N, type=$YW$type$N, peak=$LGN$totpeak$N, nopeak=$LRD$totnopk$N)\n");
 
 #		open (my $innopkFile, "<", $nopkFile) or DIELOG($outLog, "Failed to open $nopkFile: $!\n");
 #		open (my $outnopkFileID, ">", "$nopkFile.id") or DIELOG($outLog, "Failed to open $nopkFile.id: $!\n");
@@ -193,19 +212,17 @@ sub main {
 #	      $num =~ s/_//g;
 #			print $outnopkFileID "$id\t$num\n";
 #		}
-
 		for (my $p = 0; $p < 2; $p ++) {
 			my $currFile = $p == 0 ? $peakFile : $nopkFile;
+			$currfileCount ++;
 			my $currFileID = $currFile . ".id";
 			my $curr_cluster_file = $cluster_file;
+			my ($currFolder, $currFilename) = getFilename($currFile, "folderfull");
+			my ($label3, $gene3, $strand3, $window3, $thres3, $type3) = parseName($currFilename);
+			my ($geneStrand, $readStrand, $rconvType) = ($STRAND, $strand3, $type3);
+			my $readStrandPrint = $readStrand eq "Pos" ? "$LRD$readStrand$N" : $readStrand eq "Neg" ? "$BU$readStrand$N" : "$LPR$readStrand$N";
+			my $rconvTypePrint  = $rconvType =~ /^(CG|GC)$/ ? "$YW$rconvType$N" : $rconvType;
 			$curr_cluster_file =~ s/PEAK/NOPK/ if $p != 0;
-			LOG($outLog, date() . " file #$YW$p.$N $LCY$currFile$N\n");
-			LOG($outLog, "\t\tCurrfile           = $LCY$currFile$N
-\t\tcurr_cluster_file  = $LCY$curr_cluster_file$N
-\t\tkmer_File          = $LPR$kmer_file$N
-\t\tbedFile            = $BU$bedFile$N
-\t\ttotpeak = $LGN$totpeak$N, nopk = $LGN$totnopk$N
-","NA");
 			my $max_cluster = 0;
 			if (-e $curr_cluster_file and -s $curr_cluster_file > 0) {
 				my @curr_cluster = `cut -f6 $curr_cluster_file|grep -v clust`; chomp(@curr_cluster);
@@ -215,46 +232,53 @@ sub main {
 			}
 			$max_cluster = 0 if not defined $max_cluster;
 			my $summary = $p == 0 ? "PEAK: $LGN$totpeak$N, cluster=$LCY$max_cluster$N" : "NOPK: $LGN$totnopk$N";
-			my ($currFolder, $currFilename) = getFilename($currFile, "folderfull");
-			my ($label3, $gene3, $strand3, $window3, $thres3, $type3) = parseName($currFilename);
 			#$currFilename =~ s/\.0_orig_//i;
-
-			my $pngoutDir;
-			if (($STRAND eq "+" or $STRAND eq "Pos") and $strand3 eq "Pos" and $type3 eq "CH" and $label3 =~ /PCB([1-9]$|10|12)/i) {
-				$pngoutDir = $p == 0 ? "PEAK/" : "NOPK/";
+			my $flag = $readStrand eq "Unk" ? "" : $p == 0 ? $PEAK->[0] : $PEAK->[1]; #PEAK : NOPK;
+			$flag .= getFlag($geneStrand, $readStrand, $rconvType, $TEMP, $RCONV, $CPG, $ALL);
+			my $pngoutDir = $flag;
+			my $pdfoutDir = $flag;
+			LOG($outLog, date() . "$LGN$currfileCount.$N $flag $readStrandPrint $rconvTypePrint $LCY$currFile$N\n");
+			LOG($outLog, "\t\tCurrfile           = $LCY$currFile$N
+\t\tcurr_cluster_file  = $LCY$curr_cluster_file$N
+\t\tkmer_File          = $LPR$kmer_file$N
+\t\tbedFile            = $BU$bedFile$N
+\t\ttotpeak = $LGN$totpeak$N, nopk = $LGN$totnopk$N
+","NA");
+#			$rconvTypePrint  =~ s/(^C|C$)/${YW}C$N/;
+#			$rconvTypePrint  =~ s/(^G|G$)/${LPR}G$N/;
+#			$rconvTypePrint  =~ s/H$/${LGN}H$N/;
+			LOG($outLog, "$readStrandPrint\t$rconvTypePrint\t$flag\n","NA");
+####SPACESHIP
+=comment
+			if (($STRAND eq "Pos" and $strand3 eq "Pos" and $type3 eq "CH") or ($STRAND eq "Neg" and $strand3 eq "Neg" and $type3 eq "GH")) {
+				$pngoutDir = $p == 0 ? $PEAK->[0] : $PEAK->[1]; #"PEAK" : "NOPK";
 			}
-			elsif (($STRAND eq "-" or $STRAND eq "Neg") and $strand3 eq "Neg" and $type3 eq "GH" and $label3 =~ /PCB([1-9]$|10|12)/i) {
-				$pngoutDir = $p == 0 ? "PEAK/" : "NOPK/";
+			elsif (($STRAND eq "Pos" and $strand3 eq "Neg" and $type3 eq "GH") or ($STRAND eq "Neg" and $strand3 eq "Pos" and $type3 eq "CH")) {
+				$pngoutDir = $p == 0 ? $PEAK->[0] . $TEMP->[1] : $PEAK->[1] . $TEMP->[1]; #"PEAKNEG/" : "NOPKNEG/";
 			}
-			elsif (($STRAND eq "+" or $STRAND eq "Pos") and $strand3 eq "Neg" and $type3 eq "GH" and $label3 =~ /PCB([1-9]$|10|12)/i) {
-				$pngoutDir = $p == 0 ? "PEAKNEG/" : "NOPKNEG/";
+			elsif (($STRAND eq "Pos" and $strand3 eq "Pos" and $type3 eq "CG") or ($STRAND eq "Neg" and $strand3 eq "Neg" and $type3 eq "GC")) {
+				$pngoutDir = $p == 0 ? $PEAK->[0] . $CPG->[1] : $PEAK->[1] . $CPG->[1]; #"PEAK/" : "NOPK/"; CG
 			}
-			elsif (($STRAND eq "-" or $STRAND eq "Neg") and $strand3 eq "Pos" and $type3 eq "CH" and $label3 =~ /PCB([1-9]$|10|12)/i) {
-				$pngoutDir = $p == 0 ? "PEAKNEG/" : "NOPKNEG/";
-			}
-			elsif (($STRAND eq "+" or $STRAND eq "Pos") and $strand3 eq "Pos" and $type3 eq "CG" and $label3 =~ /PCB1[1345]/i) {
-				$pngoutDir = $p == 0 ? "PEAK/" : "NOPK/";
-			}
-			elsif (($STRAND eq "-" or $STRAND eq "Neg") and $strand3 eq "Neg" and $type3 eq "GC" and $label3 =~ /PCB1[1345]/i) {
-				$pngoutDir = $p == 0 ? "PEAK/" : "NOPK/";
-			}
-			elsif (($STRAND eq "+" or $STRAND eq "Pos") and $strand3 eq "Neg" and $type3 eq "GC" and $label3 =~ /PCB1[1345]/i) {
-				$pngoutDir = $p == 0 ? "PEAKNEG/" : "NOPKNEG/";
-			}
-			elsif (($STRAND eq "-" or $STRAND eq "Neg") and $strand3 eq "Pos" and $type3 eq "CG" and $label3 =~ /PCB1[1345]/i) {
-				$pngoutDir = $p == 0 ? "PEAKNEG/" : "NOPKNEG/";
+			elsif (($STRAND eq "Pos" and $strand3 eq "Neg" and $type3 eq "GC") or ($STRAND eq "Neg" and $strand3 eq "Pos" and $type3 eq "CG")) {
+				$pngoutDir = $p == 0 ? $PEAK->[0] . $TEMP->[1] . $CPG->[1] : $PEAK->[1] . $TEMP->[1] . $CPG->[1]; #"PEAKNEG/" : "NOPKNEG/"; CG
 			}
 			else {
 				$pngoutDir = "ALL/";
 			}
+=cut
+
 			my $resDir2 = getFullpath($resDir);
-			my $pngout = "$resDir/PNG/$pngoutDir$currFilename.png";
-			my $pdfout = "$resDir/PDF/$pngoutDir$currFilename.pdf";
+			my $madePNG = ($opt_r == 0) ? 0 : ($opt_r == 1 and $flag =~ /(ALL|RCONV|_C)/) ? 0 : 1;
+			my $madePDF = ($opt_R == 0) ? 0 : ($opt_R == 1 and $flag =~ /(ALL|RCONV|_C)/) ? 0 : 1;
+			my $pngout = "$resDir/PNG/$pngoutDir/$currFilename.png";
+			my $pdfout = "$resDir/PDF/$pdfoutDir/$currFilename.pdf";
 			my $lenpdfout = "$resDir/PDF/$pngoutDir$currFilename\_length.pdf";
-			$scp{"scp $user\@crick.cse.ucdavis.edu:$resDir2/PNG/$pngoutDir$currFilename.png ./"} = 1;
+			$scp{"scp $user\@crick.cse.ucdavis.edu:$resDir2/PNG/$pngoutDir/$currFilename.png ./"} = 1 if $madePNG eq 1;
+			$scp{"scp $user\@crick.cse.ucdavis.edu:$resDir2/PDF/$pdfoutDir/$currFilename.pdf ./"} = 1 if $madePDF eq 1;
 			#LOG($outLog, "!HERE STRAND=$STRAND strand=$strand type=$type label=$label pngoutDir = $pngoutDir, p = $p, PNGOUT = $pngout\n");
 #			next if not -e $currFile;
 #			next if linecount($currFile) <= 1;
+			my ($RscriptPDF, $RscriptPNG);
 			my $Rscript = "
 .libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\", \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\", .libPaths()) )
 library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(gridExtra)\nlibrary(RColorBrewer)
@@ -265,6 +289,8 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 			if (not -e $currFile or (-e $currFile and linecount($currFile) <= 5)) {
 #				$Rscript .= "png(\"$pngout\",250,250)\nplot(seq(1,10),seq(1,10))\ntext(5,5,labels=c(\"PEAK = $totpeak, NOPK = $totnopk\"))\ndev.off()\n";
 				$Rscript .= "png(\"$pngout\",1000,1000)\nplot(NA,xlim=c(1,100),ylim=c(1,100),xlab=NA,ylab=NA,bty=\"n\")\ntext(50,50,cex=3,labels=c(\"$currFilename\n\nPEAK = $totpeak / $totread\"))\ndev.off()\n";
+				$RscriptPNG = $Rscript;
+				$RscriptPDF = $Rscript;
 			}
 			else {
 				open (my $incurrFile, "<", $currFile) or DIELOG($outLog, "Failed to open $currFile: $!\n");
@@ -282,7 +308,6 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 				close $incurrFile;
 				close $outcurrFileID;
 				my ($R) = Rscript($currFile, $bedFile, $curr_cluster_file, $totpeak, $totnopk, $pngout, $pdfout, $lenpdfout);
-
 				# Read Table
 				$Rscript .= $R->{readTable};
 
@@ -317,14 +342,19 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 				# Add Third Plot and Do PNG
 				$Rscript .= $R->{Scale};
 #				$Rscript .= $R->{PDF};
-				$Rscript .= $R->{PNG};
+				$RscriptPNG = $Rscript . $R->{PNG};
+				$RscriptPDF = $Rscript . $R->{PDF};
 			}
-			open (my $outRscript, ">", "$currFile.R") or (LOG($outLog, date() . "Failed to write R script into $currFile.R: $!\n") and print $outLog $Rscript and next);
-			print $outRscript $Rscript;
-			$Rscripts{"$currFile.R"}{summary} = $summary;
-			$Rscripts{"$currFile.R"}{runR} = $pngoutDir =~ /ALL/ ? 0 : 1;
-			$Rscripts{"$currFile.R"}{runType} = $pngoutDir;
-			close $outRscript;
+			open (my $outRscriptPNG, ">", "$currFile.PNG.R") or (LOG($outLog, date() . "Failed to write R script into $currFile.PNG.R: $!\n") and print $outLog $Rscript and next);
+			print $outRscriptPNG $RscriptPNG;
+			$Rscripts{"$currFile.PNG.R"}{summary} = $summary;
+			$Rscripts{"$currFile.PNG.R"}{runR} = $flag =~ /(ALL|RCONV|_C)/ ? 0 : 1;
+			$Rscripts{"$currFile.PNG.R"}{runType} = $flag;
+			close $outRscriptPNG;
+
+			open (my $outRscriptPDF, ">", "$currFile.PDF.R") or (LOG($outLog, date() . "Failed to write R script into $currFile.PDF.R: $!\n") and print $outLog $Rscript and next);
+			print $outRscriptPDF $RscriptPDF;
+			close $outRscriptPDF;
 		}
 	}
 	LOG($outLog, "\n\n$YW ----------------- Running R Scripts ------------------$N\n\n");
@@ -332,46 +362,77 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 	$totalFile = (keys %Rscripts);
 	
 	# open outRscripts for Rscripts that aren't relevant
-	open (my $outR_notrelevant, ">", "$resDir/footPeak_graph_Rscripts.sh") or DIELOG($outLog, date() . " Failed to write to $LCY$resDir/footPeak_graph_Rscripts.sh: $!\n");
-	foreach my $outRscript (sort keys %Rscripts) {
-		my $runR = $Rscripts{$outRscript}{runR};
-		my $runType = $Rscripts{$outRscript}{runType};
-		
-		LOG($outLog, date() . " $LCY Skipped $outRscript$N (requested gene is $LGN$opt_g$N\n") and next if defined $opt_g and $outRscript !~ /$opt_g/;
+	open (my $outR_notrelevantPNG, ">", "$resDir/footPeak_graph_Rscripts.PNG.sh") or DIELOG($outLog, date() . " Failed to write to $LCY$resDir/footPeak_graph_Rscripts.PNG.sh: $!\n");
+	open (my $outR_notrelevantPDF, ">", "$resDir/footPeak_graph_Rscripts.PDF.sh") or DIELOG($outLog, date() . " Failed to write to $LCY$resDir/footPeak_graph_Rscripts.PDF.sh: $!\n");
+	foreach my $outRscriptPNG (sort keys %Rscripts) {
+		my $summary = $Rscripts{$outRscriptPNG}{summary};
+		my $runR = $Rscripts{$outRscriptPNG}{runR};
+		my $runType = $Rscripts{$outRscriptPNG}{runType};
+		my $outRscriptPDF = $outRscriptPNG; $outRscriptPDF =~ s/PNG.R$/PDF.R/;
+		LOG($outLog, date() . " $LCY Skipped $outRscriptPNG$N (requested gene is $LGN$opt_g$N\n") and next if defined $opt_g and $outRscriptPNG !~ /$opt_g/;
 		$fileCount ++;
 		my $RLOG = 0;
-
 		if (($opt_r == 2) or ($opt_r == 1 and $runR == 1)) {
-			LOG($outLog, "\n" . date() . "$LGN$fileCount/$totalFile$N. Running $LCY$outRscript$N: $Rscripts{$outRscript}{summary}\n");
-			LOG($outLog, date() . "\tcd $resDirFullpath/../ && R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n");
-			print $outR_notrelevant "cd $resDirFullpath/../ && R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1 #$runType\n";
-			$RLOG = system("cd $resDirFullpath/../ && R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1");
+			LOG($outLog, "\n" . date() . "flag=$runType, $LGN$fileCount/$totalFile$N. Running$LGN PNG$N $LCY$outRscriptPNG$N: $summary\n");
+			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $resDirFullpath/../ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1\n","NA");
+			print $outR_notrelevantPNG "cd $resDirFullpath/../ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1 #$runType\n";
+			$RLOG = system("cd $resDirFullpath/../ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1");
 		}
 		else {
-			LOG($outLog, "\n" . date() . "$LGN$fileCount/$totalFile$N.$LRD Not$N running $LCY$outRscript$N: $Rscripts{$outRscript}{summary}\n");
-			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $resDirFullpath/../ && R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n");
-			print $outR_notrelevant "cd $resDirFullpath/../ && R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1 #$runType\n";
+			LOG($outLog, "\n" . date() . "flag=$runType, $LGN$fileCount/$totalFile$N.$LRD Not$N running$LGN PNG$N $LCY$outRscriptPNG$N: $summary\n");
+			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $resDirFullpath/../ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1\n","NA");
+			print $outR_notrelevantPNG "cd $resDirFullpath/../ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1 #$runType\n";
 			$RLOG = 1;
 		}
 		my $prevRLOG = $RLOG;
 		if (($opt_r == 2) or ($opt_r == 1 and $runR == 1)) {
 			if ($RLOG ne 0) {
-				if (not -e "$outRscript.LOG") {
-					$RLOG = "\t$outRscript.LOG cannot be found!\n" if $runR == 1;
+				if (not -e "$outRscriptPNG.LOG") {
+					$RLOG = "\t$outRscriptPNG.LOG cannot be found!\n" if $runR == 1;
 				}
 				else {
-					my @RLOG = `tail -n 5 $outRscript.LOG`;
+					my @RLOG = `tail -n 5 $outRscriptPNG.LOG`;
 					$RLOG = "\t" . join("\n\t", @RLOG);
 				}
-				LOG($outLog, date() . "\t${LRD}Failed$N to run_Rscript.pl $outRscript: $prevRLOG, LOG:\n$RLOG\n") if $runR == 1;
+				LOG($outLog, date() . "\t--> ${LRD}Failed$N to run_Rscript.pl $outRscriptPNG: $prevRLOG, LOG:\n$RLOG\n") if $runR == 1;
 			}
 			else {
-				LOG($outLog, date() . "\t${LGN}Success$N on running run_Rscript.pl $LCY$outRscript$N\n");
+				LOG($outLog, date() . "\t--> ${LGN}Success$N on running run_Rscript.pl $LCY$outRscriptPNG$N\n");
+			}
+		}
+
+		$RLOG = 0;
+		if (($opt_R == 2) or ($opt_R == 1 and $runR == 1)) {
+			LOG($outLog, "\n" . date() . "flag=$runType, $LGN$fileCount/$totalFile$N. Running$LGN PDF: $LCY$outRscriptPDF$N: $summary\n");
+			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $resDirFullpath/../ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1\n","NA");
+			print $outR_notrelevantPDF "cd $resDirFullpath/../ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1 #$runType\n";
+			$RLOG = system("cd $resDirFullpath/../ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1");
+		}
+		else {
+			LOG($outLog, "\n" . date() . "flag=$runType, $LGN$fileCount/$totalFile$N.$LRD Not$N running$LGN PDF$N $LCY$outRscriptPDF$N: $summary\n");
+			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $resDirFullpath/../ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1\n","NA");
+			print $outR_notrelevantPDF "cd $resDirFullpath/../ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1 #$runType\n";
+			$RLOG = 1;
+		}
+		$prevRLOG = $RLOG;
+		if (($opt_R == 2) or ($opt_R == 1 and $runR == 1)) {
+			if ($RLOG ne 0) {
+				if (not -e "$outRscriptPDF.LOG") {
+					$RLOG = "\t$outRscriptPDF.LOG cannot be found!\n" if $runR == 1;
+				}
+				else {
+					my @RLOG = `tail -n 5 $outRscriptPDF.LOG`;
+					$RLOG = "\t" . join("\n\t", @RLOG);
+				}
+				LOG($outLog, date() . "\t--> ${LRD}Failed$N to run_Rscript.pl $outRscriptPDF: $prevRLOG, LOG:\n$RLOG\n") if $runR == 1;
+			}
+			else {
+				LOG($outLog, date() . "\t--> ${LGN}Success$N on running run_Rscript.pl $LCY$outRscriptPDF$N\n");
 			}
 		}
 	}
 #	LOG($outLog, date . "\tcd $resDir && run_Rscript.pl *MakeHeatmap.R\n");
-#	system("cd $resDir && run_Rscript.pl *MakeHeatmap.R") if not defined $opt_x and defined $opt_R;
+#	system("cd $resDir && run_Rscript.pl *MakeHeatmap.R") if not defined $opt_x and defined $$opt_R;
 	LOG($outLog, "\n\n$YW ----------------- SCP PATHS ------------------$N\n\n");
 	foreach my $file (sort keys %scp) {
 		LOG($outLog, "$file\n");
@@ -597,7 +658,7 @@ bed = merge(subset(df,select=c(\"V1\",\"y\")),bed,by=\"V1\")
 # Main Plot Part 1
 dm = melt(df,id.vars=c(\"V1\",\"y\"))
 dm\$variable = as.numeric(as.character(dm\$variable))
-
+p1.scale = 1#0.25
 p.col = c(
 			\"0\"=\"#f0f0f0\",
 			\"1\"=\"white\",
@@ -635,8 +696,8 @@ p =	ggplot(dm,aes(variable,y)) +
 p = 
 	p + 
 	geom_rect(data=clust2,aes(fill=as.factor(clust),x=xmin,y=ymin,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax)) +
-	geom_rect(data=clust2,aes(color=as.factor(clust),x=xpos0,y=ymin,xmin=xpos0,xmax=xpos1,ymin=ymin,ymax=ymax),fill=rgb(1,1,1,alpha=0),lwd=1) +
-	geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=clust-10),hjust=0,size=10)
+	geom_rect(data=clust2,aes(color=as.factor(clust),x=xpos0,y=ymin,xmin=xpos0,xmax=xpos1,ymin=ymin,ymax=ymax),fill=rgb(1,1,1,alpha=0),lwd=1*p1.scale) +
+	geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=clust-10),hjust=0,size=10*p1.scale)
 
 ";
 
@@ -649,7 +710,7 @@ if (length(bed) != 0 & dim(bed)[1] > 0) {
 	p = 
 		p + 
 		geom_rect(data=bed,aes(xmin=V2,xmax=V3,ymin=y-0.5,ymax=y+0.5),
-			size=0.5,fill=rgb(0,0,0,alpha=0),color=rgb(1,0,0,alpha=0.25))
+			size=0.5*p1.scale,fill=rgb(0,0,0,alpha=0),color=rgb(1,0,0,alpha=0.25))
 
 	bed.q = quantile(bed\$V3-bed\$V2,probs=c(0.25,0.5,0.75))
 	bed.maxy = max(bed\$V3-bed\$V2)
@@ -709,16 +770,17 @@ if (dim(df2[df2\$y > 0,])[1] > 15) {
 }
  
 # P2 % Conversion XY Plot
+p2.scale = 1# 0.25
 p2 = 
-	ggplot(df2,aes(x2,y2)) + geom_point(aes(x=x,y=y),size=1) + geom_line(color=rgb(1,0,0,alpha=1)) + theme_bw()+
+	ggplot(df2,aes(x2,y2)) + geom_point(aes(x=x,y=y),size=1*p2.scale) + geom_line(color=rgb(1,0,0,alpha=1),size=1*p2.scale) + theme_bw()+
 	scale_x_continuous(expand = c(0,0)) +
 	scale_y_continuous(expand = c(0,0)) +
 	theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank()) +
-	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5,hjust=0) +
-	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5,hjust=0) +
-	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5,hjust=0) +
-	annotate(geom='text',x=10,y=0.25,label=\"-  25 \%\",size=5,hjust=0) +
-	annotate(geom='text',x=10,y=0,label=\"-   0\%\",size=5,hjust=0) +
+	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5*p2.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5*p2.scale,hjust=0) +
+	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5*p2.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0.25,label=\"-  25 \%\",size=5*p2.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0,label=\"-   0\%\",size=5*p2.scale,hjust=0) +
 	coord_cartesian(ylim=c(-0.05,1.05))
 
 ";
@@ -762,7 +824,7 @@ dev.off()
 	$R->{PDF} = "
 
 # PDF
-pdf(\"$pdfout\",width=totalwidth,height=totalheight)
+pdf(\"$pdfout\",width=totalwidth/400,height=totalheight/1600)
 if (mynrow == 3) {
 	grid.arrange(p,p2,p3,ncol=1,nrow=mynrow,heights=totalratio)
 } else {
@@ -1296,4 +1358,33 @@ sub main {
 	system("footClust.pl -n $resDir -g $gene") == 0 or LOG($outLog, "Failed to run footClust.pl : $!\n");
 	system("footClust2.pl -n $resDir -g $gene") == 0 or LOG($outLog, "Failed to run footClust2.pl : $!\n");
 =cut
+
+__END__
+			if ($STRAND eq "Pos" and $strand3 eq "Pos" and $type3 eq "CH" and $label3 =~ /PCB([1-9]$|10|12)/i) {
+				$pngoutDir = $p == 0 ? "PEAK" : "NOPK";
+			}
+			elsif ($STRAND eq "Neg" and $strand3 eq "Neg" and $type3 eq "GH" and $label3 =~ /PCB([1-9]$|10|12)/i) {
+				$pngoutDir = $p == 0 ? "PEAK" : "NOPK";
+			}
+			elsif ($STRAND eq "Pos" and $strand3 eq "Neg" and $type3 eq "GH" and $label3 =~ /PCB([1-9]$|10|12)/i) {
+				$pngoutDir = $p == 0 ? "PEAKNEG/" : "NOPKNEG/";
+			}
+			elsif ($STRAND eq "Neg" and $strand3 eq "Pos" and $type3 eq "CH" and $label3 =~ /PCB([1-9]$|10|12)/i) {
+				$pngoutDir = $p == 0 ? "PEAKNEG/" : "NOPKNEG/";
+			}
+			elsif ($STRAND eq "Pos" and $strand3 eq "Pos" and $type3 eq "CG" and $label3 =~ /PCB1[1345]/i) {
+				$pngoutDir = $p == 0 ? "PEAK/" : "NOPK/";
+			}
+			elsif ($STRAND eq "Neg" and $strand3 eq "Neg" and $type3 eq "GC" and $label3 =~ /PCB1[1345]/i) {
+				$pngoutDir = $p == 0 ? "PEAK/" : "NOPK/";
+			}
+			elsif ($STRAND eq "Pos" and $strand3 eq "Neg" and $type3 eq "GC" and $label3 =~ /PCB1[1345]/i) {
+				$pngoutDir = $p == 0 ? "PEAKNEG/" : "NOPKNEG/";
+			}
+			elsif ($STRAND eq "Neg" and $strand3 eq "Pos" and $type3 eq "CG" and $label3 =~ /PCB1[1345]/i) {
+				$pngoutDir = $p == 0 ? "PEAKNEG/" : "NOPKNEG/";
+			}
+			else {
+				$pngoutDir = "ALL/";
+			}
 
