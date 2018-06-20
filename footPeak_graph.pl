@@ -323,6 +323,7 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 			print $outRscript $Rscript;
 			$Rscripts{"$currFile.R"}{summary} = $summary;
 			$Rscripts{"$currFile.R"}{runR} = $pngoutDir =~ /ALL/ ? 0 : 1;
+			$Rscripts{"$currFile.R"}{runType} = $pngoutDir;
 			close $outRscript;
 		}
 	}
@@ -334,6 +335,8 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 	open (my $outR_notrelevant, ">", "$resDir/footPeak_graph_Rscripts.sh") or DIELOG($outLog, date() . " Failed to write to $LCY$resDir/footPeak_graph_Rscripts.sh: $!\n");
 	foreach my $outRscript (sort keys %Rscripts) {
 		my $runR = $Rscripts{$outRscript}{runR};
+		my $runType = $Rscripts{$outRscript}{runType};
+		
 		LOG($outLog, date() . " $LCY Skipped $outRscript$N (requested gene is $LGN$opt_g$N\n") and next if defined $opt_g and $outRscript !~ /$opt_g/;
 		$fileCount ++;
 		my $RLOG = 0;
@@ -341,12 +344,13 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 		if (($opt_r == 2) or ($opt_r == 1 and $runR == 1)) {
 			LOG($outLog, "\n" . date() . "$LGN$fileCount/$totalFile$N. Running $LCY$outRscript$N: $Rscripts{$outRscript}{summary}\n");
 			LOG($outLog, date() . "\tcd $resDirFullpath/../ && R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n");
+			print $outR_notrelevant "cd $resDirFullpath/../ && R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1 #$runType\n";
 			$RLOG = system("cd $resDirFullpath/../ && R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1");
 		}
 		else {
 			LOG($outLog, "\n" . date() . "$LGN$fileCount/$totalFile$N.$LRD Not$N running $LCY$outRscript$N: $Rscripts{$outRscript}{summary}\n");
 			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $resDirFullpath/../ && R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n");
-			print $outR_notrelevant "cd $resDirFullpath/../ && R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n";
+			print $outR_notrelevant "cd $resDirFullpath/../ && R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1 #$runType\n";
 			$RLOG = 1;
 		}
 		my $prevRLOG = $RLOG;
