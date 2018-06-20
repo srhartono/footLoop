@@ -339,13 +339,13 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 
 		if (($opt_r == 2) or ($opt_r == 1 and $runR == 1)) {
 			LOG($outLog, "\n" . date() . "$LGN$fileCount/$totalFile$N. Running $LCY$outRscript$N: $Rscripts{$outRscript}{summary}\n");
-			LOG($outLog, date() . "\tR --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n");
-			$RLOG = system("R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1");
+			LOG($outLog, date() . "\tcd $resDir/../ && R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n");
+			$RLOG = system("cd $resDir/../ && R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1");
 		}
 		else {
 			LOG($outLog, "\n" . date() . "$LGN$fileCount/$totalFile$N.$LRD Not$N running $LCY$outRscript$N: $Rscripts{$outRscript}{summary}\n");
-			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n");
-			print $outR_notrelevant "R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n";
+			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $resDir/../ && R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n");
+			print $outR_notrelevant "cd $resDir/../ && R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n";
 			$RLOG = 1;
 		}
 		my $prevRLOG = $RLOG;
