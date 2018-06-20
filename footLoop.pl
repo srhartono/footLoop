@@ -38,10 +38,10 @@ BEGIN {
 }
 use myFootLib; use FAlite;
 my $homedir = $ENV{"HOME"};
-my $footLoopDir = dirname(dirname abs_path $0) . "/footLoop";
+my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
 ($opt_r, $opt_i, $opt_n, $opt_g, $opt_x, $opt_y) = run_example() if @ARGV and $ARGV[0] eq "ex";
 
-my @version = `cd $footLoopDir && git log | head `;
+my @version = `cd $footLoopScriptsFolder && git log | head `;
 my $version = "UNKNOWN";
 foreach my $line (@version[0..@version-1]) {
 	if ($line =~ /^\s+V\d+\.?\d*\w*\s*/) {
@@ -49,7 +49,7 @@ foreach my $line (@version[0..@version-1]) {
 	}
 }
 if (not defined $version or (defined $version and $version eq "UNKNOWN")) {
-	($version) = `cd $footLoopDir && git log | head -n 1`;
+	($version) = `cd $footLoopScriptsFolder && git log | head -n 1`;
 }
 if (defined $opt_v) {
 	print "\n\n$YW$0 $LGN$version$N\n\n";
@@ -406,7 +406,7 @@ sub print_R_heatmap {
 }
 
 sub run_example {
-	my $exFolder = "$footLoopDir/example";
+	my $exFolder = "$footLoopScriptsFolder/example";
 	print "Running example folder $LCY$exFolder$N\n";
 	my $opt_r = "$exFolder/CALM3/CALM3.sam";
 	my $opt_i = "$exFolder/CALM3/CALM3index.bed";
@@ -1051,8 +1051,8 @@ sub sanityCheck {
 	die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -g <ref_genome.fa [hg19.fa]> not defined\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not defined($opt_g);
 	die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -i $opt_i DOES NOT EXIST\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not -e ($opt_i);
 	die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -g $opt_g DOES NOT EXIST\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not -e ($opt_g);
-	if (not -d "$footLoopDir/.sortTMP/") {
-		system("mkdir $footLoopDir/.sortTMP/") == 0 or die "Failed to make directory $footLoopDir/.sortTMP/: $!\n";
+	if (not -d "$footLoopScriptsFolder/.sortTMP/") {
+		system("mkdir $footLoopScriptsFolder/.sortTMP/") == 0 or die "Failed to make directory $footLoopScriptsFolder/.sortTMP/: $!\n";
 	}
 }
 

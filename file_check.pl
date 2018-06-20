@@ -14,8 +14,8 @@ use myFootLib; use FAlite; use footPeakAddon;
 use feature 'say';
 
 my $homedir = $ENV{"HOME"};
-my $footLoopDir = dirname(dirname abs_path $0) . "/footLoop";
-my @version = `cd $footLoopDir && git log | head `;
+my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
+my @version = `cd $footLoopScriptsFolder && git log | head `;
 my $version = "UNKNOWN";
 foreach my $line (@version[0..@version-1]) {
    if ($line =~ /^\s+V\d+\.?\d*\w*\s*/) {
@@ -23,7 +23,7 @@ foreach my $line (@version[0..@version-1]) {
    }
 }
 if (not defined $version or (defined $version and $version eq "UNKNOWN")) {
-   ($version) = `cd $footLoopDir && git log | head -n 1`;
+   ($version) = `cd $footLoopScriptsFolder && git log | head -n 1`;
 }
 if (defined $opt_v) {
    print "\n\n$YW$0 $LGN$version$N\n\n";

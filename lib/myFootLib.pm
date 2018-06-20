@@ -41,6 +41,7 @@ getFullpathAll
 myeval
 checkBismarkIndex
 getDate
+getMD5_simple
 getMD5
 getFilename
 getFullpath
@@ -188,12 +189,17 @@ sub LOG {
 }
 
 sub DIELOG {
-   my ($outLog, $text, $STEP, $STEPCOUNT) = @_;
+   my ($outLog, $text) = @_;
+	#my ($scriptFileName) = getFilename($script, "fullname");
+#	foreach my $args (@args) {#
+		
+#	}
+	my ($STEP, $STEPCOUNT);
 	if (defined $STEP) {
 		$STEP += $STEPCOUNT if defined $STEPCOUNT;
 		$text =~ s/\$STEP/$STEP/g;
 	}
-   print $outLog $text;
+	print $outLog $text;
 	print $text;
 	die "DEAD\n";
 }
@@ -204,6 +210,17 @@ sub getDate {
    my $date = "$mday $months[$mon] $year $hour:$min:$sec";
    my $timenow = $hour * 3600 + $min * 60 + $sec;
    return($date);
+}
+
+sub getDate_simple {
+   my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time); $year += 1900;
+   my @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
+	($year) = $year =~ /^\d\d(\d+)$/;
+	($mon) = $mon + 1 < 10 ? 0 . ($mon+1) : $mon + 1;
+	return $year . $mon . $mday;
+ #  my $date = "$mday $months[$mon] $year $hour:$min:$sec";
+  # my $timenow = $hour * 3600 + $min * 60 + $sec;
+  # return($date);
 }
 
 
@@ -227,7 +244,7 @@ sub getFilename {
 	return($shortname)                      if not defined($type);
 	return($folder, $fullname)              if $type eq "folderfull";
 	return($folder, $shortname)             if $type eq "folder";
-	return($fullname)                       if $type eq "full";
+	return($fullname)                       if $type eq "full" or $type eq "fullname";
 	return($folder, $fullname, $shortname)  if $type eq "all";
 }
 
@@ -589,6 +606,11 @@ sub getFullpathAll {
    return(@arr);
 }
 
+sub getMD5_simple {
+	my ($file) = @_;
+	my ($md5) = `md5sum $file` =~ /^(\w+)\s+/;
+	return ($md5);
+}
 sub getMD5 {
    my ($file) = @_;
    my $filetemp = getFullpath($file);

@@ -9,17 +9,18 @@ BEGIN {
 }
 use myFootLib; use FAlite;
 my $homedir = $ENV{"HOME"};
-my $footLoopDir = dirname(dirname abs_path $0) . "/footLoop";
-
+my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
+my ($thisfileName) = getFilename($0, "fullname");
+my ($thismd5) = getMD5_simple($0);
 sub main {
 	# From footPeak.pl: 
-	# (($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ));
-	my ($input1, $faFile, $mygene, $minDis, $resDir, $minLen, $SEQ) = @_;
+	# $peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ;
 
+	DIELOG($outLog, $0, "Usage: $YW$0$N [-c to use cpg] $CY<CALM3_Pos_20_0.65_CG.PEAK>$N $CY<location with lots of C>$N\n\n") unless @_ == 7;
+	DIELOG($outLog, date() . "footPeakAddon.pm: Input cannot be directry!\n" and exit 1 if -d $input1;
+	my ($input1, $faFile, $mygene, $minDis, $resDir, $minLen, $SEQ, $outLog) = @_;
 	my @foldershort = split("\/", $resDir);
 	my $foldershort = pop(@foldershort);
-	print date() . "\nusage: $YW$0$N [-c to use cpg] $CY<CALM3_Pos_20_0.65_CG.PEAK>$N $CY<location with lots of C>$N\n\n" and exit 1 unless @_ == 7;
-	print date() . "Input cannot be directry!\n" and exit 1 if -d $input1;
 	($input1) = getFullpath($input1);
 	my ($folder, $fileName) = getFilename($input1, "folderfull");
 
@@ -38,7 +39,7 @@ sub main {
 	makedir("$resDir/PDF/NOPK") if not -d "$resDir/PDF/NOPK";
 	makedir("$resDir/PDF/NOPKNEG") if not -d "$resDir/PDF/NOPKNEG";
 	makedir("$resDir/PDF/ALL/") if not -d "$resDir/PDF/ALL/";
-	open (my $outLog, ">>", "$resDir/footLoop_addition_logFile.txt") or die;
+	#open (my $outLog, ">>", "$resDir/footLoop_addition_logFile.txt") or die;
 
 	
 	my @coor = split("\t", $SEQ->{$mygene}{coor});
