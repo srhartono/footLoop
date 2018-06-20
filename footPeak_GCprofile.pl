@@ -75,10 +75,6 @@ my $date = date();
 ############
 # LOG FILE #
 ############
-my $outDir = "$footPeakFolder/GCPROFILE/";
-makedir($outDir) if not -d $outDir;
-makedir("$outDir/.TEMP") if not -d "$outDir.TEMP";
-
 open (my $outLog, ">", "$footPeakFolder/footPeak_GCprofile_logFile.txt") or die date() . ": Failed to create outLog file $footPeakFolder/footPeak_GCprofile_logFile.txt: $!\n";
 #open (my $outLog, ">", "$outDir/footPeak_GCprofile_logFile.txt") or die "Failed to write to $outDir/footPeak_GCprofile_logFile.txt: $!\n";
 LOG($outLog, ">$0 version $version\n");
@@ -86,6 +82,23 @@ LOG($outLog, ">UUID: $uuid\n", "NA");
 LOG($outLog, ">Date: $date\n", "NA");
 LOG($outLog, ">Run script: $0 -i $opt_i -n $opt_n\n", "NA");
 
+
+##########
+# OUTDIR #
+##########
+my $outDir = "$footPeakFolder/GCPROFILE/";
+if (-e "$footPeakFolder/footPeak_GCskew/" and not -d $outDir) {
+	LOG($outLog, "Renaming $footPeakFolder/footPeak_GCskew into $outDir\n");
+	system("/bin/mv $footPeakFolder/footPeak_GCskew $outDir") == 0 or DIELOG($outLog, date() . " Failed to rename $footPeakFolder/footPeak_GCskew into $outDir: $!\n");
+}
+if (not -d $outDir) {
+	makedir($outDir);
+	makedir("$outDir/.TEMP") if not -d "$outDir.TEMP";
+}
+
+##############
+# INDEX FILE #
+##############
 
 my %gene;
 my @line = `cat $indexFile`;
@@ -97,6 +110,9 @@ foreach my $line (@line) {
 	$gene{$gene}{feature} = $feature;
 }
 
+##########################
+# PARSE FOOTPEAK LOGFILE #
+##########################
 
 my ($footPeak_logFile) = "$footPeakFolder/footPeak_logFile.txt";
 my $footLoop_run_script = `grep -iP "footLoop Run script\\s*:.+-g .+.fa" $footPeak_logFile`;
@@ -112,7 +128,9 @@ DIELOG($outLog, "Cannot find genome file from footPeak logfile $footPeak_logFile
 print $outLog "\ngenomeFile = $LCY$genomeFile$N\n\n";
 
 
-# Get peaks from PEAKS_GENOME
+###############################
+# Get peaks from PEAKS_GENOME #
+###############################
 my $cluster;
 my @bedFiles = <$footPeakFolder/PEAKS_GENOME/*.genome.bed>;
 my @files;
@@ -138,9 +156,6 @@ foreach my $bedFile (sort @bedFiles) {
 }
 LOG($outLog, date() . "2. Calculating GC skew (might take a couple minutes)\n");
 if (not defined ($opt_S)) {
-	#print "run_script_in_paralel2.pl \"fastaFromBed -fi $genomeFile -bed FILENAME -fo FILENAME.fa -s -name\" $outDir.TEMP/ \"_[ABCDEFW].temp\" 1 > $outDir/.TEMP/fastaFromBed.LOG 2>&1\n";# == 0 or DIELOG($outLog, "Failed to run fastaFromBed: $!\n");
-	#print "run_script_in_paralel2.pl \"rename.pl FILENAME PCB .PCB\" $outDir.TEMP/ temp 1  > $outDir/.TEMP/rename.LOG 2>&1\n";# == 0 or DIELOG($outLog, "Failed to run rename.pl: $!\n");
-	#print "run_script_in_paralel2.pl \"counter_cpg_indiv.pl -w 200 -s 1 -o $outDir -A FILENAME\" $outDir.TEMP/ _100.+temp.fa 1  > $outDir/.TEMP/counter_cpg_indiv.LOG 2>&1\n";# == 0 or DIELOG($outLog, "Failed to run counter_cpg_indiv.pl: $!\n");
 	system("run_script_in_paralel2.pl \"fastaFromBed -fi $genomeFile -bed FILENAME -fo FILENAME.fa -s -name\" $outDir.TEMP/ \"_[ABCDEFW].temp\" 1 > $outDir/.TEMP/fastaFromBed.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run fastaFromBed: $!\n");
 	system("run_script_in_paralel2.pl \"rename.pl FILENAME PCB .PCB\" $outDir.TEMP/ temp 1  > $outDir/.TEMP/rename.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run rename.pl: $!\n");
 	system("run_script_in_paralel2.pl \"counter_cpg_indiv.pl -w 200 -s 1 -o $outDir -A FILENAME\" $outDir.TEMP/ _100.+temp.fa 1  > $outDir/.TEMP/counter_cpg_indiv.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run counter_cpg_indiv.pl: $!\n");
