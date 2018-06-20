@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# V3.14
+# V3.7c
 
 use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
 use vars qw($opt_w $opt_g $opt_G $opt_v $opt_n $opt_r $opt_R); #v $opt_x $opt_R $opt_c $opt_t $opt_n);
