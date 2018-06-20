@@ -2,16 +2,16 @@
 # V3.14
 
 use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_w $opt_g $opt_G $opt_v $opt_n); #v $opt_x $opt_R $opt_c $opt_t $opt_n);
-getopts("n:vg:w:G:");
+use vars qw($opt_w $opt_g $opt_G $opt_v $opt_n $opt_r); #v $opt_x $opt_R $opt_c $opt_t $opt_n);
+getopts("n:vg:w:G:r:");
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
 }
 use myFootLib; use FAlite;
 my $homedir = $ENV{"HOME"};
-my $footLoopDir = dirname(dirname abs_path $0) . "/footLoop";
-my @version = `cd $footLoopDir && git log | head `;
+my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
+my @version = `cd $footLoopScriptsFolder && git log | head `;
 my $version = "UNKNOWN";
 foreach my $line (@version[0..@version-1]) {
    if ($line =~ /^\s+V\d+\.?\d*\w*\s*/) {
@@ -19,15 +19,27 @@ foreach my $line (@version[0..@version-1]) {
    }
 }
 if (not defined $version or (defined $version and $version eq "UNKNOWN")) {
-   ($version) = `cd $footLoopDir && git log | head -n 1`;
+   ($version) = `cd $footLoopScriptsFolder && git log | head -n 1`;
 }
 if (defined $opt_v) {
    print "\n\n$YW$0 $LGN$version$N\n\n";
    exit;
 }
 
-die "\nUsage: $YW$0$N [Optional: -G $LGN<gene to process>$N] -n$LCY <footPeak output directory>$N\n\n" if not defined $opt_n;
+die "\nUsage: $YW$0$N -n$LCY <footPeak output directory>$N
+
+${LGN}Optionals$N:
+-G $LGN<gene to process>$N] 
+-r Option to run R scripts:
+   -r 0: do not run any R scripts
+   -r 1: run only relevant R scripts (default)
+   -r 2: run ALL R scripts
+
+" if not defined $opt_n;
 die "\nERROR: -n footPeak dir $LCY$opt_n$N doesn't exists!\n\nUsage: $YW$0$N -n <footPeak output directory>\n\n" if not -d $opt_n;
+
+$opt_r = 1 if not defined $opt_r;
+die "\nERROR: -r has to be 0, 1, or 2! (current: $opt_r)\n\n" if defined $opt_r and $opt_r !~ /^[012]$/;
 
 my ($user) = $homedir =~ /home\/(\w+)/;
 $user = "USER" if not defined $user;
@@ -97,11 +109,15 @@ sub main {
 	my @types = qw(CH CG GH GC);
 	foreach my $GENE (sort keys %coor) {
 		my $mygene = $GENE;
-		my $strand = $coor{$GENE}{STRAND};
-		for (my $h = 0; $h < 4; $h++) {
-			my $type = $types[$h];
-			my $peakFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.PEAK";
-			$files{$peakFile} = $mygene;
+		my @strands = qw(Pos Neg Unk);
+		#my $strand = $coor{$GENE}{STRAND};
+		for (my $h1 = 0; $h1 < @strands; $h1++) {
+			for (my $h2 = 0; $h2 < 4; $h2++) {
+				my $strand = $strands[$h1];
+				my $type = $types[$h2];
+				my $peakFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.PEAK";
+				$files{$peakFile} = $mygene;
+			}
 		}
 	}
 	my %Rscripts; 
@@ -127,10 +143,7 @@ sub main {
 			LOG($outLog, date() . " Skipped $LCY$file$N (requested want is $LGN$opt_w$N\n");
 			next;
 		} 
-#debug
-		#next if $file !~ /CALM3.+Pos.+GC/;
-#		last if $lastfile =~ /CALM3.+Pos.+/;
-#debugend
+
 		$lastfile = $file;
 		my $STRAND = $coor{$GENE}{STRAND};
 #		my $outPEAKS, ">", "$resDir/PEAKS_GENOME/$pk_filename.genome.bed")   or LOG($outLog, "\tFailed to write into $resDir/PEAKS_GENOME/$pk_filename.genome.bed: $!\n")  and exit 1;
@@ -204,7 +217,7 @@ sub main {
 			my ($currFolder, $currFilename) = getFilename($currFile, "folderfull");
 			my ($label3, $gene3, $strand3, $window3, $thres3, $type3) = parseName($currFilename);
 			#$currFilename =~ s/\.0_orig_//i;
-			
+
 			my $pngoutDir;
 			if (($STRAND eq "+" or $STRAND eq "Pos") and $strand3 eq "Pos" and $type3 eq "CH" and $label3 =~ /PCB([1-9]$|10|12)/i) {
 				$pngoutDir = $p == 0 ? "PEAK/" : "NOPK/";
@@ -241,7 +254,10 @@ sub main {
 			#LOG($outLog, "!HERE STRAND=$STRAND strand=$strand type=$type label=$label pngoutDir = $pngoutDir, p = $p, PNGOUT = $pngout\n");
 #			next if not -e $currFile;
 #			next if linecount($currFile) <= 1;
-			my $Rscript = ".libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\", \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\", .libPaths()) )\nlibrary(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(gridExtra)\nlibrary(RColorBrewer)\n";
+			my $Rscript = "
+.libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\", \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\", .libPaths()) )
+library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(gridExtra)\nlibrary(RColorBrewer)
+";
 			
 			#if (-e $currFile and linecount($currFile) > 10) {
 			my $totread = $totpeak + $totnopk;
@@ -304,33 +320,49 @@ sub main {
 			}
 			open (my $outRscript, ">", "$currFile.R") or (LOG($outLog, date() . "Failed to write R script into $currFile.R: $!\n") and print $outLog $Rscript and next);
 			print $outRscript $Rscript;
-			$Rscripts{"$currFile.R"} = $summary;
+			$Rscripts{"$currFile.R"}{summary} = $summary;
+			$Rscripts{"$currFile.R"}{runR} = $pngoutDir =~ /ALL/ ? 0 : 1;
 			close $outRscript;
 		}
 	}
 	LOG($outLog, "\n\n$YW ----------------- Running R Scripts ------------------$N\n\n");
 	$fileCount = 0;
 	$totalFile = (keys %Rscripts);
+	
+	# open outRscripts for Rscripts that aren't relevant
+	open (my $outR_notrelevant, ">", "$resDir/footPeak_graph_Rscripts.sh") or DIELOG($outLog, date() . " Failed to write to $LCY$resDir/footPeak_graph_Rscripts.sh: $!\n");
 	foreach my $outRscript (sort keys %Rscripts) {
+		my $runR = $Rscripts{$outRscript}{runR};
 		LOG($outLog, date() . " $LCY Skipped $outRscript$N (requested gene is $LGN$opt_g$N\n") and next if defined $opt_g and $outRscript !~ /$opt_g/;
 		$fileCount ++;
-		LOG($outLog, "\n" . date() . "$LGN$fileCount/$totalFile$N. Running $LCY$outRscript$N: $Rscripts{$outRscript}\n");
-		LOG($outLog, date() . "\tR --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n");
 		my $RLOG = 0;
-		$RLOG = system("R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1");
-		my $prevRLOG = $RLOG;
-		if ($RLOG ne 0) {
-			if (not -e "$outRscript.LOG") {
-				$RLOG = "\t$outRscript.LOG cannot be found!\n";
-			}
-			else {
-				my @RLOG = `tail -n 5 $outRscript.LOG`;
-				$RLOG = "\t" . join("\n\t", @RLOG);
-			}
-			LOG($outLog, date() . "\t${LRD}Failed$N to run_Rscript.pl $outRscript: $prevRLOG, LOG:\n$RLOG\n");
+
+		if (($opt_r == 2) or ($opt_r == 1 and $runR == 1)) {
+			LOG($outLog, "\n" . date() . "$LGN$fileCount/$totalFile$N. Running $LCY$outRscript$N: $Rscripts{$outRscript}{summary}\n");
+			LOG($outLog, date() . "\tR --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n");
+			$RLOG = system("R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1");
 		}
 		else {
-			LOG($outLog, date() . "\t${LGN}Success$N on running run_Rscript.pl $LCY$outRscript$N\n");
+			LOG($outLog, "\n" . date() . "$LGN$fileCount/$totalFile$N.$LRD Not$N running $LCY$outRscript$N: $Rscripts{$outRscript}{summary}\n");
+			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n");
+			print $outR_notrelevant "R --vanilla --no-save < $outRscript > $outRscript.LOG 2>&1\n";
+			$RLOG = 1;
+		}
+		my $prevRLOG = $RLOG;
+		if (($opt_r == 2) or ($opt_r == 1 and $runR == 1)) {
+			if ($RLOG ne 0) {
+				if (not -e "$outRscript.LOG") {
+					$RLOG = "\t$outRscript.LOG cannot be found!\n" if $runR == 1;
+				}
+				else {
+					my @RLOG = `tail -n 5 $outRscript.LOG`;
+					$RLOG = "\t" . join("\n\t", @RLOG);
+				}
+				LOG($outLog, date() . "\t${LRD}Failed$N to run_Rscript.pl $outRscript: $prevRLOG, LOG:\n$RLOG\n") if $runR == 1;
+			}
+			else {
+				LOG($outLog, date() . "\t${LGN}Success$N on running run_Rscript.pl $LCY$outRscript$N\n");
+			}
 		}
 	}
 #	LOG($outLog, date . "\tcd $resDir && run_Rscript.pl *MakeHeatmap.R\n");
