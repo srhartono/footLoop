@@ -64,6 +64,8 @@ LOG
 makehash
 DIE
 DIELOG
+makeOutDir
+getFlag
 $DIES
 $N 
 $B
@@ -88,6 +90,64 @@ $LPR
 
 #################################
 
+sub makeOutDir {
+	my ($resDir) = @_;
+	$resDir =~ s/$/\// if $resDir !~ /\/$/;
+	$resDir =~ s/\/+$/\//;
+	my @PEAK = ("PEAK","NOPK");
+	my @TEMP = ("", "_TEMP");
+	my @RCONV = ("", "_RCONV");
+	my @CPG  = ("", "_C");
+	my @ALL = ("ALL");
+	my $OUTDIRS;
+	foreach my $PEAK (@PEAK[0..@PEAK-1]) {
+		foreach my $TEMP (@TEMP[0..@TEMP-1]) {
+			foreach my $RCONV (@RCONV[0..@RCONV-1]) {
+				foreach my $CPG (@CPG[0..@CPG-1]) {
+					my $outDir = $resDir . "$PEAK$TEMP$RCONV$CPG/";
+					my $outDirName = "$PEAK$TEMP$RCONV$CPG/";
+					$OUTDIRS->{$outDirName} = $outDir;
+					makedir($outDir) if not -d $outDir;
+				}
+			}
+		}
+	}
+	$OUTDIRS->{ALL} = "$resDir$ALL[0]/";
+	makedir("$resDir$ALL[0]/") if not -d "$resDir$ALL[0]/";
+	return($OUTDIRS, \@PEAK, \@TEMP, \@RCONV, \@CPG, \@ALL);
+}
+
+sub getFlag {
+	my ($geneStrand, $readStrand, $rconvType, $TEMP, $RCONV, $CPG, $ALL) = @_;
+	return ($ALL->[0]) if $readStrand eq "Unk";
+	my $temp  = $geneStrand eq $readStrand ? $TEMP->[0] : $TEMP->[1];	
+	my $rconv = (($rconvType =~ /^C/ and $readStrand eq "Pos") or ($rconvType =~ /^G/ and $readStrand eq "Neg")) ? $RCONV->[0] : $RCONV->[1];
+	my $cpg   = $rconvType !~ /^(CG|GC)$/ ? $CPG->[0] : $CPG->[1];
+	return($temp . $rconv . $cpg);
+=comment	
+	if ($geneStrand eq $readStrand) {
+		if ($geneStrand eq "Pos" and $convType eq "CH") {
+			
+		}
+	}
+	if (($STRAND eq "Pos" and $strand3 eq "Pos" and $type3 eq "CH") or ($STRAND eq "Neg" and $strand3 eq "Neg" and $type3 eq "GH")) {
+		$flag = "";
+	}
+	elsif (($STRAND eq "Pos" and $strand3 eq "Neg" and $type3 eq "GH") or ($STRAND eq "Neg" and $strand3 eq "Pos" and $type3 eq "CH")) {
+		$flag = $p == 0 ? $PEAK->[0] . $TEMP->[1] : $PEAK->[1] . $TEMP->[1]; #"PEAKNEG/" : "NOPKNEG/";
+	}
+	elsif (($STRAND eq "Pos" and $strand3 eq "Pos" and $type3 eq "CG") or ($STRAND eq "Neg" and $strand3 eq "Neg" and $type3 eq "GC")) {
+		$flag = $p == 0 ? $PEAK->[0] . $CPG->[1] : $PEAK->[1] . $CPG->[1]; #"PEAK/" : "NOPK/"; CG
+	}
+	elsif (($STRAND eq "Pos" and $strand3 eq "Neg" and $type3 eq "GC") or ($STRAND eq "Neg" and $strand3 eq "Pos" and $type3 eq "CG")) {
+		$flag = $p == 0 ? $PEAK->[0] . $TEMP->[1] . $CPG->[1] : $PEAK->[1] . $TEMP->[1] . $CPG->[1]; #"PEAKNEG/" : "NOPKNEG/"; CG
+	}
+	else {
+		$flag = "ALL/";
+	}
+
+=cut
+}
 sub parse_indexFile {
 	my ($indexFile) = @_;
 	my %data;
