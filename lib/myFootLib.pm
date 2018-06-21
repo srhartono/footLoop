@@ -243,6 +243,7 @@ sub LOG {
 		$STEP += $STEPCOUNT if defined $STEPCOUNT;
 		$text =~ s/\$STEP/$STEP/g;
 	}
+	$text = "NO TEXT!?" if not defined $text;
    print $outLog $text;
 	print $text;
 	return $STEP if defined $STEP;
