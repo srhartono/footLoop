@@ -17,8 +17,8 @@ sub main {
 	# $peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ;
 
 	my ($input1, $faFile, $mygene, $minDis, $resDir, $minLen, $SEQ, $outLog) = @_;
-	DIELOG($outLog, $0, "Usage: $YW$0$N [-c to use cpg] $CY<CALM3_Pos_20_0.65_CG.PEAK>$N $CY<location with lots of C>$N\n\n") unless @_ == 7;
-	DIELOG($outLog, date() . "footPeakAddon.pm: Input cannot be directry!\n" and exit 1 if -d $input1;
+	#DIELOG($outLog, $0, "Usage: $YW$0$N [-c to use cpg] $CY<CALM3_Pos_20_0.65_CG.PEAK>$N $CY<location with lots of C>$N\n\n") unless @_ == 7;
+	#DIELOG($outLog, date() . "footPeakAddon.pm: Input cannot be directry!\n") and exit 1 if -d $input1;
 	my @foldershort = split("\/", $resDir);
 	my $foldershort = pop(@foldershort);
 	($input1) = getFullpath($input1);
