@@ -282,7 +282,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 	LOG($outLog, "\n\n" . date() . "\n\n");
 	my $peakFilez = "$resDir/.CALL/$peakFilename\_$window\_$threshold\_CG.PEAK";
 #   my ($input1, $faFile, $mygene, $minDis, $resDir, $minLen, $SEQ, $outLog) = @_;
-	my $footPeakres = footPeakAddon::main(($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ, $outLog));
+	my $footPeakres = footPeakAddon::main(($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ, $version, $outLog));
 	die "Failed footpeak\n" if defined $footPeakres and $footPeakres eq -1;
 }
 #system("/bin/cp $opts->{origDir}/footPeak_logFile.txt $resDir/");
@@ -837,7 +837,7 @@ sub set_default_opts {
 		(
 		'd' => '250'     ,'g' => ''        ,'i' => ''        ,'k' => '50'      ,
 		'l' => '100'     ,'n' => ''        ,'q' => '0'       ,'r' => ''        ,
-		's' => '200'     ,'t' => '65'      ,'w' => '20'      ,'x' => '0'       ,
+		's' => '200'     ,'t' => '55'      ,'w' => '20'      ,'x' => '0'       ,
 		'y' => '0'       ,'K' => '2'       ,'L' => '0'       ,'A' => ''        ,
 		'o' => 'RESULTS' ,'G' => ''
 	);
@@ -1020,7 +1020,7 @@ Usage: $YW$scriptName$LGN [Options: -w|-t|-G]$N -n $LCY<footLoop output folder>$
 
 Options$LGN [default]$N:
 -w: window size$LGN [20]$N
--t: threshold in \%$LGN [65]$N
+-t: threshold in \%$LGN [55]$N
 -G: only process this gene$LGN [NA]$N
 
 footLoop folder: $scriptFolder$N

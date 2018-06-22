@@ -38,6 +38,8 @@ my ($dist, $footPeakFolder) = ($opt_d, $opt_n);
 # sanity check -n footPeakFolder
 die "\nUsage: $YW$0$N $LGN-g gene$N $CY-n <footPeak's output folder (footPeak's -o)>$N\n\n" unless defined $opt_n and -d $opt_n;
 my $outDir = "$footPeakFolder/FOOTCLUST/";
+$outDir= getFullpath($outDir);
+
 makedir($outDir);
 die "Failed to create output directory $LCY$outDir$N!\n" unless -d $outDir;
 makedir("$outDir/.TEMP");
@@ -260,7 +262,7 @@ foreach my $input1 (sort @local_peak_files) {
 	.libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\", \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\", .libPaths()) )\nlibrary(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(gridExtra)\nlibrary(RColorBrewer)
 	
 	set.seed(420)
-	setwd(\"$outDir\");
+	#setwd(\"$outDir/../../\");
 	library(ggplot2)
 	df = read.table(\"$outDir/.TEMP/$fullName1.temp\",header=T,sep=\"\\t\",row.names=1,colClasses=c(\"factor\",\"integer\",\"integer\"))
 	lenz = length(unique(paste(df\$beg,df\$end)))
@@ -316,7 +318,7 @@ foreach my $input1 (sort @local_peak_files) {
 	print $outR $Rscript;
 	system("R --vanilla --no-save < $outDir/.TEMP/$fullName1.temp.R > $outDir/.TEMP/$fullName1.temp.R.log 2>&1");
 	close $outR;
-	my @Rlog = `tail -n 1 $outDir/.TEMP/$fullName1.temp.R.log`;
+	my @Rlog = `tail -n 5 $outDir/.TEMP/$fullName1.temp.R.log`;
 	LOG($outLog, date() . "$LCY\tR logs$N:\n\t\t\t\t" . join("\n\t\t\t\t", @Rlog) . "\n");
 	
 	# process clust
