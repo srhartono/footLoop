@@ -243,8 +243,13 @@ sub LOG {
 		$STEP += $STEPCOUNT if defined $STEPCOUNT;
 		$text =~ s/\$STEP/$STEP/g;
 	}
-	$text = "NO TEXT!?" if not defined $text;
-   print $outLog $text;
+	if (defined $outLog) {
+		$text = "NO TEXT!?" if not defined $text;
+	   print $outLog $text;
+	}
+	else {
+		print "$LRD\tmyFootLib.pm:: LOG \$outLog isn't defined!! Only printing text$N\n";
+	}
 	print $text;
 	return $STEP if defined $STEP;
 }

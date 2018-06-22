@@ -281,7 +281,8 @@ for (my $i = 0; $i < @origFile; $i++) {
 	}
 	LOG($outLog, "\n\n" . date() . "\n\n");
 	my $peakFilez = "$resDir/.CALL/$peakFilename\_$window\_$threshold\_CG.PEAK";
-	my $footPeakres = footPeakAddon::main(($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ));
+#   my ($input1, $faFile, $mygene, $minDis, $resDir, $minLen, $SEQ, $outLog) = @_;
+	my $footPeakres = footPeakAddon::main(($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ, $outLog));
 	die "Failed footpeak\n" if defined $footPeakres and $footPeakres eq -1;
 }
 #system("/bin/cp $opts->{origDir}/footPeak_logFile.txt $resDir/");

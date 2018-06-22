@@ -27,6 +27,7 @@ sub main {
 	makedir("$resDir/.CALL") if not -d "$resDir/\.CALL";
 	makedir("$resDir/PEAKS_GENOME") if not -d "$resDir/PEAKS_GENOME";
 	makedir("$resDir/PEAKS_LOCAL") if not -d "$resDir/PEAKS_LOCAL";
+=comment
 	makedir("$resDir/PNG") if not -d "$resDir/PNG";
 	makedir("$resDir/PNG/PEAK") if not -d "$resDir/PNG/PEAK";
 	makedir("$resDir/PNG/PEAKNEG") if not -d "$resDir/PNG/PEAKNEG";
@@ -39,6 +40,7 @@ sub main {
 	makedir("$resDir/PDF/NOPK") if not -d "$resDir/PDF/NOPK";
 	makedir("$resDir/PDF/NOPKNEG") if not -d "$resDir/PDF/NOPKNEG";
 	makedir("$resDir/PDF/ALL/") if not -d "$resDir/PDF/ALL/";
+=cut
 	#open (my $outLog, ">>", "$resDir/footLoop_addition_logFile.txt") or die;
 
 	
