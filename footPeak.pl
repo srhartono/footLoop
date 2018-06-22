@@ -646,7 +646,7 @@ footLoop samFixedMD5 : $defOpts->{samFixedMD5}
 		next if defined $usrOpts2->{$opt};
 		#next if not defined $logs->{$opt}; next if $opt eq "origDir";
 		$optcount ++;
-		$param .= "-$opt : $defOpts->{$opt}\n";
+		$param .= "-$opt : $defOpts->{$opt}\n" if defined $defOpts->{$opt};
 	}
 	$param .= "\n\n$YW----------------------------------------------->$N\n\n";
 
@@ -849,15 +849,16 @@ sub set_default_opts {
 		(
 		'd' => $opt_d    ,'g' => $opt_g    ,'h' => 'FALSE'   ,'k' => $opt_k    ,
 		'l' => $opt_l    ,'n' => $opt_n    ,'p' => $opt_p    ,'s' => $opt_s    ,
-		't' => $opt_t    ,'w' => $opt_w    ,'K' => $opt_K    ,'A' => $opt_A    ,
-		'o' => $opt_o    ,'G' => $opt_G
+		't' => $opt_t    ,'w' => $opt_w    ,'K' => $opt_K    ,'A' => 'FALSE'   ,
+		'o' => $opt_o    ,'G' => 'FALSE'
 		);
 
 	my %usrOpts2 =
 		(
 		'd' => 'd'    ,'g' => 'g'    ,'h' => 'FALSE'    ,'k' => 'k'    ,
 		'l' => 'l'    ,'n' => 'n'    ,'p' => 'p'    		,'s' => 's'    ,
-		't' => 't'    ,'w' => 'w'    ,'K' => 'K'    
+		't' => 't'    ,'w' => 'w'    ,'K' => 'K'        ,'G' => 'G'    ,
+      'A' => 'A'
 		);
 
 	print_default_opts(\%defOpts, \%usrOpts) and die if @ARGV == 1 and $ARGV[0] eq "ex";
