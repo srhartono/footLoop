@@ -607,6 +607,7 @@ sub record_options {
    foreach my $opt (sort keys %{$defOpts}) {
 		next if $opt !~ /^.$/;
       my $val = $defOpts->{$opt};
+		if (not defined $val) {print "opt=$opt, val undefnied!\n"}
       $optPrint .= $val eq "FALSE" ? "" : $val eq "" ? " -$opt " : $val eq "MYTRUE" ? " -$opt" : " -$opt $val";
 		$optShort .= (not defined $usrOpts->{$opt}) ? "" : $val eq "FALSE" ? "" : $val eq "" ? "" : $val eq "MYTRUE" ? " -$opt" : " -$opt $val";
    }
