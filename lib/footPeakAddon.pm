@@ -127,7 +127,7 @@ $YW-------------------------------$N
 
 		if (defined $data->{peak}) {
 			die if @{$data->{peak}} != $total->{$type}{peak};
-			print "HERE: $folder1/$peakfileName.out\n";
+			#print "HERE: $folder1/$peakfileName.out\n";
 			open (my $out1, ">", "$resDir/.CALL/$peakfileName.out") or LOG($outLog, date() . "Cannot write to $peakfileName.out: $!\n") and exit 1;
 			foreach my $val (sort @{$data->{peak}}) {
 				print $out1 "$val\n";
@@ -136,7 +136,7 @@ $YW-------------------------------$N
 		}
 		if (defined $data->{nopk}) {
 			die if @{$data->{nopk}} != $total->{$type}{nopk};
-			print "HERE: $folder1/$nopkfileName.out\n";
+			#print "HERE: $folder1/$nopkfileName.out\n";
 			open (my $out1, ">", "$resDir/.CALL/$nopkfileName.out") or LOG($outLog, date() . "Cannot write to $nopkfileName.out: $!\n") and exit 1;
 			foreach my $val (sort @{$data->{nopk}}) {
 				print $out1 "$val\n";
