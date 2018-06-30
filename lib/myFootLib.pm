@@ -108,12 +108,14 @@ sub makeOutDir {
 					my $outDirName = "$PEAK$TEMP$RCONV$CPG/";
 					$OUTDIRS->{$outDirName} = $outDir;
 					makedir($outDir) if not -d $outDir;
+					makedir("$outDir/ALL/") if not -d "$outDir/ALL/";
 				}
 			}
 		}
 	}
 	$OUTDIRS->{ALL} = "$resDir$ALL[0]/";
 	makedir("$resDir$ALL[0]/") if not -d "$resDir$ALL[0]/";
+	makedir("$resDir$ALL[0]/ALL/") if not -d "$resDir$ALL[0]/ALL/";
 	return($OUTDIRS, \@PEAK, \@TEMP, \@RCONV, \@CPG, \@ALL);
 }
 
