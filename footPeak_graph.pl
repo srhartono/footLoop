@@ -931,6 +931,10 @@ totalheight_nopk_last = (totalread_nopk + 31.25) * myscale
 totalratio_nopk_last  = c(totalread_nopk/(totalread_nopk+31.25+26.5625), 31.25 / (totalread_nopk+31.25+26.5625))
 ";
 
+	my ($pngoutFolder, $pngoutFilename) = getFilename($pngout, "folderfull");
+	my ($pdfoutFolder, $pdfoutFilename) = getFilename($pdfout, "folderfull");
+
+
 	$R->{PNG} = "
 
 # PNG
@@ -940,6 +944,12 @@ if (mynrow == 3) {
 } else {
 	grid.arrange(p,p2,ncol=1,nrow=mynrow,heights=totalratio)
 }
+dev.off()
+
+# PNG all Conv
+pngout_peak_all_c_conv = \"$pngoutFolder/ALL/$pngoutFilename.ALL.c_conv.png\"
+png(pngout_peak_all_c_conv,width=totalwidth,height=31.25*myscale)
+grid.arrange(p2)
 dev.off()
 
 ";
@@ -955,11 +965,14 @@ if (mynrow == 3) {
 }
 dev.off()
 
+# PDF all Conv
+pdfout_peak_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.ALL.c_conv.pdf\"
+pdf(pdfout_peak_all_c_conv,width=totalwidth,height=31.25*myscale)
+grid.arrange(p2)
+dev.off()
+
 ";
 	
-	my ($pngoutFolder, $pngoutFilename) = getFilename($pngout, "folderfull");
-	my ($pdfoutFolder, $pdfoutFilename) = getFilename($pdfout, "folderfull");
-
 	$R->{PNG_nopk} = "
 
 # PNG
