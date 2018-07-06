@@ -679,9 +679,21 @@ if (df.total > 1000) {
 	df.rand = df
 	print(\"NOT randoming 1000. DF TOTAL = \"); print(df.total)
 }
+
+# sorting by hclust
+if (dim(df.rand)[1] < 1000) {
+	h = hclust(dist(df.rand[,-1]))
+	df.rand = df.rand[h\$order,]
+} else if (dim(df.rand)[2] < 10) {
+	mysum = apply(df.rand[,-1],1,sum)
+	df.rand = df.rand[order(mysum),]
+}
+df.rand\$y = seq(1,dim(df.rand)[1])
+
 #write.table(df,file=\"$resDir/.CALL/$currFilename.out.rand\",quote=F,row.names=F,col.names=F,sep=\"\\t\")
 write.table(df.rand,file=\"$currFile.rand\",quote=F,row.names=F,col.names=F,sep=\"\\t\")
 print(\"Wrote to $currFile.rand\")
+
 dm.rand = melt(df.rand,id.vars=c(\"V1\",\"y\"))
 print(dim(df.rand))
 print(dim(dm.rand))
