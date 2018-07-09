@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 	
 use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_d $opt_n $opt_G);
+use vars qw($opt_v $opt_d $opt_n $opt_G $opt_t);
 getopts("vd:n:G:");
 
 #########
@@ -39,6 +39,8 @@ my ($dist, $footPeakFolder) = ($opt_d, $opt_n);
 die "\nUsage: $YW$0$N $LGN-g gene$N $CY-n <footPeak's output folder (footPeak's -o)>$N\n\n" unless defined $opt_n and -d $opt_n;
 my $outDir = "$footPeakFolder/FOOTCLUST/";
 $outDir= getFullpath($outDir);
+
+my $clustThreshold = defined $opt_t ? $opt_t : 3;
 
 makedir($outDir);
 die "Failed to create output directory $LCY$outDir$N!\n" unless -d $outDir;
@@ -86,7 +88,7 @@ while (my $line = <$inGeneIndexFile>) {
 	$coor{uc($gene)}{strand} = $strand;
 }
 close $inGeneIndexFile;
-LOG($outLog, "gene Index file = $geneIndexFile\n");
+LOG($outLog, "cluster threshold = $clustThreshold\ngene Index file = $geneIndexFile\n");
 
 # sanity check -d distance
 $dist = 250 if not defined $opt_d;
@@ -271,7 +273,7 @@ foreach my $input1 (sort @local_peak_files) {
 		set.seed(420)
 		for (i in 2:30) {
 			k = kmeans(df,i)
-			mylen = length(k[k\$withinss/1e6 > 3])
+			mylen = length(k[k\$withinss/1e6 > $clustThreshold])
 			if (mylen == 0) {
 				k.best = i
 				break
