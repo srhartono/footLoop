@@ -2,7 +2,7 @@
 	
 use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
 use vars qw($opt_v $opt_d $opt_n $opt_G $opt_t);
-getopts("vd:n:G:");
+getopts("vd:n:G:t:");
 
 #########
 # BEGIN #
