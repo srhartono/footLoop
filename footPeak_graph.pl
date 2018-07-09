@@ -2,8 +2,8 @@
 # V3.7c
 
 use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_w $opt_g $opt_G $opt_v $opt_n $opt_r $opt_R); #v $opt_x $opt_R $opt_c $opt_t $opt_n);
-getopts("n:vg:w:G:r:R:");
+use vars qw($opt_w $opt_g $opt_G $opt_v $opt_n $opt_r $opt_R $opt_B); #v $opt_x $opt_R $opt_c $opt_t $opt_n);
+getopts("n:vg:w:G:r:R:B:");
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
@@ -42,6 +42,8 @@ ${LGN}Optionals$N:
    -R 1: run only relevant R scripts
    -R 2: run ALL R scripts
 
+-B: <BED3 file> add option to add box in the graph
+
 " if not defined $opt_n;
 die "\nERROR: -n footPeak dir $LCY$opt_n$N doesn't exists!\n\nUsage: $YW$0$N -n <footPeak output directory>\n\n" if not -d $opt_n;
 
@@ -54,6 +56,10 @@ $user = "USER" if not defined $user;
 my $uuid = getuuid();
 my $date = date();
 
+my $boxFile;
+if (defined $opt_B and -e $opt_B) {
+	$boxFile = getFullpath($opt_B);
+}
 main($opt_n);
 sub main {
 	my ($resDir) = @_;
@@ -290,6 +296,11 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 				else {
 					$Rscript .= $R->{secondplotConversionGraph};
 					$Rscript .= $R->{secondplotConversionGraph_rand};
+				}
+
+				if (defined $opt_B and -e $opt_B) {
+					print "ADDED $opt_B\n";
+					$Rscript .= $R->{box};
 				}
 
 				# Add Third Plot and Do PNG
@@ -662,7 +673,12 @@ p = ggplot(dm,aes(variable,y)) +
 
 ";
 
+	$R->{box} = "
 
+	box = read.table(\"$boxFile\",sep=\"\\t\")
+	p = p + geom_rect(data=box,aes(x=0,y=0,xmin=V2,xmax=V3,ymin=0,ymax=max(dm\$y)),fill=NA,color=\"black\")
+	
+	";
 # -------------------- $R->{mainplot_nopk}
 	$R->{mainplot_nopk} .= "
 
