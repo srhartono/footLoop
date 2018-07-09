@@ -3,8 +3,8 @@
 use strict; use warnings; use Getopt::Std; use Time::HiRes; use Benchmark qw(:all); use Benchmark ':hireswallclock'; use Carp;
 use Thread; use Thread::Queue;
 use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_n $opt_i $opt_V $opt_a $opt_b $opt_f $opt_h $opt_H $opt_o);
-getopts("vn:i:Va:b:f:hHo:");
+use vars qw($opt_v $opt_n $opt_i $opt_V $opt_a $opt_b $opt_f $opt_h $opt_H $opt_o $opt_l);
+getopts("vn:i:Va:b:f:hHo:l:");
 srand(420);
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -36,7 +36,7 @@ my $uuid = getuuid();
 my ($footFolder) = $opt_n;
 my ($scriptName) = getFilename($0);
 #my ($FOLDER1) = @ARGV;
-
+my $LABEL = defined $opt_l ? $opt_l : "";
 my $usage = "
 
 $YW ------------------------------------------- $N
@@ -50,7 +50,7 @@ $LGN-o$N: output directory
 $LPR-i$N: original footLoop geneIndexes$LCY bed6$N file
 $LCY-a$N: footPeak peak bedfile or folder containing peak bedfiles (peaks has to come ${LCY}from PEAKS_GENOME$N)
 $LGN-b$N: (Optional): bedfile or folder containing bedfiles to be compared with -a
-
+-l: (optional) label for the output result pdf
 
 Do $YW-h$N for more information about options and file formats
 Do $YW-H$N for even longer information
@@ -546,11 +546,19 @@ foreach my $group (sort keys %input) {
 	}
 }
 
+my $Rscript = Rscript($outdir, "RESULTS.tsv");
+open (my $outR, ">", "$outdir/RESULTS.R") or DIELOG($outLog, "\n\n" . date() . " Failed to write to $outdir/RESULTS.R: $!\n");
+print $outR $Rscript;
+close $outR;
+
+
 LOG($outLog, "\n\n$YW -------------- Checking if All Files were Processed  ----------- $N\n\n");
 
 foreach my $input12 (sort keys %processed) {
 #	print "Not done: $input12\n" if $processed{$group}{$input12} == 0;
 }
+
+my $RscriptLog = `run_Rscript.pl $outdir/RESULTS.R`;
 =comment
 		my $difftot = 0;
 		for (my $i = 0; $i < @orig1; $i ++) {
@@ -608,6 +616,7 @@ foreach my $input12 (sort keys %processed) {
 =cut
 
 
+
 sub parseNameDetail {
 	my ($fileName1) = @_;
 	my ($label, $gene, $strand, $window, $thres, $type) = parseName($fileName1);
@@ -642,6 +651,73 @@ sub parse_bedFile {
 	close $in1;
 	return ($data, $total);
 }
+
+sub Rscript {
+	my ($outdir, $result) = @_;
+	my $outpdf = $LABEL eq "" ? "$result.pdf" : $LABEL;
+	my $Rscript = "
+.libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\", \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\", .libPaths()) )
+library(labeling)
+library(ggplot2)
+library(reshape2)
+library(grid)
+library(gridExtra)
+library(RColorBrewer)
+
+setwd(\"$outdir\")
+df = read.table(\"$result\",header=T,sep=\"\t\")
+origA = df[df\$shuftype == \"ORIG\" & df\$peakname == \"peak1\",]
+cor(origA\$xpos,origA\$ypos)
+origB = df[df\$shuftype == \"ORIG\" & df\$peakname == \"peak2\",]
+shuf1A = df[df\$shuftype == \"SHUF1\" & df\$peakname == \"peak1\",]
+shuf1B = df[df\$shuftype == \"SHUF1\" & df\$peakname == \"peak2\",]
+shuf2A = df[df\$shuftype == \"SHUF2\" & df\$peakname == \"peak1\",]
+shuf2B = df[df\$shuftype == \"SHUF2\" & df\$peakname == \"peak2\",]
+origA = origA[order(as.integer(origA\$beg1/100),as.integer(origA\$end1/100),as.integer((origA\$end1-origA\$beg1)/100)),];origA\$y = seq(1,dim(origA)[1])
+origB = origB[order(as.integer(origB\$beg2/100),as.integer(origB\$end2/100),as.integer((origB\$end2-origB\$beg2)/100)),];origB\$y = seq(1,dim(origB)[1])
+shuf1A = shuf1A[order(as.integer(shuf1A\$beg1/100),as.integer(shuf1A\$end1/100),as.integer((shuf1A\$end1-shuf1A\$beg1)/100)),];shuf1A\$y = seq(1,dim(shuf1A)[1])
+shuf1B = shuf1B[order(as.integer(shuf1B\$beg2/100),as.integer(shuf1B\$end2/100),as.integer((shuf1B\$end2-shuf1B\$beg2)/100)),];shuf1B\$y = seq(1,dim(shuf1B)[1])
+shuf2A = shuf2A[order(as.integer(shuf2A\$beg1/100),as.integer(shuf2A\$end1/100),as.integer((shuf2A\$end1-shuf2A\$beg1)/100)),];shuf2A\$y = seq(1,dim(shuf2A)[1])
+shuf2B = shuf2B[order(as.integer(shuf2B\$beg2/100),as.integer(shuf2B\$end2/100),as.integer((shuf2B\$end2-shuf2B\$beg2)/100)),];shuf2B\$y = seq(1,dim(shuf2B)[1])
+origA.cor = cor(origA\$ypos,origA\$xpos,method=\"pearson\")
+origB.cor = cor(origB\$ypos,origB\$xpos,method=\"pearson\")
+shuf1A.cor = cor(shuf1A\$ypos,shuf1A\$xpos,method=\"pearson\")
+shuf1B.cor = cor(shuf1B\$ypos,shuf1B\$xpos,method=\"pearson\")
+shuf2A.cor = cor(shuf2A\$ypos,shuf2A\$xpos,method=\"pearson\")
+shuf2B.cor = cor(shuf2B\$ypos,shuf2B\$xpos,method=\"pearson\")
+
+pdf(\"$outpdf\",width=42,height=7);
+p1 = ggplot(origA,aes(xmin=beg1,xmax=end1,ymin=y,ymax=y+1)) + geom_rect(fill=rgb(1,1,1,0),color=\"black\") + theme_bw() + theme(panel.grid=element_blank()) + annotate(geom=\"text\",x=0,y=0,label=unique(origA\$restype1),hjust=0)
+p2 = ggplot(origA,aes(xmin=beg2,xmax=end2,ymin=y,ymax=y+1)) + geom_rect(fill=rgb(1,1,1,0),color=\"black\") + theme_bw() + theme(panel.grid=element_blank()) + annotate(geom=\"text\",x=0,y=0,label=unique(origA\$restype2),hjust=0)
+p3 = ggplot(origA,aes(x=xpos,y=ypos)) + geom_point(size=0.5,alpha=0.5) + annotate(geom=\"segment\",x=0,y=0,xend=5000,yend=5000) + coord_cartesian(xlim=c(0,6000),ylim=c(0,6000)) + stat_smooth(method=\"lm\") + annotate(geom=\"text\",x=2000,y=2000,label=origA.cor) + theme_bw() + theme(panel.grid=element_blank())
+p4 = ggplot(origB,aes(xmin=beg2,xmax=end2,ymin=y,ymax=y+1)) + geom_rect(fill=rgb(1,1,1,0),color=\"black\") + theme_bw() + theme(panel.grid=element_blank()) + annotate(geom=\"text\",x=0,y=0,label=unique(origB\$restype2),hjust=0)
+p5 = ggplot(origB,aes(xmin=beg1,xmax=end1,ymin=y,ymax=y+1)) + geom_rect(fill=rgb(1,1,1,0),color=\"black\") + theme_bw() + theme(panel.grid=element_blank()) + annotate(geom=\"text\",x=0,y=0,label=unique(origB\$restype1),hjust=0)
+p6 = ggplot(origB,aes(x=xpos,y=ypos)) + geom_point(size=0.5,alpha=0.5) + annotate(geom=\"segment\",x=0,y=0,xend=5000,yend=5000) + coord_cartesian(xlim=c(0,6000),ylim=c(0,6000)) + stat_smooth(method=\"lm\") + annotate(geom=\"text\",x=2000,y=2000,label=origB.cor)+ theme_bw() + theme(panel.grid=element_blank())
+grid.arrange(p1,p2,p3,p4,p5,p6,nrow=1,ncol=6)
+p1 = ggplot(shuf1A,aes(xmin=beg1,xmax=end1,ymin=y,ymax=y+1)) + geom_rect(fill=rgb(1,1,1,0),color=\"black\") + theme_bw() + theme(panel.grid=element_blank()) + annotate(geom=\"text\",x=0,y=0,label=unique(shuf1A\$restype1),hjust=0)
+p2 = ggplot(shuf1A,aes(xmin=beg2,xmax=end2,ymin=y,ymax=y+1)) + geom_rect(fill=rgb(1,1,1,0),color=\"black\") + theme_bw() + theme(panel.grid=element_blank()) + annotate(geom=\"text\",x=0,y=0,label=paste(unique(shuf1A\$restype2),\"shuf\"),hjust=0)
+p3 = ggplot(shuf1A,aes(x=xpos,y=ypos)) + geom_point(size=0.5,alpha=0.5) + annotate(geom=\"segment\",x=0,y=0,xend=5000,yend=5000) + coord_cartesian(xlim=c(0,6000),ylim=c(0,6000)) + stat_smooth(method=\"lm\") + annotate(geom=\"text\",x=2000,y=2000,label=shuf1A.cor) + theme_bw() + theme(panel.grid=element_blank())
+p4 = ggplot(shuf1B,aes(xmin=beg2,xmax=end2,ymin=y,ymax=y+1)) + geom_rect(fill=rgb(1,1,1,0),color=\"black\") + theme_bw() + theme(panel.grid=element_blank()) + annotate(geom=\"text\",x=0,y=0,label=paste(unique(shuf1B\$restype2),\"shuf\"),hjust=0)
+p5 = ggplot(shuf1B,aes(xmin=beg1,xmax=end1,ymin=y,ymax=y+1)) + geom_rect(fill=rgb(1,1,1,0),color=\"black\") + theme_bw() + theme(panel.grid=element_blank()) + annotate(geom=\"text\",x=0,y=0,label=unique(shuf1B\$restype1),hjust=0)
+p6 = ggplot(shuf1B,aes(x=xpos,y=ypos)) + geom_point(size=0.5,alpha=0.5) + annotate(geom=\"segment\",x=0,y=0,xend=5000,yend=5000) + coord_cartesian(xlim=c(0,6000),ylim=c(0,6000)) + stat_smooth(method=\"lm\") + annotate(geom=\"text\",x=2000,y=2000,label=shuf1B.cor) +theme_bw() + theme(panel.grid=element_blank())
+grid.arrange(p1,p2,p3,p4,p5,p6,nrow=1,ncol=6)
+p1 = ggplot(shuf2A,aes(xmin=beg1,xmax=end1,ymin=y,ymax=y+1)) + geom_rect(fill=rgb(1,1,1,0),color=\"black\") + theme_bw() + theme(panel.grid=element_blank()) + annotate(geom=\"text\",x=0,y=0,label=paste(unique(shuf2A\$restype1),\"shuf\"),hjust=0)
+p2 = ggplot(shuf2A,aes(xmin=beg2,xmax=end2,ymin=y,ymax=y+1)) + geom_rect(fill=rgb(1,1,1,0),color=\"black\") + theme_bw() + theme(panel.grid=element_blank()) + annotate(geom=\"text\",x=0,y=0,label=unique(shuf2A\$restype2),hjust=0)
+p3 = ggplot(shuf2A,aes(x=xpos,y=ypos)) + geom_point(size=0.5,alpha=0.5) + annotate(geom=\"segment\",x=0,y=0,xend=5000,yend=5000) + coord_cartesian(xlim=c(0,6000),ylim=c(0,6000)) + stat_smooth(method=\"lm\") + annotate(geom=\"text\",x=2000,y=2000,label=shuf2A.cor) +theme_bw() + theme(panel.grid=element_blank())
+p4 = ggplot(shuf2B,aes(xmin=beg2,xmax=end2,ymin=y,ymax=y+1)) + geom_rect(fill=rgb(1,1,1,0),color=\"black\") + theme_bw() + theme(panel.grid=element_blank()) + annotate(geom=\"text\",x=0,y=0,label=unique(shuf2B\$restype2),hjust=0)
+p5 = ggplot(shuf2B,aes(xmin=beg1,xmax=end1,ymin=y,ymax=y+1)) + geom_rect(fill=rgb(1,1,1,0),color=\"black\") + theme_bw() + theme(panel.grid=element_blank()) + annotate(geom=\"text\",x=0,y=0,label=paste(unique(shuf2B\$restype1),\"shuf\"),hjust=0)
+p6 = ggplot(shuf2B,aes(x=xpos,y=ypos)) + geom_point(size=0.5,alpha=0.5) + annotate(geom=\"segment\",x=0,y=0,xend=5000,yend=5000) + coord_cartesian(xlim=c(0,6000),ylim=c(0,6000)) + stat_smooth(method=\"lm\") + annotate(geom=\"text\",x=2000,y=2000,label=shuf2B.cor) +theme_bw() + theme(panel.grid=element_blank())
+grid.arrange(p1,p2,p3,p4,p5,p6,nrow=1,ncol=6)
+dev.off()
+
+";
+
+	return ($Rscript);
+}
+
+
+
+
 __END__
 
 
