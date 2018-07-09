@@ -41,7 +41,7 @@ my $outDir = "$footPeakFolder/FOOTCLUST/";
 $outDir= getFullpath($outDir);
 
 my $clustThreshold = defined $opt_t ? $opt_t : 3;
-
+die "\n\nERROR! -t must be positive number (pls don't make it scientific format, use a decimal)!\n" if ($clustThreshold !~ /^\d+\.?\d*$/);
 makedir($outDir);
 die "Failed to create output directory $LCY$outDir$N!\n" unless -d $outDir;
 makedir("$outDir/.TEMP");
