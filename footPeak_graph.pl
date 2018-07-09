@@ -299,7 +299,7 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 				}
 
 				if (defined $opt_B and -e $opt_B) {
-					print "ADDED $opt_B\n";
+					LOG($outLog, date() . "\t\t-> ADDED $boxFile!\n","NA");
 					$Rscript .= $R->{box};
 				}
 
