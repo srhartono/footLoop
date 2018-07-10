@@ -253,6 +253,7 @@ foreach my $group (sort keys %input) {
 		my $fileCount2 = 0;
 		foreach my $input2 (sort keys %{$input{$group}{2}}) {
 			#next unless $input1 =~ /PCB1_/ and $input2 =~ /PCB5_/ and $genez eq "CALM3";
+			next if $input1 eq $input2;
 			next if defined $done->{$group}{"$input1\_$input2"} or defined $done->{$group}{"$input2\_$input1"};
 			$fileCount2 ++; #last if $fileCount2 > 2;
 			my $STRAND = $index->{$genez}{strand};
