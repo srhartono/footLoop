@@ -186,6 +186,7 @@ foreach my $input1 (@FOLDER1[0..@FOLDER1-1]) {
 	my $total = 0;
 	my ($folder1, $fileName1) = getFilename($input1, "folderfull");
 	my ($label, $barcode, $treat, $gene, $strand, $window, $thres, $type) = parseNameDetail($fileName1);
+	$gene = uc($gene);
 	my $conv = $type =~ /^C/ ? "C" : "G";
 	DIELOG($outLog, date() . "$LRD  ERROR$N: gene $gene doesn't exists in indexFile $LCY$indexFile$N\n") if not defined $index->{$gene};
 	($data, $total) = parse_bedFile($input1, $data);
@@ -203,6 +204,7 @@ if (defined $opt_b and -e $opt_b) {
 		my $total = 0;
 		my ($folder2, $fileName2) = getFilename($input2, "folderfull");
 		my ($label, $barcode, $treat, $gene, $strand, $window, $thres, $type) = parseNameDetail($fileName2);
+		$gene = uc($gene);
 		my $conv = $type =~ /^C/ ? "C" : "G";
 		DIELOG($outLog, date() . "$LRD  ERROR$N: gene $gene doesn't exists in indexFile $LCY$indexFile$N\n") if not defined $index->{$gene};
 		($data, $total) = parse_bedFile($input2, $data);
@@ -238,6 +240,8 @@ open (my $out1, ">", "$outdir/RESULTS.tsv") or DIELOG($outLog, "\n\nFailed to wr
 print $out1 "shuftype\trestype1\trestype2\tgroup\tpeak1\tpeak2\tdiff\txpos\typos\tchr1\tbeg1\tend1\tchr2\tbeg2\tend2\tmisc\tpeakname\n";
 foreach my $group (sort keys %input) {
 	my ($genez, $strandz, $convz) = $group =~ /^gene(.+)_strand(.+)_conv(.+)$/;
+	$genez = uc($genez);
+
 	DIELOG($outLog, date() . " ERROR undefined genez=$genez/strandz=$strandz/convz=$convz from group=$group\n\n") if not defined $genez or not defined $strandz or not defined $convz;
 #	next unless $genez eq "CALM3";
 	LOG($outLog, "\n" . date() . "$YW$geneCount$N. Processing group: $LCY$group$N\n");
@@ -247,6 +251,8 @@ foreach my $group (sort keys %input) {
 		LOG($outLog, date() . " ...$YW$geneCount$N.$LGN$fileCount$N. Processing input1: $LCY$input1$N\n");
 		my ($folder1, $fileName1) = getFilename($input1, "folderfull");
 		my ($label1, $barcode1, $treat1, $gene1, $strand1, $window1, $thres1, $type1) = parseNameDetail($fileName1);
+		$gene1 = uc($gene1);
+
 		my $conv1 = $type1 =~ /^C/ ? "C" : "G";
 		my $labelz1 = "$label1\_$window1\_$thres1\_$type1" if $barcode1 eq "";
 		   $labelz1 = "$label1\_$barcode1\_$treat1\_$window1\_$thres1\_$type1" if $barcode1 ne "";
@@ -262,7 +268,8 @@ foreach my $group (sort keys %input) {
 #			LOG($outLog, date() . " .....$YW$geneCount$N.$LGN$fileCount$N.$LCY$fileCount2$N. vs. input2: $LCY$input2$N\n");
 			my ($folder2, $fileName2) = getFilename($input2, "folderfull");
 			my ($label2, $barcode2, $treat2, $gene2, $strand2, $window2, $thres2, $type2) = parseNameDetail($fileName2);
-		
+				$gene2 = uc($gene2);
+
 			my $conv2 = $type2 =~ /^C/ ? "C" : "G";
 			my $labelz2 = "$label2\_$window2\_$thres2\_$type2" if $barcode2 eq "";
 			   $labelz2 = "$label2\_$barcode2\_$treat2\_$window2\_$thres2\_$type2" if $barcode2 ne "";
@@ -644,6 +651,7 @@ sub parse_bedFile {
 		next if $line =~ /^#/;
 		my ($chr, $beg, $end, $name, $zero, $strand, $peakFile) = split("\t", $line);
 		my ($gene, $read) = $name =~ /^(.+)\.(.+)$/;
+		$gene = uc($gene);
 		DIELOG($outLog, "\n\nFailed to get gene and read from column 1 in file = $LCY$input1$N\n\n") if not defined $gene or not defined $read;
 		my $mid = int(($end - $beg)/2+0.5);
 		push(@{$data->{$input1}}, "$chr,$beg,$end");
@@ -672,9 +680,6 @@ id = as.data.frame(plyr::count(dm,vars=c(\"restype1\",\"restype2\")))
 
 count = 0
 for (i in 1:dim(id)[1]) {
-if (id\$restype1[i] == id\$restype2[i]) {
-} else {
-count = count + 1
 print(paste(\"Doing\",count,\": \",id\$restype1[i],\" vs. \",id\$restype2[i],sep=\"\"))
 df = dm[dm\$restype1 == id\$restype1[i] & dm\$restype2 == id\$restype2[i],]
 origA = df[df\$shuftype == \"ORIG\" & df\$peakname == \"peak1\",]
@@ -721,7 +726,6 @@ p5 = ggplot(shuf2B,aes(xmin=beg1,xmax=end1,ymin=y,ymax=y+1)) + geom_rect(fill=rg
 p6 = ggplot(shuf2B,aes(x=xpos,y=ypos)) + geom_point(size=0.5,alpha=0.5) + annotate(geom=\"segment\",x=0,y=0,xend=5000,yend=5000) + coord_cartesian(xlim=c(0,6000),ylim=c(0,6000)) + stat_smooth(method=\"lm\") + annotate(geom=\"text\",x=2000,y=2000,label=shuf2B.cor) +theme_bw() + theme(panel.grid=element_blank())
 grid.arrange(p1,p2,p3,p4,p5,p6,nrow=1,ncol=6)
 dev.off()
-}
 
 }
 ";
