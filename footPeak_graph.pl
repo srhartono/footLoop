@@ -363,14 +363,14 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 		my $RLOG = 0;
 		if (($opt_r == 2) or ($opt_r == 1 and $runR == 1)) {
 			LOG($outLog, "\n" . date() . "flag=$LPR$runType$N, $LGN$fileCount/$totalFile$N. Running$LGN PNG$N $LCY$outRscriptPNG$N: $summary\n");
-			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $currMainFolder/../ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1\n","NA");
-			print $outR_notrelevantPNG "cd $currMainFolder/../ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1 #$runType\n";
-			$RLOG = system("cd $currMainFolder/../ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1");
+			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1\n","NA");
+			print $outR_notrelevantPNG "cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1 #$runType\n";
+			$RLOG = system("cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1");
 		}
 		else {
 			LOG($outLog, "\n" . date() . "flag=$LPR$runType$N, $LGN$fileCount/$totalFile$N.$LRD Not$N running$LGN PNG$N $LCY$outRscriptPNG$N: $summary\n");
-			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $currMainFolder/../ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1\n","NA");
-			print $outR_notrelevantPNG "cd $currMainFolder/../ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1 #$runType\n";
+			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1\n","NA");
+			print $outR_notrelevantPNG "cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1 #$runType\n";
 			$RLOG = 1;
 		}
 		my $prevRLOG = $RLOG;
@@ -393,14 +393,14 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 		$RLOG = 0;
 		if (($opt_R == 2) or ($opt_R == 1 and $runR == 1)) {
 			LOG($outLog, "\n" . date() . "flag=$LPR$runType$N, $LGN$fileCount/$totalFile$N. Running$LGN PDF: $LCY$outRscriptPDF$N: $summary\n");
-			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $currMainFolder/../ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1\n","NA");
-			print $outR_notrelevantPDF "cd $currMainFolder/../ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1 #$runType\n";
-			$RLOG = system("cd $currMainFolder/../ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1");
+			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1\n","NA");
+			print $outR_notrelevantPDF "cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1 #$runType\n";
+			$RLOG = system("cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1");
 		}
 		else {
 			LOG($outLog, "\n" . date() . "flag=$LPR$runType$N, $LGN$fileCount/$totalFile$N.$LRD Not$N running$LGN PDF$N $LCY$outRscriptPDF$N: $summary\n");
-			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $currMainFolder/../ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1\n","NA");
-			print $outR_notrelevantPDF "cd $currMainFolder/../ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1 #$runType\n";
+			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1\n","NA");
+			print $outR_notrelevantPDF "cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1 #$runType\n";
 			$RLOG = 1;
 		}
 		$prevRLOG = $RLOG;
