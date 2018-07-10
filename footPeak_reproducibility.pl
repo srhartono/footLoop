@@ -3,8 +3,8 @@
 use strict; use warnings; use Getopt::Std; use Time::HiRes; use Benchmark qw(:all); use Benchmark ':hireswallclock'; use Carp;
 use Thread; use Thread::Queue;
 use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_n $opt_i $opt_V $opt_a $opt_b $opt_f $opt_h $opt_H $opt_o $opt_l);
-getopts("vn:i:Va:b:f:hHo:l:");
+use vars qw($opt_v $opt_n $opt_i $opt_V $opt_a $opt_b $opt_f $opt_h $opt_H $opt_o $opt_l $opt_t);
+getopts("vn:i:Va:b:f:hHo:l:t:");
 srand(420);
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -51,6 +51,9 @@ $LPR-i$N: original footLoop geneIndexes$LCY bed6$N file
 $LCY-a$N: footPeak peak bedfile or folder containing peak bedfiles (peaks has to come ${LCY}from PEAKS_GENOME$N)
 $LGN-b$N: (Optional): bedfile or folder containing bedfiles to be compared with -a
 -l: (optional) label for the output result pdf
+-t: (optional) number of times a read can be used (default: 2)
+    -t 1 to stringent one to one comparison
+    -t 2 for subsets
 
 Do $YW-h$N for more information about options and file formats
 Do $YW-H$N for even longer information
@@ -176,6 +179,8 @@ my $totFOLDER1 = @FOLDER1;
 my $totFOLDER2 = @FOLDER2;
 LOG($outLog,  "\n" . date() . "${YW}2$N. Doing all-vs-all peak comparison in -a $LCY$FOLDER1$N ($LGN$totFOLDER1$N .PEAK.local.genome files)\n") if not defined $opt_b;
 LOG($outLog,  "\n" . date() . "${YW}2$N. Comparing peaks in -a $LCY$FOLDER1$N ($LGN$totFOLDER1$N .PEAK.local.genome files) vs. -b $LCY$FOLDER2$N ($LGN$totFOLDER2$N .PEAK.local.genome files)\n") if defined $opt_b;
+my $threshold = defined $opt_t ? $opt_t : 2;
+DIELOG($outLog, date() .  "ERROR: Threshold has to be integer (currently: -t $threshold)!\n") if $threshold !~ /^\d+$/;
 
 LOG($outLog, "\n\n$YW -------------- Parsing Bed Files from -a $FOLDER1 ----------- $N\n\n");
 my %processed;
@@ -477,7 +482,7 @@ foreach my $group (sort keys %input) {
 	
 				# peak1 > paek2
 				my (%best, %used);
-				my $fraction = 2;#@peak1 == @peak2 ? 2 : int(@peak1 / @peak2) + 1;
+				my $fraction = $threshold;#@peak1 == @peak2 ? 2 : int(@peak1 / @peak2) + 1;
 				my $max = 9999999999;#@peak1 - @peak2;
 				my $usedtot = 0;
 				foreach my $peakpos (sort {$res{$a}{diff} <=> $res{$b}{diff} || $res{$a}{peak1} <=> $res{$b}{peak1} || $res{$a}{peak2} <=> $res{$b}{peak2}} keys %res) {
@@ -503,7 +508,7 @@ foreach my $group (sort keys %input) {
 				DIELOG($outLog, date() . "peaktemp=$peaktemp. Used1 $LGN$used1tot$N is not the same as number of peak1 $LGN$peak1tot$N!\n\n") if $used1tot != $peak1tot;
 
 				$usedtot = 0;
-				$fraction = 2;#@peak1 == @peak2 ? 2 : int(@peak2 / @peak1) + 1;
+				$fraction = $threshold;#@peak1 == @peak2 ? 2 : int(@peak2 / @peak1) + 1;
 				foreach my $peakpos (sort {$res{$a}{diff} <=> $res{$b}{diff} || $res{$a}{peak1} <=> $res{$b}{peak1} || $res{$a}{peak2} <=> $res{$b}{peak2}} keys %res) {
 					my ($peak1, $peak2) = split(",", $peakpos);
 					next if defined $used{"2"}{$peak2};
