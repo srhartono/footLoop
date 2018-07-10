@@ -655,8 +655,7 @@ sub parse_bedFile {
 
 sub Rscript {
 	my ($outdir, $result) = @_;
-	my $outpdf = $LABEL eq "" ? "$result.pdf" : $LABEL;
-	$outpdf .= ".pdf" if $outpdf !~ /pdf$/i;
+	$LABEL .= "_" if $LABEL ne "";
 	my $Rscript = "
 .libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\", \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\", .libPaths()) )
 library(labeling)
@@ -667,7 +666,12 @@ library(gridExtra)
 library(RColorBrewer)
 
 setwd(\"$outdir\")
-df = read.table(\"$result\",header=T,sep=\"\t\")
+dm = read.table(\"$result\",header=T,sep=\"\\t\")
+id = as.data.frame(plyr::count(dm,vars=c(\"restype1\",\"restype2\")))
+
+for (i in 1:dim(id)[1]) {
+print(paste(\"Doing\",i,\": \",id\$restype1[i],\" vs. \",id\$restype2[i],sep=\"\"))
+df = dm[dm\$restype1 == id\$restype1[i] & dm\$restype2 == id\$restype2[i],]
 origA = df[df\$shuftype == \"ORIG\" & df\$peakname == \"peak1\",]
 cor(origA\$xpos,origA\$ypos)
 origB = df[df\$shuftype == \"ORIG\" & df\$peakname == \"peak2\",]
@@ -688,7 +692,8 @@ shuf1B.cor = cor(shuf1B\$ypos,shuf1B\$xpos,method=\"pearson\")
 shuf2A.cor = cor(shuf2A\$ypos,shuf2A\$xpos,method=\"pearson\")
 shuf2B.cor = cor(shuf2B\$ypos,shuf2B\$xpos,method=\"pearson\")
 
-pdf(\"$outpdf\",width=42,height=7);
+outpdf = paste($LABEL,id\$restype1[i],id\$restype2[i],sep=\"\")
+pdf(outpdf,width=42,height=7);
 p1 = ggplot(origA,aes(xmin=beg1,xmax=end1,ymin=y,ymax=y+1)) + geom_rect(fill=rgb(1,1,1,0),color=\"black\") + theme_bw() + theme(panel.grid=element_blank()) + annotate(geom=\"text\",x=0,y=0,label=unique(origA\$restype1),hjust=0)
 p2 = ggplot(origA,aes(xmin=beg2,xmax=end2,ymin=y,ymax=y+1)) + geom_rect(fill=rgb(1,1,1,0),color=\"black\") + theme_bw() + theme(panel.grid=element_blank()) + annotate(geom=\"text\",x=0,y=0,label=unique(origA\$restype2),hjust=0)
 p3 = ggplot(origA,aes(x=xpos,y=ypos)) + geom_point(size=0.5,alpha=0.5) + annotate(geom=\"segment\",x=0,y=0,xend=5000,yend=5000) + coord_cartesian(xlim=c(0,6000),ylim=c(0,6000)) + stat_smooth(method=\"lm\") + annotate(geom=\"text\",x=2000,y=2000,label=origA.cor) + theme_bw() + theme(panel.grid=element_blank())
@@ -712,6 +717,8 @@ p6 = ggplot(shuf2B,aes(x=xpos,y=ypos)) + geom_point(size=0.5,alpha=0.5) + annota
 grid.arrange(p1,p2,p3,p4,p5,p6,nrow=1,ncol=6)
 dev.off()
 
+
+}
 ";
 
 	return ($Rscript);
