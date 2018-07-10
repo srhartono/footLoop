@@ -656,6 +656,7 @@ sub parse_bedFile {
 sub Rscript {
 	my ($outdir, $result) = @_;
 	my $outpdf = $LABEL eq "" ? "$result.pdf" : $LABEL;
+	$outpdf .= ".pdf" if $outpdf !~ /pdf$/i;
 	my $Rscript = "
 .libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\", \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\", .libPaths()) )
 library(labeling)
