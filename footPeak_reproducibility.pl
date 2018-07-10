@@ -692,7 +692,7 @@ shuf1B.cor = cor(shuf1B\$ypos,shuf1B\$xpos,method=\"pearson\")
 shuf2A.cor = cor(shuf2A\$ypos,shuf2A\$xpos,method=\"pearson\")
 shuf2B.cor = cor(shuf2B\$ypos,shuf2B\$xpos,method=\"pearson\")
 
-outpdf = paste($LABEL,id\$restype1[i],id\$restype2[i],sep=\"\")
+outpdf = paste(\"$LABEL\",id\$restype1[i],id\$restype2[i],sep=\"\")
 pdf(outpdf,width=42,height=7);
 p1 = ggplot(origA,aes(xmin=beg1,xmax=end1,ymin=y,ymax=y+1)) + geom_rect(fill=rgb(1,1,1,0),color=\"black\") + theme_bw() + theme(panel.grid=element_blank()) + annotate(geom=\"text\",x=0,y=0,label=unique(origA\$restype1),hjust=0)
 p2 = ggplot(origA,aes(xmin=beg2,xmax=end2,ymin=y,ymax=y+1)) + geom_rect(fill=rgb(1,1,1,0),color=\"black\") + theme_bw() + theme(panel.grid=element_blank()) + annotate(geom=\"text\",x=0,y=0,label=unique(origA\$restype2),hjust=0)
