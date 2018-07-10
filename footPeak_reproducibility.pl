@@ -559,6 +559,7 @@ foreach my $input12 (sort keys %processed) {
 }
 
 my $RscriptLog = `run_Rscript.pl $outdir/RESULTS.R`;
+LOG($outLog, "\n\n$YW ----------- Ran R script ------------- $N\n\n$RscriptLog\n\n");
 =comment
 		my $difftot = 0;
 		for (my $i = 0; $i < @orig1; $i ++) {
