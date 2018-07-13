@@ -42,6 +42,8 @@ ${LGN}Optionals$N:
    -R 1: run only relevant R scripts
    -R 2: run ALL R scripts
 
+-u: get a subset of on template strand
+
 -B: <BED3 file> add option to add box in the graph
 
 " if not defined $opt_n;
@@ -275,6 +277,8 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 				# Main Plot
 				if ($currFile =~ /\.NOPK\./) {
 					$Rscript .= $R->{mainplot_nopk};
+					$Rscript .= $R->{mainplot_nopk_rand};
+					$Rscript .= $R->{mainplot_nopk_rand_100};
 				}
 				else {
 #					print "\n\n----------------- $LCY$currFile$N IS A PEAK FILE R = $currFile.PNG.R -------------- \n\n";
@@ -297,6 +301,7 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 				else {
 					$Rscript .= $R->{secondplotConversionGraph};
 					$Rscript .= $R->{secondplotConversionGraph_rand};
+					$Rscript .= $R->{secondplotConversionGraph_rand_100};
 				}
 
 				if (defined $opt_B and -e $opt_B) {
@@ -314,6 +319,8 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 				else {
 					$RscriptPNG = $Rscript . $R->{PNG_nopk};
 					$RscriptPDF = $Rscript . $R->{PDF_nopk};
+					$RscriptPNG = $Rscript . $R->{PNG_nopk_rand_100};
+					$RscriptPDF = $Rscript . $R->{PDF_nopk_rand_100};
 					$RscriptPNG_nopk_ALL = $Rscript . $R->{PNG_nopk_ALL};
 					$RscriptPDF_nopk_ALL = $Rscript . $R->{PDF_nopk_ALL};
 				}
@@ -680,13 +687,58 @@ p = ggplot(dm,aes(variable,y)) +
 	p = p + geom_rect(data=box,aes(x=0,y=0,xmin=V2,xmax=V3,ymin=0,ymax=max(dm\$y)),fill=NA,color=\"black\")
 	
 	";
-# -------------------- $R->{mainplot_nopk}
-	$R->{mainplot_nopk} .= "
+
+# -------------------- $R->{mainplot_nopk_rand_100}
+	$R->{mainplot_nopk_rand_100} .= "
 
 ##########################
-# Main Plot Part 1 nopk
+# Main Plot Part 1 nopk subset 100
 
 # Randomly take reads
+df.total = dim(df)[1]
+set.seed(42)
+df.rand.100 = df[sample( seq(1,df.total) ,100,replace=F),]
+print(\"subsetting random 100. DF TOTAL = \"); print(df.total)
+
+# sorting by hclust
+if (dim(df.rand.100)[1] < 1000) {
+	h = hclust(dist(df.rand.100[,-1]))
+	df.rand.100 = df.rand.100[h\$order,]
+} else if (dim(df.rand.100)[2] < 10) {
+	mysum = apply(df.rand.100[,-1],1,sum)
+	df.rand.100 = df.rand.100[order(mysum),]
+}
+df.rand.100\$y = seq(1,dim(df.rand.100)[1])
+
+#write.table(df,file=\"$resDir/.CALL/$currFilename.out.rand\",quote=F,row.names=F,col.names=F,sep=\"\\t\")
+write.table(df.rand.100,file=\"$currFile.100.rand\",quote=F,row.names=F,col.names=F,sep=\"\\t\")
+print(\"Wrote to $currFile.100.rand\")
+
+dm.rand.100 = melt(df.rand.100,id.vars=c(\"V1\",\"y\"))
+print(dim(df.rand.100))
+print(dim(dm.rand.100))
+dm.rand.100\$variable = as.numeric(as.character(dm.rand.100\$variable))
+p.rand.100 = ggplot(dm.rand.100,aes(variable,y)) +  
+	 geom_tile(aes(fill=as.factor(value))) + 
+	 theme_bw() + theme(legend.position=\"none\") + 
+	 scale_fill_manual(values=c(p.col)) +
+	 scale_color_manual(values=c(p.col)) +
+	 scale_x_continuous(expand = c(0,0)) + 
+	 scale_y_continuous(expand = c(0,0)) +
+	 theme(
+	 	line = element_blank(),
+	 	axis.text = element_blank(),
+	 	axis.title = element_blank()
+	 ) + 
+	 ggtitle(paste(\"(peak=\",$totpeak,\"; nopk=\",$totnopk,\")\",sep=\"\"))
+";
+
+
+# -------------------- $R->{mainplot_nopk_rand}
+	$R->{mainplot_nopk_rand} .= "
+
+##########################
+# Main Plot Part 1 nopk rand
 df.total = dim(df)[1]
 set.seed(42)
 if (df.total > 1000) {
@@ -729,7 +781,13 @@ p.rand = ggplot(dm.rand,aes(variable,y)) +
 	 ) + 
 	 ggtitle(paste(\"(peak=\",$totpeak,\"; nopk=\",$totnopk,\")\",sep=\"\"))
 
+";
 
+# -------------------- $R->{mainplot_nopk}
+	$R->{mainplot_nopk} .= "
+
+##########################
+# Main Plot Part 1 nopk
 
 dm = melt(df,id.vars=c(\"V1\",\"y\"))
 dm\$variable = as.numeric(as.character(dm\$variable))
@@ -878,6 +936,49 @@ p2 =
 
 ";
 
+	$R->{secondplotConversionGraph_rand_100} = "
+
+# Calculate % Conversion
+df2.rand.100 = subset(df.rand.100,select=c(-V1,-y));
+df2.rand.100[df2.rand.100 < $peakminVal] = 0; df2.rand.100[df2.rand.100 >= 8] = 1
+df2.rand.100 = data.frame(x=seq(1,dim(df2.rand.100)[2]), y=apply(df2.rand.100,2,mean))
+if (dim(df2.rand.100[df2.rand.100\$y > 0,])[1] > 15) {
+	df2.rand.100 = df2.rand.100[df2.rand.100\$y > 0,]
+	df2.rand.100\$x = as.numeric(as.character(df2.rand.100\$x));
+	df2.rand.100\$y = as.numeric(as.character(df2.rand.100\$y));
+	df2.rand.100\$x2 = df2.rand.100\$x
+	df2.rand.100\$y2 = df2.rand.100\$y
+	for (i in 1:(dim(df2.rand.100)[1]-10)) {
+		a = df2.rand.100[df2.rand.100\$x >= df2.rand.100[i,]\$x & df2.rand.100\$x <= df2.rand.100[i+10-1,]\$x,]
+		if (length(a) != 0 & dim(a)[1] != 0) {
+			df2.rand.100[i,]\$y2 = mean(a\$y)
+			df2.rand.100[i,]\$x2 = mean(a\$x)
+		}
+	}
+	mins = seq(1,as.integer(df2.rand.100[1,]\$x2)-1,10)
+	maxs = seq(max(df2.rand.100\$x2),dim(df.rand.100)[2]-2,10)
+	df2.rand.100 = rbind(data.frame(x=mins,y=0,x2=mins,y2=0),df2.rand.100)
+	df2.rand.100 = rbind(df2.rand.100,data.frame(x=maxs,y=0,x2=maxs,y2=0))
+} else {
+	df2.rand.100 = data.frame(x=seq(1,dim(df.rand.100)[2]), y=0, x2=seq(1,dim(df.rand.100)[2]), y2=0);
+}
+ 
+# P2 % Conversion XY Plot
+p2.rand.100.scale = 1# 0.25
+p2.rand.100 = 
+	ggplot(df2.rand.100,aes(x2,y2)) + geom_point(aes(x=x,y=y),size=1*p2.rand.100.scale) + geom_line(color=rgb(1,0,0,alpha=1),size=1*p2.rand.100.scale) + theme_bw()+
+	scale_x_continuous(expand = c(0,0)) +
+	scale_y_continuous(expand = c(0,0)) +
+	theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank()) +
+	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5*p2.rand.100.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5*p2.rand.100.scale,hjust=0) +
+	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5*p2.rand.100.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0.25,label=\"-  25 \%\",size=5*p2.rand.100.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0,label=\"-   0\%\",size=5*p2.rand.100.scale,hjust=0) +
+	coord_cartesian(ylim=c(-0.05,1.05))
+
+";
+
 	$R->{secondplotConversionGraph_rand} = "
 
 # Calculate % Conversion
@@ -1006,6 +1107,23 @@ dev.off()
 
 ";
 
+	$R->{PNG_nopk_rand_100} = "
+
+pngout_nopk_rand_100 = \"$pngoutFolder/ALL/$pngoutFilename.RAND.100.png\"
+# PNG
+totalheight = (dim(df.rand.100)[1]) * myscale
+png(pngout_nopk_rand_100,width=totalwidth,height=totalheight)
+grid.arrange(p.rand.100)
+dev.off()
+
+# PNG all Conv
+pngout_nopk_all_c_conv = \"$pngoutFolder/ALL/$pngoutFilename.RAND.100.c_conv.png\"
+png(pngout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
+grid.arrange(p2.rand.100)
+dev.off()
+
+";
+
 	$R->{PNG_nopk_ALL} = "
 
 #plot_list = list();
@@ -1033,16 +1151,41 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 ";
 
 	$R->{PDF_nopk} = "
+
 # PDF
-totalheight = (dim(df.rand)[1] + 31.25) * myscale
-pdf(\"$pdfout\",width=totalwidth,height=totalheight)
+currheight = (dim(df.rand)[1] + 31.25) * myscale / 100
+currwidth = totalwidth / 100
+print(currheight)
+pdf(\"$pdfout\",width=currwidth,height=currheight)
 grid.arrange(p.rand,p2.rand,ncol=1,nrow=mynrow,heights=totalratio)
 dev.off()
-	
+
 # PDF all Conv
+currheight = 31.25 * myscale / 100
+currwidth = totalwidth / 100
+print(currheight)
 pdfout_nopk_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.ALL.c_conv.pdf\"
-pdf(pdfout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
+pdf(pdfout_nopk_all_c_conv,width=currwidth,height=currheight)
 grid.arrange(p2)
+dev.off()
+
+";
+
+	$R->{PDF_nopk_rand_100} = "
+currheight = (dim(df.rand.100)[1]) * myscale / 100
+currwidth = totalwidth / 100
+pdfout_nopk_rand_100 = \"$pdfoutFolder/ALL/$pdfoutFilename.RAND.100.pdf\"
+# PDF
+pdf(pdfout_nopk_rand_100,width=currwidth,height=currheight)
+grid.arrange(p.rand.100)
+dev.off()
+
+# PDF all Conv
+currheight = 31.25 * myscale / 100
+currwidth = totalwidth / 100
+pdfout_nopk_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.RAND.100.c_conv.pdf\"
+pdf(pdfout_nopk_all_c_conv,width=currwidth,height=currheight)
+grid.arrange(p2.rand.100)
 dev.off()
 
 ";
@@ -1055,13 +1198,13 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 	pdfout_nopk = gsub(\"^(.+).pdf\$\",\"\\\\1\",pdfout_nopk,perl=T)
 	pdfout_nopk = paste(pdfout_nopk,\".\",i,\".pdf\",sep=\"\")
 	if (i == max(seq( 1,as.integer(dim(df)[1]/mywindow) + 1 ))) {
-		currtotalheight = totalheight_nopk_last
+		currtotalheight = totalheight_nopk_last / 100
 		currtotalratio = totalratio_nopk_last
 		pdf(pdfout_nopk,width=totalwidth,height=currtotalheight)
 		grid.arrange(plot_list[[i]],p2,ncol=1,nrow=mynrow,heights=currtotalratio)
 		dev.off()
 	} else {
-		currtotalheight = totalheight_nopk
+		currtotalheight = totalheight_nopk / 100
 		pdf(pdfout_nopk,width=totalwidth,height=currtotalheight)
 		grid.arrange(plot_list[[i]],ncol=1)
 		dev.off()
@@ -1375,4 +1518,21 @@ __END__
 				$pngoutDir = "ALL/";
 			}
 =cut
+
+__END__
+	$R->{PDF_nopk} = "
+# PDF
+totalheight = (dim(df.rand)[1] + 31.25) * myscale
+pdf(\"$pdfout\",width=totalwidth,height=totalheight)
+grid.arrange(p.rand,p2.rand,ncol=1,nrow=mynrow,heights=totalratio)
+dev.off()
+	
+# PDF all Conv
+pdfout_nopk_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.ALL.c_conv.pdf\"
+pdf(pdfout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
+grid.arrange(p2)
+dev.off()
+
+";
+
 
