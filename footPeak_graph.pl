@@ -42,8 +42,6 @@ ${LGN}Optionals$N:
    -R 1: run only relevant R scripts
    -R 2: run ALL R scripts
 
--u: get a subset of on template strand
-
 -B: <BED3 file> add option to add box in the graph
 
 " if not defined $opt_n;
