@@ -275,12 +275,12 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 				# Main Plot
 				if ($currFile =~ /\.NOPK\./) {
 					$Rscript .= $R->{mainplot_nopk};
-					$Rscript .= $R->{mainplot_nopk_rand};
+					$Rscript .= $R->{mainplot_nopk_rand_1000};
 					$Rscript .= $R->{mainplot_nopk_rand_100};
 				}
 				else {
 #					print "\n\n----------------- $LCY$currFile$N IS A PEAK FILE R = $currFile.PNG.R -------------- \n\n";
-					$Rscript .= $R->{mainplot};
+					$Rscript .= $R->{mainplot}; # p png and p pdf
 				}
 
 				# Main Plot Cluster Addition
@@ -298,13 +298,19 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 				}
 				else {
 					$Rscript .= $R->{secondplotConversionGraph};
-					$Rscript .= $R->{secondplotConversionGraph_rand};
+					$Rscript .= $R->{secondplotConversionGraph_rand_1000};
 					$Rscript .= $R->{secondplotConversionGraph_rand_100};
 				}
 
 				if (defined $opt_B and -e $opt_B) {
-					LOG($outLog, date() . "\t\t-> ADDED $boxFile!\n","NA");
-					$Rscript .= $R->{box};
+					if ($currFile !~ /\.NOPK\./) {
+						LOG($outLog, date() . "\t\t-> ADDED $boxFile!\n","NA");
+						$Rscript .= $R->{box};
+					}
+					else {
+						LOG($outLog, date() . "\t\t-> ADDED $boxFile!\n","NA");
+						$Rscript .= $R->{box_nopk};
+					}
 				}
 
 				# Add Third Plot and Do PNG
@@ -317,8 +323,8 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 				else {
 					$RscriptPNG = $Rscript . $R->{PNG_nopk};
 					$RscriptPDF = $Rscript . $R->{PDF_nopk};
-					$RscriptPNG = $Rscript . $R->{PNG_nopk_rand_100};
-					$RscriptPDF = $Rscript . $R->{PDF_nopk_rand_100};
+					$RscriptPNG .= $Rscript . $R->{PNG_nopk_rand_100};
+					$RscriptPDF .= $Rscript . $R->{PDF_nopk_rand_100};
 					$RscriptPNG_nopk_ALL = $Rscript . $R->{PNG_nopk_ALL};
 					$RscriptPDF_nopk_ALL = $Rscript . $R->{PDF_nopk_ALL};
 				}
@@ -448,6 +454,9 @@ sub Rscript {
 
 # -------------------- $R->{readTable}
 	$R->{readTable} = "	
+
+p.png.scale = 1
+p.pdf.scale = 0.33
 
 #####################
 # Read Table
@@ -604,15 +613,34 @@ cluster_color = get_cluster_color(unique(df4\$clust2))
 cluster_length = length(unique(df4\$clust2))
 print(cluster_color)
 
-p3 = ggplot(df3,aes(x,y)) +
+p3.png.scale = p.png.scale
+p3.pdf.scale = p.pdf.scale
+
+p3.png = ggplot(df3,aes(x,y)) +
 	geom_tile(aes(fill=as.factor(value))) +
 	geom_rect(data=df5,aes(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax,x=xmin,y=ymin),
-	size=0.8,fill=rgb(0,0,0,alpha=0),color=rgb(0,0,0,alpha=0.25)) +
+				 size=0.8*p3.png.scale,fill=rgb(0,0,0,alpha=0),color=rgb(0,0,0,alpha=0.25) ) + # SIZE
 	geom_rect(data=df4,aes(xmin=xmin,xmax=xmax,ymin=ymin,
 		ymax=ymax,x=xmin,y=ymin,color=as.factor(df4\$clust2)),
-		size=1,fill=rgb(0,0,0,alpha=0)) +
-	geom_rect(data=df4,aes(fill=as.factor(df4\$clust2),x=1,y=1,xmin=1,xmax=30,ymin=ymin,ymax=ymax)) +
-	geom_text(data=df4,aes(x=10,y=(ymin+ymax)/2,label=clust2-10),hjust=0,size=5) +
+		size=1*p3.png.scale,fill=rgb(0,0,0,alpha=0)) + # SIZE
+	geom_rect(data=df4,aes(fill=as.factor(df4\$clust2),x=1,y=1,xmin=1,xmax=30,ymin=ymin,ymax=ymax),size=0.5*p3.png.scale) + # SIZE
+	geom_text(data=df4,aes(x=10,y=(ymin+ymax)/2,label=clust2-10),hjust=0,size=5*p3.png.scale) + # SIZE
+	theme_bw() + theme(legend.position=\"none\") + coord_cartesian(ylim=c(-1,cluster_length+2)) +
+	scale_fill_manual(values=c(p3.col,cluster_color)) +
+	scale_color_manual(values=c(p3.col,cluster_color)) +
+	scale_x_continuous(expand = c(0,0)) + scale_y_continuous(expand = c(0,0)) +
+	theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank())
+
+
+p3.pdf = ggplot(df3,aes(x,y)) +
+	geom_tile(aes(fill=as.factor(value))) +
+	geom_rect(data=df5,aes(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax,x=xmin,y=ymin),
+				 size=0.8*p3.pdf.scale,fill=rgb(0,0,0,alpha=0),color=rgb(0,0,0,alpha=0.25) ) + # SIZE
+	geom_rect(data=df4,aes(xmin=xmin,xmax=xmax,ymin=ymin,
+		ymax=ymax,x=xmin,y=ymin,color=as.factor(df4\$clust2)),
+		size=1*p3.pdf.scale,fill=rgb(0,0,0,alpha=0)) + # SIZE
+	geom_rect(data=df4,aes(fill=as.factor(df4\$clust2),x=1,y=1,xmin=1,xmax=30,ymin=ymin,ymax=ymax),size=0.5*p3.pdf.scale) + # SIZE
+	geom_text(data=df4,aes(x=10,y=(ymin+ymax)/2,label=clust2-10),hjust=0,size=3) + # SIZE
 	theme_bw() + theme(legend.position=\"none\") + coord_cartesian(ylim=c(-1,cluster_length+2)) +
 	scale_fill_manual(values=c(p3.col,cluster_color)) +
 	scale_color_manual(values=c(p3.col,cluster_color)) +
@@ -648,7 +676,6 @@ bed = merge(subset(df,select=c(\"V1\",\"y\")),bed,by=\"V1\")
 # Main Plot Part 1
 dm = melt(df,id.vars=c(\"V1\",\"y\"))
 dm\$variable = as.numeric(as.character(dm\$variable))
-p1.scale = 1#0.25
 p.col = c(
 			\"0\"=\"#f0f0f0\",
 			\"1\"=\"white\",
@@ -664,7 +691,7 @@ if (length(cluster_color) > 0) {
 }
 mywindow = 1000
 p = ggplot(dm,aes(variable,y)) +  
-	 geom_tile(aes(fill=as.factor(value))) + 
+	geom_tile(aes(fill=as.factor(value))) +
 	 theme_bw() + theme(legend.position=\"none\") + 
 	 scale_fill_manual(values=c(p.col)) +
 	 scale_color_manual(values=c(p.col)) +
@@ -676,13 +703,23 @@ p = ggplot(dm,aes(variable,y)) +
 	 	axis.title = element_blank()
 	 ) + 
 	 ggtitle(paste(\"(peak=\",$totpeak,\"; nopk=\",$totnopk,\")\",sep=\"\"))
-
 ";
 
 	$R->{box} = "
 
 	box = read.table(\"$boxFile\",sep=\"\\t\")
-	p = p + geom_rect(data=box,aes(x=0,y=0,xmin=V2,xmax=V3,ymin=0,ymax=max(dm\$y)),fill=NA,color=\"black\")
+	p.png = p.png + geom_rect(data=box,aes(x=0,y=0,xmin=V2,xmax=V3,ymin=0,ymax=max(dm\$y)),fill=NA,color=\"black\",size=0.5*p.png.scale) # SIZE
+	p.pdf = p.pdf + geom_rect(data=box,aes(x=0,y=0,xmin=V2,xmax=V3,ymin=0,ymax=max(dm\$y)),fill=NA,color=\"black\",size=0.5*p.pdf.scale) # SIZE
+	
+	";
+
+	$R->{box_nopk} = "
+
+	box = read.table(\"$boxFile\",sep=\"\\t\")
+	p.rand.100.png  = p.rand.100.png  + geom_rect(data=box,aes(x=0,y=0,xmin=V2,xmax=V3,ymin=0,ymax=max(dm.rand.100\$y)),fill=NA,color=\"black\",size=0.5*p.png.scale) # SIZE
+	p.rand.100.pdf  = p.rand.100.pdf  + geom_rect(data=box,aes(x=0,y=0,xmin=V2,xmax=V3,ymin=0,ymax=max(dm.rand.100\$y)),fill=NA,color=\"black\",size=0.5*p.pdf.scale) # SIZE
+	p.rand.1000.png = p.rand.1000.png + geom_rect(data=box,aes(x=0,y=0,xmin=V2,xmax=V3,ymin=0,ymax=max(dm.rand.1000\$y)),fill=NA,color=\"black\",size=0.5*p.png.scale) # SIZE
+	p.rand.1000.pdf = p.rand.1000.pdf + geom_rect(data=box,aes(x=0,y=0,xmin=V2,xmax=V3,ymin=0,ymax=max(dm.rand.1000\$y)),fill=NA,color=\"black\",size=0.5*p.pdf.scale) # SIZE
 	
 	";
 
@@ -729,43 +766,46 @@ p.rand.100 = ggplot(dm.rand.100,aes(variable,y)) +
 	 	axis.title = element_blank()
 	 ) + 
 	 ggtitle(paste(\"(peak=\",$totpeak,\"; nopk=\",$totnopk,\")\",sep=\"\"))
+
+	p.rand.100.pdf = p.rand.100 + theme(plot.title = element_text(size = 10*p.pdf.scale))
+	p.rand.100.png = p.rand.100 + theme(plot.title = element_text(size = 10*p.png.scale))
 ";
 
 
-# -------------------- $R->{mainplot_nopk_rand}
-	$R->{mainplot_nopk_rand} .= "
+# -------------------- $R->{mainplot_nopk_rand_1000}
+	$R->{mainplot_nopk_rand_1000} .= "
 
 ##########################
 # Main Plot Part 1 nopk rand
 df.total = dim(df)[1]
 set.seed(42)
 if (df.total > 1000) {
-	df.rand = df[sample( seq(1,df.total) ,1000,replace=F),]
+	df.rand.1000 = df[sample( seq(1,df.total) ,1000,replace=F),]
 	print(\"randoming 1000. DF TOTAL = \"); print(df.total)
 } else {
-	df.rand = df
+	df.rand.1000 = df
 	print(\"NOT randoming 1000. DF TOTAL = \"); print(df.total)
 }
 
 # sorting by hclust
-if (dim(df.rand)[1] < 1000) {
-	h = hclust(dist(df.rand[,-1]))
-	df.rand = df.rand[h\$order,]
-} else if (dim(df.rand)[2] < 10) {
-	mysum = apply(df.rand[,-1],1,sum)
-	df.rand = df.rand[order(mysum),]
+if (dim(df.rand.1000)[1] < 1000) {
+	h = hclust(dist(df.rand.1000[,-1]))
+	df.rand.1000 = df.rand.1000[h\$order,]
+} else if (dim(df.rand.1000)[2] < 10) {
+	mysum = apply(df.rand.1000[,-1],1,sum)
+	df.rand.1000 = df.rand.1000[order(mysum),]
 }
-df.rand\$y = seq(1,dim(df.rand)[1])
+df.rand.1000\$y = seq(1,dim(df.rand.1000)[1])
 
 #write.table(df,file=\"$resDir/.CALL/$currFilename.out.rand\",quote=F,row.names=F,col.names=F,sep=\"\\t\")
-write.table(df.rand,file=\"$currFile.rand\",quote=F,row.names=F,col.names=F,sep=\"\\t\")
+write.table(df.rand.1000,file=\"$currFile.rand\",quote=F,row.names=F,col.names=F,sep=\"\\t\")
 print(\"Wrote to $currFile.rand\")
 
-dm.rand = melt(df.rand,id.vars=c(\"V1\",\"y\"))
-print(dim(df.rand))
-print(dim(dm.rand))
-dm.rand\$variable = as.numeric(as.character(dm.rand\$variable))
-p.rand = ggplot(dm.rand,aes(variable,y)) +  
+dm.rand.1000 = melt(df.rand.1000,id.vars=c(\"V1\",\"y\"))
+print(dim(df.rand.1000))
+print(dim(dm.rand.1000))
+dm.rand.1000\$variable = as.numeric(as.character(dm.rand.1000\$variable))
+p.rand.1000 = ggplot(dm.rand.1000,aes(variable,y)) +  
 	 geom_tile(aes(fill=as.factor(value))) + 
 	 theme_bw() + theme(legend.position=\"none\") + 
 	 scale_fill_manual(values=c(p.col)) +
@@ -779,6 +819,9 @@ p.rand = ggplot(dm.rand,aes(variable,y)) +
 	 ) + 
 	 ggtitle(paste(\"(peak=\",$totpeak,\"; nopk=\",$totnopk,\")\",sep=\"\"))
 
+	p.rand.1000.pdf = p.rand.1000 + theme(plot.title = element_text(size = 10*p.pdf.scale))
+	p.rand.1000.png = p.rand.1000 + theme(plot.title = element_text(size = 10*p.png.scale))
+
 ";
 
 # -------------------- $R->{mainplot_nopk}
@@ -789,7 +832,6 @@ p.rand = ggplot(dm.rand,aes(variable,y)) +
 
 dm = melt(df,id.vars=c(\"V1\",\"y\"))
 dm\$variable = as.numeric(as.character(dm\$variable))
-p1.scale = 1#0.25
 p.col = c(
 			\"0\"=\"#f0f0f0\",
 			\"1\"=\"white\",
@@ -843,10 +885,19 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 	$R->{mainplotClusterAddition} = "
 
 # Main Plot Cluster Addition
-p = p + 
-	 geom_rect(data=clust2,aes(fill=as.factor(clust),x=xmin,y=ymin,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax)) +
-	 geom_rect(data=clust2,aes(color=as.factor(clust),x=xpos0,y=ymin,xmin=xpos0,xmax=xpos1,ymin=ymin,ymax=ymax),fill=rgb(1,1,1,alpha=0),lwd=1*p1.scale) +
-	 geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=clust-10),hjust=0,size=10*p1.scale)
+# geom rect default size = 0.5
+# geom text default size = 10
+p.png = p + 
+	 geom_rect(data=clust2,aes(fill=as.factor(clust),x=xmin,y=ymin,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax),alpha=0.5,size=0.5*p.png.scale) + # SIZE
+	 geom_rect(data=clust2,aes(color=as.factor(clust),x=xpos0,y=ymin,xmin=xpos0,xmax=xpos1,ymin=ymin,ymax=ymax),size=0.5*p.png.scale,fill=rgb(1,1,1,alpha=0),lwd=1*p.png.scale) + # SIZE
+	 geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=clust-10),hjust=0,size=10*p.png.scale) +
+	 theme(plot.title = element_text(size = 10*p.png.scale))
+
+p.pdf = p + 
+	 geom_rect(data=clust2,aes(fill=as.factor(clust),x=xmin,y=ymin,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax),alpha=0.5,size=0.5*p.pdf.scale) + # SIZE
+	 geom_rect(data=clust2,aes(color=as.factor(clust),x=xpos0,y=ymin,xmin=xpos0,xmax=xpos1,ymin=ymin,ymax=ymax),size=0.5*p.pdf.scale,fill=rgb(1,1,1,alpha=0),lwd=1*p.pdf.scale) + # SIZE
+	 geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=clust-10),hjust=0,size=20*p.pdf.scale) +
+	 theme(plot.title = element_text(size = 20*p.pdf.scale))
 
 ";
 
@@ -855,11 +906,24 @@ p = p +
 
 # Main Plot Peak Bed Addition
 if (length(bed) != 0 & dim(bed)[1] > 0) {
+
 	bed\$variable=1
-	p = 
-		p + 
-		geom_rect(data=bed,aes(xmin=V2,xmax=V3,ymin=y-0.5,ymax=y+0.5),
-			size=0.5*p1.scale,fill=rgb(0,0,0,alpha=0),color=rgb(1,0,0,alpha=0.25))
+	p.png =	p.png + 
+			 	geom_rect(
+					data=bed, 
+					aes(xmin=V2, xmax=V3, ymin=y-0.5, ymax=y+0.5),
+					fill=rgb(0,0,0,alpha=0),
+					color=rgb(1,0,0,alpha=0.25),
+			 		size=0.5*p.png.scale # SIZE
+				)
+	p.pdf =	p.pdf + 
+			 	geom_rect(
+					data=bed, 
+					aes(xmin=V2, xmax=V3, ymin=y-0.5, ymax=y+0.5),
+					fill=rgb(0,0,0,alpha=0),
+					color=rgb(1,0,0,alpha=0.25),
+			 		size=0.5*p.pdf.scale # SIZE
+				)
 
 	bed.q = quantile(bed\$V3-bed\$V2,probs=c(0.25,0.5,0.75))
 	bed.maxy = max(bed\$V3-bed\$V2)
@@ -919,17 +983,37 @@ if (dim(df2[df2\$y > 0,])[1] > 15) {
 }
  
 # P2 % Conversion XY Plot
-p2.scale = 1# 0.25
-p2 = 
-	ggplot(df2,aes(x2,y2)) + geom_point(aes(x=x,y=y),size=1*p2.scale) + geom_line(color=rgb(1,0,0,alpha=1),size=1*p2.scale) + theme_bw()+
+	p2.png.scale = p.png.scale
+p2.pdf.scale = p.pdf.scale
+
+p2.png = 
+	ggplot(df2,aes(x2,y2)) + 
+	geom_point(aes(x=x,y=y),size=1*p2.png.scale) + # SIZE
+	geom_line(color=rgb(1,0,0,alpha=1),size=1*p2.png.scale) + # SIZE
+	theme_bw() +
 	scale_x_continuous(expand = c(0,0)) +
 	scale_y_continuous(expand = c(0,0)) +
 	theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank()) +
-	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5*p2.scale,hjust=0) +
-	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5*p2.scale,hjust=0) +
-	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5*p2.scale,hjust=0) +
-	annotate(geom='text',x=10,y=0.25,label=\"-  25 \%\",size=5*p2.scale,hjust=0) +
-	annotate(geom='text',x=10,y=0,label=\"-   0\%\",size=5*p2.scale,hjust=0) +
+	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5*p2.png.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5*p2.png.scale,hjust=0) +
+	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5*p2.png.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0.25,label=\"-  25 \%\",size=5*p2.png.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0,label=\"-   0\%\",size=5*p2.png.scale,hjust=0) +
+	coord_cartesian(ylim=c(-0.05,1.05))
+
+p2.pdf = 
+	ggplot(df2,aes(x2,y2)) + 
+	geom_point(aes(x=x,y=y),size=1*p2.pdf.scale) +  # SIZE
+	geom_line(color=rgb(1,0,0,alpha=1),size=1*p2.pdf.scale) + # SIZE 
+	theme_bw() +
+	scale_x_continuous(expand = c(0,0)) +
+	scale_y_continuous(expand = c(0,0)) +
+	theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank()) +
+	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5*p2.pdf.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5*p2.pdf.scale,hjust=0) +
+	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5*p2.pdf.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0.25,label=\"-  25 \%\",size=5*p2.pdf.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0,label=\"-   0\%\",size=5*p2.pdf.scale,hjust=0) +
 	coord_cartesian(ylim=c(-0.05,1.05))
 
 ";
@@ -962,60 +1046,100 @@ if (dim(df2.rand.100[df2.rand.100\$y > 0,])[1] > 15) {
 }
  
 # P2 % Conversion XY Plot
-p2.rand.100.scale = 1# 0.25
-p2.rand.100 = 
-	ggplot(df2.rand.100,aes(x2,y2)) + geom_point(aes(x=x,y=y),size=1*p2.rand.100.scale) + geom_line(color=rgb(1,0,0,alpha=1),size=1*p2.rand.100.scale) + theme_bw()+
+p2.rand.png.scale = p.png.scale
+p2.rand.pdf.scale = p.pdf.scale
+
+p2.rand.100.png = 
+	ggplot(df2.rand.100,aes(x2,y2)) + 
+	geom_point(aes(x=x,y=y),size=1*p2.png.scale) + # SIZE
+	geom_line(color=rgb(1,0,0,alpha=1),size=1*p2.png.scale) + # SIZE
+	theme_bw() +
 	scale_x_continuous(expand = c(0,0)) +
 	scale_y_continuous(expand = c(0,0)) +
 	theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank()) +
-	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5*p2.rand.100.scale,hjust=0) +
-	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5*p2.rand.100.scale,hjust=0) +
-	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5*p2.rand.100.scale,hjust=0) +
-	annotate(geom='text',x=10,y=0.25,label=\"-  25 \%\",size=5*p2.rand.100.scale,hjust=0) +
-	annotate(geom='text',x=10,y=0,label=\"-   0\%\",size=5*p2.rand.100.scale,hjust=0) +
+	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5*p2.png.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5*p2.png.scale,hjust=0) +
+	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5*p2.png.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0.25,label=\"-  25 \%\",size=5*p2.png.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0,label=\"-   0\%\",size=5*p2.png.scale,hjust=0) +
+	coord_cartesian(ylim=c(-0.05,1.05))
+
+p2.rand.100.pdf = 
+	ggplot(df2.rand.100,aes(x2,y2)) + 
+	geom_point(aes(x=x,y=y),size=1*p2.pdf.scale) +  # SIZE
+	geom_line(color=rgb(1,0,0,alpha=1),size=1*p2.pdf.scale) + # SIZE 
+	theme_bw() +
+	scale_x_continuous(expand = c(0,0)) +
+	scale_y_continuous(expand = c(0,0)) +
+	theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank()) +
+	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5*p2.pdf.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5*p2.pdf.scale,hjust=0) +
+	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5*p2.pdf.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0.25,label=\"-  25 \%\",size=5*p2.pdf.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0,label=\"-   0\%\",size=5*p2.pdf.scale,hjust=0) +
 	coord_cartesian(ylim=c(-0.05,1.05))
 
 ";
 
-	$R->{secondplotConversionGraph_rand} = "
+	$R->{secondplotConversionGraph_rand_1000} = "
 
 # Calculate % Conversion
-df2.rand = subset(df.rand,select=c(-V1,-y));
-df2.rand[df2.rand < $peakminVal] = 0; df2.rand[df2.rand >= 8] = 1
-df2.rand = data.frame(x=seq(1,dim(df2.rand)[2]), y=apply(df2.rand,2,mean))
-if (dim(df2.rand[df2.rand\$y > 0,])[1] > 15) {
-	df2.rand = df2.rand[df2.rand\$y > 0,]
-	df2.rand\$x = as.numeric(as.character(df2.rand\$x));
-	df2.rand\$y = as.numeric(as.character(df2.rand\$y));
-	df2.rand\$x2 = df2.rand\$x
-	df2.rand\$y2 = df2.rand\$y
-	for (i in 1:(dim(df2.rand)[1]-10)) {
-		a = df2.rand[df2.rand\$x >= df2.rand[i,]\$x & df2.rand\$x <= df2.rand[i+10-1,]\$x,]
+df2.rand.1000 = subset(df.rand.1000,select=c(-V1,-y));
+df2.rand.1000[df2.rand.1000 < $peakminVal] = 0; df2.rand.1000[df2.rand.1000 >= 8] = 1
+df2.rand.1000 = data.frame(x=seq(1,dim(df2.rand.1000)[2]), y=apply(df2.rand.1000,2,mean))
+if (dim(df2.rand.1000[df2.rand.1000\$y > 0,])[1] > 15) {
+	df2.rand.1000 = df2.rand.1000[df2.rand.1000\$y > 0,]
+	df2.rand.1000\$x = as.numeric(as.character(df2.rand.1000\$x));
+	df2.rand.1000\$y = as.numeric(as.character(df2.rand.1000\$y));
+	df2.rand.1000\$x2 = df2.rand.1000\$x
+	df2.rand.1000\$y2 = df2.rand.1000\$y
+	for (i in 1:(dim(df2.rand.1000)[1]-10)) {
+		a = df2.rand.1000[df2.rand.1000\$x >= df2.rand.1000[i,]\$x & df2.rand.1000\$x <= df2.rand.1000[i+10-1,]\$x,]
 		if (length(a) != 0 & dim(a)[1] != 0) {
-			df2.rand[i,]\$y2 = mean(a\$y)
-			df2.rand[i,]\$x2 = mean(a\$x)
+			df2.rand.1000[i,]\$y2 = mean(a\$y)
+			df2.rand.1000[i,]\$x2 = mean(a\$x)
 		}
 	}
-	mins = seq(1,as.integer(df2.rand[1,]\$x2)-1,10)
-	maxs = seq(max(df2.rand\$x2),dim(df.rand)[2]-2,10)
-	df2.rand = rbind(data.frame(x=mins,y=0,x2=mins,y2=0),df2.rand)
-	df2.rand = rbind(df2.rand,data.frame(x=maxs,y=0,x2=maxs,y2=0))
+	mins = seq(1,as.integer(df2.rand.1000[1,]\$x2)-1,10)
+	maxs = seq(max(df2.rand.1000\$x2),dim(df.rand.1000)[2]-2,10)
+	df2.rand.1000 = rbind(data.frame(x=mins,y=0,x2=mins,y2=0),df2.rand.1000)
+	df2.rand.1000 = rbind(df2.rand.1000,data.frame(x=maxs,y=0,x2=maxs,y2=0))
 } else {
-	df2.rand = data.frame(x=seq(1,dim(df.rand)[2]), y=0, x2=seq(1,dim(df.rand)[2]), y2=0);
+	df2.rand.1000 = data.frame(x=seq(1,dim(df.rand.1000)[2]), y=0, x2=seq(1,dim(df.rand.1000)[2]), y2=0);
 }
  
 # P2 % Conversion XY Plot
-p2.rand.scale = 1# 0.25
-p2.rand = 
-	ggplot(df2.rand,aes(x2,y2)) + geom_point(aes(x=x,y=y),size=1*p2.rand.scale) + geom_line(color=rgb(1,0,0,alpha=1),size=1*p2.rand.scale) + theme_bw()+
+p2.rand.png.scale = p.png.scale
+p2.rand.pdf.scale = p.pdf.scale
+
+p2.rand.1000.png = 
+	ggplot(df2.rand.1000,aes(x2,y2)) + 
+	geom_point(aes(x=x,y=y),size=1*p2.png.scale) + # SIZE
+	geom_line(color=rgb(1,0,0,alpha=1),size=1*p2.png.scale) + # SIZE
+	theme_bw() +
 	scale_x_continuous(expand = c(0,0)) +
 	scale_y_continuous(expand = c(0,0)) +
 	theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank()) +
-	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5*p2.rand.scale,hjust=0) +
-	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5*p2.rand.scale,hjust=0) +
-	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5*p2.rand.scale,hjust=0) +
-	annotate(geom='text',x=10,y=0.25,label=\"-  25 \%\",size=5*p2.rand.scale,hjust=0) +
-	annotate(geom='text',x=10,y=0,label=\"-   0\%\",size=5*p2.rand.scale,hjust=0) +
+	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5*p2.png.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5*p2.png.scale,hjust=0) +
+	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5*p2.png.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0.25,label=\"-  25 \%\",size=5*p2.png.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0,label=\"-   0\%\",size=5*p2.png.scale,hjust=0) +
+	coord_cartesian(ylim=c(-0.05,1.05))
+
+p2.rand.1000.pdf = 
+	ggplot(df2.rand.1000,aes(x2,y2)) + 
+	geom_point(aes(x=x,y=y),size=1*p2.pdf.scale) +  # SIZE
+	geom_line(color=rgb(1,0,0,alpha=1),size=1*p2.pdf.scale) + # SIZE 
+	theme_bw() +
+	scale_x_continuous(expand = c(0,0)) +
+	scale_y_continuous(expand = c(0,0)) +
+	theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank()) +
+	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5*p2.pdf.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5*p2.pdf.scale,hjust=0) +
+	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5*p2.pdf.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0.25,label=\"-  25 \%\",size=5*p2.pdf.scale,hjust=0) +
+	annotate(geom='text',x=10,y=0,label=\"-   0\%\",size=5*p2.pdf.scale,hjust=0) +
 	coord_cartesian(ylim=c(-0.05,1.05))
 
 ";
@@ -1056,51 +1180,32 @@ totalratio_nopk_last  = c(totalread_nopk/(totalread_nopk+31.25+26.5625), 31.25 /
 # PNG
 png(\"$pngout\",width=totalwidth,height=totalheight)
 if (mynrow == 3) {
-	grid.arrange(p,p2,p3,ncol=1,nrow=mynrow,heights=totalratio)
+	grid.arrange(p.png,p2.png,p3.png,ncol=1,nrow=mynrow,heights=totalratio)
 } else {
-	grid.arrange(p,p2,ncol=1,nrow=mynrow,heights=totalratio)
+	grid.arrange(p.png,p2.png,ncol=1,nrow=mynrow,heights=totalratio)
 }
 dev.off()
 
 # PNG all Conv
 pngout_peak_all_c_conv = \"$pngoutFolder/ALL/$pngoutFilename.ALL.c_conv.png\"
 png(pngout_peak_all_c_conv,width=totalwidth,height=31.25*myscale)
-grid.arrange(p2)
+grid.arrange(p2.png)
 dev.off()
 
 ";
 
-	$R->{PDF} = "
-
-# PDF
-pdf(\"$pdfout\",width=totalwidth/400,height=totalheight/1600)
-if (mynrow == 3) {
-	grid.arrange(p,p2,p3,ncol=1,nrow=mynrow,heights=totalratio)
-} else {
-	grid.arrange(p,p2,ncol=1,nrow=mynrow,heights=totalratio)
-}
-dev.off()
-
-# PDF all Conv
-pdfout_peak_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.ALL.c_conv.pdf\"
-pdf(pdfout_peak_all_c_conv,width=totalwidth,height=31.25*myscale)
-grid.arrange(p2)
-dev.off()
-
-";
-	
 	$R->{PNG_nopk} = "
 
 # PNG
-totalheight = (dim(df.rand)[1] + 31.25) * myscale
+totalheight = (dim(df.rand.1000)[1] + 31.25) * myscale
 png(\"$pngout\",width=totalwidth,height=totalheight)
-grid.arrange(p.rand,p2.rand,ncol=1,nrow=mynrow,heights=totalratio)
+grid.arrange(p.rand.1000.png,p2.rand.1000.png,ncol=1,nrow=mynrow,heights=totalratio)
 dev.off()
 
 # PNG all Conv
 pngout_nopk_all_c_conv = \"$pngoutFolder/ALL/$pngoutFilename.ALL.c_conv.png\"
 png(pngout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
-grid.arrange(p2)
+grid.arrange(p2.png)
 dev.off()
 
 ";
@@ -1111,13 +1216,13 @@ pngout_nopk_rand_100 = \"$pngoutFolder/ALL/$pngoutFilename.RAND.100.png\"
 # PNG
 totalheight = (dim(df.rand.100)[1]) * myscale
 png(pngout_nopk_rand_100,width=totalwidth,height=totalheight)
-grid.arrange(p.rand.100)
+grid.arrange(p.rand.100.png,p2.rand.100.png,ncol=1,nrow=mynrow,heights=totalratio)
 dev.off()
 
 # PNG all Conv
 pngout_nopk_all_c_conv = \"$pngoutFolder/ALL/$pngoutFilename.RAND.100.c_conv.png\"
 png(pngout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
-grid.arrange(p2.rand.100)
+grid.arrange(p2.rand.100.png)
 dev.off()
 
 ";
@@ -1148,14 +1253,34 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 
 ";
 
+	$R->{PDF} = "
+
+# PDF
+pdf(\"$pdfout\",width=totalwidth/100,height=totalheight/100)
+if (mynrow == 3) {
+	grid.arrange(p.pdf,p2.pdf,p3.pdf,ncol=1,nrow=mynrow,heights=totalratio)
+} else {
+	grid.arrange(p.pdf,p2.pdf,ncol=1,nrow=mynrow,heights=totalratio)
+}
+dev.off()
+
+# PDF all Conv
+pdfout_peak_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.ALL.c_conv.pdf\"
+pdf(pdfout_peak_all_c_conv,width=totalwidth,height=31.25*myscale)
+grid.arrange(p2.pdf)
+dev.off()
+
+";
+	
+
 	$R->{PDF_nopk} = "
 
 # PDF
-currheight = (dim(df.rand)[1] + 31.25) * myscale / 100
+currheight = (dim(df.rand.1000)[1] + 31.25) * myscale / 100
 currwidth = totalwidth / 100
 print(currheight)
 pdf(\"$pdfout\",width=currwidth,height=currheight)
-grid.arrange(p.rand,p2.rand,ncol=1,nrow=mynrow,heights=totalratio)
+grid.arrange(p.rand.1000.pdf,p2.rand.1000.pdf,ncol=1,nrow=mynrow,heights=totalratio)
 dev.off()
 
 # PDF all Conv
@@ -1164,7 +1289,7 @@ currwidth = totalwidth / 100
 print(currheight)
 pdfout_nopk_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.ALL.c_conv.pdf\"
 pdf(pdfout_nopk_all_c_conv,width=currwidth,height=currheight)
-grid.arrange(p2)
+grid.arrange(p2.pdf)
 dev.off()
 
 ";
@@ -1175,7 +1300,7 @@ currwidth = totalwidth / 100
 pdfout_nopk_rand_100 = \"$pdfoutFolder/ALL/$pdfoutFilename.RAND.100.pdf\"
 # PDF
 pdf(pdfout_nopk_rand_100,width=currwidth,height=currheight)
-grid.arrange(p.rand.100)
+grid.arrange(p.rand.100.pdf,p2.rand.100.pdf,ncol=1,nrow=mynrow,heights=totalratio)
 dev.off()
 
 # PDF all Conv
@@ -1183,7 +1308,7 @@ currheight = 31.25 * myscale / 100
 currwidth = totalwidth / 100
 pdfout_nopk_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.RAND.100.c_conv.pdf\"
 pdf(pdfout_nopk_all_c_conv,width=currwidth,height=currheight)
-grid.arrange(p2.rand.100)
+grid.arrange(p2.rand.100.pdf)
 dev.off()
 
 ";
@@ -1520,7 +1645,7 @@ __END__
 __END__
 	$R->{PDF_nopk} = "
 # PDF
-totalheight = (dim(df.rand)[1] + 31.25) * myscale
+totalheight = (dim(df.rand.1000)[1] + 31.25) * myscale
 pdf(\"$pdfout\",width=totalwidth,height=totalheight)
 grid.arrange(p.rand,p2.rand,ncol=1,nrow=mynrow,heights=totalratio)
 dev.off()
