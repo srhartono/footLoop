@@ -361,7 +361,7 @@ clustTot = dim(aggregate(dm\$window,by=list(dm\$gene,dm\$cluster),sum))[1]
 genesTot = dim(aggregate(dm\$window,by=list(dm\$gene),sum))[1]
 clustCount = as.data.frame(plyr::count(dm,c(\"cluster\",\"gene\")));
 clustCount\$freq = clustCount\$freq / (length(unique(dm\$variable)) * length(unique(dm\$type))); colnames(clustCount)[3] = \"clustGroup\"
-genesCount = as.data.frame(plyr::count(clustCount,c(\"gene\")));colnames(genesCount)[2] = \"genesGroup\";
+genesCount = as.data.frame(aggregate(clustCount\$clustGroup,by=list(clustCount\$gene),sum));colnames(genesCount) = c(\"gene\",\"genesGroup\");
 dm = merge(dm,clustCount,by=c(\"cluster\",\"gene\"),all=T)
 dm = merge(dm,genesCount,by=c(\"gene\"),all=T)
 dm\$clustGroup = paste(dm\$file,\" (\",dm\$feature,\") cluster \",dm\$cluster,\" (\",dm\$clustGroup,\" reads)\",sep=\"\")
