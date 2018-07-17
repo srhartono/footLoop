@@ -57,7 +57,7 @@ $user = "USER" if not defined $user;
 my $uuid = getuuid();
 my $date = date();
 
-my $boxFile;
+my $boxFile = "";
 if (defined $opt_B and -e $opt_B) {
 	$boxFile = getFullpath($opt_B);
 }
@@ -304,11 +304,11 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 
 				if (defined $opt_B and -e $opt_B) {
 					if ($currFile !~ /\.NOPK\./) {
-						LOG($outLog, date() . "\t\t-> ADDED $boxFile!\n","NA");
+						LOG($outLog, date() . "\t\t-> ADDED $boxFile!\n","NA") if defined $boxFile;
 						$Rscript .= $R->{box};
 					}
 					else {
-						LOG($outLog, date() . "\t\t-> ADDED $boxFile!\n","NA");
+						LOG($outLog, date() . "\t\t-> ADDED $boxFile!\n","NA") if defined $boxFile;
 						$Rscript .= $R->{box_nopk};
 					}
 				}
