@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_d $opt_n $opt_G);
-getopts("vd:n:G:");
+use vars qw($opt_v $opt_d $opt_n $opt_G $opt_c);
+getopts("vd:n:G:c");
 
 #########
 # BEGIN #
@@ -58,36 +58,40 @@ my ($samFile) = $opts->{footLoop}{samFile};
 my (%samData) = %{parse_samFile($samFile, $outLog)};
 foreach my $gene (sort keys %samData) {
 	my @key = qw(Pos Neg);
-	my $total = $samData{$gene}{total};
-	my $pos = $samData{$gene}{Pos}; $pos = 0 if not defined $pos;
-	my $neg = $samData{$gene}{Neg}; $neg = 0 if not defined $neg;
+	my $total = $samData{uc($gene)}{total};
+	my $pos = $samData{uc($gene)}{Pos}; $pos = 0 if not defined $pos;
+	my $neg = $samData{uc($gene)}{Neg}; $neg = 0 if not defined $neg;
 #	print "$gene\t$total\t$pos\t$neg\n";
 }
 my ($samFixedFile) = $opts->{footLoop}{samFixed};
 my ($origDir) = getFilename($samFixedFile, "folder");
 my (%samFixedData) = %{parse_samFile($samFixedFile, $outLog)};
 
+my %dataorig;
 my %print0;
 $print0{header} = "gene\tsam_uread\tsam_uread_pos\tsam_uread_neg\tsamfix_uread_pos\tsamfix_uread_neg\tsamfix_pos_pos\tsamfix_neg_neg\tsamfix_pos_neg\tsamfix_neg_pos\tsamfinal_uread_pos\tsamfinal_uread_neg\tsamfinal_uread_unk";
 foreach my $gene (sort keys %samFixedData) {
 	my @key = qw(Pos Neg);
-	my $total = $samFixedData{$gene}{total};
-	my $sampos = $samData{$gene}{Pos}; $sampos = 0 if not defined $sampos;
-	my $samneg = $samData{$gene}{Neg}; $samneg = 0 if not defined $samneg;
-	my $pos = $samFixedData{$gene}{Pos}; $pos = 0 if not defined $pos;
-	my $neg = $samFixedData{$gene}{Neg}; $neg = 0 if not defined $neg;
+	my $total = $samFixedData{uc($gene)}{total};
+	my $sampos = $samData{uc($gene)}{Pos}; $sampos = 0 if not defined $sampos;
+	my $samneg = $samData{uc($gene)}{Neg}; $samneg = 0 if not defined $samneg;
+	my $pos = $samFixedData{uc($gene)}{Pos}; $pos = 0 if not defined $pos;
+	my $neg = $samFixedData{uc($gene)}{Neg}; $neg = 0 if not defined $neg;
 	die "Discrepancy betweensam and fixed sam pos and neg in gene=$gene (pos=$pos, sampos=$sampos)\n" if $sampos ne $pos;
 	die "Discrepancy betweensam and fixed sam neg and neg in gene=$gene (neg=$neg, samneg=$samneg)\n" if $samneg ne $neg;
-	my $pos2 = $samFixedData{$gene}{strand}{Pos}; $pos2 = 0 if not defined $pos2;
-	my $neg2 = $samFixedData{$gene}{strand}{Neg}; $neg2 = 0 if not defined $neg2;
-	my $posneg = $samFixedData{$gene}{change}{Pos}{Neg}; $posneg = 0 if not defined $posneg;
-	my $negpos = $samFixedData{$gene}{change}{Neg}{Pos}; $negpos = 0 if not defined $negpos;
-	my $pospos = $samFixedData{$gene}{change}{Pos}{Pos}; $pospos = 0 if not defined $pospos;
-	my $negneg = $samFixedData{$gene}{change}{Neg}{Neg}; $negneg = 0 if not defined $negneg;
+	my $pos2 = $samFixedData{uc($gene)}{strand}{Pos}; $pos2 = 0 if not defined $pos2;
+	my $neg2 = $samFixedData{uc($gene)}{strand}{Neg}; $neg2 = 0 if not defined $neg2;
+	my $posneg = $samFixedData{uc($gene)}{change}{Pos}{Neg}; $posneg = 0 if not defined $posneg;
+	my $negpos = $samFixedData{uc($gene)}{change}{Neg}{Pos}; $negpos = 0 if not defined $negpos;
+	my $pospos = $samFixedData{uc($gene)}{change}{Pos}{Pos}; $pospos = 0 if not defined $pospos;
+	my $negneg = $samFixedData{uc($gene)}{change}{Neg}{Neg}; $negneg = 0 if not defined $negneg;
 	my $posorig = "$origDir/$gene\_Pos.orig"; ($posorig) = -e $posorig ? `wc -l $posorig` =~ /^(\d+)/ : 0;
 	my $negorig = "$origDir/$gene\_Neg.orig"; ($negorig) = -e $negorig ? `wc -l $negorig` =~ /^(\d+)/ : 0;
 	my $unkorig = "$origDir/$gene\_Unk.orig"; ($unkorig) = -e $unkorig ? `wc -l $unkorig` =~ /^(\d+)/ : 0;
-	$print0{gene}{$gene} = "$gene\t$total\t$pos\t$neg\t$pos2\t$neg2\t$pospos\t$negneg\t$posneg\t$negpos\t$posorig\t$negorig\t$unkorig";
+	$dataorig{uc($gene)}{posorig} = $posorig;
+	$dataorig{uc($gene)}{negorig} = $negorig;
+	$dataorig{uc($gene)}{unkorig} = $unkorig;
+	$print0{gene}{uc($gene)} = "$gene\t$total\t$pos\t$neg\t$pos2\t$neg2\t$pospos\t$negneg\t$posneg\t$negpos\t$posorig\t$negorig\t$unkorig";
 }
 sub parse_samFile {
 	my ($samFile, $outLog) = @_;
@@ -109,12 +113,17 @@ sub parse_samFile {
 			($read, $type, $flag, $flag2, $gene) = @arr;
 		}
 		my $strand = $flag eq 16 ? "Neg" : $flag eq 0 ? "Pos" : DIELOG($outLog, "Failed to parse strand from sam file=$LCY$samFile$N, flag=$flag, line:\n\n$line\n\n");
-		$data{$gene}{$strand} ++;
-		$data{$gene}{total} ++;
+		$data{uc($gene)}{$strand} ++;
+		$data{uc($gene)}{total} ++;
 		if ($arr[1] !~ /^(0|16)$/) {
 			my $strand2 = $flag2 eq 16 ? "Neg" : $flag2 eq 0 ? "Pos" : DIELOG($outLog, "Failed to parse strand from sam file=$LCY$samFile$N, flag2=$flag2, line:\n\n$line\n\n");
-			$data{$gene}{strand}{$strand2} ++;
-			$data{$gene}{change}{$strand}{$strand2} ++;
+			$data{uc($gene)}{strand}{$strand2} ++;
+			$data{uc($gene)}{change}{$strand}{$strand2} ++;
+		}
+	}
+	foreach my $gene (sort keys %data) {
+		foreach my $strand2 (sort keys %{$data{uc($gene)}{strand}}) {
+			print "gene=$gene strand=$strand2 total=$data{uc($gene)}{strand}{$strand2}\n";
 		}
 	}
 	close $in;
@@ -138,8 +147,9 @@ foreach my $TXTFile (@TXTFile) {
 	my @result = parseName($footName . "_CH");
 	my @header = qw(label gene strand window thres conv bc plasmid desc);
 	my ($label, $gene, $strand, $window, $thres, $conv, $bc, $plasmid, $desc) = @result;
-	my $label2 = "$label\_$bc\_$plasmid\_$desc" if defined $bc and $bc ne ""; 
-	$label2 = $label if not defined $bc or (defined $bc and $bc eq "");
+	my $label2 = $label;
+	$label2 = (defined $bc and $bc ne "" and $label !~ /bc.+plasmid.+desc/) ? "$label\_$bc\_$plasmid\_$desc" : $label2;
+	#$label2 = $label if not defined $bc or (defined $bc and $bc eq "");
 	$result[5] = "";
 	$data = parseTXT($data, $TXTFile, $label2, $gene, $strand, $window, $thres);
 }
@@ -150,29 +160,34 @@ my $LABEL;
 print $out "type\tlabel\tgene\tread_strand\twindow\tthres\tconv\tread_unique_total\tread_unique_peak_total\tread_unique_peak_perc\tfootPeakFolder\tpeakFile\n";
 foreach my $label (sort keys %{$data}) {
 	foreach my $gene (sort keys %{$data->{$label}}) {
-		foreach my $read_strand (sort keys %{$data->{$label}{$gene}}) {
-			foreach my $window (sort keys %{$data->{$label}{$gene}{$read_strand}}) {
-				foreach my $thres (sort keys %{$data->{$label}{$gene}{$read_strand}{$window}}) {
-					foreach my $conv (sort keys %{$data->{$label}{$gene}{$read_strand}{$window}{$thres}}) {
+		foreach my $read_strand (sort keys %{$data->{$label}{uc($gene)}}) {
+			foreach my $window (sort keys %{$data->{$label}{uc($gene)}{$read_strand}}) {
+				foreach my $thres (sort keys %{$data->{$label}{uc($gene)}{$read_strand}{$window}}) {
+					foreach my $conv (sort keys %{$data->{$label}{uc($gene)}{$read_strand}{$window}{$thres}}) {
 						my $strand = $coor->{uc($gene)}{strand}; $strand = "Pos" if $strand eq "+"; $strand = "Neg" if $strand eq "-";
 						my $goodconv = $label =~ /^PCB\d+$/ ? "H" : $read_strand eq "Pos" ? "CG" : $read_strand eq "Neg" ? "GC" : $read_strand eq "Unk" ? "UNK" : DIELOG($outLog, "Failed to get goodconv on label=$label strand eq $read_strand\n");
 						$goodconv = $goodconv ne "H" ? $goodconv : $read_strand eq "Pos" ? "CH" : $read_strand eq "Neg" ? "GH" : $read_strand eq "Unk" ? "UNK" : DIELOG($outLog, "Failed to get goodconv on label=$label strand eq $read_strand\n");
+						my $goodconv2 = $goodconv eq "CH" ? "CG" : $goodconv eq "GH" ? "GC" : $goodconv eq "CG" ? "CH" : "GH";
 						my $revconv = $label =~ /^PCB\d+$/ ? "H" : $read_strand eq "Pos" ? "GC" : $read_strand eq "Neg" ? "CG" : $read_strand eq "Unk" ? "UNK" : DIELOG($outLog, "Failed to get revconv on label=$label strand eq $read_strand\n");
 						$revconv = $revconv ne "H" ? $revconv : $read_strand eq "Pos" ? "GH" : $read_strand eq "Neg" ? "CH" : $read_strand eq "Unk" ? "UNK" : DIELOG($outLog, "Failed to get revconv on label=$label strand eq $read_strand\n");
 						my $type;
+						LOG($outLog, "label=$label gene=$gene read_strand = $read_strand gene_strand = $strand goodconv = $goodconv\n");
 						$type = 	$read_strand eq "UNK" ? "UNK" :
 									($strand eq $read_strand and $conv eq $goodconv) ? "PEAK" :
-									($strand ne $read_strand and $conv eq $goodconv) ? "PEAKNEG" : 
-									($strand eq $read_strand and $conv eq $revconv) ? "PEAKREV" :
-									($strand ne $read_strand and $conv eq $revconv) ? "PEAKNEGREV" : "OTHERS";
-						my ($currfootPeakFolder) = getFullpath($data->{$label}{$gene}{$read_strand}{$window}{$thres}{$conv}{footPeakFolder});
-						my ($currpeakFile) = $data->{$label}{$gene}{$read_strand}{$window}{$thres}{$conv}{peakFile};
-						my ($read_unique_total) = $data->{$label}{$gene}{$read_strand}{$window}{$thres}{$conv}{read_unique_total};
-						my ($read_unique_peak_total) = $data->{$label}{$gene}{$read_strand}{$window}{$thres}{$conv}{read_unique_peak_total};
-						my ($read_unique_peak_perc) = $data->{$label}{$gene}{$read_strand}{$window}{$thres}{$conv}{read_unique_peak_perc};
-						$print1{$gene}{$type} += $read_unique_peak_total;
-						$print1{$gene}{strand} = $strand;
-						$print1{$gene}{OTHERS_TOTAL} ++ if $type eq "OTHERS";
+									($strand ne $read_strand and $conv eq $goodconv) ? "PEAK_TEMP" : 
+									($strand eq $read_strand and $conv eq $revconv) ? "PEAK_RCONV" :
+									($strand ne $read_strand and $conv eq $revconv) ? "PEAK_TEMP_RCONV" :
+									($strand eq $read_strand and $conv eq $goodconv2) ? "PEAK_OTHERC" :
+									($strand ne $read_strand and $conv eq $goodconv2) ? "PEAK_TEMP_OTHERC" : "OTHERS";
+						my ($currfootPeakFolder) = getFullpath($data->{$label}{uc($gene)}{$read_strand}{$window}{$thres}{$conv}{footPeakFolder});
+						my ($currpeakFile) = $data->{$label}{uc($gene)}{$read_strand}{$window}{$thres}{$conv}{peakFile};
+						my ($read_unique_total) = $data->{$label}{uc($gene)}{$read_strand}{$window}{$thres}{$conv}{read_unique_total};
+						my ($read_unique_peak_total) = $data->{$label}{uc($gene)}{$read_strand}{$window}{$thres}{$conv}{read_unique_peak_total};
+						my ($read_unique_peak_perc) = $data->{$label}{uc($gene)}{$read_strand}{$window}{$thres}{$conv}{read_unique_peak_perc};
+						$print1{uc($gene)}{$type} += $read_unique_peak_total;
+						$print1{uc($gene)}{strand} = $strand;
+						$print1{uc($gene)}{OTHERS_TOTAL} ++ if $type eq "OTHERS";
+						
 						$print{$type} .= "$type\t$label\t$gene\t$read_strand\t$window\t$thres\t$conv\t$read_unique_total\t$read_unique_peak_total\t$read_unique_peak_perc\t$currfootPeakFolder\t$currpeakFile\n";
 						$LABEL = $label;
 					}
@@ -184,25 +199,38 @@ foreach my $label (sort keys %{$data}) {
 
 open (my $out2, ">", "$footPeakFolder/99_FOOTSTATS/0_SUMMARY.TXT") or die;
 print $out2 "label\tstrand\t$print0{header}";
-my @types = qw(PEAK PEAKNEG PEAKREV PEAKNEGREV OTHERS); 
+my @types = qw(PEAK PEAK_TEMP PEAK_RCONV PEAK_TEMP_RCONV OTHERS); 
 for (my $i = 0; $i < @types; $i++) { 
 	print $out $print{$types[$i]};
-	print $out2 "\t$types[$i]";
+	print $out2 "\t$types[$i]\t$types[$i] (%)";
 }
 print $out2 "\n";
 
 foreach my $gene (sort keys %{$print0{gene}}) {
-	my $print0 = $print0{gene}{$gene};
+	my $print0 = $print0{gene}{uc($gene)};
 	my $strand = $coor->{uc($gene)}{strand}; $strand = "Pos" if $strand eq "+"; $strand = "Neg" if $strand eq "-";
+	my $posorig = $dataorig{uc($gene)}{posorig};
+	my $negorig = $dataorig{uc($gene)}{negorig};
+	my $unkorig = $dataorig{uc($gene)}{unkorig};
 	print $out2 "$LABEL\t$strand\t$print0";
 	for (my $i = 0; $i < @types-1; $i++) { 
-		my $print1 = $print1{$gene}{$types[$i]}; $print1 = 0 if not defined $print1;
+		my $print1 = $print1{uc($gene)}{$types[$i]}; $print1 = 0 if not defined $print1;
+		my $print1denomPos = $strand eq "Pos" ? $posorig : $strand eq "Neg" ? $negorig : $unkorig;
+		my $print1denomNeg = $strand eq "Pos" ? $negorig : $strand eq "Neg" ? $posorig : $unkorig;
+	#	print "type=$types[$i] strand=$strand print1=$print1 denom = $print1denomPos neg = $print1denomNeg\n";
 		print $out2 "\t$print1";
+		if ($i < @types - 1) {
+			print $out2 "\t" . int(100 * $print1 / $print1denomPos +0.5)/100 if $i % 2 == 0;
+			print $out2 "\t" . int(100 * $print1 / $print1denomNeg +0.5)/100 if $i % 2 == 1;
+			print "\t$print1denomPos\n" if $i % 2 == 0;
+			print "\t$print1denomNeg\n" if $i % 2 == 1;
+		}
 	}
-	my $printOTHERS = $print1{$gene}{OTHERS}; $printOTHERS = 0 if not defined $printOTHERS;
-	my $printOTHERStot = $print1{$gene}{OTHERS_TOTAL}; $printOTHERStot = 1 if not defined $printOTHERStot;
-	$printOTHERS = int($printOTHERS / $printOTHERStot * 10)/10;
-	print $out2 "\t$printOTHERS\n";
+	my $printOTHERS = $print1{uc($gene)}{OTHERS}; $printOTHERS = 0 if not defined $printOTHERS;
+	my $printOTHERStot = $print1{uc($gene)}{OTHERS_TOTAL}; $printOTHERStot = 1 if not defined $printOTHERStot;
+	
+	my $printOTHERSperc = int($printOTHERS / $printOTHERStot * 10)/10;
+	print $out2 "\t$printOTHERS\t$printOTHERSperc\n";
 }
 LOG($outLog, date() . "$LCY$opt_n$N Done!\n\nOutput:
 $footPeakFolder/99_FOOTSTATS/1_PEAKSTATS.TXT
@@ -219,30 +247,10 @@ sub check_sanity {
 	print $outLog "$0 version $version\n\nRun script: $0 $optG-n $opt_n\n";
 	return($footPeakFolder, $outLog);
 }
-sub parse_geneIndexFile {
-   my ($footLoopFolder, $outLog) = @_;
-   my ($geneIndexFile) = <$footLoopFolder/*.bed>;
-   my %coor;
-   LOG($outLog, "${LCY}geneIndexFile$N=$geneIndexFile\n");
-   die "geneindexFile does not exist!\n" if not defined $geneIndexFile;
-   open (my $in, "<", $geneIndexFile) or DIELOG($outLog, "Failed to read from $geneIndexFile: $!\n");
-   while (my $line = <$in>) {
-      chomp($line);
-      my ($chr, $beg, $end, $gene, $zero, $strand) = split("\t", $line);
-      $gene = uc($gene);
-      $coor{$gene}{chr} = $chr;
-      $coor{$gene}{beg} = $beg;
-      $coor{$gene}{end} = $end;
-      $coor{$gene}{strand} = $strand;
-      #print "chr=$chr:$beg-$end gene=$gene, strand=$strand\n";
-   }
-   close $in;
-   return \%coor;
-}
 
 sub parseTXT {
 	my ($data, $TXTFile, $label, $gene, $strand, $window, $thres) = @_;
-	my @header = qw(footPeakFolder peakFile gene conv read_unique_total read_unique_peak_total read_unique_peak_perc);
+	my @header = qw(footPeakFolder peakFile gene conv read_unique_total read_unique_peak_total read_unique_peak_perc peakType);
 
 	open (my $in1, "<", $TXTFile) or die "Cannot read from $TXTFile: $!\n";
 	while (my $line = <$in1>) {
@@ -251,12 +259,21 @@ sub parseTXT {
 			next;
 		}
 		my @arr = split("\t", $line);
-		die "total number of header isn't the same as total column in file $LCY$TXTFile$N!\n\n$LPR$line$N\n\n" if @header != @arr;
+		if (@header != @arr) {
+			LOG($outLog, "total number of header isn't the same as total column in file $LCY$TXTFile$N!\n\n$LPR$line$N\n\n");
+			my $max = @header > @arr ? @header : @arr;
+			for (my $i = 0; $i < $max; $i++) {
+				my $headerVal = defined $header[$i] ? $header[$i] : "UNDEF";
+				my $arrVal = defined $arr[$i] ? $arr[$i] : "UNDEF";
+				print "$i header=$headerVal val=$arrVal\n";
+			}
+			DIELOG($outLog, "\n");
+		}
 #		print "\n$line\n";
 		my $conv = $arr[3];
 		for (my $i = 0; $i < @arr; $i++) {
 			next if $i == 3 or $i == 2;
-			$data->{$label}{$gene}{$strand}{$window}{$thres}{$conv}{$header[$i]} = $arr[$i];
+			$data->{$label}{uc($gene)}{$strand}{$window}{$thres}{$conv}{$header[$i]} = $arr[$i];
 		}
 	}
 	close $in1;
@@ -357,10 +374,32 @@ sub parse_geneIndexFile {
       chomp($line);
       my ($chr, $beg, $end, $gene, $zero, $strand) = split("\t", $line);
       $gene = uc($gene);
-      $coor{$gene}{chr} = $chr;
-      $coor{$gene}{beg} = $beg;
-      $coor{$gene}{end} = $end;
-      $coor{$gene}{strand} = $strand;
+      $coor{uc($gene)}{chr} = $chr;
+      $coor{uc($gene)}{beg} = $beg;
+      $coor{uc($gene)}{end} = $end;
+      $coor{uc($gene)}{strand} = $strand;
+      #print "chr=$chr:$beg-$end gene=$gene, strand=$strand\n";
+   }
+   close $in;
+   return \%coor;
+}
+
+__END__
+sub parse_geneIndexFile {
+   my ($footLoopFolder, $outLog) = @_;
+   my ($geneIndexFile) = <$footLoopFolder/*.bed>;
+   my %coor;
+   LOG($outLog, "${LCY}geneIndexFile$N=$geneIndexFile\n");
+   die "geneindexFile does not exist!\n" if not defined $geneIndexFile;
+   open (my $in, "<", $geneIndexFile) or DIELOG($outLog, "Failed to read from $geneIndexFile: $!\n");
+   while (my $line = <$in>) {
+      chomp($line);
+      my ($chr, $beg, $end, $gene, $zero, $strand) = split("\t", $line);
+      $gene = uc($gene);
+      $coor{uc($gene)}{chr} = $chr;
+      $coor{uc($gene)}{beg} = $beg;
+      $coor{uc($gene)}{end} = $end;
+      $coor{uc($gene)}{strand} = $strand;
       #print "chr=$chr:$beg-$end gene=$gene, strand=$strand\n";
    }
    close $in;

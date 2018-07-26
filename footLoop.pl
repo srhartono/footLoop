@@ -103,7 +103,7 @@ if (not defined $label and $label =~ /PCB/) {
    ($label) = $outDir =~ /(PCB.{1,5})\/?/;
 }
 if (not defined $label) {
-   die "Please make sure your output folder (-o) contain PCB(number) e.g. PCB12: 180202_PCB12_footloop_output\n\n";
+   die "Please make sure your output folder (-n) contain PCB(number) e.g. PCB12: -n 180202_PCB12_footloop_output\n\n";
 }
 
 if (not defined $opt_l and $outDir =~ /_BC\d+_PFC\d+_\w+\./i) {
@@ -113,6 +113,10 @@ if (not defined $opt_l and $outDir =~ /_BC\d+_PFC\d+_\w+\./i) {
    $label =~ s/PCB[0\-_]+(\d+)/PCB$1/g;
 }
 	$OPTS{l} = $label;
+
+if ($outDir =~ /PCB\d+_bcBC\d+_.+desc\w+/) {
+	($label) = $outDir =~ /(PCB\d+_bcBC\d+_.+desc[a-zA-Z0-9]+)_?/;
+}
 
 print date() . "FATAL ERROR ON LABEL -l\n" and die if not defined $label;
 
@@ -165,7 +169,7 @@ LOGSTEP($outLog);
 ################################
 ($STEP) = LOGSTEP($outLog, "BEG", $STEP, 1, "Fix Sam File\n");#$N $bismarkOpt $bismark_folder $readFile\n");
 
-# Do footLoop_2_sam_to_peak.pl
+# Do footLoop_2fixsam.pl
 # - Determine strand of read based on # of conversion
 # - Determine bad regions in read (indels) which wont be used in peak calling
 ($samFile, $origDir) = fix_samFile($samFile, $seqFile, $outReadLog, $outLog); #becomes .fixed
@@ -417,7 +421,7 @@ sub run_example {
 
 sub fix_samFile {
 	my ($samFile, $seqFile, $outReadLog, $outLog) = @_;
-	LOG($outLog, "\n\ta. Fixing sam file $CY$samFile$N with footLoop_2_sam_to_peak.pl\n");
+	LOG($outLog, "\n\ta. Fixing sam file $CY$samFile$N with footLoop_2fixsam.pl\n");
 	my ($samMD5) = getMD5($samFile);
 	my $origDir = "$outDir/.0_orig_$samMD5/";
 	check_if_result_exist(["$origDir/.GOOD"], $outLog);
@@ -448,15 +452,15 @@ sub fix_samFile {
 	}
 	if ($checkSam == 0) {
 		LOG($outLog, "\tfootLoop.pl subroutine fix_samFile:: fixed sam file $LCY$origDir/$samFileName.fixed$N or .gz does not exist!\n");
-		LOG($outLog, "\t${YW}footLoop_2_sam_to_peak.pl -f $outDir -s $seqFile -o $origDir$N\n");
-		system("footLoop_2_sam_to_peak.pl -f $outDir -o $origDir") == 0 or LOG($outLog, "Failed to run footLoop_2_sam_to_peak.pl -f $outDir -o $origDir: $!\n") and exit 1;
-		LOG($outReadLog, "footLoop.pl,fix_samFile,footLoop_2_sam_to_peak.pl -f $outDir -o $origDir\n","NA");
+		LOG($outLog, "\t${YW}footLoop_2fixsam.pl -f $outDir -s $seqFile -o $origDir$N\n");
+		system("footLoop_2fixsam.pl -f $outDir -o $origDir") == 0 or LOG($outLog, "Failed to run footLoop_2fixsam.pl -f $outDir -o $origDir: $!\n") and exit 1;
+		LOG($outReadLog, "footLoop.pl,fix_samFile,footLoop_2fixsam.pl -f $outDir -o $origDir\n","NA");
 		LOG($outLog, "\tgzip $origDir/$samFileName.fixed");
 		system("gzip -f $origDir/$samFileName.fixed") == 0 or LOG($outLog, "\tFailed to gzip $origDir/$samFileName.fixed: $!\n");
 		$checkSam = 1;
 	}
 	else {
-		LOG($outLog, "\t${LGN}WAS NOT RUN$N: ${YW}::: footLoop_2_sam_to_peak.pl -f $outDir -s $seqFile -o $origDir :::$N\n");
+		LOG($outLog, "\t${LGN}WAS NOT RUN$N: ${YW}::: footLoop_2fixsam.pl -f $outDir -s $seqFile -o $origDir :::$N\n");
 		# rm old (bad) .gz if it exists
 		LOG($outLog, "\t/bin/rm $samFileGZ") if -e '$samFileGZ';
 		system("/bin/rm $samFileGZ") == 0 or LOG($outLog, 'Failed to rm $samFileGZ: $!\n') if -e '$samFileGZ';
@@ -534,7 +538,8 @@ sub parse_samFile {
 		# b. Filter out reads with read length=$seqLen
 		elsif (parse_cigar($cigar, "len") < $SEQ->{$gene}{minReadL}) {
 			($SEQ, $samStats) = filter_sam_read($SEQ, $samStats, $readname, $gene, 'badlength');
-			print $notused "\t$CY$read$N length of seq ($CY" . $seqLen. "$N) is less than $SEQ->{$gene}{minReadL} bp (length of original sequence is ($CY" . $SEQ->{$gene}{geneL} . "$N)!\n";
+			my $cigarLen = parse_cigar($cigar, "len");
+			print $notused "\t$CY$read$N length of seq (cigarLen = $LGN$cigarLen$N, seqLen = $CY$seqLen$N) is less than $SEQ->{$gene}{minReadL} bp (length of original sequence is ($CY" . $SEQ->{$gene}{geneL} . "$N)!\n";
 		}
 
 		# c. If read strand is 0 or 16 store it

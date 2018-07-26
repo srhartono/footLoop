@@ -2,8 +2,8 @@
 # V3.7c
 
 use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_w $opt_g $opt_G $opt_v $opt_n $opt_r $opt_R $opt_B); #v $opt_x $opt_R $opt_c $opt_t $opt_n);
-getopts("n:vg:w:G:r:R:B:");
+use vars qw($opt_w $opt_g $opt_G $opt_v $opt_n $opt_r $opt_R $opt_B $opt_c); #v $opt_x $opt_R $opt_c $opt_t $opt_n);
+getopts("n:vg:w:G:r:R:B:c");
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
@@ -32,6 +32,9 @@ ${LGN}Optionals$N:
 
 -G $LGN<gene to process>$N] 
 
+-c: This is CpG (in vitro)
+
+
 -r Option to run R scripts $LCY(PNG)$N
    -r 0: do not run any R scripts
    -r 1: run only relevant R scripts (default)
@@ -50,6 +53,8 @@ die "\nERROR: -n footPeak dir $LCY$opt_n$N doesn't exists!\n\nUsage: $YW$0$N -n 
 my ($currMainFolder) = `pwd`; chomp($currMainFolder);
 $opt_r = 1 if not defined $opt_r;
 $opt_R = 0 if not defined $opt_R;
+#my $toggleCpG = defined $opt_c ? 1 : 0;
+
 die "\nERROR: -r has to be 0, 1, or 2! (current: $opt_r)\n\n" if defined $opt_r and $opt_r !~ /^[012]$/;
 
 my ($user) = $homedir =~ /home\/(\w+)/;
@@ -216,13 +221,15 @@ sub main {
 ####SPACESHIP
 
 			my $resDir2 = getFullpath($resDir);
-			my $madePNG = ($opt_r == 0) ? 0 : ($opt_r == 1 and $flag =~ /(ALL|RCONV|_C)/) ? 0 : 1;
-			my $madePDF = ($opt_R == 0) ? 0 : ($opt_R == 1 and $flag =~ /(ALL|RCONV|_C)/) ? 0 : 1;
-			my $pngout = "$resDir/PNG/$pngoutDir/$currFilename.png";
-			my $pdfout = "$resDir/PDF/$pdfoutDir/$currFilename.pdf";
+			my $madePNG = ($opt_r == 0) ? 0 : ($opt_r == 1 and defined $opt_c and $flag =~ /^(PEAK_C|NOPK_C|PEAK_TEMP_C|NOPK_TEMP_C)$/) ? 1 : ($opt_r == 1 and $flag =~ /(ALL|RCONV|_C)/) ? 0 : 1;
+			LOG($outLog, date() . " --> DEBUG flag=$flag madePNG = $madePNG\n","NA");
+			my $madePDF = ($opt_R == 0) ? 0 : ($opt_R == 1 and defined $opt_c and $flag =~ /^(PEAK_C|NOPK_C|PEAK_TEMP_C|NOPK_TEMP_C)$/) ? 1 : ($opt_R == 1 and $flag =~ /(ALL|RCONV|_C)/) ? 0 : 1;
+			LOG($outLog, date() . " --> DEBUG flag=$flag madePDF = $madePDF\n","NA");
+			my $pngout = "$resDir/PNG/$pngoutDir/$currFilename.$flag.png";
+			my $pdfout = "$resDir/PDF/$pdfoutDir/$currFilename.$flag.pdf";
 			my $lenpdfout = "$resDir/PDF/$pngoutDir$currFilename\_length.pdf";
-			$scp{"scp $user\@crick.cse.ucdavis.edu:$resDir2/PNG/$pngoutDir/$currFilename.png ./"} = 1 if $madePNG eq 1;
-			$scp{"scp $user\@crick.cse.ucdavis.edu:$resDir2/PDF/$pdfoutDir/$currFilename.pdf ./"} = 1 if $madePDF eq 1;
+			$scp{"scp $user\@crick.cse.ucdavis.edu:$resDir2/PNG/$pngoutDir/$currFilename.$flag.png ./"} = 1 if $madePNG eq 1;
+			$scp{"scp $user\@crick.cse.ucdavis.edu:$resDir2/PDF/$pdfoutDir/$currFilename.$flag.pdf ./"} = 1 if $madePDF eq 1;
 			#LOG($outLog, "!HERE STRAND=$STRAND strand=$strand type=$type label=$label pngoutDir = $pngoutDir, p = $p, PNGOUT = $pngout\n");
 			my ($RscriptPDF, $RscriptPNG, $RscriptPDF_nopk_ALL, $RscriptPNG_nopk_ALL);
 			my $Rscript = "
@@ -333,7 +340,7 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 			open (my $outRscriptPNG, ">", "$currFile.PNG.R") or (LOG($outLog, date() . "Failed to write R script into $currFile.PNG.R: $!\n") and print $outLog $Rscript and next);
 			print $outRscriptPNG $RscriptPNG;
 			$Rscripts{"$currFile.PNG.R"}{summary} = $summary;
-			$Rscripts{"$currFile.PNG.R"}{runR} = $flag =~ /(ALL|RCONV|_C)/ ? 0 : 1;
+			$Rscripts{"$currFile.PNG.R"}{runR} = (defined $opt_c and $flag =~ /^(NOPK_C|PEAK_C|NOPK_TEMP_C|PEAK_TEMP_C)$/) ? 1 : $flag =~ /(ALL|RCONV|_C)/ ? 0 : 1;
 			$Rscripts{"$currFile.PNG.R"}{runType} = $flag;
 			close $outRscriptPNG;
 
@@ -451,6 +458,8 @@ sub Rscript {
 	my ($bedFolder, $bedFilename) = getFilename($bedFile, "folderfull");
 	my ($currFolder, $currFilename) = getFilename($currFile, "folderfull");
 	($bedFilename) =~ s/(CG|CH|GC|GH).+$/$1/;
+	my $peakminVal = $currFile =~ /PEAK.out$/ ? 8 : 6;
+	my $plotminReads = 5;
 
 # -------------------- $R->{readTable}
 	$R->{readTable} = "	
@@ -732,8 +741,13 @@ p = ggplot(dm,aes(variable,y)) +
 # Randomly take reads
 df.total = dim(df)[1]
 set.seed(42)
-df.rand.100 = df[sample( seq(1,df.total) ,100,replace=F),]
-print(\"subsetting random 100. DF TOTAL = \"); print(df.total)
+if (df.total > 100) {
+	df.rand.100 = df[sample( seq(1,df.total) ,100,replace=F),]
+	print(\"randoming 100. DF TOTAL = \"); print(df.total)
+} else {
+	df.rand.100 = df
+	print(\"NOT randoming 100. DF TOTAL = \"); print(df.total)
+}
 
 # sorting by hclust
 if (dim(df.rand.100)[1] < 1000) {
@@ -954,14 +968,18 @@ if (length(bed) != 0 & dim(bed)[1] > 0) {
 
 
 # -------------------- $R->{secondplotConversionGraph}
-	my $peakminVal = $currFile =~ /PEAK.out$/ ? 8 : 6;
 	$R->{secondplotConversionGraph} = "
 
 # Calculate % Conversion
 df2 = subset(df,select=c(-V1,-y));
-df2[df2 < $peakminVal] = 0; df2[df2 >= 8] = 1
+if (length(df2[df2 < $peakminVal]) > 0) {
+	df2[df2 < $peakminVal] = 0;
+}
+if (length(df2[df2 >= $peakminVal]) > 0) {
+	df2[df2 >= $peakminVal] = 1
+}
 df2 = data.frame(x=seq(1,dim(df2)[2]), y=apply(df2,2,mean))
-if (dim(df2[df2\$y > 0,])[1] > 15) {
+if (dim(df2[df2\$y > 0,])[1] > $plotminReads) {
 	df2 = df2[df2\$y > 0,]
 	df2\$x = as.numeric(as.character(df2\$x));
 	df2\$y = as.numeric(as.character(df2\$y));
@@ -1022,9 +1040,14 @@ p2.pdf =
 
 # Calculate % Conversion
 df2.rand.100 = subset(df.rand.100,select=c(-V1,-y));
-df2.rand.100[df2.rand.100 < $peakminVal] = 0; df2.rand.100[df2.rand.100 >= 8] = 1
+if (length(df2.rand.100[df2.rand.100 < $peakminVal]) > 0) {
+	df2.rand.100[df2.rand.100 < $peakminVal] = 0;
+}
+if (length(df2.rand.100[df2.rand.100 >= $peakminVal]) > 0) {
+	df2.rand.100[df2.rand.100 >= $peakminVal] = 1
+}
 df2.rand.100 = data.frame(x=seq(1,dim(df2.rand.100)[2]), y=apply(df2.rand.100,2,mean))
-if (dim(df2.rand.100[df2.rand.100\$y > 0,])[1] > 15) {
+if (dim(df2.rand.100[df2.rand.100\$y > 0,])[1] > $plotminReads) {
 	df2.rand.100 = df2.rand.100[df2.rand.100\$y > 0,]
 	df2.rand.100\$x = as.numeric(as.character(df2.rand.100\$x));
 	df2.rand.100\$y = as.numeric(as.character(df2.rand.100\$y));
@@ -1085,9 +1108,14 @@ p2.rand.100.pdf =
 
 # Calculate % Conversion
 df2.rand.1000 = subset(df.rand.1000,select=c(-V1,-y));
-df2.rand.1000[df2.rand.1000 < $peakminVal] = 0; df2.rand.1000[df2.rand.1000 >= 8] = 1
+if (length(df2.rand.1000[df2.rand.1000 < $peakminVal]) > 0) {
+	df2.rand.1000[df2.rand.1000 < $peakminVal] = 0;
+}
+if (length(df2.rand.1000[df2.rand.1000 >= $peakminVal]) > 0) {
+	df2.rand.1000[df2.rand.1000 >= $peakminVal] = 1
+}
 df2.rand.1000 = data.frame(x=seq(1,dim(df2.rand.1000)[2]), y=apply(df2.rand.1000,2,mean))
-if (dim(df2.rand.1000[df2.rand.1000\$y > 0,])[1] > 15) {
+if (dim(df2.rand.1000[df2.rand.1000\$y > 0,])[1] > $plotminReads) {
 	df2.rand.1000 = df2.rand.1000[df2.rand.1000\$y > 0,]
 	df2.rand.1000\$x = as.numeric(as.character(df2.rand.1000\$x));
 	df2.rand.1000\$y = as.numeric(as.character(df2.rand.1000\$y));

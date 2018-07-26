@@ -90,6 +90,33 @@ $LPR
 
 #################################
 
+sub prettyPrint {
+	my ($texts) = @_;
+	my %len;
+	my @texts = split("\n", $texts); #row
+	for (my $i = 0; $i < @texts; $i++) { 
+		chomp($texts[$i]);
+		my @text = split("\t", $texts[$i]);#col
+		for (my $j = 0; $j < @text; $j++) { 
+			my $len = length($text[$j]);
+			$len{$j} = $len if not defined $len{$j};
+			$len{$j} = $len if $len{$j} < $len;
+		}
+	}
+
+	my $newtexts;
+	for (my $i = 0; $i < @texts; $i++) { 
+		my @text = split("\t", $texts[$i]);#col
+		for (my $j = 0; $j < @text; $j++) {
+			my $len = $len{$j}; 
+#			print "j = $j len = $len text=$text[$j]\n";
+			my $newtext = $text[$j] . join("", ((" ") x ($len-length($text[$j])) ));
+			$newtexts .= $j == @text - 1 ? "$newtext\n" : "$newtext\t";
+		}
+	}
+	return($newtexts);
+}
+
 sub makeOutDir {
 	my ($resDir) = @_;
 	$resDir =~ s/$/\// if $resDir !~ /\/$/;
@@ -176,16 +203,16 @@ sub parseName {
 		$filename = pop(@filename);
 	}
 	my ($label, $gene, $strand, $window, $thres, $type) = $filename =~ /^(.+)_gene(.+)_(Pos|Neg|Unk)_(.+)_(.+)_(CH|CG|GH|GC)/;
-	my ($bc, $plasmid, $desc) = ("", "", "");
+	my ($label2, $bc, $plasmid, $desc) = ("", "", "", "");
 	if ($label =~ /^(.+)_bc.+_plasmid.+_desc.+$/i) {
-		($label, $bc, $plasmid, $desc) = $label =~ /^(.+)_bc(.+)_plasmid(.+)_desc(.+)$/;
+		($label2, $bc, $plasmid, $desc) = $label =~ /^(.+)_bc(.+)_plasmid(.+)_desc(.+)$/;
 		die "\n\nmyFootLib::parseName: filename=$LGN$filename$N.\n\nCannot parse bc, plasmid, desc from label=$LPR$label$N\n\n" if not defined $bc or not defined $plasmid or not defined $desc;
 	}
 	if (not defined $label or not defined $gene or not defined $strand or not defined $window or not defined $thres or not defined $type) {
 		print "Cannot parse label gene strand window thres type from filename=$LCY$filename$N\n\nMake sure that filename format is: (.+)_gene(.+)_(Pos|Neg|Unk)_(.+)_(.+)_(CH|CG|GH|GC)\n\n";
 		return -1;
 	}
-	return ($label, $gene, $strand, $window, $thres, $type, $bc, $plasmid, $desc);
+	return ($label, $gene, $strand, $window, $thres, $type, $bc, $plasmid, $desc, $label2);
 }
 sub DIE {
 	return "\n$DIES Died at file $CY " . __FILE__ . " $N at line $LGN " . __LINE__ . " $N";

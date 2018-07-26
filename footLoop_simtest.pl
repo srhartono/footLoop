@@ -135,8 +135,33 @@ Run script             = $0 -i $opt_i -r $opt_r -n $opt_n $rand -p $dedupe_param
 
 my ($total_linecount) = `zcat $input1 | wc -l` =~ /^(\d+)/ if $input1 =~ /.gz$/;
 ($total_linecount) = `wc -l $input1` =~ /^(\d+)/ if $input1 !~ /.gz$/;
-die if $total_linecount % 4 != 0;
+if ($total_linecount % 4 != 0) {
+	my $testin;
+	open ($testin, "zcat $input1|") or die if $input1 =~ /.gz$/;
+	open ($testin, "$input1") or die if $input1 !~ /.gz$/;
+	my $linecount = 0;
+	while (my $line = <$testin>) {
+		$linecount ++;
+		chomp($line);
+		my ($readname) = $line;
+		$line = <$testin>; chomp($line);
+		$linecount ++;
+		my ($seq) = $line;
+		$line = <$testin>; chomp($line);
+		$linecount ++;
+		my ($plus) = $line;
+		$line = <$testin>; chomp($line);
+		$linecount ++;
+		my ($qual) = $line;
+
+		if ($readname !~ /^\@/ or $seq !~ /^[ACGTN]+$/) {
+			print "linecount $linecount is wrong!\n$readname\n$seq\n$plus\n$qual\n\n"; die;
+		}
+	}
+	$total_linecount = $linecount;
+}
 $total_linecount /= 4;
+
 my @random; my %random;
 for (my $i = 0; $i < $total_linecount; $i++) {
 	push(@random, $i);

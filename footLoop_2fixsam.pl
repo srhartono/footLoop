@@ -1,39 +1,106 @@
 #!/usr/bin/perl
 
 use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_s $opt_i $opt_g $opt_f $opt_S $opt_c $opt_C $opt_o);
-getopts("s:i:g:f:S:cCo:");
+use vars qw($opt_v $opt_s $opt_i $opt_g $opt_n $opt_S $opt_c $opt_C $opt_o $opt_v);
+getopts("s:i:g:f:S:cCo:v");
+
 BEGIN {
+   my ($bedtools) = `bedtools --version`;
+   my ($bowtie2) = `bowtie2 --version`;
+   my ($bismark) = `bismark --version`;
+   my ($bismark_genome_preparation) = `bismark_genome_preparation --version`;
+
+   if (not defined $bedtools or $bedtools =~ /command not found/ or $bedtools =~ /bedtools v?([01].\d+|2\.0[0-9]|2\.1[0-6])/) {
+      print "Please install bedtools at least version 2.17 before proceeding!\n";
+      $bedtools = 0;
+   }
+   if (not defined $bowtie2 or $bowtie2 =~ /command not found/ or $bowtie2 =~ /version [0-1]./) {
+      print "Please install bowtie2 at least version 2.1.0 before proceeding!\n";
+      $bowtie2 = 0;
+   }
+   if (not defined $bismark or $bismark =~ /command not found/ or $bismark =~ /v?(0\.1[0-2]|0\.0[0-9])/) {
+      print "Please install bismark at least version 0.13 before proceeding!\n";
+      $bismark = 0;
+   }
+   if (not defined $bismark_genome_preparation or $bismark_genome_preparation =~ /command not found/ or $bismark_genome_preparation =~ /v?(0\.1[0-2]|0\.0[0-9])/) {
+      print "\n\nPlease install bismark_genome_preparation at least version 0.13 before proceeding!\n\n";
+      $bismark_genome_preparation = 0;
+   }
+   print "- bedtools v2.17+ exists:" . `which bedtools` if $bedtools ne 0;
+   print "- bowtie2 v2.1+ exists:" . `which bowtie2` if $bowtie2 ne 0;
+   print "- bismark v0.13+ exists:" . `which bismark` if $bismark ne 0;
+   print "- bismark_genome_preparation v0.13+ exists:" . `which bismark_genome_preparation` if $bismark_genome_preparation ne 0;
+   die if $bedtools eq 0 or $bowtie2 eq 0 or $bismark eq 0 or $bismark_genome_preparation eq 0;
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
 }
+use myFootLib; use FAlite;
+my $homedir = $ENV{"HOME"};
+my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
+my @version = `cd $footLoopScriptsFolder && git log | head `;
+my $version = "UNKNOWN";
+foreach my $line (@version[0..@version-1]) {
+   if ($line =~ /^\s+V\d+\.?\d*\w*\s*/) {
+      ($version) = $line =~ /^\s+(V\d+\.?\d*\w*)\s*/;
+   }
+}
+if (not defined $version or (defined $version and $version eq "UNKNOWN")) {
+   ($version) = `cd $footLoopScriptsFolder && git log | head -n 1`;
+}
+if (defined $opt_v) {
+   print "\n\n$YW$0 $LGN$version$N\n\n";
+   exit;
+}
 
-use myFootLib;
-my ($folder) = $opt_f;
-my ($outDir) = $opt_o;
-die "\nusage: $YW$0$N $CY-f [folder of -n footLop.pl]$N $LGN-o$N [output dir]\n\n" unless ex([$opt_s,$opt_S,$opt_i,$opt_g]) == 1 or ex($opt_f) == 1;
-die "\nplease define output (-o)\n" if not defined $opt_o;
-makedir($outDir);
-my $logFile = "$folder/logFile.txt";
+my ($footLoop_folder) = $opt_n;
+my ($footLoop_2fixsam_outDir) = $opt_o;
+$footLoop_folder = "footLoop_folder_unknown" if not defined $opt_n;
+my $footLoop_folder_forLog = $footLoop_folder;
+$footLoop_folder_forLog =~ s/\/+/_/g;
+$footLoop_folder_forLog =~ s/^\/+/SLASH_/;
+my $tempLog = "./.$footLoop_folder_forLog\_TEMPOUTLOG.txt";
+system("touch $tempLog") == 0 or print "Failed to write to $tempLog!\n";
+open (my $tempLogOut, ">", $tempLog) or print "Failed to write to $tempLog: $!\n";
+DIELOG($tempLogOut, "\nTEMPLOG:\n$tempLog\n$footLoop_folder: footLoop_2fixsam.pl: usage: $YW$0$N $CY-n [folder of -n footLop.pl]$N $LGN-o$N [output dir]\n\n") unless ex([$opt_s,$opt_S,$opt_i,$opt_g]) == 1 or ex($opt_n) == 1 and -e $tempLog;
+DIELOG($tempLogOut, "\nTEMPLOG:\n$tempLog\n$footLoop_folder: footLoop_2fixsam.pl: please define output (-o)\n") if not defined $opt_o and -e $tempLog;
+print "\nfootLoop_2fixsam.pl: usage: $YW$0$N $CY-n [folder of -n footLop.pl]$N $LGN-o$N [output dir]\n\n" unless ex([$opt_s,$opt_S,$opt_i,$opt_g]) == 1 or ex($opt_n) == 1 and not -e $tempLog;
+print "\nfootLoop_2fixsam.pl: please define output (-o)\n" if not defined $opt_o and not -e $tempLog;
+makedir($footLoop_2fixsam_outDir);
 
-print "Logfile = $LRD$logFile$N\n"; 
-my ($samFile, $seqFile, $genez) = parse_logFile($logFile); 
-print "Checking sam File =$LCY$samFile$N=\n";
-check_file($samFile, "sam"); 
-print "Checking seq File =$LCY$seqFile$N=\n";
-check_file($seqFile, "seq"); 
-my ($folder1, $fileName1) = getFilename($samFile, "folder"); 
+
+###########
+# LOGFILE #
+###########
+
+# log file
+my $footLoop_logFile = "$footLoop_folder/logFile.txt";
+my $footLoop_2fixsam_logFile = "$footLoop_folder/footLoop_2fixsam_logFile.txt";
+open (my $outLog, ">", $footLoop_2fixsam_logFile) or die "Failed to write to footLoop_2fixsam_logFile: $!\n";
+LOG($outLog, date() . "Logfile = $LRD$footLoop_logFile$N\n"); 
+
+# parse footLoop logfile
+my ($samFile, $seqFile, $genez) = parse_footLoop_logFile($footLoop_logFile, $outLog); 
+
+# check sam file
+LOG($outLog, date() . "Checking sam File =$LCY$samFile$N=\n");
+check_file($samFile, "sam", $outLog); 
+
+# check seq file
+LOG($outLog, date() . "Checking seq File =$LCY$seqFile$N=\n");
+check_file($seqFile, "seq", $outLog); 
+
+# parse seq file and get chr etc
 my %refs = %{parse_seqFile($seqFile)}; 
-
 foreach my $chr (sort keys %refs) {
 	$genez->{$chr} = @{$refs{$chr}};
 }
+
 my %out;
 my %data; my $cons; my %strand;
 my $linecount = 0;
 my ($samFolder, $samName) = getFilename($samFile, "folderfull");
-my $debugFile = "$outDir/debug.txt";
-my $outSam = "$outDir/$samName.fixed";
+my $debugFile = "$footLoop_2fixsam_outDir/debug.txt";
+my $outSam = "$footLoop_2fixsam_outDir/$samName.fixed";
 open (my $outsam, ">", "$outSam") or die "Cannot write to $outSam: $!\n";
 open (my $outdebug, ">", "$debugFile") or die "Cannot write to $debugFile: $!\n";
 my ($total_read) = `awk '\$2 == 0|| \$2 == 16 {print}' $samFile | wc -l` =~ /^(\d+)$/;
@@ -66,27 +133,60 @@ while (my $line = <$in1>) {
 	my ($refPrint, $seqPrint) = colorconv($ref3, $seq3);
 	my $CTPrint = join("", @{$CTcons});
 	my $newstrand = $CT1 > $GA1 ? 0 : $GA1 > $CT1 ? 16 : $strand;
-	my $type = "3_NONE" if ($CT1 <= 5 and $GA1 <= 5);
-	$type = "6_BOTH" if $CT1 == $GA1 or ($CT1 > 5 and $GA1 > 5 and $GA1 >= $CT1 * 0.9 and $GA1 <= $CT1 * 1.1 and $CT1 >= $GA1 * 0.9 and $CT1 <= $GA1 * 1.1);
-	$type = "2_WNEG" if $CT1 < $GA1;
-	$type = "4_WPOS" if $CT1 > $GA1;
-	$type = "5_SPOS" if ($CT1 > 15 and $GA1 < 5) or ($GA1 >= 5 and $CT1 / $GA1 > 3) or ($GA1 >= 20 and $CT1 / $GA1 >= 2);
-	$type = "1_SNEG" if ($GA1 > 15 and $CT1 < 5) or ($CT1 >= 5 and $GA1 / $CT1 > 3) or ($CT1 >= 20 and $GA1 / $CT1 >= 2);
-#	print $outdebug ">$read,$type,OldStrand=$strand,NewStrand=$newstrand,$chr,CT0=$CT0,CC0=$CC0,GA0=$GA0,GG0=$GG0,CT1=$CT1,CC1=$CC1,GA1=$GA1,GG1=$GG1\n";
-#	print $outdebug "$refPrint\n";
-#	print $outdebug "$seqPrint\n";
-#	print $outdebug "$CTPrint\n";
+
+	# 3. DETERMINING TYPE BASED ON CONVERSION
+	my $type;
+
+	# 3a 3_NONE: super low C->T conversion and G->A conversion then it's NONE
+	if ($CT1 <= 5 and $GA1 <= 5) {
+		$type = "3_NONE";
+	}
+
+	# 3b. 6_BOTH: otherwise, if C->T and G->A are within +/- 10% then of each other then it's BOTH
+	elsif ($CT1 == $GA1 or ($CT1 > 5 and $GA1 > 5 and ($GA1 >= $CT1 * 0.9 and $GA1 <= $CT1 * 1.1) and ($CT1 >= $GA1 * 0.9 and $CT1 <= $GA1 * 1.1))) {
+		$type = "6_BOTH";
+	}
+	# 3c. 1_SNEG and 6_SPOS: otherwise if one is strongly less than the other then STRONG "S" POS or NEG (SPOS or SNEG)
+	# -> arbitrary criterias (CT vs GA for POS, and vice versa for NEG)
+	#    1. CT 15+ vs GA 5-
+	#    2. CT 5+ and ratio CT:GA is at least 3:1
+	#    3. CT 20+ and ratio CT:GA is at least 2:1
+	elsif (($CT1 > 15 and $GA1 < 5) or ($GA1 >= 5 and $CT1 / $GA1 > 3) or ($GA1 >= 20 and $CT1 / $GA1 >= 2)) {
+		$type = "5_SPOS";
+	}
+	elsif (($GA1 > 15 and $CT1 < 5) or ($CT1 >= 5 and $GA1 / $CT1 > 3) or ($CT1 >= 20 and $GA1 / $CT1 >= 2)) {
+		$type = "1_SNEG";
+	}
+	# 3d. 2_WNEG and 4_WPOS: otherwise just WEAK "W" POS or NEG (WPOS or WNEG)
+	elsif ($CT1 < $GA1) {
+		$type = "2_WNEG";
+	}
+	elsif ($CT1 > $GA1) {
+		$type = "4_WPOS";
+	}
+	# 3e. 99_UNK: otherwise default is UNKNOWN
+	else {
+		$type = "99_UNK";
+	}
+
 	print $outsam "$read\t$type\t$strand\t$newstrand\t$chr\t$CTPrint\t$CT0,$CC0,$GA0,$GG0,$CT1,$CC1,$GA1,$GG1\n";
-	print "file=$LCY$samFile$N, linecount=$linecount, read=$read, die coz no info\n" if not defined $GG1;
-#	print "$read\t$chr\tstrand=$strand, new=$newstrand\n" . join("", @{$ref3}) . "
-#	CC = $CC1 / $CC0
-#	CT = $CT1 / $CT0
-#	GG = $GG1 / $GG0
-#	GA = $GA1 / $GA0
-#	REF: $refPrint
-#	SEQ: $seqPrint
-#	CON: " . join("", @{$CTcons}) . "\n";
+	LOG($outLog, date() . "file=$LCY$samFile$N, linecount=$linecount, read=$read, die coz no info\n") if not defined $GG1;
+
+	## 3f. Below is for debug printing
+	#print $outdebug ">$read,$type,OldStrand=$strand,NewStrand=$newstrand,$chr,CT0=$CT0,CC0=$CC0,GA0=$GA0,GG0=$GG0,CT1=$CT1,CC1=$CC1,GA1=$GA1,GG1=$GG1\n";
+	#print $outdebug "$refPrint\n";
+	#print $outdebug "$seqPrint\n";
+	#print $outdebug "$CTPrint\n";
+	#print $outdebug "$read\t$chr\tstrand=$strand, new=$newstrand\n" . join("", @{$ref3}) . "\n";
+	#print $outdebug "CC = $CC1 / $CC0\n";
+	#print $outdebug "CT = $CT1 / $CT0\n";
+	#print $outdebug "GG = $GG1 / $GG0\n";
+	#print $outdebug "GA = $GA1 / $GA0\n";
+	#print $outdebug "REF: $refPrint\n";
+	#print $outdebug "SEQ: $seqPrint\n";
+	#print $outdebug "CON: " . join("", @{$CTcons}) . "\n";
 }
+
 close $outsam;
 
 foreach my $strand (sort keys %strand) {
@@ -98,18 +198,18 @@ foreach my $strand (sort keys %strand) {
 		my $CT = $strand{$strand}{CT}{$type};
 		my ($mean, $meanse, $tmm, $tmmse) = (0,0,0,0);
 		if (defined $CT) {
-			$tmm = int(1000*tmm(@{$CT})+0.5)/1000;
-			$mean = int(1000*mean(@{$CT})+0.5)/1000;
-			$tmmse = int(1000*tmmse(@{$CT})+0.5)/1000;
+			$tmm    = int(1000*tmm(@{$CT})+0.5)/1000;
+			$mean   = int(1000*mean(@{$CT})+0.5)/1000;
+			$tmmse  = int(1000*tmmse(@{$CT})+0.5)/1000;
 			$meanse = int(1000*se(@{$CT})+0.5)/1000;
 		}
 		print $outdebug "CT=tmm=$tmm +/- $tmmse;mean=$mean +/- $meanse, ";
 		my $tot = $strand{$strand}{tot}{$type}; 
 		($mean, $meanse, $tmm, $tmmse) = (0,0,0,0);
 		if (defined $tot) {
-			$tmm = int(1000*tmm(@{$tot})+0.5)/1000;
-			$mean = int(1000*mean(@{$tot})+0.5)/1000;
-			$tmmse = int(1000*tmmse(@{$tot})+0.5)/1000;
+			$tmm    = int(1000*tmm(@{$tot})+0.5)/1000;
+			$mean   = int(1000*mean(@{$tot})+0.5)/1000;
+			$tmmse  = int(1000*tmmse(@{$tot})+0.5)/1000;
 			$meanse = int(1000*se(@{$tot})+0.5)/1000;
 		}
 		print $outdebug "tot=tmm=$tmm +/- $tmmse;mean=$mean +/- $meanse\n";
@@ -117,28 +217,48 @@ foreach my $strand (sort keys %strand) {
 }
 exit 0;
 
+# light quick dirty check if sam or seq file are sane
+# sam is sane if there are at least 10 rows (or less if less than 20 reads) with more than 10 columns
+# seq is sane if header is followed by seq and seq is ACTGUN (case-insensitive) at least 20 reads (or less if less than 20 reads in file)
 sub check_file {
-	my ($file, $type) = @_;
-	die "$type file $file does not exist!\n" if ex($file) == 0;
-	die "$type file $file is empty!\n" if -s $file == 0;
+	my ($file, $type, $outLog) = @_;
+	DIELOG($outLog, "footLoop_2fixsam.pl: $type file $file does not exist!\n") if ex($file) == 0;
+	DIELOG($outLog, "footLoop_2fixsam.pl: $type file $file is empty!\n")       if -s $file  == 0;
+
 	my $filetype = `file -b --mime-type $file`; chomp($filetype);
-	my @line = ($file =~ /\.(rmdup|bam)$/ or $filetype =~ /(gzip|binary)/) ? `samtools view $file | head -n 200` : `head -n 200 $file`;
-	my $check = 0;
-	for (my $i = 0; $i < @line; $i++) {
-		my $line = $line[$i];
+	my $cmd = ($file =~ /\.(rmdup|bam)$/ or $filetype =~ /(gzip|binary)/) ? "samtools view $file|" : "$file";
+	my ($linecount, $check) = (0,0);
+	my $currseq; #seq only
+	
+	open (my $checkfileIn, "$cmd") or DIELOG($outLog, "footLoop_2fixsam.pl: Failed to read from filetype=$filetype, file=$LCY$file$N: $!\n");
+	while (my $line = <$checkfileIn>) {
+		$linecount ++;
 		chomp($line); my @arr = split("\t", $line);
 		if ($type eq "sam") {
-			$check = 2 if @arr > 7; last if $check == 2;
+			if (@arr > 10) {
+				$check = $check == 0 ? 2 : $check + 1;
+			}
+			last if $check == 20;
 		}
-		if ($type eq "seq") {
-			$check = 1 if $line =~ /^>/;
-			last if $i == @line-1;
-			$i ++; $line = $line[$i];
-			$check = 2 if $line !~ /^>/ and $line =~ /^[ACTGUN]+$/ and $check == 1;
-			last if $check == 2;
+		elsif ($type eq "seq") {
+			while ($line !~ /^>/) {
+				$currseq .= $line;
+				$line = <$checkfileIn>; chomp($line); $linecount ++;
+			}
+			if ($line =~ /^>/) {
+				$check ++;
+				# line will always be parsed header (1,3,5,etc) then seq (2,4,6,etc) so if header is even number then corrupted fasta file
+				DIELOG($outLog, __LINE__ .  "footLoop_2fixsam.pl: linecount=$linecount file=$file type=$type check=$check line=$line corruped fasta file!\n") if $check % 2 == 0;
+			}
+			if ($currseq =~ /^[ACTGUN]+$/i) {
+				$check = $check == 0 ? 0 : $check + 1;
+			}
+			DIELOG($outLog, __LINE__ .  "footLoop_2fixsam.pl: linecount=$linecount file=$file type=$type, check=$check, check_file failed (does not seem to be a seq file\n\t-> fasta file start with non-header!\n\n") if $check == 0;
+			last if $check == 20;
+			DIELOG($outLog, __LINE__ .  "footLoop_2fixsam.pl: linecount=$linecount file=$file type=$type check=$check line=$line corruped fasta file!\n\t-> multiple headers in a row\n\n") if $check % 2 != 0;
 		}
 	}
-	die "$file does not look like a $type file!\n" if $check != 2;
+	DIELOG($outLog, __LINE__ .  "footLoop_2fixsam.pl: linecount=$linecount file=$file type=$type, check=$check, check_file failed (does not seem to be a sam file\n\t-> there's no read with more than 10 collumns!\n") if $check == 0;
 }
 
 sub parse_seqFile {
@@ -151,21 +271,21 @@ sub parse_seqFile {
       my $seq = $entry->seq;
 		my @seq = split("", $seq);
 		@{$ref{$def}} = @seq;
-		#print "REF $def length=" . length($seq) . " SEQ = @seq\n\n" if $def eq "CALM3";
+		#LOG($outLog, date() . "REF $def length=" . length($seq) . " SEQ = @seq\n\n") if $def eq "CALM3";
    }
    close $in;
 	return(\%ref);
 }
 
-sub parse_logFile {
-	my ($logFile) = @_;
-	die "\n\nCan't find $logFile! Please run footLoop.pl first before running this!\n\n" if not -e $logFile;
+sub parse_footLoop_logFile {
+	my ($footLoop_logFile) = @_;
+	DIELOG($outLog, "footLoop_2fixsam.pl: \n\nCan't find $footLoop_logFile! Please run footLoop.pl first before running this!\n\n") if not -e $footLoop_logFile;
 #ADD
-	$logFile = "$folder/.PARAMS";
-	print "\t\tLOGFILE=$logFile\n";
+	$footLoop_logFile = "$footLoop_folder/.PARAMS";
+	LOG($outLog, date() . "\t\tLOGFILE=$footLoop_logFile\n");
 	my ($samFile, $seqFile, $genez);
-	if (-e $logFile) {
-		my @line = `cat $logFile`;
+	if (-e $footLoop_logFile) {
+		my @line = `cat $footLoop_logFile`;
 		for (my $i = 0; $i < @line; $i++) {
 			my $line = $line[$i]; chomp($line);
 			if ($line =~ /footLoop.pl,samFile/) {
@@ -183,7 +303,7 @@ sub parse_logFile {
 					my $length = $end - $beg;
 					$gene = uc($gene);
 					$genez->{$gene} = $length;
-					print "\t\tfootLoop_2_sam_to_peak.pl: gene $gene = $length bp\n";
+					LOG($outLog, date() . "\t\tfootLoop_2fixsam.pl: gene $gene = $length bp\n");
 				}
 			}
 			
@@ -199,7 +319,7 @@ sub parse_logFile {
 #				$genez->{$gene} = $length;
 #				print "gene $gene = $length bp\n";
 #			}
-#			last if $line =~ /footLoop_2_sam_to_peak.pl/;
+#			last if $line =~ /footLoop_2fixsam.pl/;
 		}
 	}
 	return($samFile, $seqFile, $genez);
@@ -214,9 +334,9 @@ sub get_bad_region {
 		my $reftemp = "";
 		my $seqtemp = "";
 		for (my $j = $i; $j < $seqborder1; $j++) {
-			die "Undefined ref2 at j=$j\n" if not defined $ref2->[$j];
+			DIELOG($outLog, "footLoop_2fixsam.pl: Undefined ref2 at j=$j\n") if not defined $ref2->[$j];
 			$reftemp .= $ref2->[$j];
-			die "Undefined seq2 at j=$j\n" if not defined $seq2->[$j];
+			DIELOG($outLog, "footLoop_2fixsam.pl: Undefined seq2 at j=$j\n") if not defined $seq2->[$j];
 			$seqtemp .= $seq2->[$j];
 			if ($ref2->[$j] eq "-" or $seq2->[$j] eq "-") {
 				$badcount ++;
@@ -367,7 +487,7 @@ sub getConv {
 	my ($z) = $converted =~ tr/z/z/;
 	my ($dot) = $converted =~ tr/\./\./;
 	my $length = ($X+$H+$Z+$U+$x+$h+$z+$u+$dot);
-	die "X=$X, H=$H, Z=$Z, U=$u, x=$x, h=$h, z=$z, u=$u, dot=$dot, length=$length, length2=$length2\n\n" if $length ne $length2;
+	DIELOG($outLog, "footLoop_2fixsam.pl: X=$X, H=$H, Z=$Z, U=$u, x=$x, h=$h, z=$z, u=$u, dot=$dot, length=$length, length2=$length2\n\n") if $length ne $length2;
 	$data{stat} = "X=$X, H=$H, Z=$Z, U=$u, x=$x, h=$h, z=$z, u=$u, dot=$dot, lengthsum=$length, lengthcol14=$length2";
 	my $conv = $x + $h + $z + $u;
 	my $notc = $X + $H + $Z + $U;
@@ -387,7 +507,7 @@ sub check_chr_in_sam {
 		$linecount ++;
 		my ($strand, $chr) = @arr; $chr = uc($chr);
 		next if $strand eq 4;
-		die "Can't find gene $chr in $seqFile!\n" if not defined $refs{$chr};
+		DIELOG($outLog, "footLoop_2fixsam.pl: Can't find gene $chr in $seqFile!\n") if not defined $refs{$chr};
 		next;
 	}
 }

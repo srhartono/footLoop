@@ -1,8 +1,7 @@
 #!/usr/bin/perl
 
-
-# 0 is bad or not data (6)
-# 2 is non C/G
+# 0 is bad or not data (was 6)
+# 1 is non C/G
 # 4 is CH non conv
 # 5 is CG non conv
 # 6 is CH conv
@@ -134,17 +133,23 @@ my $out;
 my $R;
 my @total_Rscript = <$origFolder/*.R>;
 my @total_png = <$origFolder/*.png>;
-#makedir("$origFolder/remove2/") if not -d "$origFolder/remove2/";
-#system("/bin/mv $origFolder/remove/ $origFolder/remove2") if -d "$origFolder/remove";
-#system("/bin/mv $origFolder/*.R $origFolder/remove2") if @total_Rscript > 0;
-#system("/bin/mv $origFolder/*.png $origFolder/remove2") if @total_png > 0;
-#system("/bin/mv $origFolder/remove2/ $origFolder/remove/");
-print "Doing origFile = " . scalar(@origFile) . "\n";
+my %genes;
+for (my $i = 0; $i < @origFile; $i++) {
+	my ($peakFolder, $peakFilename) = getFilename($origFile[$i], "folderfull");
+	$peakFilename =~ s/.orig$//;
+	$peakFilename = "$label\_gene$peakFilename";
+	my ($gene, $strand) = $peakFilename =~ /_gene(.+)_(Pos|Neg|Unk)$/; $gene = uc($gene);
+	$genes{uc($gene)} ++;
+}
+
+
+
+LOG($outLog, "\n\n--------------$YW\n1. footPeak.pl processing $LGN" . scalar(keys %genes) . "$N genes (total file = $LGN" . scalar(@origFile) . "$N)\n\n");
 for (my $i = 0; $i < @origFile; $i++) {
 	my $Q = new Thread::Queue;
 	my $peakFile = $origFile[$i];
 	if (defined $opt_G and $peakFile !~ /$opt_G/i) {
-		LOG($outLog, date() . " Skipped $LCY$peakFile$N as it doesn't contain $LGN-G $opt_G$N\n");
+		LOG($outLog, date() . "-> Skipped $LCY$peakFile$N as it doesn't contain $LGN-G $opt_G$N\n");
 		next;
 	}
 #debug
@@ -155,9 +160,9 @@ for (my $i = 0; $i < @origFile; $i++) {
 	$peakFilename = "$label\_gene$peakFilename";
 	my ($gene, $strand) = $peakFilename =~ /_gene(.+)_(Pos|Neg|Unk)$/; $gene = uc($gene);
 	my ($totalPeak, $linecount, $peakcount, $total, %data, %end, %bad, %final, %group) = (0,0,0, scalar(@{$SEQ->{$gene}{seq}}));
-	print "FILENAME=$peakFilename, GENE=$gene\n";
-	LOG($outLog, "Died cannot get gene from peakfile $peakFile\n") and die unless defined $gene;
-	LOG($outLog, "Cannot find sequence of gene=$LCY$gene$N in $seqFile!\n") and die if not defined $SEQ->{$gene};
+	LOG($outLog, date() . "-> DEBUG FILENAME=$peakFilename, GENE=$gene\n","NA");
+	DIELOG($outLog, "Died cannot get gene from peakfile $peakFile\n") unless defined $gene;
+	DIELOG($outLog, "Cannot find sequence of gene=$LCY$gene$N in $seqFile!\n") if not defined $SEQ->{$gene};
 	my %pk = ("CH" => 0, "CG" => 0, "GH" => 0, "GC" => 0);
 	print "$LGN$i$N. peakFile=$LCY$peakFile$N, Gene = $LRD$gene$N total length = $LPR$total$N\n";
 	foreach my $type (sort keys %pk) {
@@ -199,7 +204,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 		my $comm = [$gene, $strand, $val, $name, $window, $threshold, $check];
 		$Q->enqueue($comm);
 		if ($Q->pending == 60) {
-			LOG($outLog, date() . "  Done $linecount\n");
+			LOG($outLog, date() . "-> Done $linecount\n") if $linecount % 300 == 0;
 			$Q->end();
 			$R = new Thread::Queue;
 			my @threads; my $badthread = 0;
@@ -238,7 +243,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 	}
 
 	if (defined $Q->pending) {
-		LOG($outLog, date() . "  Done $linecount\n");
+		LOG($outLog, date() . "-> Done $linecount\n");
 		$Q->end();
 		$R = new Thread::Queue;
 		my @threads; my $badthread = 0;
