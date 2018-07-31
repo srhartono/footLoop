@@ -94,6 +94,7 @@ sub main {
 
 	my %coor;
 	my @lines   = `cat $footPeak_logFile`;
+	LOG($outLog, " Parsing footpeak logfile $footPeak_logFile\n");
 	my ($label) = `cat $resDir/.LABEL`; chomp($label);
 	DIELOG($outLog, "\n\ndied at footPeak_graph.pl: can't find $footPeak_logFile!\n\n") if not -e $footPeak_logFile;
 	DIELOG($outLog, "\n\ndied at footPeak_graph.pl: can't find $resDir/.LABEL!\n\n") if not -e "$resDir/.LABEL";
@@ -103,6 +104,7 @@ sub main {
 		if ($line =~ /^[ \t]*def=.+, coor=.+/) {
 			$line =~ s/(^\s+|\s+$)//g;
 			my ($gene, $CHR, $BEG, $END, $GENE, $VAL, $STRAND) = $line =~ /^def=(.+), coor=(.+), (\d+), (\d+), (.+), (\-?\d+\.?\d*), ([\+\-])$/;
+			LOG($outLog, "gene=$gene,chr=$CHR,beg=$BEG,end=$END,gene=$GENE,val=$VAL,strand=$STRAND\n");
 	   	if (defined $opt_G and $gene !~ /$opt_G/i) {
 	   	   LOG($outLog, date() . " Skipped $LCY$gene$N as it doesn't contain $LGN-G $opt_G$N\n");
 	   	   next;
@@ -131,6 +133,7 @@ sub main {
 				my $strand = $strands[$h1];
 				my $type = $types[$h2];
 				my $peakFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.PEAK";
+				LOG($outLog, "label=$label, gene$mygene, strand=$strand, peak=$peakFile\n");
 				$files{$peakFile} = $mygene;
 			}
 		}

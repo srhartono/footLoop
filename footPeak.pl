@@ -159,6 +159,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 	$peakFilename =~ s/.orig$//;
 	$peakFilename = "$label\_gene$peakFilename";
 	my ($gene, $strand) = $peakFilename =~ /_gene(.+)_(Pos|Neg|Unk)$/; $gene = uc($gene);
+	DIELOG($outLog, "gene=$gene seq->gene{seq} isn't defined!\n") if not defined $SEQ->{$gene} or not defined $SEQ->{$gene}{seq};
 	my ($totalPeak, $linecount, $peakcount, $total, %data, %end, %bad, %final, %group) = (0,0,0, scalar(@{$SEQ->{$gene}{seq}}));
 	LOG($outLog, date() . "-> DEBUG FILENAME=$peakFilename, GENE=$gene\n","NA");
 	DIELOG($outLog, "Died cannot get gene from peakfile $peakFile\n") unless defined $gene;
@@ -958,7 +959,8 @@ sub parse_indexFile_and_seqFile {
 		my ($chr, $beg, $end, $def, $zero, $strand) = split("\t", $line);
 		$def = uc($def);
 		$SEQ->{$def}{coor} = "$chr\t$beg\t$end\t$def\t$zero\t$strand";
-		LOG($outLog, "\tdef=$def, coor=$chr, $beg, $end, $def, $zero, $strand\n");
+#		LOG($outLog, "indexFile:\tSEQ -> {gene=$def}{coor} is defined!\n");
+		LOG($outLog, "def=$def, coor=$chr, $beg, $end, $def, $zero, $strand\n");
 	}
 
 	open (my $in, "<", $seqFile) or DIELOG($outLog, "Failed to read from $LCY$seqFile$N: $!\n");
@@ -968,6 +970,7 @@ sub parse_indexFile_and_seqFile {
 		my @seq = split("", $entry->seq);
 		$SEQ->{$def}{seq} = \@seq;
 		$SEQ->{$def}{loc} = findCGPos(\@seq);
+		LOG($outLog, "seqFile:\tSEQ -> {gene=$def}{seq} and {loc} is defined!\n");
 	}
 	close $in;
 	return $SEQ;

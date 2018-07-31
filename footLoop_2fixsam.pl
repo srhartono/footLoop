@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_s $opt_i $opt_g $opt_n $opt_S $opt_c $opt_C $opt_o $opt_v);
-getopts("s:i:g:f:S:cCo:v");
+use vars qw($opt_v $opt_s $opt_i $opt_g $opt_n $opt_S $opt_c $opt_C $opt_o $opt_v $opt_n);
+getopts("s:i:g:f:S:cCo:vn:");
 
 BEGIN {
    my ($bedtools) = `bedtools --version`;
@@ -229,8 +229,22 @@ sub check_file {
 	my $cmd = ($file =~ /\.(rmdup|bam)$/ or $filetype =~ /(gzip|binary)/) ? "samtools view $file|" : "$file";
 	my ($linecount, $check) = (0,0);
 	my $currseq; #seq only
+
+	my $total_line = 0;
+	my $checkfileIn;
+	if ($file =~ /\.(rmdup|bam)$/) {
+		($total_line) = `samtools view $file| wc -l` =~ /^(\d+)/;
+		open ($checkfileIn, "samtools view $file|") or DIELOG($outLog, "footLoop_2fixsam.pl: Failed to read from filetype=$filetype, file=$LCY$file$N: $!\n");
+	}
+	elsif ($file =~ /\.gz$/ or ($filetype =~ /(gzip|binary)/ and $file !~ /\.(rmdup|bam)$/)) {
+		($total_line) = `zcat $file| wc -l` =~ /^(\d+)/;
+		open ($checkfileIn, "zcat $file|") or DIELOG($outLog, "footLoop_2fixsam.pl: Failed to read from filetype=$filetype, file=$LCY$file$N: $!\n");
+	}
+	else {
+		($total_line) = `wc -l $file` =~ /^(\d+)/;
+		open ($checkfileIn, "<", $file) or DIELOG($outLog, "footLoop_2fixsam.pl: Failed to read from filetype=$filetype, file=$LCY$file$N: $!\n") 
+	}
 	
-	open (my $checkfileIn, "$cmd") or DIELOG($outLog, "footLoop_2fixsam.pl: Failed to read from filetype=$filetype, file=$LCY$file$N: $!\n");
 	while (my $line = <$checkfileIn>) {
 		$linecount ++;
 		chomp($line); my @arr = split("\t", $line);
@@ -239,24 +253,30 @@ sub check_file {
 				$check = $check == 0 ? 2 : $check + 1;
 			}
 			last if $check == 20;
+			last if $linecount >= $total_line;
 		}
 		elsif ($type eq "seq") {
+			print "linecount = $linecount line = $line\n";
 			while ($line !~ /^>/) {
 				$currseq .= $line;
-				$line = <$checkfileIn>; chomp($line); $linecount ++;
+				$line = <$checkfileIn>; 
+				last if $linecount >= $total_line;
+				chomp($line); $linecount ++;
 			}
-			if ($line =~ /^>/) {
+			if ($linecount < $total_line and defined $line and $line =~ /^>/) {
 				$check ++;
 				# line will always be parsed header (1,3,5,etc) then seq (2,4,6,etc) so if header is even number then corrupted fasta file
 				DIELOG($outLog, __LINE__ .  "footLoop_2fixsam.pl: linecount=$linecount file=$file type=$type check=$check line=$line corruped fasta file!\n") if $check % 2 == 0;
 			}
-			if ($currseq =~ /^[ACTGUN]+$/i) {
+			elsif ($currseq =~ /^[ACTGUN]+$/i) {
 				$check = $check == 0 ? 0 : $check + 1;
+				DIELOG($outLog, __LINE__ .  "footLoop_2fixsam.pl: linecount=$linecount file=$file type=$type, check=$check, check_file failed (does not seem to be a seq file\n\t-> fasta file start with non-header!\n\n") if $check == 0;
+				last if $check == 20;
+				DIELOG($outLog, __LINE__ .  "footLoop_2fixsam.pl: linecount=$linecount file=$file type=$type check=$check line=$line corruped fasta file!\n\t-> multiple headers in a row\n\n") if $check % 2 != 0;
 			}
-			DIELOG($outLog, __LINE__ .  "footLoop_2fixsam.pl: linecount=$linecount file=$file type=$type, check=$check, check_file failed (does not seem to be a seq file\n\t-> fasta file start with non-header!\n\n") if $check == 0;
-			last if $check == 20;
-			DIELOG($outLog, __LINE__ .  "footLoop_2fixsam.pl: linecount=$linecount file=$file type=$type check=$check line=$line corruped fasta file!\n\t-> multiple headers in a row\n\n") if $check % 2 != 0;
+			last if $linecount >= $total_line;
 		}
+		last if $linecount >= $total_line;
 	}
 	DIELOG($outLog, __LINE__ .  "footLoop_2fixsam.pl: linecount=$linecount file=$file type=$type, check=$check, check_file failed (does not seem to be a sam file\n\t-> there's no read with more than 10 collumns!\n") if $check == 0;
 }

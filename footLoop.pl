@@ -452,15 +452,16 @@ sub fix_samFile {
 	}
 	if ($checkSam == 0) {
 		LOG($outLog, "\tfootLoop.pl subroutine fix_samFile:: fixed sam file $LCY$origDir/$samFileName.fixed$N or .gz does not exist!\n");
-		LOG($outLog, "\t${YW}footLoop_2fixsam.pl -f $outDir -s $seqFile -o $origDir$N\n");
-		system("footLoop_2fixsam.pl -f $outDir -o $origDir") == 0 or LOG($outLog, "Failed to run footLoop_2fixsam.pl -f $outDir -o $origDir: $!\n") and exit 1;
-		LOG($outReadLog, "footLoop.pl,fix_samFile,footLoop_2fixsam.pl -f $outDir -o $origDir\n","NA");
+		LOG($outLog, "\t${YW}footLoop_2fixsam.pl -n $outDir -s $seqFile -o $origDir$N\n");
+		#DEBUG die "footLoop_2fixsam.pl -n $outDir -s $seqFile -o $origDir\n";
+		system("footLoop_2fixsam.pl -n $outDir -o $origDir") == 0 or LOG($outLog, "Failed to run footLoop_2fixsam.pl -n $outDir -o $origDir: $!\n") and exit 1;
+		LOG($outReadLog, "footLoop.pl,fix_samFile,footLoop_2fixsam.pl -n $outDir -o $origDir\n","NA");
 		LOG($outLog, "\tgzip $origDir/$samFileName.fixed");
 		system("gzip -f $origDir/$samFileName.fixed") == 0 or LOG($outLog, "\tFailed to gzip $origDir/$samFileName.fixed: $!\n");
 		$checkSam = 1;
 	}
 	else {
-		LOG($outLog, "\t${LGN}WAS NOT RUN$N: ${YW}::: footLoop_2fixsam.pl -f $outDir -s $seqFile -o $origDir :::$N\n");
+		LOG($outLog, "\t${LGN}WAS NOT RUN$N: ${YW}::: footLoop_2fixsam.pl -n $outDir -s $seqFile -o $origDir :::$N\n");
 		# rm old (bad) .gz if it exists
 		LOG($outLog, "\t/bin/rm $samFileGZ") if -e '$samFileGZ';
 		system("/bin/rm $samFileGZ") == 0 or LOG($outLog, 'Failed to rm $samFileGZ: $!\n') if -e '$samFileGZ';
