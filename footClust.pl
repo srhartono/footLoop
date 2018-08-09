@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 	
 use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_d $opt_n $opt_G $opt_t);
-getopts("vd:n:G:t:");
+use vars qw($opt_v $opt_d $opt_n $opt_G $opt_t $opt_R);
+getopts("vd:n:G:t:R");
 
 #########
 # BEGIN #
@@ -34,7 +34,7 @@ use myFootLib; use FAlite;
 my $date = getDate();
 my $uuid = getuuid();
 my ($dist, $footPeakFolder) = ($opt_d, $opt_n);
-
+my $toggleRstrand = defined $opt_R ? "Yes" : "No";
 # sanity check -n footPeakFolder
 die "\nUsage: $YW$0$N $LGN-g gene$N $CY-n <footPeak's output folder (footPeak's -o)>$N\n\n" unless defined $opt_n and -d $opt_n;
 my $outDir = "$footPeakFolder/FOOTCLUST/";
@@ -293,11 +293,12 @@ foreach my $input1 (sort @local_peak_files) {
 	}
 	#dm = kmeans(df,lenz,nstart=20)
 	Rstrand = \"$Rstrand\"
-	if (Rstrand == \"Pos\") {
-		df = df[order(df\$cluster, as.integer(df[,1]/200), as.integer(df[,2]/200)),]
-	} else {
+	toggleRstrand = \"$toggleRstrand\"
+	if (Rstrand == \"Neg\" & toggleRstrand == \"Yes\") {
 		df = df[order(-df\$cluster, -as.integer(df[,2]/200), -as.integer(df[,1]/200)),]
-	}
+	} else {
+		df = df[order(df\$cluster, as.integer(df[,1]/200), as.integer(df[,2]/200)),]
+	} 
 	df\$y = seq(1,dim(df)[1])
 	df\$ymax = seq(2,dim(df)[1]+1)
 	colnames(df) = c(\"x\",\"xmax\",\"clust\",\"y\",\"ymax\")
@@ -316,10 +317,10 @@ foreach my $input1 (sort @local_peak_files) {
 	mylen=500;#as.integer((df\$xmax-df\$x)/300)*100
 #	mylen[mylen < 100] = 100
 #	mylen[mylen > 500] = 500
-	if (Rstrand == \"Pos\") {
-		df = df[order(df\$clust, as.integer(df\$x/mylen), as.integer(df\$xmax/mylen)),]
-	} else {
+	if (Rstrand == \"Neg\" & toggleRstrand == \"Yes\") {
 		df = df[order(-df\$clust, -as.integer(df\$xmax/mylen), -as.integer(df\$x/mylen)),]
+	} else {
+		df = df[order(df\$clust, as.integer(df\$x/mylen), as.integer(df\$xmax/mylen)),]
 	}
 	df\$y = seq(1,dim(df)[1])
 	df\$ymax = seq(2,dim(df)[1]+1)
