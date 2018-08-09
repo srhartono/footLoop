@@ -525,6 +525,33 @@ sub def {
    return 1;
 }
 
+sub quartile {
+   my ($value, $p, $sort) = @_;
+   die "${YW}mitochy::quartile$N: Probability Quartile has to be between 0 to 1! You submitted:$LRD $p$N\n" unless ($p >= 0 and $p <= 1);
+   my @value = @{$_[0]}; my $total = @value;
+#  print "prob = $p, total = " . scalar(@value) . "\n";
+   @value = sort {$a <=> $b} (@value) if not defined $sort;
+   my $i = (@value+1) * ($p) - 1;
+   my $j = int($i);
+#  print "\ti = $i = {($total+1) * $p - 1)}\n\tj = $j = int of i=$i\n";
+#  print "\tvalue #j=$j * (i=$i - j=$j) $LGN PLUS $N value int($i+1) * ( 1 - (i=$i - j=$j))\n";
+#  print join("\n",@value) . "\n";
+   my $temp = int($i+1) > @value-1 ? @value-1 : int($i+1); $temp = 0 if $temp < 0;
+   die "array of values does not have any value!\n" if @value == 0;
+   die "total value is " . scalar(@value) . " but value $temp isn't defined!\n" if not defined $value[$temp];
+## print "Val1 = value[j]=$value[$j] * (i=$i - j=$j)\n";
+#  print "Val2 = value[temp]=$value[$temp] * (1 - (i=$i - j=$j))\n";
+   my $val1 = $value[$j] * ($i-$j);
+#  my $val2 = $value[int($i+1)] * (1 - ($i - $j));
+   my $val2 = $value[$temp] * (1 - ($i - $j));
+#  print "Val1 = value[j]=$value[$j] * (i=$i - j=$j) = $val1\n";
+#  print "Val2 = value[temp]=$value[$temp] * (1 - ($i - j=$j)) = $val2\n";
+#  print "\n\n";
+   my $j2 = $j > @value-1 ? @value-1 : $j;
+   my $i2 = $i > @value-1 ? @value-1 : $i;
+   return($value[$j2] * ($i2 - $j2) + $value[$temp] * (1 - ($i2 - $j2)) );
+}
+
 sub median {
    my (@value) = @_;
    return "NA" if not defined($value[0]) or @value == 0;
@@ -612,6 +639,23 @@ sub sum {
       $sum += $value[$i];
    }
    return($sum);
+}
+
+sub max {
+   my (@value) = @_;
+   return(0) if @value == 0;
+   if (@value == 1 and $value[0] eq 'ARRAY') {
+      @value = sort {$b <=> $a} @value;
+		return $value[0];
+   }
+}
+sub min {
+   my (@value) = @_;
+   return(0) if @value == 0;
+   if (@value == 1 and $value[0] eq 'ARRAY') {
+      @value = sort {$a <=> $b} @value;
+		return $value[0];
+   }
 }
 
 sub myformat {

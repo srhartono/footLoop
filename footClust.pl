@@ -164,6 +164,8 @@ foreach my $input1 (sort @local_peak_files) {
    my ($label2, $gene, $strand, $window, $thres, $type) = parseName($fileName1);# =~ /^(.+)_gene(.+)_(Unk|Pos|Neg)_(\d+)_(\d+\.?\d*)_(\w+)\.(PEAK|NOPK)$/;
    LOG($outLog, "Using label=$label2. Inconsistent label in filename $LCY$fileName1$N\nLabel from $footPeakFolder/.LABEL: $label\nBut from fileName: $label2\n\n") if $label ne $label2;
    $label = $label2;
+	my ($coorCHR, $coorBEG, $coorEND, $coorSTRAND) = ($coor{uc($gene)}{chr}, $coor{uc($gene)}{beg}, $coor{uc($gene)}{end}, $coor{uc($gene)}{strand});
+	my $Rstrand = $coorSTRAND eq "+" ? "Pos" : $coorSTRAND eq "-" ? "Neg" : "Pos";
 #	my ($label2, $gene, $strand, $window, $thres, $type) = $fileName1 =~ /^(.+)\_gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(GH|GC|CG|CH).PEAK/;
 #	LOG($outLog, date() . "Cannot parse gene name from file=$LCY$input1$N\n") unless defined $gene and defined $strand and defined $window and defined $thres and defined $type;
 
@@ -290,13 +292,23 @@ foreach my $input1 (sort @local_peak_files) {
 		df\$cluster = 1
 	}
 	#dm = kmeans(df,lenz,nstart=20)
-	df = df[order(df\$cluster, as.integer(df[,1]/200), as.integer(df[,2]/200)),]
+	Rstrand = \"$Rstrand\"
+	if (Rstrand == \"Pos\") {
+		df = df[order(df\$cluster, as.integer(df[,1]/200), as.integer(df[,2]/200)),]
+	} else {
+		df = df[order(-df\$cluster, -as.integer(df[,2]/200), -as.integer(df[,1]/200)),]
+	}
 	df\$y = seq(1,dim(df)[1])
 	df\$ymax = seq(2,dim(df)[1]+1)
 	colnames(df) = c(\"x\",\"xmax\",\"clust\",\"y\",\"ymax\")
 	df2 = as.data.frame(aggregate(df[,c(1,2)],by=list(df\$clust),function(x)mean(x,trim=0.05)))
 	colnames(df2) = c(\"clust\",\"x2\",\"y2\")
 	df2 = df2[order(as.integer(df2\$x2/200), as.integer(df2\$y2/100)),]
+#	if (Rstrand == \"Pos\") {
+#		df2 = df2[order(as.integer(df2\$x2/200), as.integer(df2\$y2/100)),]
+#	} else {
+#		df2 = df2[order(as.integer(df2\$x2/200), as.integer(df2\$y2/100)),]
+#	}	
 	df2\$clust2 = seq(1,dim(df2)[1])
 	df\$id = rownames(df)
 	df = as.data.frame(merge(df,df2[,c(1,4)]))
@@ -304,7 +316,11 @@ foreach my $input1 (sort @local_peak_files) {
 	mylen=500;#as.integer((df\$xmax-df\$x)/300)*100
 #	mylen[mylen < 100] = 100
 #	mylen[mylen > 500] = 500
-	df = df[order(df\$clust, as.integer(df\$x/mylen), as.integer(df\$xmax/mylen)),]
+	if (Rstrand == \"Pos\") {
+		df = df[order(df\$clust, as.integer(df\$x/mylen), as.integer(df\$xmax/mylen)),]
+	} else {
+		df = df[order(-df\$clust, -as.integer(df\$xmax/mylen), -as.integer(df\$x/mylen)),]
+	}
 	df\$y = seq(1,dim(df)[1])
 	df\$ymax = seq(2,dim(df)[1]+1)
 	df[,c(1,6)] = df[,c(6,1)]
@@ -375,7 +391,7 @@ foreach my $input1 (sort @local_peak_files) {
 	open (my $out2, ">", "$outDir/.TEMP/$fullName1.clust.bed") or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $outDir/.TEMP/$fullName1.clust.bed: $!\n");
 	open (my $out3, ">", "$outgenome") or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $outgenome: $!\n");
 	print $out2 "#gene\tbeg\tend\tcluster\ttotal_peak\tstrand\n";
-	my ($coorCHR, $coorBEG, $coorEND, $coorSTRAND) = ($coor{uc($gene)}{chr}, $coor{uc($gene)}{beg}, $coor{uc($gene)}{end}, $coor{uc($gene)}{strand});
+	#my ($coorCHR, $coorBEG, $coorEND, $coorSTRAND) = ($coor{uc($gene)}{chr}, $coor{uc($gene)}{beg}, $coor{uc($gene)}{end}, $coor{uc($gene)}{strand});
 	DIELOG($outLog, date() . "\tFailed to get coordinate for gene=" . uc($gene) . ", chr=$coorCHR beg=$coorBEG end=$coorEND strand=$coorSTRAND\n") if not defined $coorCHR or not defined $coorBEG or not defined $coorEND or not defined $coorSTRAND;
 	foreach my $clust (sort {$a <=> $b} keys %cl) {
 		my $BEG   = int(tmm(@{$cl{$clust}{beg}})+0.5);

@@ -467,6 +467,24 @@ sub Rscript {
 # -------------------- $R->{readTable}
 	$R->{readTable} = "	
 
+
+theme_blank <- theme_bw()
+theme_blank\$line <- element_blank()
+theme_blank\$rect <- element_blank()
+theme_blank\$strip.text <- element_blank()
+theme_blank\$axis.text <- element_blank()
+theme_blank\$axis.ticks <- element_blank()
+theme_blank\$axis.title <- element_blank()
+theme_blank\$legend.title=element_blank()
+theme_blank\$axis.line = element_line()
+theme_blank\$plot.margin = structure(c(0, 0, 0,0), unit = \"lines\", valid.unit = 3L, class = \"unit\")
+theme_blank\$panel.grid=element_blank()
+theme_blank\$panel.grid.major=element_blank()
+theme_blank\$panel.grid.minor=element_blank()
+theme_blank\$panel.background=element_blank()
+theme_blank\$panel.border= element_blank()#structure(c(0, 0, 0,0), unit = \"lines\", valid.unit = 3L, class = \"unit\")
+theme_blank\$legend.position=\"none\"
+
 p.png.scale = 1
 p.pdf.scale = 0.33
 
@@ -641,7 +659,8 @@ p3.png = ggplot(df3,aes(x,y)) +
 	scale_fill_manual(values=c(p3.col,cluster_color)) +
 	scale_color_manual(values=c(p3.col,cluster_color)) +
 	scale_x_continuous(expand = c(0,0)) + scale_y_continuous(expand = c(0,0)) +
-	theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank())
+	theme_blank
+	#theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank())
 
 
 p3.pdf = ggplot(df3,aes(x,y)) +
@@ -657,7 +676,8 @@ p3.pdf = ggplot(df3,aes(x,y)) +
 	scale_fill_manual(values=c(p3.col,cluster_color)) +
 	scale_color_manual(values=c(p3.col,cluster_color)) +
 	scale_x_continuous(expand = c(0,0)) + scale_y_continuous(expand = c(0,0)) +
-	theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank())
+	theme_blank
+	#theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank())
 
 ";
 
@@ -683,7 +703,6 @@ bed = merge(subset(df,select=c(\"V1\",\"y\")),bed,by=\"V1\")
 
 # -------------------- $R->{mainplot}
 	$R->{mainplot} .= "
-
 ##########################
 # Main Plot Part 1
 dm = melt(df,id.vars=c(\"V1\",\"y\"))
@@ -709,12 +728,16 @@ p = ggplot(dm,aes(variable,y)) +
 	 scale_color_manual(values=c(p.col)) +
 	 scale_x_continuous(expand = c(0,0)) + 
 	 scale_y_continuous(expand = c(0,0)) +
-	 theme(
-	 	line = element_blank(),
-	 	axis.text = element_blank(),
-	 	axis.title = element_blank()
-	 ) + 
+	 labs(x=NULL,y=NULL) + theme_blank +
 	 ggtitle(paste(\"(peak=\",$totpeak,\"; nopk=\",$totnopk,\")\",sep=\"\"))
+p.heatmaponly = ggplot(dm,aes(variable,y)) +  
+	geom_tile(aes(fill=as.factor(value))) +
+	 theme_bw() + theme(legend.position=\"none\") + 
+	 scale_fill_manual(values=c(p.col)) +
+	 scale_color_manual(values=c(p.col)) +
+	 scale_x_continuous(expand = c(0,0)) + 
+	 scale_y_continuous(expand = c(0,0)) +
+	 labs(x=NULL,y=NULL) + theme_blank
 ";
 
 	$R->{box} = "
@@ -770,6 +793,7 @@ dm.rand.100 = melt(df.rand.100,id.vars=c(\"V1\",\"y\"))
 print(dim(df.rand.100))
 print(dim(dm.rand.100))
 dm.rand.100\$variable = as.numeric(as.character(dm.rand.100\$variable))
+
 p.rand.100 = ggplot(dm.rand.100,aes(variable,y)) +  
 	 geom_tile(aes(fill=as.factor(value))) + 
 	 theme_bw() + theme(legend.position=\"none\") + 
@@ -783,6 +807,19 @@ p.rand.100 = ggplot(dm.rand.100,aes(variable,y)) +
 	 	axis.title = element_blank()
 	 ) + 
 	 ggtitle(paste(\"(peak=\",$totpeak,\"; nopk=\",$totnopk,\")\",sep=\"\"))
+
+p.heatmaponly.rand.100 = ggplot(dm.rand.100,aes(variable,y)) +  
+	 geom_tile(aes(fill=as.factor(value))) + 
+	 theme_bw() + theme(legend.position=\"none\") + 
+	 scale_fill_manual(values=c(p.col)) +
+	 scale_color_manual(values=c(p.col)) +
+	 scale_x_continuous(expand = c(0,0)) + 
+	 scale_y_continuous(expand = c(0,0)) +
+	 theme(
+	 	line = element_blank(),
+	 	axis.text = element_blank(),
+	 	axis.title = element_blank()
+	 )
 
 	p.rand.100.pdf = p.rand.100 + theme(plot.title = element_text(size = 10*p.pdf.scale))
 	p.rand.100.png = p.rand.100 + theme(plot.title = element_text(size = 10*p.png.scale))
@@ -822,6 +859,7 @@ dm.rand.1000 = melt(df.rand.1000,id.vars=c(\"V1\",\"y\"))
 print(dim(df.rand.1000))
 print(dim(dm.rand.1000))
 dm.rand.1000\$variable = as.numeric(as.character(dm.rand.1000\$variable))
+
 p.rand.1000 = ggplot(dm.rand.1000,aes(variable,y)) +  
 	 geom_tile(aes(fill=as.factor(value))) + 
 	 theme_bw() + theme(legend.position=\"none\") + 
@@ -835,6 +873,19 @@ p.rand.1000 = ggplot(dm.rand.1000,aes(variable,y)) +
 	 	axis.title = element_blank()
 	 ) + 
 	 ggtitle(paste(\"(peak=\",$totpeak,\"; nopk=\",$totnopk,\")\",sep=\"\"))
+
+p.heatmaponly.rand.1000 = ggplot(dm.rand.1000,aes(variable,y)) +  
+	 geom_tile(aes(fill=as.factor(value))) + 
+	 theme_bw() + theme(legend.position=\"none\") + 
+	 scale_fill_manual(values=c(p.col)) +
+	 scale_color_manual(values=c(p.col)) +
+	 scale_x_continuous(expand = c(0,0)) + 
+	 scale_y_continuous(expand = c(0,0)) +
+	 theme(
+	 	line = element_blank(),
+	 	axis.text = element_blank(),
+	 	axis.title = element_blank()
+	 )
 
 	p.rand.1000.pdf = p.rand.1000 + theme(plot.title = element_text(size = 10*p.pdf.scale))
 	p.rand.1000.png = p.rand.1000 + theme(plot.title = element_text(size = 10*p.png.scale))
@@ -933,6 +984,14 @@ if (length(bed) != 0 & dim(bed)[1] > 0) {
 					color=rgb(1,0,0,alpha=0.25),
 			 		size=0.5*p.png.scale # SIZE
 				)
+	p.heatmaponly =	p.heatmaponly + 
+			 	geom_rect(
+					data=bed, 
+					aes(xmin=V2, xmax=V3, ymin=y-0.5, ymax=y+0.5),
+					fill=rgb(0,0,0,alpha=0),
+					color=rgb(1,0,0,alpha=0.25),
+			 		size=0.5*p.png.scale # SIZE
+				)
 	p.pdf =	p.pdf + 
 			 	geom_rect(
 					data=bed, 
@@ -1014,7 +1073,7 @@ p2.png =
 	theme_bw() +
 	scale_x_continuous(expand = c(0,0)) +
 	scale_y_continuous(expand = c(0,0)) +
-	theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank()) +
+	theme_blank + #(line = element_blank(),axis.text = element_blank(),axis.title = element_blank()) +
 	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5*p2.png.scale,hjust=0) +
 	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5*p2.png.scale,hjust=0) +
 	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5*p2.png.scale,hjust=0) +
@@ -1029,7 +1088,7 @@ p2.pdf =
 	theme_bw() +
 	scale_x_continuous(expand = c(0,0)) +
 	scale_y_continuous(expand = c(0,0)) +
-	theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank()) +
+	theme_blank +#(line = element_blank(),axis.text = element_blank(),axis.title = element_blank()) +
 	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5*p2.pdf.scale,hjust=0) +
 	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5*p2.pdf.scale,hjust=0) +
 	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5*p2.pdf.scale,hjust=0) +
@@ -1182,6 +1241,7 @@ ratio2 = 31.25      / (dim(df)[1] + 31.25 + 26.5625)
 ratio3 = 26.5625    / (dim(df)[1] + 31.25 + 26.5625)
 mynrow = 2
 totalheight = dim(df)[1] + 31.25
+totalheight2 = dim(df)[1] + 31.25 + 26.5625
 totalwidth  = dim(df)[2] * 0.125
 totalratio  = c(ratio1, ratio2)
 	if (file.exists(\"$curr_cluster_file\") & file.info(\"$curr_cluster_file\")\$size > 0) {
@@ -1193,7 +1253,7 @@ totalratio  = c(ratio1, ratio2)
 # Scaling
 
 myscale = 4
-totalheight = totalheight * myscale
+totalheight  = totalheight * myscale
 totalwidth = totalwidth * myscale
 totalratio = totalratio * myscale
 totalread_nopk = dim(df)[1] \%\% mywindow
@@ -1217,6 +1277,13 @@ if (mynrow == 3) {
 }
 dev.off()
 
+# PNG HEATMAP ONLY
+totalheight = dim(df)[1] * myscale
+pngout_heatmap_only = \"$pngoutFolder/ALL/$pngoutFilename.ALL.heatmap.png\"
+png(pngout_heatmap_only,width=totalwidth,height=totalheight)
+print(p.heatmaponly)
+dev.off()
+
 # PNG all Conv
 pngout_peak_all_c_conv = \"$pngoutFolder/ALL/$pngoutFilename.ALL.c_conv.png\"
 png(pngout_peak_all_c_conv,width=totalwidth,height=31.25*myscale)
@@ -1233,6 +1300,13 @@ png(\"$pngout\",width=totalwidth,height=totalheight)
 grid.arrange(p.rand.1000.png,p2.rand.1000.png,ncol=1,nrow=mynrow,heights=totalratio)
 dev.off()
 
+# PNG HEATMAP ONLY
+totalheight = dim(df.rand.1000)[1] * myscale
+pngout_heatmap_only = \"$pngoutFolder/ALL/$pngoutFilename.ALL.heatmap.png\"
+png(pngout_heatmap_only,width=totalwidth,height=totalheight)
+print(p.heatmaponly.rand.1000)
+dev.off()
+
 # PNG all Conv
 pngout_nopk_all_c_conv = \"$pngoutFolder/ALL/$pngoutFilename.ALL.c_conv.png\"
 png(pngout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
@@ -1245,9 +1319,16 @@ dev.off()
 
 pngout_nopk_rand_100 = \"$pngoutFolder/ALL/$pngoutFilename.RAND.100.png\"
 # PNG
-totalheight = (dim(df.rand.100)[1]) * myscale
+totalheight = (dim(df.rand.100)[1] + 31.25) * myscale
 png(pngout_nopk_rand_100,width=totalwidth,height=totalheight)
 grid.arrange(p.rand.100.png,p2.rand.100.png,ncol=1,nrow=mynrow,heights=totalratio)
+dev.off()
+
+# PNG HEATMAP ONLY
+totalheight = dim(df.rand.100)[1] * myscale
+pngout_heatmap_only = \"$pngoutFolder/ALL/$pngoutFilename.RAND.100.heatmap.png\"
+png(pngout_heatmap_only,width=totalwidth,height=totalheight)
+print(p.heatmaponly.rand.100)
 dev.off()
 
 # PNG all Conv
@@ -1287,12 +1368,22 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 	$R->{PDF} = "
 
 # PDF
-pdf(\"$pdfout\",width=totalwidth/100,height=totalheight/100)
+currheight = totalheight / 100
+currwidth = totalwidth / 100
+pdf(\"$pdfout\",width=currwidth,height=currheight)
 if (mynrow == 3) {
 	grid.arrange(p.pdf,p2.pdf,p3.pdf,ncol=1,nrow=mynrow,heights=totalratio)
 } else {
 	grid.arrange(p.pdf,p2.pdf,ncol=1,nrow=mynrow,heights=totalratio)
 }
+dev.off()
+
+# PDF HEATMAP ONLY
+currheight = dim(df)[1] * myscale / 100
+currwidth = totalwidth / 100
+pdfout_heatmap_only = \"$pdfoutFolder/ALL/$pdfoutFilename.ALL.heatmap.pdf\"
+pdf(pdfout_heatmap_only,width=currwidth,height=currheight)
+print(p.heatmaponly)
 dev.off()
 
 # PDF all Conv
@@ -1302,22 +1393,28 @@ grid.arrange(p2.pdf)
 dev.off()
 
 ";
-	
 
 	$R->{PDF_nopk} = "
 
 # PDF
 currheight = (dim(df.rand.1000)[1] + 31.25) * myscale / 100
 currwidth = totalwidth / 100
-print(currheight)
 pdf(\"$pdfout\",width=currwidth,height=currheight)
 grid.arrange(p.rand.1000.pdf,p2.rand.1000.pdf,ncol=1,nrow=mynrow,heights=totalratio)
+dev.off()
+
+
+# PDF HEATMAP ONLY
+currheight = dim(df.rand.1000)[1] * myscale / 100
+currwidth = totalwidth / 100
+pdfout_heatmap_only = \"$pdfoutFolder/ALL/$pdfoutFilename.ALL.heatmap.pdf\"
+pdf(pdfout_heatmap_only,width=currwidth,height=currheight)
+print(p.heatmaponly.rand.1000)
 dev.off()
 
 # PDF all Conv
 currheight = 31.25 * myscale / 100
 currwidth = totalwidth / 100
-print(currheight)
 pdfout_nopk_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.ALL.c_conv.pdf\"
 pdf(pdfout_nopk_all_c_conv,width=currwidth,height=currheight)
 grid.arrange(p2.pdf)
@@ -1326,13 +1423,23 @@ dev.off()
 ";
 
 	$R->{PDF_nopk_rand_100} = "
-currheight = (dim(df.rand.100)[1]) * myscale / 100
+currheight = (dim(df.rand.100)[1] + 31.25) * myscale / 100
 currwidth = totalwidth / 100
 pdfout_nopk_rand_100 = \"$pdfoutFolder/ALL/$pdfoutFilename.RAND.100.pdf\"
+
 # PDF
 pdf(pdfout_nopk_rand_100,width=currwidth,height=currheight)
 grid.arrange(p.rand.100.pdf,p2.rand.100.pdf,ncol=1,nrow=mynrow,heights=totalratio)
 dev.off()
+
+# PDF HEATMAP ONLY
+currheight = dim(df.rand.100)[1] * myscale / 100
+currwidth = totalwidth / 100
+pdfout_heatmap_only = \"$pdfoutFolder/ALL/$pdfoutFilename.RAND.100.heatmap.pdf\"
+pdf(pdfout_heatmap_only,width=currwidth,height=currheight)
+print(p.heatmaponly.rand.100)
+dev.off()
+
 
 # PDF all Conv
 currheight = 31.25 * myscale / 100
@@ -1674,6 +1781,27 @@ __END__
 =cut
 
 __END__
+	$R->{PDF} = "
+
+# PDF
+pdf(\"$pdfout\",width=totalwidth/100,height=totalheight/100)
+if (mynrow == 3) {
+	grid.arrange(p.pdf,p2.pdf,p3.pdf,ncol=1,nrow=mynrow,heights=totalratio)
+} else {
+	grid.arrange(p.pdf,p2.pdf,ncol=1,nrow=mynrow,heights=totalratio)
+}
+dev.off()
+
+# PDF all Conv
+pdfout_peak_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.ALL.c_conv.pdf\"
+pdf(pdfout_peak_all_c_conv,width=totalwidth,height=31.25*myscale)
+grid.arrange(p2.pdf)
+dev.off()
+
+";
+	
+
+
 	$R->{PDF_nopk} = "
 # PDF
 totalheight = (dim(df.rand.1000)[1] + 31.25) * myscale
@@ -1690,3 +1818,50 @@ dev.off()
 ";
 
 
+
+__END__
+	$R->{PDF_nopk} = "
+
+# PDF
+currheight = (dim(df.rand.1000)[1] + 31.25) * myscale / 100
+currwidth = totalwidth / 100
+print(currheight)
+pdf(\"$pdfout\",width=currwidth,height=currheight)
+grid.arrange(p.rand.1000.pdf,p2.rand.1000.pdf,ncol=1,nrow=mynrow,heights=totalratio)
+dev.off()
+
+# PDF all Conv
+currheight = 31.25 * myscale / 100
+currwidth = totalwidth / 100
+print(currheight)
+pdfout_nopk_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.ALL.c_conv.pdf\"
+pdf(pdfout_nopk_all_c_conv,width=currwidth,height=currheight)
+grid.arrange(p2.pdf)
+dev.off()
+
+";
+
+	$R->{PDF_nopk_rand_100} = "
+currheight = (dim(df.rand.100)[1]) * myscale / 100
+currwidth = totalwidth / 100
+pdfout_nopk_rand_100 = \"$pdfoutFolder/ALL/$pdfoutFilename.RAND.100.pdf\"
+# PDF
+pdf(pdfout_nopk_rand_100,width=currwidth,height=currheight)
+grid.arrange(p.rand.100.pdf,p2.rand.100.pdf,ncol=1,nrow=mynrow,heights=totalratio)
+dev.off()
+
+# PDF all Conv
+currheight = 31.25 * myscale / 100
+currwidth = totalwidth / 100
+pdfout_nopk_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.RAND.100.c_conv.pdf\"
+pdf(pdfout_nopk_all_c_conv,width=currwidth,height=currheight)
+grid.arrange(p2.rand.100.pdf)
+dev.off()
+
+";
+
+
+
+
+__END__
+# BAD PNG TO PDF
