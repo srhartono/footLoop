@@ -211,8 +211,8 @@ sub makeOutDir {
 sub getFlag {
 	my ($file, $geneStrand, $readStrand, $rconvType) = @_;
 	my ($PEAK, $TEMP, $RCONV, $CPG, $ALL) = defFlag();
-	my $flag = $readStrand eq "Unk" ? return ($ALL->[0]) : $file =~ /NOPK/ ? "NOPK" : "PEAK";
-	#return ($ALL->[0]) if $readStrand eq "Unk";
+	my $flag = $readStrand eq "Unk" ? "UNK" : $file =~ /NOPK/ ? "NOPK" : "PEAK";
+	return ($ALL->[0]) if $readStrand eq "Unk";
 	my $temp  = $geneStrand eq $readStrand ? $TEMP->[0] : $TEMP->[1];	
 	my $rconv = (($rconvType =~ /^C/ and $readStrand eq "Pos") or ($rconvType =~ /^G/ and $readStrand eq "Neg")) ? $RCONV->[0] : $RCONV->[1];
 	my $cpg   = $rconvType !~ /^(CG|GC)$/ ? $CPG->[0] : $CPG->[1];

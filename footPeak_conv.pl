@@ -181,7 +181,9 @@ foreach my $GENE (sort keys %coor) {
 			my $peakFile   = "$resDir/.CALL/$label\_gene$mygene\_$readStrand\_$window\_$thres\_$rconvType.PEAK.out";
 			my $nopkFile   = "$resDir/.CALL/$label\_gene$mygene\_$readStrand\_$window\_$thres\_$rconvType.NOPK.out";
 			$files{$peakFile} = $mygene;
-			my $flag = getFlag($geneStrand, $readStrand, $rconvType, $TEMP, $RCONV, $CPG, $ALL);
+			my ($flag) = getFlag($peakFile, $geneStrand, $readStrand, $rconvType);
+			$flag =~ s/^PEAK_//;
+			die "flag = $flag\n";
 			LOG($outLog, "\n" . date() . ">GENE=$LRD$GENE$N $LGN$h1$LCY.$h2$N: $LPR$peakFile$N flag=$flag\n");
 			my $outPEAKDir = $flag =~ /ALL/ ? $flag : "PEAK$flag";
 			my $outNOPKDir = $flag =~ /ALL/ ? $flag : "NOPK$flag";
@@ -202,7 +204,7 @@ foreach my $GENE (sort keys %coor) {
 			open (my $outPEAK_Method3combinedWIG, ">", "$resDir/CONVERSION/$outPEAKDir/$label\_gene$mygene\_$readStrand\_$window\_$thres\_$rconvType.PEAK.c_conv_3combined.$outPEAKDir.wig") or DIELOG($outLog, date() . " Failed to write to $LCY$resDir/CONVERSION/$outPEAKDir/$label\_gene$mygene\_$readStrand\_$window\_$thres\_$rconvType.PEAK.c_conv_3combined.$outPEAKDir.wig$N: $!\n");
 			my @outpipeTSV = ($outPEAK_Method1peakonlyTSV, $outPEAK_Method2allcTSV, $outNOPK_Method2allcTSV, $outPEAK_Method3combinedTSV);
 			my @outpipeWIG = ($outPEAK_Method1peakonlyWIG, $outPEAK_Method2allcWIG, $outNOPK_Method2allcWIG, $outPEAK_Method3combinedWIG);
-			my @graphType  = qw(bar bar bar bar)
+			my @graphType  = qw(bar bar bar bar);
 			my @methods = ("$outPEAKDir\t1peakonly", "$outPEAKDir\t2allc", "$outNOPKDir\t2allc", "$outPEAKDir\t3combined");
 			my @colors = ("255,0,0", "0,155,0", "0,200,0", "155,0,155");
 			my %res; my $max_x = -1;

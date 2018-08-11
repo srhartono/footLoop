@@ -208,8 +208,8 @@ sub main {
 			$max_cluster = 0 if not defined $max_cluster;
 			my $summary = $p == 0 ? "PEAK: $LGN$totpeak$N, cluster=$LCY$max_cluster$N" : "NOPK: $LGN$totnopk$N";
 			#$currFilename =~ s/\.0_orig_//i;
-			my $flag = $readStrand eq "Unk" ? "" : $p == 0 ? $PEAK->[0] : $PEAK->[1]; #PEAK : NOPK;
-			$flag .= getFlag($geneStrand, $readStrand, $rconvType, $TEMP, $RCONV, $CPG, $ALL);
+			#my $flag = $readStrand eq "Unk" ? "" : $p == 0 ? $PEAK->[0] : $PEAK->[1]; #PEAK : NOPK;
+			my $flag = getFlag($currFile, $geneStrand, $readStrand, $rconvType);
 			my $pngoutDir = $flag;
 			my $pdfoutDir = $flag;
 			LOG($outLog, date() . "$LGN$currfileCount.$N $flag $readStrandPrint $rconvTypePrint $LCY$currFile$N\n");
