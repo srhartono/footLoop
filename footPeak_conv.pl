@@ -182,8 +182,7 @@ foreach my $GENE (sort keys %coor) {
 			my $nopkFile   = "$resDir/.CALL/$label\_gene$mygene\_$readStrand\_$window\_$thres\_$rconvType.NOPK.out";
 			$files{$peakFile} = $mygene;
 			my ($flag) = getFlag($peakFile, $geneStrand, $readStrand, $rconvType);
-			$flag =~ s/^PEAK_//;
-			die "flag = $flag\n";
+			$flag =~ s/^PEAK//;
 			LOG($outLog, "\n" . date() . ">GENE=$LRD$GENE$N $LGN$h1$LCY.$h2$N: $LPR$peakFile$N flag=$flag\n");
 			my $outPEAKDir = $flag =~ /ALL/ ? $flag : "PEAK$flag";
 			my $outNOPKDir = $flag =~ /ALL/ ? $flag : "NOPK$flag";
