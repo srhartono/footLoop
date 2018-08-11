@@ -25,6 +25,8 @@ our $LPR		="\e[1;35m";
 our $DIES   ="$LRD!!!\t$N";
 
 our @EXPORT = qw(
+parse_readName
+parse_footPeak_logFile
 parse_indexFile
 myformat
 perc
@@ -66,6 +68,7 @@ DIE
 DIELOG
 makeOutDir
 getFlag
+shuffle
 $DIES
 $N 
 $B
@@ -89,6 +92,61 @@ $LPR
 
 
 #################################
+sub parse_readName_from_fastq {
+	my ($fastqFile, $outLog) = @_;
+	my %name;
+	my $in;
+	open ($in, "<", $fastqFile) or DIELOG($outLog, "Failed to read from $fastqFile: $!\n") if defined $outLog;
+	open ($in, "<", $fastqFile) or die "Failed to read from $fastqFile: $!\n" if not defined $outLog;
+	while (my $line = <$in>) {
+		chomp($line);
+		my $def = $line;
+		$line = <$in>; chomp($line);
+		my $seq = $line;
+		$line = <$in>; chomp($line);
+		my $plus = $line;
+		$line = <$in>; chomp($line);
+		my $qua = $line;
+		my ($id, $id1, $id2, $id3) = parse_readName($def);
+		$name{$id1} ++;
+	}
+	LOG($outLog, "#id\tfreq\n") if defined $outLog;
+	print "#id\tfreq\n" if not defined $outLog;
+	foreach my $id (sort {$name{$b} <=> $name{$a}} keys %name) {
+		LOG($outLog, "$id\t$name{$id}\n") if defined $outLog;
+		print "$id\t$name{$id}\n" if not defined $outLog;
+	}
+	return \%name;
+}
+sub parse_readName {
+	my ($readName, $outLog) = @_;
+	DIELOG($outLog, "readName not defined!\n") if defined $outLog and not defined $readName;
+	die "readName not defined!\n" if not defined $outLog and not defined $readName;
+	return -1 if not defined $readName;
+	my ($id1a, $id1b, $id2, $id3) = $readName =~ /^.*m(\d+)_(\d+)_\d+_c\w+_\w+_\w+\/(\d+)\/(ccs|\d+_\d+)/;
+	$id3 = (not defined $id3) ? 0 : $id3 eq "ccs" ? 0 : $id3;
+	DIELOG($outLog, "Failed to parse id1/2/3 from readName=$LCY$readName$N\n") if (not defined $id1a or not defined $id1b or not defined $id2 or not defined $id3) and defined $outLog;
+	my $id1 = $id1a . $id1b;
+	my $id = "$id1$id2$id3"; $id =~ s/_//g;
+	return ($id, $id1, $id2, $id3);
+
+}
+sub shuffle {
+        my ($value, $times) = @_;
+   my @value = @{$value};
+   $times = @value if not defined($times) or $times !~ /^\d+$/;
+        #print "Before: @value\n";
+        for (my $i = 0; $i < $times; $i++) {
+                my $rand1 = int(rand(@value));
+                my $rand2 = int(rand(@value));
+                my $val1 = $value[$rand1];
+                my $val2 = $value[$rand2];
+                $value[$rand1] = $val2;
+                $value[$rand2] = $val1;
+        }
+        #print "After: @value\n";
+        return(@value);
+}
 
 sub prettyPrint {
 	my ($texts) = @_;
@@ -117,65 +175,48 @@ sub prettyPrint {
 	return($newtexts);
 }
 
-sub makeOutDir {
-	my ($resDir) = @_;
-	$resDir =~ s/$/\// if $resDir !~ /\/$/;
-	$resDir =~ s/\/+$/\//;
+sub defFlag {
 	my @PEAK = ("PEAK","NOPK");
 	my @TEMP = ("", "_TEMP");
 	my @RCONV = ("", "_RCONV");
 	my @CPG  = ("", "_C");
 	my @ALL = ("ALL");
+	return(\@PEAK, \@TEMP, \@RCONV, \@CPG, \@ALL);
+}
+sub makeOutDir {
+	my ($resDir, $bool) = @_;
+	my ($PEAK, $TEMP, $RCONV, $CPG, $ALL) = defFlag();
+	$bool = 0 if not defined $bool;
+	$resDir =~ s/\/+$//;
 	my $OUTDIRS;
-	foreach my $PEAK (@PEAK[0..@PEAK-1]) {
-		foreach my $TEMP (@TEMP[0..@TEMP-1]) {
-			foreach my $RCONV (@RCONV[0..@RCONV-1]) {
-				foreach my $CPG (@CPG[0..@CPG-1]) {
-					my $outDir = $resDir . "$PEAK$TEMP$RCONV$CPG/";
-					my $outDirName = "$PEAK$TEMP$RCONV$CPG/";
+	foreach my $PEAKS ( @{$PEAK}[0..(@{$PEAK}-1)] ) {
+		foreach my $TEMPS ( @{$TEMP}[0..(@{$TEMP}-1)] ) {
+			foreach my $RCONVS (@{$RCONV}[0..(@{$RCONV}-1)]) {
+				foreach my $CPGS (@{$CPG}[0..(@{$CPG}-1)]) {
+					my $outDir = $resDir . "/$PEAKS$TEMPS$RCONVS$CPGS";
+					my $outDirName = "/$PEAKS$TEMPS$RCONVS$CPGS";
 					$OUTDIRS->{$outDirName} = $outDir;
-					makedir($outDir) if not -d $outDir;
-					makedir("$outDir/ALL/") if not -d "$outDir/ALL/";
+					makedir($outDir) if not -d $outDir and $bool eq 0;
+					makedir("$outDir/ALL") if not -d "$outDir/ALL" and $bool eq 0;
 				}
 			}
 		}
 	}
-	$OUTDIRS->{ALL} = "$resDir$ALL[0]/";
-	makedir("$resDir$ALL[0]/") if not -d "$resDir$ALL[0]/";
-	makedir("$resDir$ALL[0]/ALL/") if not -d "$resDir$ALL[0]/ALL/";
-	return($OUTDIRS, \@PEAK, \@TEMP, \@RCONV, \@CPG, \@ALL);
+	$OUTDIRS->{ALL} = "$resDir/$ALL->[0]";
+	makedir("$resDir/$ALL->[0]/") if not -d "$resDir/$ALL->[0]/" and $bool eq 0;
+	makedir("$resDir/$ALL->[0]/ALL/") if not -d "$resDir/$ALL->[0]/ALL/" and $bool eq 0;
+	return($OUTDIRS);
 }
 
 sub getFlag {
-	my ($geneStrand, $readStrand, $rconvType, $TEMP, $RCONV, $CPG, $ALL) = @_;
-	return ($ALL->[0]) if $readStrand eq "Unk";
+	my ($file, $geneStrand, $readStrand, $rconvType) = @_;
+	my ($PEAK, $TEMP, $RCONV, $CPG, $ALL) = defFlag();
+	my $flag = $readStrand eq "Unk" ? return ($ALL->[0]) : $file =~ /NOPK/ ? "NOPK" : "PEAK";
+	#return ($ALL->[0]) if $readStrand eq "Unk";
 	my $temp  = $geneStrand eq $readStrand ? $TEMP->[0] : $TEMP->[1];	
 	my $rconv = (($rconvType =~ /^C/ and $readStrand eq "Pos") or ($rconvType =~ /^G/ and $readStrand eq "Neg")) ? $RCONV->[0] : $RCONV->[1];
 	my $cpg   = $rconvType !~ /^(CG|GC)$/ ? $CPG->[0] : $CPG->[1];
-	return($temp . $rconv . $cpg);
-=comment	
-	if ($geneStrand eq $readStrand) {
-		if ($geneStrand eq "Pos" and $convType eq "CH") {
-			
-		}
-	}
-	if (($STRAND eq "Pos" and $strand3 eq "Pos" and $type3 eq "CH") or ($STRAND eq "Neg" and $strand3 eq "Neg" and $type3 eq "GH")) {
-		$flag = "";
-	}
-	elsif (($STRAND eq "Pos" and $strand3 eq "Neg" and $type3 eq "GH") or ($STRAND eq "Neg" and $strand3 eq "Pos" and $type3 eq "CH")) {
-		$flag = $p == 0 ? $PEAK->[0] . $TEMP->[1] : $PEAK->[1] . $TEMP->[1]; #"PEAKNEG/" : "NOPKNEG/";
-	}
-	elsif (($STRAND eq "Pos" and $strand3 eq "Pos" and $type3 eq "CG") or ($STRAND eq "Neg" and $strand3 eq "Neg" and $type3 eq "GC")) {
-		$flag = $p == 0 ? $PEAK->[0] . $CPG->[1] : $PEAK->[1] . $CPG->[1]; #"PEAK/" : "NOPK/"; CG
-	}
-	elsif (($STRAND eq "Pos" and $strand3 eq "Neg" and $type3 eq "GC") or ($STRAND eq "Neg" and $strand3 eq "Pos" and $type3 eq "CG")) {
-		$flag = $p == 0 ? $PEAK->[0] . $TEMP->[1] . $CPG->[1] : $PEAK->[1] . $TEMP->[1] . $CPG->[1]; #"PEAKNEG/" : "NOPKNEG/"; CG
-	}
-	else {
-		$flag = "ALL/";
-	}
-
-=cut
+	return($flag . $temp . $rconv . $cpg);
 }
 sub parse_indexFile {
 	my ($indexFile) = @_;
@@ -203,16 +244,30 @@ sub parseName {
 		$filename = pop(@filename);
 	}
 	my ($label, $gene, $strand, $window, $thres, $type) = $filename =~ /^(.+)_gene(.+)_(Pos|Neg|Unk)_(.+)_(.+)_(CH|CG|GH|GC)/;
-	my ($label2, $bc, $plasmid, $desc) = ("", "", "", "");
-	if ($label =~ /^(.+)_bc.+_plasmid.+_desc.+$/i) {
-		($label2, $bc, $plasmid, $desc) = $label =~ /^(.+)_bc(.+)_plasmid(.+)_desc(.+)$/;
+	my ($pcb, $bc, $plasmid, $desc) = ("", "", "", "");
+	if ($label =~ /^(.+)_bc.+_plasmid.+_desc.+$/) {
+		($pcb, $bc, $plasmid, $desc) = $label =~ /^(.+)_bc(.+)_plasmid(.+)_desc(.+)$/;
 		die "\n\nmyFootLib::parseName: filename=$LGN$filename$N.\n\nCannot parse bc, plasmid, desc from label=$LPR$label$N\n\n" if not defined $bc or not defined $plasmid or not defined $desc;
 	}
 	if (not defined $label or not defined $gene or not defined $strand or not defined $window or not defined $thres or not defined $type) {
 		print "Cannot parse label gene strand window thres type from filename=$LCY$filename$N\n\nMake sure that filename format is: (.+)_gene(.+)_(Pos|Neg|Unk)_(.+)_(.+)_(CH|CG|GH|GC)\n\n";
 		return -1;
 	}
-	return ($label, $gene, $strand, $window, $thres, $type, $bc, $plasmid, $desc, $label2);
+	my @data = ($label, $gene, $strand, $window, $thres, $type, $bc, $plasmid, $desc, $pcb);
+	my %data = (
+		"label" => $label,
+		"gene" => $gene,
+		"strand" => $strand,
+		"window" => $window,
+		"thres" => $thres,
+		"type" => $type,
+		"pcb" => $pcb,
+		"bc" => $bc,
+		"desc" => $desc,
+		"plasmid" => $plasmid,
+		"array" => \@data
+	);
+	return (\%data);
 }
 sub DIE {
 	return "\n$DIES Died at file $CY " . __FILE__ . " $N at line $LGN " . __LINE__ . " $N";
@@ -840,6 +895,41 @@ sub colorconv {
       $res2 .= $dinuc eq "CT" ? "${LPR}T$N" : $dinuc eq "GA" ? "${LPR}A$N" : ($seq2[$i] =~ /^(C|G)$/ and $seq2[$i] ne $seq1[$i]) ? "${YW}$seq2[$i]$N" : colorCG($seq2[$i]);
    }
    return($res1, $res2);
+}
+
+sub parse_footPeak_logFile {
+	my ($footPeak_logFile, $footPeak_Folder, $genewant, $outLog) = @_;
+   my %coor;
+   my @lines   = `cat $footPeak_logFile`;
+   LOG($outLog, " Parsing footpeak logfile $footPeak_logFile\n");
+   my ($label) = `cat $footPeak_Folder/.LABEL`; chomp($label);
+   DIELOG($outLog, "\n\ndied at footPeak_graph.pl: can't find $footPeak_logFile!\n\n") if not -e $footPeak_logFile;
+   DIELOG($outLog, "\n\ndied at footPeak_graph.pl: can't find $footPeak_Folder/.LABEL!\n\n") if not -e "$footPeak_Folder/.LABEL";
+   my ($thres, $window);
+   foreach my $line (@lines) {
+      chomp($line);
+      if ($line =~ /^[ \t]*def=.+, coor=.+/) {
+         $line =~ s/(^\s+|\s+$)//g;
+         my ($gene, $CHR, $BEG, $END, $GENE, $VAL, $STRAND) = $line =~ /^def=(.+), coor=(.+), (\d+), (\d+), (.+), (\-?\d+\.?\d*), ([\+\-])$/;
+         LOG($outLog, "gene=$gene,chr=$CHR,beg=$BEG,end=$END,gene=$GENE,val=$VAL,strand=$STRAND\n");
+         if (defined $genewant and $gene !~ /$genewant/i) {
+            LOG($outLog, date() . " Skipped $LCY$gene$N as it doesn't contain $LGN-G $genewant$N\n");
+            next;
+         }
+         $GENE = uc($GENE);
+         DIELOG($outLog, "\n\ndied at processing $LCY$footPeak_logFile$N: can't parse index file def gene lqines\n\n$line\n\n") if not defined $STRAND;
+         %{$coor{$GENE}} = ("CHR" => $CHR, "BEG" => $BEG, "END" => $END, "VAL" => $VAL);
+         $coor{$GENE}{STRAND} = $STRAND eq "+" ? "Pos" : $STRAND eq "-" ? "Neg" : $STRAND =~ /^(Pos|Neg|Unk)$/ ? $STRAND : "Unk";
+      }
+      elsif ($line =~ /^-t thrshld\s+:/) {
+         ($thres) = $line =~ /^-t thrshld\s+:\s+(\-?\d+\.?\d*)$/;
+         $thres = "0." . $thres if $thres > 1;
+      }
+      elsif ($line =~ /^-w window\s+:/) {
+         ($window) = $line =~ /^-w window\s+:\s+(\-?\d+\.?\d*)$/;
+      }
+   }
+	return (\%coor, $outLog);
 }
 
 __END__

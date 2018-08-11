@@ -160,7 +160,7 @@ foreach my $bedFile (sort @bedFiles) {
 	#print "$LCY$bedFile$N\n";
 	preprocess_bed($bedFile, $outLog) if not defined $opt_S;
 }
-LOG($outLog, date() . "2. Calculating GC skew (might take a couple minutes)\n");
+LOG($outLog, date() . "2. Calculating Sequence profile (might take a couple minutes)\n");
 if (not defined ($opt_S)) {
 	system("run_script_in_paralel2.pl \"fastaFromBed -fi $genomeFile -bed FILENAME -fo FILENAME.fa -s -name\" $resDir/.TEMP/ \"_[ABCDEFW].temp\" 1 > $resDir/.TEMP/fastaFromBed.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run fastaFromBed: $!\n");
 	system("run_script_in_paralel2.pl \"rename.pl FILENAME PCB .PCB\" $resDir/.TEMP/ temp 1  > $resDir/.TEMP/rename.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run rename.pl: $!\n");
@@ -240,7 +240,7 @@ sub preprocess_bed {
 #}
 LOG($outLog, date() . "3. Processing " . scalar(@files) . " files in $LCY$resDir$N\n");
 my %data;
-my @header = ("label", "gene", "strand", "window", "threshold", "convtype", "wind2", "sample", "type");
+my @header = ("wind2", "sample", "type");
 print "\n\nThere i no file with .tsv in $LCY$resDir/$N!\n" and exit if (@files == 0);
 foreach my $input1 (sort @files) {
 	my ($tempFile) = $input1 =~ /^(.+)_100_.\.temp.fa.\w+.tsv$/;
@@ -250,31 +250,28 @@ foreach my $input1 (sort @files) {
 
 	#print "input1=$input1, tempFile=$LCY$tempFile$N\n";
 	$input1 =~ s/\/+/\//g;
-	my ($WINDOW, $SAMPLE, $TYPE);
 	my ($folder1, $fileName1) = getFilename($input1, "folderfull");
 	if (defined $opt_G) {
 		next if $fileName1 !~ /$opt_G/;
 	}
-#	print "$input1\n";
-	#my ($label, $barcode, $desc, $gene, $strand, $window, $threshold, $convtype, $wind2, $sample, $type) = $fileName1 =~ /^(PCB.+)_(BC\d+)?_?(\w+)?_?gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(CG|CH|GH|GC).PEAK.genome.bed_(\d+)_([A-Z]).temp.fa.(\w+).tsv/;
+
+   # get gene and strand from file name
+   my $parseName = parseName($fileName1);
+   my ($label2, $gene, $strand, $window, $thres, $type) = @{$parseName->{array}};
+
 	next if $fileName1 !~ /^PCB/;
-	my @arr = $fileName1 =~ /^(PCB.+)_gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(CG|CH|GH|GC).PEAK.genome.bed_(\d+)_([A-Z]).temp.fa.(\w+).tsv/;
-	$arr[0] =~ s/^(PCB\d+)_.+$/$1/;
-	if (not defined $arr[0]) {
-		for (my $i = 0; $i < @arr; $i++) {
-			DIELOG($outLog, date() . "fileName=$fileName1 Undefined i=$i header=$header[$i] arr[i] undef\n") if not defined $arr[$i];# and $header[$i] !~ /(barcode|desc)/;
-		}
-	}
-	my ($outName) = $fileName1 =~ /^(.+).PEAK.genome.bed/;
-	$outName .= ".$arr[8]";
+	my @arr = $fileName1 =~ /PEAK.genome.bed_(\d+)_([A-Z]).temp.fa.(\w+).tsv/;
 	for (my $i = 0; $i < @arr; $i++) {
-		DIELOG($outLog, date() . "Undefined i=$i header=$header[$i] arr[i] undef\n") if not defined $arr[$i];# and $header[$i] !~ /(barcode|desc)/;
-		$data{data}{$outName}{$header[$i]} = $arr[$i];
-		$WINDOW = $arr[$i] if $header[$i] eq "wind2";
-		$SAMPLE = $arr[$i] if $header[$i] eq "sample";
-		$TYPE = $arr[$i] if $header[$i] eq "type";
+		DIELOG($outLog, date() . "fileName=$fileName1 Undefined i=$i header=$header[$i] arr[i] undef\n") if not defined $arr[$i];
 	}
-	LOG($outLog, date() . "  - gene=$LGN$arr[1]$N pos=$LGN$arr[7]$N type=$LPR$arr[8]$N input=$outName$N\n","NA") if $arr[8] eq "skew";
+	my ($WINDOW, $SAMPLE, $CALCTYPE) = @arr;
+	my ($outName) = $fileName1 =~ /^(.+).PEAK.genome.bed/;
+	$outName .= ".$CALCTYPE";
+	$data{data}{$outName} = $parseName;
+	$data{data}{$outName}{sample} = $SAMPLE;
+	$data{data}{$outName}{wind2} = $WINDOW;
+	$data{data}{$outName}{calctype} = $CALCTYPE;
+	LOG($outLog, date() . "  - gene=$LGN$gene$N pos=$LGN$SAMPLE$N calctype=$LPR$CALCTYPE$N input=$outName$N\n","NA") if $CALCTYPE eq "skew";
 	open (my $in1, "<", $input1) or DIELOG($outLog, date() . " Cannot read from $input1: $!\n");
 	my $linecount = 0;
 	while (my $line = <$in1>) {
@@ -282,11 +279,8 @@ foreach my $input1 (sort @files) {
 		next if $line =~ /^#/;
 		$linecount ++;
 		my ($read, $value) = split("\t", $line);
-		my ($id1, $id2, $id3) = $read =~ /^.*m(\d+_\d+)_\d+_c\w+_\w+_\w+\/(\d+)\/(ccs|\d+_\d+)/;
-		$id3 = 0 if not defined $id3;
-		$id3 = 0 if $id3 eq "ccs";
-		DIELOG($outLog, "Failed to parse id1/2/3 from read=$LCY$read$N, file=$LGN$input1$N\n") if not defined $id1 or not defined $id2 or not defined $id3;
-		my $id = "$id1$id2$id3"; $id =~ s/_//g;
+		my ($read_number) = $read =~ /\.(m\d+.+)$/;
+		my ($id) = parse_readName($read_number);
 		my $cluster = $cluster->{$tempFile2}{$id}{clust}; $cluster = -1 if not defined $cluster;
 		#print "id=$id, cluster=$cluster\n$input1,$id,$cluster\n" if $id eq "1704132300151533640";
 		$data{cluster}{$outName}{$read} = $cluster;
@@ -298,9 +292,8 @@ foreach my $input1 (sort @files) {
 }
 open (my $out1, ">", "$resDir/RESULT.TSV") or DIELOG($outLog, date() . "Cannot write to $resDir/RESULT.TSV: $!\n");
 foreach my $outName (sort keys %{$data{input}}) {
-	#open (my $out1, ">", "$outName.TSV") or die "Cannot write to $outName.TSV: $!\n";
 	my $WINDOW = $data{data}{$outName}{wind2};
-	my $TYPE = $data{data}{$outName}{type};
+	my $CALCTYPE = $data{data}{$outName}{calctype};
 	my $SAMPLE = $data{data}{$outName}{sample};
 	print $out1 "file\tid\tcluster\tread\twindow\ttype\tfeature";
 	foreach my $sample (sort keys %{$data{input}{$outName}}) {
@@ -308,34 +301,31 @@ foreach my $outName (sort keys %{$data{input}}) {
 	}
 	print $out1 "\toutfile\tflag\n";
 	last;
-	#close $out1;
 }
 
 foreach my $outName (sort keys %{$data{read}}) {
-#open (my $out1, ">>", "$outName.TSV") or die "Cannot write to $outName.TSV: $!\n";
 	my $WINDOW = $data{data}{$outName}{wind2};
-	my $TYPE = $data{data}{$outName}{type};
+	my $CALCTYPE = $data{data}{$outName}{calctype};
 	my $SAMPLE = $data{data}{$outName}{sample};
 	my $GENE = $data{data}{$outName}{gene};
 	my $feature = $gene{$GENE}{feature}; 
 
-	my ($label2, $gene2, $strand2, $window2, $thres2, $type2) = parseName($outName);
- 	my $readStrand = $strand2;
+   # get gene and strand from file name
+   my $parseName = parseName($outName);
+ 	my $readStrand = $parseName->{strand};
+ 	my $rconvType  = $parseName->{type};
 	my $geneStrand = $gene{$GENE}{strand};
-	my $rconvType = $type2;
-	$feature = "FEATURE_UNKNOWN" if not defined $feature;#print "Undef gene=$GENE feature\n" and next if not defined $feature;
-	my $flag = $readStrand eq "Unk" ? "" : "PEAK";
- 	$flag .= getFlag($geneStrand, $readStrand, $rconvType, $TEMP, $RCONV, $CPG, $ALL);
+	$feature = "FEATURE_UNKNOWN" if not defined $feature;
+ 	my $flag = getFlag($outName, $geneStrand, $readStrand, $rconvType);
 	my $sampleoutDir = $resDirFullpath . "/PDF/$flag/";
 	#print "$outName: gene=$GENE feature=$feature readStrand=$readStrand geneStrand=$geneStrand rconvtype=$rconvType $LCY$sampleoutDir$N\n";
 	foreach my $read (sort keys %{$data{read}{$outName}}) {
-		print $out1 "$data{input}{$outName}{$SAMPLE}\t$data{id}{$outName}{$read}\t$data{cluster}{$outName}{$read}\t$read\t$WINDOW\t$TYPE\t$feature";
+		print $out1 "$data{input}{$outName}{$SAMPLE}\t$data{id}{$outName}{$read}\t$data{cluster}{$outName}{$read}\t$read\t$WINDOW\t$CALCTYPE\t$feature";
 		foreach my $sample (sort keys %{$data{read}{$outName}{$read}}) {
 			print $out1 "\t$data{read}{$outName}{$read}{$sample}";
 		}
 		print $out1 "\t$sampleoutDir/$outName.GCPROFILE.$flag\t$flag\n";
 	}
-	#close $out1;
 }
 
 GCprofile_Rscript($resDir, $outLog);
@@ -346,6 +336,7 @@ my $resDirFullpath = getFullpath($resDir);
 
 my $RESULT = $resDir . "/RESULT.TSV";
 my $LABEL = `cat $resDir/../.LABEL`; DIELOG($outLog, "Cannot find $resDir/../.LABEL!\n") if not defined $LABEL; chomp($LABEL);
+my $LABEL2 = $LABEL;
 $LABEL = $resDirFullpath . "/$LABEL";
 my $Rscript = "
 .libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\",
@@ -365,6 +356,79 @@ RESULT=\"$RESULT\";
 dfmain = read.table(RESULT,header=T,sep=\"\\t\")
 outfiles = unique(dfmain\$outfile)
 
+# pdf all
+mytypes = unique(as.character(dfmain\$type))
+for (j in 1:length(mytypes)) {
+	df = dfmain[dfmain\$type == mytypes[j],]
+	dm = melt(df,id.vars=c(\"file\",\"id\",\"cluster\",\"read\",\"window\",\"type\",\"feature\",\"outfile\",\"flag\"));
+	dm\$variable = factor(dm\$variable,levels=c(\"A\",\"B\",\"C\",\"W\",\"D\",\"E\",\"F\"))
+	dm\$gene = paste(dm\$file,dm\$feature)
+	genes = unique(dm\$gene)
+	dm\$group = paste(dm\$cluster)
+	ylimsMin = -1
+	ylimsMax = 1
+	ylines = 0
+	if(length(grep(\"dens\",mytypes[j],perl=T,ignore.case=T)) != 0) {
+		ylimsMin=0;
+		ylimsMax=1.2;
+		ylines=0.6;
+	} else if (length(grep(\"cont\",mytypes[j],perl=T,ignore.case=T)) != 0) {
+		ylimsMin=0;
+		ylimsMax=1;
+		ylines=0.5;
+	} else if (length(grep(\"wskew\",mytypes[j],perl=T,ignore.case=T)) != 0) {
+		ylimsMin=0.5;
+		ylimsMax=-0.5;
+		ylines=0;
+	}
+	
+	if (length(grep(\"atwskew\",mytypes[j],perl=T,ignore.case=T)) != 0) {
+		ylabs = \"AT Weighted Skew\"
+	} else if (length(grep(\"atskew\",mytypes[j],perl=T,ignore.case=T)) != 0) {
+		ylabs = \"AT Skew\"
+	} else if (length(grep(\"gcskew\",mytypes[j],perl=T,ignore.case=T)) != 0) {
+		ylabs = \"GC Skew\"
+	} else if (length(grep(\"gcwskew\",mytypes[j],perl=T,ignore.case=T)) != 0) {
+		ylabs = \"GC Weighted Skew\"
+	} else if (length(grep(\"gccont\",mytypes[j],perl=T,ignore.case=T)) != 0) {
+		ylabs = \"GC Content\"
+	} else if (length(grep(\"cpgdens\",mytypes[j],perl=T,ignore.case=T)) != 0) {
+		ylabs = \"CpG Density\"
+	} else if (length(grep(\"purineskew\",mytypes[j],perl=T,ignore.case=T)) != 0) {
+		ylabs = \"Purine Skew (G|A vs. C|T)\"
+	} else {
+		ylabs=mytypes[j]
+	}
+	myclust = unique(df\$cluster)
+	uniquefeature = as.character(unique(df\$feature))
+	uniqueflag = as.character(unique(df\$flag))
+
+	for (k in 1:length(uniquefeature)) {
+		for (l in 1:length(uniqueflag)) {
+			mytitle   = paste(\"$LABEL2\.\",mytypes[j],\"\\n\",uniquefeature[k],\" \",uniqueflag[l],sep=\"\")
+			outpdfall = paste(\"$LABEL\.\",mytypes[j],\".\",uniquefeature[k],\".\",uniqueflag[l],\".pdf\",sep=\"\")
+			print(paste(j,\"Doing pdf\",outpdfall))
+			
+			temp = dm[dm\$feature == uniquefeature[k] & dm\$flag == uniqueflag[l],]
+			if (length(temp) > 0) {
+	
+			pdf(outpdfall,width=7,height=7)
+			tempcount = length(unique(temp\$id))
+			mytitle2 = paste(mytitle,\" (\",tempcount,\" reads)\",sep=\"\")
+			mytitle2 = paste(mytitle2,\"\\n\",ylabs,sep=\"\")
+
+			p = ggplot(temp,aes(variable,value)) +
+				geom_boxplot(aes(fill=variable),outlier.shape=NA) +
+				theme_bw() + theme(panel.grid=element_blank(),legend.position=\"none\") + coord_cartesian(ylim=c(ylimsMin,ylimsMax)) +
+				annotate(geom=\"segment\",x=0,xend=8,y=ylines,yend=ylines,lty=2) +
+				ylab(ylabs) + xlab(\"Samples\") + ggtitle(mytitle2)
+
+			print(p)
+			dev.off()
+			} else {print(\"\\tDoes not exist!\")}
+		}
+	}
+}
 for (j in 1:length(outfiles)) {
 print(paste(j,\".\",sep=\"\"))
 outfile=outfiles[j]
@@ -398,6 +462,10 @@ if(length(grep(\"dens\",types[1],perl=T,ignore.case=T)) != 0) {
 	ylimsMin=0;
 	ylimsMax=1;
 	ylines=0.5;
+} else if (length(grep(\"wskew\",mytypes[j],perl=T,ignore.case=T)) != 0) {
+	ylimsMin=0.5;
+	ylimsMax=-0.5;
+	ylines=0;
 }
 
 if (length(grep(\"atwskew\",types[1],perl=T,ignore.case=T)) != 0) {

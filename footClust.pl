@@ -161,8 +161,9 @@ foreach my $input1 (sort @local_peak_files) {
 	my ($fullName1) = getFilename($input1, "full");
 
 	# get gene and strand from file name
-   my ($label2, $gene, $strand, $window, $thres, $type) = parseName($fileName1);# =~ /^(.+)_gene(.+)_(Unk|Pos|Neg)_(\d+)_(\d+\.?\d*)_(\w+)\.(PEAK|NOPK)$/;
-   LOG($outLog, "Using label=$label2. Inconsistent label in filename $LCY$fileName1$N\nLabel from $footPeakFolder/.LABEL: $label\nBut from fileName: $label2\n\n") if $label ne $label2;
+	my $parseName = parseName($fileName1);
+   my ($label2, $gene, $strand, $window, $thres, $type) = @{$parseName->{array}};
+   LOG($outLog, "\n------------- $YW WARNING!!! $N -------------\n\nUsing label=$label2. Inconsistent label in filename $LCY$fileName1$N\nLabel from $footPeakFolder/.LABEL: $label\nBut from fileName: $label2\n\n--------------- $YW WARNING!!! $N ---------------\n\n") if $label ne $label2;
    $label = $label2;
 	my ($coorCHR, $coorBEG, $coorEND, $coorSTRAND) = ($coor{uc($gene)}{chr}, $coor{uc($gene)}{beg}, $coor{uc($gene)}{end}, $coor{uc($gene)}{strand});
 	my $Rstrand = $coorSTRAND eq "+" ? "Pos" : $coorSTRAND eq "-" ? "Neg" : "Pos";

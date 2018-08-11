@@ -202,6 +202,7 @@ foreach my $GENE (sort keys %coor) {
 			open (my $outPEAK_Method3combinedWIG, ">", "$resDir/CONVERSION/$outPEAKDir/$label\_gene$mygene\_$readStrand\_$window\_$thres\_$rconvType.PEAK.c_conv_3combined.$outPEAKDir.wig") or DIELOG($outLog, date() . " Failed to write to $LCY$resDir/CONVERSION/$outPEAKDir/$label\_gene$mygene\_$readStrand\_$window\_$thres\_$rconvType.PEAK.c_conv_3combined.$outPEAKDir.wig$N: $!\n");
 			my @outpipeTSV = ($outPEAK_Method1peakonlyTSV, $outPEAK_Method2allcTSV, $outNOPK_Method2allcTSV, $outPEAK_Method3combinedTSV);
 			my @outpipeWIG = ($outPEAK_Method1peakonlyWIG, $outPEAK_Method2allcWIG, $outNOPK_Method2allcWIG, $outPEAK_Method3combinedWIG);
+			my @graphType  = qw(bar bar bar bar)
 			my @methods = ("$outPEAKDir\t1peakonly", "$outPEAKDir\t2allc", "$outNOPKDir\t2allc", "$outPEAKDir\t3combined");
 			my @colors = ("255,0,0", "0,155,0", "0,200,0", "155,0,155");
 			my %res; my $max_x = -1;
@@ -218,7 +219,7 @@ foreach my $GENE (sort keys %coor) {
 			for (my $i = 0; $i < @outpipeTSV; $i++) {
 				print {$outpipeTSV[$i]} "label\tgene\treadStrand\twindow\tthres\trconvType\tpeakType\tmethods\t". join("\t", @XSPAN) . "\n";
 				print {$outpipeTSV[$i]} "$label\t$mygene\t$readStrand\t$window\t$thres\t$rconvType\t$methods[$i]";
-				print {$outpipeWIG[$i]} "track type=wiggle_0 name='$label\_gene$mygene\_$readStrand\_$window\_$thres\_$rconvType $methods[$i]' color=$colors[$i] visibility=2 maxHeightPixels=40:40:40 windowingFunction=mean viewLimits=0:1 autoScale=off\n";
+				print {$outpipeWIG[$i]} "track type=wiggle_0 graphType=$graphType[$i] name='$label\_gene$mygene\_$readStrand\_$window\_$thres\_$rconvType $methods[$i]' color=$colors[$i] visibility=2 maxHeightPixels=40:40:40 windowingFunction=mean viewLimits=0:1 autoScale=off\n";
 				print {$outpipeWIG[$i]} "variableStep chrom=$CHR span=1\n";
 			}
 

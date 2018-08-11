@@ -166,7 +166,8 @@ foreach my $gene (sort keys %{$data{file}}) {
 		$cluster_count ++;
 		LOG($outLog, date() . " $YW$cluster_count$N. Parsing $LCY$cluster_file$N\n");
 		my ($cluster_file_name) = getFilename($cluster_file, "full");
-		my ($label2, $gene2, $strand, $window, $thres, $type, $barcode, $plasmid, $desc) = parseName($cluster_file_name);
+		my $parseName = parseName($cluster_file_name);
+		my ($label2, $gene2, $strand, $window, $thres, $type, $pcb, $barcode, $plasmid, $desc) = @{$parseName->{array}};
 		LOG($outLog, "Using label=$label2. Inconsistent label in filename $LCY$cluster_file_name$N\nLabel from $footPeakFolder/.LABEL: $label\nBut from fileName: $label2\n\n") if $label2 ne $label;
 		$label = $label2;
 

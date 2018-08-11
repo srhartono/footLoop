@@ -49,7 +49,8 @@ my @peakneg = -e "$folder/PEAKNEG/" ? <$folder/PEAKNEG/*.bed> : ();
 
 foreach my $input1 (sort @peak) {
 	my ($folder1, $fileName1) = getFilename($input1, "folderfull");
-	my ($label, $gene, $strand, $window, $thres, $type) = parseName($fileName1);
+	my $parseName = parseName($fileName1);
+	my ($label, $gene, $strand, $window, $thres, $type) = $paseName->{array};
 	my $strand2 = $strand =~ /^(Pos|Neg|Unk)$/ ? $strand : $strand eq "+" ? "Pos" : $strand eq "-" ? "Neg" : "Unk";
 	$gene = uc($gene);
 	my ($num) = $label =~ /PCB(\d+)$/;
@@ -71,7 +72,8 @@ foreach my $input1 (sort @peak) {
 
 foreach my $input1 (sort @peak) {
 	my ($folder1, $fileName1) = getFilename($input1, "folderfull");
-	my ($label, $gene, $strand, $window, $thres, $type) = parseName($fileName1);
+	my $parseName = parseName($fileName1);
+	my ($label, $gene, $strand, $window, $thres, $type) = $paseName->{array};
 	my $strand2 = $strand =~ /^(Pos|Neg|Unk)$/ ? $strand : $strand eq "+" ? "Pos" : $strand eq "-" ? "Neg" : "Unk";
 	$gene = uc($gene);
 	my $goodstrand = $coor{$gene}; $goodstrand = "FALSE" if not defined $goodstrand;

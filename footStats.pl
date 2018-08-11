@@ -144,14 +144,11 @@ foreach my $TXTFile (@TXTFile) {
 	my ($folder1, $fileName1) = getFilename($TXTFile, "folderfull");
 	my ($footName) = $fileName1 =~ /.0_RESULTS_(.+).TXT$/;
 	print "Parsed file=$fileName1 footName = $LCY$footName$N\n";
-	my @result = parseName($footName . "_CH");
-	my @header = qw(label gene strand window thres conv bc plasmid desc);
-	my ($label, $gene, $strand, $window, $thres, $conv, $bc, $plasmid, $desc) = @result;
-	my $label2 = $label;
-	$label2 = (defined $bc and $bc ne "" and $label !~ /bc.+plasmid.+desc/) ? "$label\_$bc\_$plasmid\_$desc" : $label2;
-	#$label2 = $label if not defined $bc or (defined $bc and $bc eq "");
-	$result[5] = "";
-	$data = parseTXT($data, $TXTFile, $label2, $gene, $strand, $window, $thres);
+	my $parseName = parseName($footName . "_CH");
+	my @header = qw(label gene strand window thres conv pcb bc plasmid desc);
+	my ($label, $gene, $strand, $window, $thres, $conv, $pcb, $bc, $plasmid, $desc) = @{$parseName->{array}};
+	$conv = "";
+	$data = parseTXT($data, $TXTFile, $label, $gene, $strand, $window, $thres);
 }
 
 my %print1;

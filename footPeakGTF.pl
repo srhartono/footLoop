@@ -54,8 +54,11 @@ foreach my $callFile (sort @callFiles) {
       LOG($outLog, date() . " Skipped $LCY$callFile$N as it doesn't contain $LGN-G $opt_G$N\n");
       next;
    }
+
 	my ($folder1, $fileName1) = getFilename($callFile, "folderfull");
-   my ($label2, $gene, $strand, $window, $thres, $type) = parseName($fileName1);# =~ /^(.+)_gene(.+)_(Unk|Pos|Neg)_(\d+)_(\d+\.?\d*)_(\w+)\.(PEAK|NOPK)$/;
+   # get gene and strand from file name
+   my $parseName = parseName($fileName1);
+   my ($label2, $gene, $strand, $window, $thres, $type) = @{$parseName->{array}};
    LOG($outLog, "Using label=$label2. Inconsistent label in filename $LCY$fileName1$N\nLabel from $footPeakFolder/.LABEL: $label\nBut from fileName: $label2\n\n") if $label2 ne $label;
    $label = $label2;
 #	next unless $label eq "PCB7" and $strand eq "Pos" and $gene eq "RPS24" and $type eq "CH";
