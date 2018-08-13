@@ -248,35 +248,38 @@ sub check_file {
 	while (my $line = <$checkfileIn>) {
 		$linecount ++;
 		chomp($line); my @arr = split("\t", $line);
+		last if $check >= 20 or $linecount >= $total_line;
 		if ($type eq "sam") {
 			if (@arr > 10) {
 				$check = $check == 0 ? 2 : $check + 1;
 			}
-			last if $check == 20;
-			last if $linecount >= $total_line;
 		}
 		elsif ($type eq "seq") {
-			print "linecount = $linecount line = $line\n";
+			LOG($outLog, "linecount = $linecount check=$check line = $line\n","NA");
 			while ($line !~ /^>/) {
+				last if $check >= 20 or $linecount >= $total_line;
+				LOG($outLog, "\tlinecount=$linecount, check=$check\n", "NA");
 				$currseq .= $line;
 				$line = <$checkfileIn>; 
-				last if $linecount >= $total_line;
 				chomp($line); $linecount ++;
 			}
+			last if $check >= 20 or $linecount >= $total_line;
+			if (defined $currseq and $currseq =~ /^[ACTGUN]+$/i) {
+				LOG($outLog, __LINE__ . "before: linecount=$linecount check=$check file=$file type=$type\n","NA");
+				$check = $check == 0 ? 0 : $check + 1;
+				LOG($outLog, __LINE__ . "after: linecount=$linecount check=$check\n","NA");
+				DIELOG($outLog, __LINE__ .  "footLoop_2fixsam.pl: linecount=$linecount file=$file type=$type, check=$check, check_file failed (does not seem to be a seq file\n\t-> fasta file start with non-header!\n\n") if $check == 0;
+				DIELOG($outLog, __LINE__ .  "footLoop_2fixsam.pl: linecount=$linecount file=$file type=$type check=$check line=$line corruped fasta file!\n\t-> multiple headers in a row\n\n") if $check % 2 != 0;
+				undef $currseq;
+			}
 			if ($linecount < $total_line and defined $line and $line =~ /^>/) {
+				LOG($outLog, __LINE__ . "linecount=$linecount check=$check file=$file type=$type\n","NA");
 				$check ++;
 				# line will always be parsed header (1,3,5,etc) then seq (2,4,6,etc) so if header is even number then corrupted fasta file
 				DIELOG($outLog, __LINE__ .  "footLoop_2fixsam.pl: linecount=$linecount file=$file type=$type check=$check line=$line corruped fasta file!\n") if $check % 2 == 0;
 			}
-			elsif ($currseq =~ /^[ACTGUN]+$/i) {
-				$check = $check == 0 ? 0 : $check + 1;
-				DIELOG($outLog, __LINE__ .  "footLoop_2fixsam.pl: linecount=$linecount file=$file type=$type, check=$check, check_file failed (does not seem to be a seq file\n\t-> fasta file start with non-header!\n\n") if $check == 0;
-				last if $check == 20;
-				DIELOG($outLog, __LINE__ .  "footLoop_2fixsam.pl: linecount=$linecount file=$file type=$type check=$check line=$line corruped fasta file!\n\t-> multiple headers in a row\n\n") if $check % 2 != 0;
-			}
-			last if $linecount >= $total_line;
 		}
-		last if $linecount >= $total_line;
+		last if $check >= 20 or $linecount >= $total_line;
 	}
 	DIELOG($outLog, __LINE__ .  "footLoop_2fixsam.pl: linecount=$linecount file=$file type=$type, check=$check, check_file failed (does not seem to be a sam file\n\t-> there's no read with more than 10 collumns!\n") if $check == 0;
 }
