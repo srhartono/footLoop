@@ -186,7 +186,9 @@ sub main {
 		my $totpeak = -e $peakFile ? linecount($peakFile) : 0;
 		my $totnopk = -e $nopkFile ? linecount($nopkFile) : 0;
 		my ($type) = $peakFile =~ /_(CH|CG|GH|GC)./;
-		my ($label2, $gene2, $strand2, $window2, $thres2, $type2) = parseName($pk_filename);
+		my $parseName = parseName($pk_filename);
+		my ($label2, $gene2, $strand2, $window2, $thres2, $type2) = @{$parseName->{array}};
+		DIELOG($outLog, date() . "Undefined label2=$label2, gene2=$gene2, strand2=$strand2, window2=$window2, thres2=$thres2, type2=$type2 from parsing filename=$LCY$pk_filename$N\n") if not defined $label2 or not defined $gene2 or not defined $strand2 or not defined $window2 or not defined $thres2 or not defined $type2;
 
 		for (my $p = 0; $p < 2; $p ++) {
 			$currfileCount ++;
@@ -1064,7 +1066,7 @@ if (dim(df2[df2\$y > 0,])[1] > $plotminReads) {
  
 # P2 % Conversion XY Plot
 	p2.png.scale = p.png.scale
-p2.pdf.scale = p.pdf.scale
+	p2.pdf.scale = p.pdf.scale
 
 p2.png = 
 	ggplot(df2,aes(x2,y2)) + 
@@ -1368,8 +1370,8 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 	$R->{PDF} = "
 
 # PDF
-currheight = totalheight / 100
-currwidth = totalwidth / 100
+currheight = totalheight / 1000
+currwidth = totalwidth / 1000
 pdf(\"$pdfout\",width=currwidth,height=currheight)
 if (mynrow == 3) {
 	grid.arrange(p.pdf,p2.pdf,p3.pdf,ncol=1,nrow=mynrow,heights=totalratio)
@@ -1379,8 +1381,8 @@ if (mynrow == 3) {
 dev.off()
 
 # PDF HEATMAP ONLY
-currheight = dim(df)[1] * myscale / 100
-currwidth = totalwidth / 100
+currheight = dim(df)[1] * myscale / 1000
+currwidth = totalwidth / 1000
 pdfout_heatmap_only = \"$pdfoutFolder/ALL/$pdfoutFilename.ALL.heatmap.pdf\"
 pdf(pdfout_heatmap_only,width=currwidth,height=currheight)
 print(p.heatmaponly)
@@ -1397,24 +1399,24 @@ dev.off()
 	$R->{PDF_nopk} = "
 
 # PDF
-currheight = (dim(df.rand.1000)[1] + 31.25) * myscale / 100
-currwidth = totalwidth / 100
+currheight = (dim(df.rand.1000)[1] + 31.25) * myscale / 1000
+currwidth = totalwidth / 1000
 pdf(\"$pdfout\",width=currwidth,height=currheight)
 grid.arrange(p.rand.1000.pdf,p2.rand.1000.pdf,ncol=1,nrow=mynrow,heights=totalratio)
 dev.off()
 
 
 # PDF HEATMAP ONLY
-currheight = dim(df.rand.1000)[1] * myscale / 100
-currwidth = totalwidth / 100
+currheight = dim(df.rand.1000)[1] * myscale / 1000
+currwidth = totalwidth / 1000
 pdfout_heatmap_only = \"$pdfoutFolder/ALL/$pdfoutFilename.ALL.heatmap.pdf\"
 pdf(pdfout_heatmap_only,width=currwidth,height=currheight)
 print(p.heatmaponly.rand.1000)
 dev.off()
 
 # PDF all Conv
-currheight = 31.25 * myscale / 100
-currwidth = totalwidth / 100
+currheight = 31.25 * myscale / 1000
+currwidth = totalwidth / 1000
 pdfout_nopk_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.ALL.c_conv.pdf\"
 pdf(pdfout_nopk_all_c_conv,width=currwidth,height=currheight)
 grid.arrange(p2.pdf)
@@ -1423,8 +1425,8 @@ dev.off()
 ";
 
 	$R->{PDF_nopk_rand_100} = "
-currheight = (dim(df.rand.100)[1] + 31.25) * myscale / 100
-currwidth = totalwidth / 100
+currheight = (dim(df.rand.100)[1] + 31.25) * myscale / 1000
+currwidth = totalwidth / 1000
 pdfout_nopk_rand_100 = \"$pdfoutFolder/ALL/$pdfoutFilename.RAND.100.pdf\"
 
 # PDF
@@ -1433,8 +1435,8 @@ grid.arrange(p.rand.100.pdf,p2.rand.100.pdf,ncol=1,nrow=mynrow,heights=totalrati
 dev.off()
 
 # PDF HEATMAP ONLY
-currheight = dim(df.rand.100)[1] * myscale / 100
-currwidth = totalwidth / 100
+currheight = dim(df.rand.100)[1] * myscale / 1000
+currwidth = totalwidth / 1000
 pdfout_heatmap_only = \"$pdfoutFolder/ALL/$pdfoutFilename.RAND.100.heatmap.pdf\"
 pdf(pdfout_heatmap_only,width=currwidth,height=currheight)
 print(p.heatmaponly.rand.100)
@@ -1442,8 +1444,8 @@ dev.off()
 
 
 # PDF all Conv
-currheight = 31.25 * myscale / 100
-currwidth = totalwidth / 100
+currheight = 31.25 * myscale / 1000
+currwidth = totalwidth / 1000
 pdfout_nopk_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.RAND.100.c_conv.pdf\"
 pdf(pdfout_nopk_all_c_conv,width=currwidth,height=currheight)
 grid.arrange(p2.rand.100.pdf)
@@ -1459,13 +1461,13 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 	pdfout_nopk = gsub(\"^(.+).pdf\$\",\"\\\\1\",pdfout_nopk,perl=T)
 	pdfout_nopk = paste(pdfout_nopk,\".\",i,\".pdf\",sep=\"\")
 	if (i == max(seq( 1,as.integer(dim(df)[1]/mywindow) + 1 ))) {
-		currtotalheight = totalheight_nopk_last / 100
+		currtotalheight = totalheight_nopk_last / 1000
 		currtotalratio = totalratio_nopk_last
 		pdf(pdfout_nopk,width=totalwidth,height=currtotalheight)
 		grid.arrange(plot_list[[i]],p2,ncol=1,nrow=mynrow,heights=currtotalratio)
 		dev.off()
 	} else {
-		currtotalheight = totalheight_nopk / 100
+		currtotalheight = totalheight_nopk / 1000
 		pdf(pdfout_nopk,width=totalwidth,height=currtotalheight)
 		grid.arrange(plot_list[[i]],ncol=1)
 		dev.off()
@@ -1823,7 +1825,7 @@ __END__
 	$R->{PDF_nopk} = "
 
 # PDF
-currheight = (dim(df.rand.1000)[1] + 31.25) * myscale / 100
+currheight = (dim(df.rand.1000)[1] + 31.25) * myscale / 1000
 currwidth = totalwidth / 100
 print(currheight)
 pdf(\"$pdfout\",width=currwidth,height=currheight)
