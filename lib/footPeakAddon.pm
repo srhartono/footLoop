@@ -56,7 +56,8 @@ $YW-------------------------------$N
 	else {
 		DIELOG($outLog, "Failed to parse label from .LABEL in $resDir/.LABEL\n");
 	}
-	my ($label2, $gene, $readStrand, $window, $thres, $rconvType) = parseName($fileName);
+	my $parseName = parseName($fileName);
+	my ($label2, $gene, $readStrand, $window, $thres, $rconvType) = @{$parseName->{array}};
 	my $isPeak = $fileName =~ /\.PEAK/ ? "PEAK" : "NOPK";
 	LOG($outLog, "\n\n-----" . date() . "$YW WARNING$N Inconsistent label in filename $LCY$fileName$N." . date() . " Label from $resDir/.LABEL: $label\nBut from fileName: $label2\n-----\n\n") if $label ne $label2;
 	$label = $label2;
@@ -113,8 +114,8 @@ $YW-------------------------------$N
 		my $nopkCount = defined $data->{nopk} ? @{$data->{nopk}} : 0;
 		my $currflag;
 		#print "READ STRAND = $readStrand gene = $geneStrand\n";
-		my $flag .= getFlag($geneStrand, $readStrand, $rconvType, $TEMP, $RCONV, $CPG, $ALL);
-
+		my $flag = getFlag($nopkFile, $geneStrand, $readStrand, $rconvType);
+		$flag =~ s/^NOPK//;
 #		$nopkPrint .= "$currflag $rconvType total_nopk=$LGN$totalnopk$N actual_peak=$LCY$peakCount$N actual_nopk=$LPR$nopkCount$N totalline=$YW$totalline$N";
 		#my $nopkPrint ="$folder2\t$nopkfileName\t$peakCount\t$nopkCount\t$totalnopk\t$totalline";
 		#LOG($outLog, date() . "$nopkPrint\n");
@@ -154,6 +155,8 @@ $YW-------------------------------$N
 		$total->{$rconvType}{nopk}  += $nopkCount;
 		$total->{$rconvType}{total} += $totalpeak;
 		$currtotalline += $totalline;
+		$flag = getFlag($peakFile, $geneStrand, $readStrand, $rconvType);
+		$flag =~ s/^PEAK//;
 		$peakPrint  .= "from_peakFile$flag\t$rconvType\t$totalpeak\t$peakCount\t$nopkCount\t$totalline\n";
 		$totalPrint .= "PEAK$flag\t$rconvType\t$total->{$rconvType}{total}\t$total->{$rconvType}{peak}\t$total->{$rconvType}{nopk}\t$currtotalline\n";
 
@@ -221,8 +224,9 @@ $YW-------------------------------$N
 		   $foldershort = $folder[@folder-2] if not defined ($foldershort) or (defined $foldershort and $foldershort =~ /^[\s]*$/);
 		my $peakFile    = "$label\_gene$mygene\_$readStrand\_$window\_$thres\_$rconvType.PEAK";
 		#print "LGENE genestrand = $geneStrand, readStrand = $readStrand\n";		
-		my $flag .= getFlag($geneStrand, $readStrand, $rconvType, $TEMP, $RCONV, $CPG, $ALL);
-		$flag = $flag =~ /ALL/ ? $flag : "PEAK$flag";
+		my $flag = getFlag($peakFile, $geneStrand, $readStrand, $rconvType);
+		die "file = $peakFile, flag = $flag\n";
+		#$flag = $flag =~ /ALL/ ? $flag : "PEAK$flag";
 		print $outLGENE "$foldershort\t$peakFile\t$mygene\t$rconvType\t$total->{$rconvType}{total}\t$totalPeak\t$total->{$rconvType}{peak}\t$flag\n";
 	}
 	close $outLGENE;
