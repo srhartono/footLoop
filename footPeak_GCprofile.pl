@@ -462,7 +462,7 @@ if(length(grep(\"dens\",types[1],perl=T,ignore.case=T)) != 0) {
 	ylimsMin=0;
 	ylimsMax=1;
 	ylines=0.5;
-} else if (length(grep(\"wskew\",mytypes[j],perl=T,ignore.case=T)) != 0) {
+} else if (length(grep(\"wskew\",types[j],perl=T,ignore.case=T)) != 0) {
 	ylimsMin=0.5;
 	ylimsMax=-0.5;
 	ylines=0;
