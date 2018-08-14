@@ -225,7 +225,6 @@ $YW-------------------------------$N
 		my $peakFile    = "$label\_gene$mygene\_$readStrand\_$window\_$thres\_$rconvType.PEAK";
 		#print "LGENE genestrand = $geneStrand, readStrand = $readStrand\n";		
 		my $flag = getFlag($peakFile, $geneStrand, $readStrand, $rconvType);
-		die "file = $peakFile, flag = $flag\n";
 		#$flag = $flag =~ /ALL/ ? $flag : "PEAK$flag";
 		print $outLGENE "$foldershort\t$peakFile\t$mygene\t$rconvType\t$total->{$rconvType}{total}\t$totalPeak\t$total->{$rconvType}{peak}\t$flag\n";
 	}
