@@ -437,14 +437,14 @@ sub fix_samFile {
 		if (-e "$origDir/$samFileName.fixed.gz") {
 			my ($samLineCount2) = linecount("$origDir/$samFileName.fixed.gz");
 			my ($samLineCount1) = linecount($samFile);
-			$checkSam = $samLineCount1 - 500 > $samLineCount2 ? 0 : 2;
+			$checkSam = $samLineCount1 - 10 > $samLineCount2 ? 0 : 2;
 			LOG($outLog, "\tfootLoop.pl subroutine fix_samFile:: fixed sam file $LCY$origDir/$samFileName.fixed.gz$N exists but total row is less than total samFile $samFile row ($samLineCount1 - 500 > samFile.fixed.gz: $samLineCount2)!\n") if $checkSam == 0;
 			LOG($outLog, "\tfootLoop.pl subroutine fix_samFile::$LGN SUCCESS!!$N fixed sam file $LCY$origDir/$samFileName.fixed.gz$N exists (MD5=$LGN$samMD5$N) and total row $LGN($samLineCount2)$N >= total samFile row $LGN($samLineCount1 - 500)$N ($LCY$samFile$N)!\n") if $checkSam == 2;
 		}
 		if (-e "$origDir/$samFileName.fixed" and $checkSam == 0) {
 			my ($samLineCount2) = linecount("$origDir/$samFileName.fixed");
 			my ($samLineCount1) = linecount($samFile);
-			$checkSam = $samLineCount1 - 500 > $samLineCount2 ? 0 : 1;
+			$checkSam = $samLineCount1 - 10 > $samLineCount2 ? 0 : 1;
 			LOG($outLog, "\tfootLoop.pl subroutine fix_samFile:: .gz does not exist and fixed sam file $LCY$origDir/$samFileName.fixed$N exists but total row is less than total samFile $samFile row ($samLineCount1 - 500 > samFile.fixed: $samLineCount2)!\n") if $checkSam == 0;
 			LOG($outLog, "\tfootLoop.pl subroutine fix_samFile::$LGN SUCCESS!!$N fixed sam file $LCY$origDir/$samFileName.fixed$N exists (MD5=$LGN$samMD5$N) and total row $LGN($samLineCount2)$N >= total samFile row $LGN($samLineCount1 - 500)$N ($LCY$samFile$N)!\n") if $checkSam == 1;
 		}

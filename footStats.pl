@@ -47,7 +47,7 @@ my $uuid = getuuid();
 my $numThread = 1;
 my ($footPeakFolder, $outLog) = check_sanity();
 my $genewant = $opt_G;
-my $opts = parse_footPeak_logFile($footPeakFolder, "$footPeakFolder/footPeak_logFile.txt", $outLog);
+my $opts = footStats_parse_footPeak_logFile($footPeakFolder, "$footPeakFolder/footPeak_logFile.txt", $outLog);
 my ($footLoopFolder) = $opts->{footLoop2}{n};
 my $geneIndexFile = $opts->{footLoop2}{i};
 my $coor = parse_geneIndexFile($geneIndexFile, $outLog);
@@ -276,8 +276,7 @@ sub parseTXT {
 	close $in1;
 	return($data);
 }
-
-sub parse_footPeak_logFile {
+sub footStats_parse_footPeak_logFile {
         my ($footPeakFolder, $footPeak_logFile, $outLog) = @_;
         my %opts; my $debugprint = "\n\n$YW<--------- 0. PARSING LOGFILES ----------$N\n\n"; my $optprint = "";
         open (my $footPeak_logFileIn, "<", $footPeak_logFile) or DIELOG($outLog, "Cannot read from $footPeak_logFile: $!\n");
@@ -360,7 +359,6 @@ sub parse_footPeak_logFile {
         LOG($outLog, $debugprint);
         return \%opts;
 }
-
 sub parse_geneIndexFile {
    my ($geneIndexFile, $outLog) = @_;
    my %coor;

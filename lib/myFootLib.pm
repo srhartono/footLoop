@@ -524,9 +524,11 @@ sub intersect {
 
 sub linecount {
    my ($input1) = @_;
+#	my ($linecount) = `awk '\$2 ~ /^\d+\$/ {print $1}'| wc -l` =~ /^(\d+)/ if $input1 !~ /.(bam|rmdup|gz|zip)$/;
    my ($linecount) = `wc -l $input1` =~ /^(\d+)/ if $input1 !~ /.(bam|rmdup|gz|zip)$/;
       ($linecount) = `zcat $input1| wc -l` =~ /^(\d+)/ if $input1 =~ /.gz$/;
       ($linecount) = `samtools view $input1| wc -l` =~ /^(\d+)/ if $input1 =~ /.(bam|rmdup)$/;
+#      ($linecount) = `samtools view $input1| awk '\$2 ~ /^\d+\$/ {print}'| wc -l`  =~ /^(\d+)/ if $input1 =~ /.(bam|rmdup)$/;
    return $linecount;
 }
 sub makedir {
