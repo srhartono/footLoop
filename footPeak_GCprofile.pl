@@ -317,7 +317,7 @@ library(reshape2);
 
 RESULT=\"$RESULT\";
 
-dfmain = read.table(RESULT,header=T,sep=\"\\t\")
+dfmain = read.table(RESULT,header=T,sep=\"\\t\",colClasses=c(\"character\",\"character\"))
 outfiles = unique(dfmain\$outfile)
 
 # pdf all
