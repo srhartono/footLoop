@@ -317,7 +317,10 @@ library(reshape2);
 
 RESULT=\"$RESULT\";
 
-dfmain = read.table(RESULT,header=T,sep=\"\\t\",colClasses=c(\"character\",\"character\"))
+dfmain = read.table(RESULT,header=T,sep=\"\\t\")
+a = as.vector(sapply(dfmain,class))
+a[2] = \"character\"
+dfmain = read.table(RESULT,header=T,sep=\"\\t\",colClasses=a)
 outfiles = unique(dfmain\$outfile)
 
 # pdf all
@@ -379,9 +382,6 @@ for (j in 1:length(mytypes)) {
 			mytotalreadunique = length(unique(temp\$id))
 			mytotalread = length(unique(temp\$read))
 			
-			#mytotalread = sum(temp\$totalread) / 7
-			#mytotalreadunique = sum(temp\$totalreadunique) / 7
-			#print(paste(k,l,tempcount,mytotalread,mytotalreadunique))
 			mytitle2 = paste(mytitle,\" (\",mytotalreadunique,\" unique reads, \",mytotalread,\" total peaks)\",sep=\"\")
 			mytitle2 = paste(mytitle2,\"\\n\",ylabs,sep=\"\")
 
