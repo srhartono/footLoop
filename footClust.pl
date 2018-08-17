@@ -73,7 +73,8 @@ while (my $line = <$infootPeak_logFile>) {
 		last;
 	}
 }
-die "Cannot find footLoop Folder from logfile $footPeak_logFile\n" unless defined $footLoopFolder and -d $footLoopFolder;
+my $footLoopFolderPrint = defined $footLoopFolder ? $footLoopFolder : "UNDEFINED";
+die "Cannot find footLoop Folder $LCY$footLoopFolderPrint$N from logfile $footPeak_logFile\n" unless defined $footLoopFolder and -d $footLoopFolder;
 close $infootPeak_logFile;
 my $footLoop_logFile = $footLoopFolder . "/logFile.txt";
 ($geneIndexFile) = parse_footLoop_logFile($footLoop_logFile, $date, $uuid, $footLoopFolder);
@@ -166,7 +167,8 @@ foreach my $input1 (sort @local_peak_files) {
    LOG($outLog, "\n------------- $YW WARNING!!! $N -------------\n\nUsing label=$label2. Inconsistent label in filename $LCY$fileName1$N\nLabel from $footPeakFolder/.LABEL: $label\nBut from fileName: $label2\n\n--------------- $YW WARNING!!! $N ---------------\n\n") if $label ne $label2;
    $label = $label2;
 	my ($coorCHR, $coorBEG, $coorEND, $coorSTRAND) = ($coor{uc($gene)}{chr}, $coor{uc($gene)}{beg}, $coor{uc($gene)}{end}, $coor{uc($gene)}{strand});
-	my $Rstrand = $coorSTRAND eq "+" ? "Pos" : $coorSTRAND eq "-" ? "Neg" : "Pos";
+	DIELOG($outLog, date() . "Fatal error at footClust.pl file=$input1, main gene index strand (\$coorSTRAND) is $coorSTRAND (has to be + or -\n") if $coorSTRAND !~ /^[\+\-]$/;
+	my $Rstrand = $coorSTRAND eq "+" ? "Pos" : "Neg";#$coorSTRAND eq "-" ? "Neg" : "Pos";
 #	my ($label2, $gene, $strand, $window, $thres, $type) = $fileName1 =~ /^(.+)\_gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(GH|GC|CG|CH).PEAK/;
 #	LOG($outLog, date() . "Cannot parse gene name from file=$LCY$input1$N\n") unless defined $gene and defined $strand and defined $window and defined $thres and defined $type;
 
@@ -200,31 +202,22 @@ foreach my $input1 (sort @local_peak_files) {
 		chomp($line);
 		$linecount ++;
 		my ($read, $beg, $end) = split("\t", $line);
-		my ($num1, $num2, $num3) = $read =~ /^.*\.?m(\d+_\d+).+\/(\d+)\/(ccs|\d+_\d+)/;
-		DIELOG($outLog, "\n\nERROR AT PARSING NUMBERS from read=$LGN$read$N\n\n") if not defined $num1 or not defined $num2 or not defined $num3;
-		$num3 = "0" if $num3 eq "ccs";
-		my $num = "$num1$num2$num3";
-		$num =~ s/_//g;
-		
-#		my ($num) = $read =~ /^.+\/(\d+)\/ccs/; 
-#		if (not defined $num) {
-#			my ($num1, $num2) = $read =~ /^.+\/(\d+)\/(\d+\_\d+)/;
-#			$num = "$num1\_$num2" if defined $num1 and defined $num2;
-#		}
-#		($num) = $read =~ /\.(\d+)$/ if not defined $num;
-		LOG($outLog, date() . "$LRD\tERROR$N:$LCY Read must end in this format$N: <anything>/<hole number>/ccs\n\n$read\n\n") and die if not defined $num;
+		my ($id) = parse_readName($read, $outLog);#, $read =~ /^.*\.?m(\d+_\d+).+\/(\d+)\/(ccs|\d+_\d+)/;
+		DIELOG($outLog, "\n\nERROR AT PARSING NUMBERS from read=$LGN$read$N\n\n") if not defined $id;
+
+		LOG($outLog, date() . "$LRD\tERROR$N:$LCY Read must end in this format$N: <anything>/<hole number>/ccs\n\n$read\n\n") and die if not defined $id;
 		my $check = 0;
 		$total_peak_all ++;
 
 		# reads with multiple peaks separated by less than distance (250) is merged together
-		if (defined $data{$num}) {
-			for (my $i = 0; $i < @{$data{$num}}; $i++) {
-				my $beg2 = $data{$num}[$i][0];
-				my $end2 = $data{$num}[$i][1];
+		if (defined $data{$id}) {
+			for (my $i = 0; $i < @{$data{$id}}; $i++) {
+				my $beg2 = $data{$id}[$i][0];
+				my $end2 = $data{$id}[$i][1];
 				if ($beg < $end2 + $dist) {
-					$data{$num}[$i][1] = $end;
+					$data{$id}[$i][1] = $end;
 					$check = 1;
-					LOG($outLog, date() . "$LGN\tline=$linecount$N: readnum=$num MERGED beg2=$beg2 end2=$end2 with beg=$beg end=$end into beg3=$beg2 end3=$end\n") if $linecount < 5;
+					LOG($outLog, date() . "$LGN\tline=$linecount$N: readid=$id MERGED beg2=$beg2 end2=$end2 with beg=$beg end=$end into beg3=$beg2 end3=$end\n") if $linecount < 5;
 					last;
 				}
 			}
@@ -232,9 +225,9 @@ foreach my $input1 (sort @local_peak_files) {
 
 		# if 1 peak or peak is far then create new peak
 		if ($check == 0) {
-			push(@{$data{$num}}, [$beg,$end,$read,$gene]);
+			push(@{$data{$id}}, [$beg,$end,$read,$gene]);
 			$total_peak_used ++;
-			LOG($outLog, date() . "$LGN\tline=$linecount$N: readnum=$num beg=$beg end=$end\n") if $linecount < 5;
+			LOG($outLog, date() . "$LGN\tline=$linecount$N: readid=$id beg=$beg end=$end\n") if $linecount < 5;
 		}
 	}
 	close $in1;
@@ -249,33 +242,36 @@ foreach my $input1 (sort @local_peak_files) {
 
 	# Calculate average beg/mid/end and write a temp bed file for each peak
 	LOG($outLog, date() . "$LCY\tInfo 2$N: total_peak_all=$LGN$total_peak_all$N,total_read_unique=$LGN$total_read_unique$N,total_peak_used=$LGN$total_peak_used$N\n");
-	open (my $out1, ">", "$outDir/.TEMP/$fullName1.temp") or DIELOG($outLog, date() . __LINE__ . "\tCannot write to $LCY$fileName1.temp$N: $!\n");
-	print $out1 "id\tbeg\tend\n";
-	foreach my $num (sort keys %data) {
-		for (my $i = 0; $i < @{$data{$num}}; $i++) {
-			my $beg = $data{$num}[$i][0];
-			my $end = $data{$num}[$i][1];
-			my $read = $data{$num}[$i][2];
-			print $out1 "$num.$i\t$beg\t$end\n";
+	my $tempFile1_Peak = "$outDir/.TEMP/.$fullName1.clust.temp1";
+	my $tempFile2_Clust = "$outDir/.TEMP/.$fullName1.clust";
+	open (my $out1, ">", "$tempFile1_Peak") or DIELOG($outLog, date() . __LINE__ . "\tCannot write to $LCY$fileName1.temp$N: $!\n");
+	print $out1 "id\txbeg\txend\n";
+	foreach my $id (sort keys %data) {
+		for (my $i = 0; $i < @{$data{$id}}; $i++) {
+			my $xbeg = $data{$id}[$i][0];
+			my $xend = $data{$id}[$i][1];
+			my $read = $data{$id}[$i][2];
+			print $out1 "$id\t$xbeg\t$xend\n";
 		}
 	}
 	close $out1;
 
 	# Write and run R script
-	LOG($outLog, date() . "$LCY\tRunning R script$N $outDir/.TEMP/$fullName1.temp.R\n");
+	LOG($outLog, date() . "$LCY\tRunning R script$N $tempFile1_Peak.R\n");
 	my $Rscript = "
 	.libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\", \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\", .libPaths()) )\nlibrary(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(gridExtra)\nlibrary(RColorBrewer)
 	
 	set.seed(420)
 	#setwd(\"$outDir/../../\");
 	library(ggplot2)
-	df = read.table(\"$outDir/.TEMP/$fullName1.temp\",header=T,sep=\"\\t\",row.names=1,colClasses=c(\"factor\",\"integer\",\"integer\"))
-	lenz = length(unique(paste(df\$beg,df\$end)))
+	df = read.table(\"$tempFile1_Peak\",header=T,sep=\"\\t\",colClasses=c(\"factor\",\"integer\",\"integer\"))
+	df2 = df[,-1]
+	lenz = length(unique(paste(df\$xbeg,df\$xend)))
 	k.best = 0
-	if (lenz > 20) {
+	if (lenz >= 20) {
 		set.seed(420)
-		for (i in 2:30) {
-			k = kmeans(df,i)
+		for (i in 2:20) {
+			k = kmeans(df2,i)
 			mylen = length(k[k\$withinss/1e6 > $clustThreshold])
 			if (mylen == 0) {
 				k.best = i
@@ -285,113 +281,121 @@ foreach my $input1 (sort @local_peak_files) {
 		if (k.best == 0) {
 			lenz = 5
 		} else { lenz = k.best}
-		df\$cluster = k\$cluster
+		df\$clust = k\$cluster
+		print(paste(\"lenz=\",lenz,\"cluster center = \",k.best))
 	} else if (lenz > 5) {
-		k = kmeans(df,2)
-		df\$cluster = k\$cluster
+		k = kmeans(df2,2)
+		df\$clust = k\$cluster
+		print(paste(\"lenz=\",lenz,\"cluster center = 2\"))
 	} else {
-		df\$cluster = 1
+		df\$clust = 1
+		print(paste(\"lenz=\",lenz,\"cluster center = 1\"))
 	}
-	#dm = kmeans(df,lenz,nstart=20)
-	Rstrand = \"$Rstrand\"
+
+
+	Rstrand = \"\$Rstrand\"
 	toggleRstrand = \"$toggleRstrand\"
+
 	if (Rstrand == \"Neg\" & toggleRstrand == \"Yes\") {
-		df = df[order(-df\$cluster, -as.integer(df[,2]/200), -as.integer(df[,1]/200)),]
+		df = df[order(-df\$clust, -as.integer(df\$xend/200), -as.integer(df\$xbeg/200)),]
 	} else {
-		df = df[order(df\$cluster, as.integer(df[,1]/200), as.integer(df[,2]/200)),]
-	} 
-	df\$y = seq(1,dim(df)[1])
-	df\$ymax = seq(2,dim(df)[1]+1)
-	colnames(df) = c(\"x\",\"xmax\",\"clust\",\"y\",\"ymax\")
-	df2 = as.data.frame(aggregate(df[,c(1,2)],by=list(df\$clust),function(x)mean(x,trim=0.05)))
-	colnames(df2) = c(\"clust\",\"x2\",\"y2\")
-	df2 = df2[order(as.integer(df2\$x2/200), as.integer(df2\$y2/100)),]
-#	if (Rstrand == \"Pos\") {
-#		df2 = df2[order(as.integer(df2\$x2/200), as.integer(df2\$y2/100)),]
-#	} else {
-#		df2 = df2[order(as.integer(df2\$x2/200), as.integer(df2\$y2/100)),]
-#	}	
-	df2\$clust2 = seq(1,dim(df2)[1])
-	df\$id = rownames(df)
-	df = as.data.frame(merge(df,df2[,c(1,4)]))
-	df\$clust = df\$clust2
-	mylen=500;#as.integer((df\$xmax-df\$x)/300)*100
-#	mylen[mylen < 100] = 100
-#	mylen[mylen > 500] = 500
-	if (Rstrand == \"Neg\" & toggleRstrand == \"Yes\") {
-		df = df[order(-df\$clust, -as.integer(df\$xmax/mylen), -as.integer(df\$x/mylen)),]
-	} else {
-		df = df[order(df\$clust, as.integer(df\$x/mylen), as.integer(df\$xmax/mylen)),]
+		df = df[order(df\$clust, as.integer(df\$xbeg/200), as.integer(df\$xend/200)),]
 	}
-	df\$y = seq(1,dim(df)[1])
-	df\$ymax = seq(2,dim(df)[1]+1)
-	df[,c(1,6)] = df[,c(6,1)]
-	colnames(df)[c(1,6)] = colnames(df)[c(6,1)]
-	df = df[,-7]
-	png(\"$outDir/PNG/$fullName1.clust.png\",height=(dim(df)[1])*5,width=max(df\$xmax)+10)
-	ggplot(df, aes(x,y)) + geom_rect(aes(xmin=x,ymin=y,xmax=xmax,ymax=ymax,fill=as.factor(clust))) + theme_bw() + 
+
+	# aggregate mean xbeg and xend position then sort cluster number
+	df2 = as.data.frame(aggregate(subset(df,select=c(xbeg,xend)),by=list(df\$clust),function(x)mean(x,trim=0.05)))
+	colnames(df2) = c(\"clust\",\"xbeg\",\"xend\")
+	if (Rstrand == \"Neg\" & toggleRstrand == \"Yes\") {
+		df2 = df2[order(-as.integer(df2\$xend/200), -as.integer(df2\$xbeg/200)),]
+	} else {
+		df2 = df2[order(as.integer(df2\$xbeg/200), as.integer(df2\$xend/200)),]
+	}
+	df2\$clust2 = seq(1,dim(df2)[1])
+
+	# merge cluster number to df
+	df = as.data.frame(merge(df,subset(df2,select=c(clust,clust2) ) ))
+	df\$clust = df\$clust2
+	df\$id2 = paste(df\$id,\".\",df\$clust,sep=\"\")
+	df = subset(df,select=-clust2)
+	mylen=500;
+	if (Rstrand == \"Neg\" & toggleRstrand == \"Yes\") {
+		df = df[order(-df\$clust, -as.integer(df\$xend/mylen), -as.integer(df\$xbeg/mylen)),]
+	} else {
+		df = df[order(df\$clust, as.integer(df\$xbeg/mylen), as.integer(df\$xend/mylen)),]
+	}
+	df\$ybeg = seq(1,dim(df)[1])
+	df\$yend = seq(2,dim(df)[1]+1)
+	df = subset(df,select=c(id,xbeg,xend,ybeg,yend,clust,id2))
+	png(\"$tempFile2_Clust.png\",height=(dim(df)[1])*5,width=max(df\$xend)+10)
+	ggplot(df, aes(xbeg,ybeg)) + geom_rect(aes(xmin=xbeg,ymin=ybeg,xmax=xend,ymax=yend,fill=as.factor(clust))) + theme_bw() + 
 	theme(panel.grid=element_blank()) + coord_fixed(ratio=10)
 	dev.off()
-	write.table(df,\"$outDir/.TEMP/$fullName1.clustz\",quote=F,row.names=F,col.names=T,sep=\"\\t\")
+	write.table(df,\"$tempFile2_Clust\",quote=F,row.names=F,col.names=T,sep=\"\\t\")
 	";
-	open (my $outR, ">", "$outDir/.TEMP/$fullName1.temp.R") or DIELOG($outLog, date() . __LINE__ . "Failed to write to $outDir/.TEMP/$fullName1.temp.R: $!\n");
+	open (my $outR, ">", "$tempFile1_Peak.R") or DIELOG($outLog, date() . __LINE__ . "Failed to write to $tempFile1_Peak.R: $!\n");
 	print $outR $Rscript;
-	system("R --vanilla --no-save < $outDir/.TEMP/$fullName1.temp.R > $outDir/.TEMP/$fullName1.temp.R.log 2>&1");
+	system("R --vanilla --no-save < $tempFile1_Peak.R > $tempFile1_Peak.R.log 2>&1");
 	close $outR;
-	my @Rlog = `tail -n 5 $outDir/.TEMP/$fullName1.temp.R.log`;
-	LOG($outLog, date() . "$LCY\tR logs$N:\n\t\t\t\t" . join("\n\t\t\t\t", @Rlog) . "\n");
+	my @Rlog = `tail -n 3 $tempFile1_Peak.R.log`;
+	LOG($outLog, date() . "$LCY\tR logs$N:\n\t\t\t\t" . join("\t\t\t\t", @Rlog) . "\n");
 	
-	# process clust
-	LOG($outLog, date() . "$LCY\tCreating fasta file for each cluster$N $outDir/.TEMP/$fullName1.clust.fa\n");
-	my %cl;
-	my %clust; my %clustlen; my @clust; my $clustheader = "";
-	open (my $in2, "<", "$outDir/.TEMP/$fullName1.clustz") or DIELOG($outLog, date() . __LINE__ . "\tFailed to read from $outDir/.TEMP/$fullName1.clustz: $!\n");
-	my $linecount5 = 0;
-	my %used;
-	while (my $line = <$in2>) {
-		$linecount5 ++;
-		chomp($line);
-		if ($line =~ /(clust|xmax|ymax)/) {$clustheader = $line;next;}
-		my ($orignum, $beg, $end, $y, $y2, $clust) = split("\t", $line);
-		my ($num, $ind) = $orignum =~ /^(\d+)\.(\d+)$/ if $orignum =~ /^\d+\.\d+$/;
-		$ind = "" if not defined $ind;
-		LOG($outLog, "\t\torignum=$orignum, num=$num, ind=$ind\n") if $linecount5 < 5;
-		my $numlen = $end - $beg;
-		push(@clust, $num) if not grep(/^$num$/, @clust);
-		if (not defined $clustlen{$num} or (defined $clustlen{$num} and $clustlen{$num} < $numlen)) {
-			$clust{$num} = "$num\.0\t$beg\t$end\t$y\t$y2\t$clust";
-			$clustlen{$num} = $numlen;
-		}
-		LOG($outLog, date() . "Cannot parse num from line=$line\n") if not defined $num;
-		my ($mid) = int(($end + $beg)/2+0.5);
-		if (not defined $used{$num} or (defined $used{$num}{len} and $used{$num}{len} < ($end - $beg))) {
-			$used{$num}{clust} = $clust;
-			$used{$num}{len} = $end - $beg;
-		}
-		push(@{$cl{$clust}{beg}}, $beg);
-		push(@{$cl{$clust}{mid}}, $mid);
-		push(@{$cl{$clust}{end}}, $end);
-	}
-	close $in2;
-	foreach my $num (keys %used) {
-		my $clust = $used{$num}{clust};
-		$cl{$clust}{total_read_unique}{$num} = 1;
-	}
-	open (my $outz2, ">", "$outDir/.TEMP/$fullName1.clust") or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $outDir/.TEMP/$fullName1.clust: $!\n");
-	print $outz2 "$clustheader\n";
-	foreach my $num (@clust[0..@clust-1]) {
-		print $outz2 "$clust{$num}\n";
-	}
-	close $outz2;
+
+	# print genome indiv
 
 	my ($ampliconLength) = $genes{uc($gene)};
 	DIELOG($outLog, date() . " Failed to get amplicon length frmo gene=" . uc($gene) . ": $!\n") if not defined $ampliconLength;
-	# process clust: get average beg/end point
-	makedir("$outDir/CLUST_GENOME/") if not -d "$outDir/CLUST_GENOME";
-	my $outgenome = "$outDir/CLUST_GENOME/$fullName1.clust.bed";
-	$outgenome =~ s/.local/.genome/i;
-	open (my $out2, ">", "$outDir/.TEMP/$fullName1.clust.bed") or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $outDir/.TEMP/$fullName1.clust.bed: $!\n");
-	open (my $out3, ">", "$outgenome") or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $outgenome: $!\n");
+
+	my $outlocalindivBedFile = "$outDir/CLUST_LOCAL/$fullName1.indiv.clust.bed";
+	my $outlocalindivClustFile = "$outDir/CLUST_LOCAL/$fullName1.indiv.clust";
+	my $outgenomeindivBedFile = "$outDir/CLUST_GENOME/$fullName1.indiv.clust.bed";
+	my $outgenomeindivClustFile = "$outDir/CLUST_GENOME/$fullName1.indiv.clust";
+	$outgenomeindivBedFile =~ s/\.local/.genome/i;
+	$outgenomeindivClustFile =~ s/\.local/.genome/i;
+	my $outlocalBedFile  = "$outDir/CLUST_LOCAL/$fullName1.clust";
+	my $outgenomeBedFile  = "$outDir/CLUST_GENOME/$fullName1.clust";
+	$outgenomeBedFile =~ s/\.local/.genome/i;
+	makedir("$outDir/CLUST_LOCAL") if not -d "$outDir/CLUST_LOCAL";
+	makedir("$outDir/CLUST_GENOME") if not -d "$outDir/CLUST_GENOME";
+
+	# process clust
+	my %used; my %cl;
+	LOG($outLog, date() . "$LCY\tCreating fasta file for each cluster$N $tempFile2_Clust.fa\n");
+	open (my $clustIn, "<", $tempFile2_Clust) or DIELOG($outLog, date() . __LINE__ . "\tFailed to read form $tempFile2_Clust: $!\n");
+	open (my $outlocalindivClust, ">", $outlocalindivClustFile) or DIELOG($outLog, date() . __LINE__ . "\tFailed to read form $outlocalindivClustFile: $!\n");
+	open (my $outlocalindivBed, ">", $outlocalindivBedFile) or DIELOG($outLog, date() . __LINE__ . "\tFailed to read form $outlocalindivBedFile: $!\n");
+	open (my $outgenomeindivClust, ">", $outgenomeindivClustFile) or DIELOG($outLog, date() . __LINE__ . "\tFailed to read form $outgenomeindivClustFile: $!\n");
+	open (my $outgenomeindivBed, ">", $outgenomeindivBedFile) or DIELOG($outLog, date() . __LINE__ . "\tFailed to read form $outgenomeindivBedFile: $!\n");
+	while (my $line = <$clustIn>) {
+		chomp($line);
+		if ($line =~ /xbeg\txend/) {next;}
+		my ($id, $xbeg, $xend, $ybeg, $yend, $clust, $id2) = split("\t", $line);
+		my $xBEG = $coorBEG + $xbeg;
+		my $xEND = $coorBEG + $xend;
+		print $outlocalindivBed "$coorCHR\t$xbeg\t$xend\t$gene.$id\t0\t$coorSTRAND\n";
+		print $outlocalindivClust "$id\t$xbeg\t$xend\t$ybeg\t$yend\t$clust\t$id2\n";
+		print $outgenomeindivBed "$coorCHR\t$xBEG\t$xEND\t$gene.$id\t0\t$coorSTRAND\n";
+		print $outgenomeindivClust "$id\t$xBEG\t$xEND\t$ybeg\t$yend\t$clust\t$id2\n";
+		my ($xmid) = int(($xend + $xbeg)/2+0.5);
+		push(@{$cl{$clust}{beg}}, $xbeg);
+		push(@{$cl{$clust}{mid}}, $xmid);
+		push(@{$cl{$clust}{end}}, $xend);
+		$cl{$clust}{total_read} ++;
+		$cl{$clust}{total_read_unique} ++ if not defined $used{$id};
+		$used{$id} = 1;
+	}
+	#=commentcut2
+	#open (my $outz2, ">", "$outDir/.TEMP/$fullName1.clust") or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $outDir/.TEMP/$fullName1.clust: $!\n");
+	#print $outz2 "$clustheader\n";
+	#foreach my $num (@clust[0..@clust-1]) {
+	#	print $outz2 "$clust{$num}\n";
+	#}
+	#close $outz2;
+
+	my $tempFile3_Bed = $tempFile2_Clust . ".bed";
+	my $tempFile4_Fa  = $tempFile3_Bed . ".fa";
+	open (my $out2, ">", "$tempFile3_Bed") or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $tempFile3_Bed: $!\n");
+	open (my $outlocalBed, ">", $outlocalBedFile) or DIELOG($outLog, date() . __LINE__ . "\tFailed to read form $outlocalBedFile: $!\n");
+	open (my $outgenomeBed, ">", $outgenomeBedFile) or DIELOG($outLog, date() . __LINE__ . "\tFailed to read form $outgenomeBedFile: $!\n");
 	print $out2 "#gene\tbeg\tend\tcluster\ttotal_peak\tstrand\n";
 	#my ($coorCHR, $coorBEG, $coorEND, $coorSTRAND) = ($coor{uc($gene)}{chr}, $coor{uc($gene)}{beg}, $coor{uc($gene)}{end}, $coor{uc($gene)}{strand});
 	DIELOG($outLog, date() . "\tFailed to get coordinate for gene=" . uc($gene) . ", chr=$coorCHR beg=$coorBEG end=$coorEND strand=$coorSTRAND\n") if not defined $coorCHR or not defined $coorBEG or not defined $coorEND or not defined $coorSTRAND;
@@ -418,23 +422,23 @@ foreach my $input1 (sort @local_peak_files) {
 		($begOfALL) = 1 if $begOfALL < 1;
 		($endOfALL) = $ampliconLength if $endOfALL > $ampliconLength;
 #		my $total = @{$cl{$clust}{beg}};
-		my $total_read = scalar(@{$cl{$clust}{beg}});
-		my $total_read_unique = scalar(keys %{$cl{$clust}{total_read_unique}});
+		my $total_read = $cl{$clust}{total_read};
+		my $total_read_unique = $cl{$clust}{total_read_unique};
 		my $begGENOME = $coorBEG + $begOfALL;
 		my $endGENOME = $coorBEG + $endOfALL;
-		print "$coorCHR\t$begGENOME\t$endGENOME\t$gene.$clust\t$total_read_unique.$total_read\t$coorSTRAND\n";
-		print $out3 "$coorCHR\t$begGENOME\t$endGENOME\t$gene.$clust\t$total_read_unique.$total_read\t$coorSTRAND\n";
+		print $outgenomeBed "$coorCHR\t$begGENOME\t$endGENOME\t$gene.$clust\t$total_read_unique.$total_read\t$coorSTRAND\n";
+		print $outlocalBed "$coorCHR\t$begOfALL\t$endOfALL\t$gene.$clust\t$total_read_unique.$total_read\t$coorSTRAND\n";
 		print $out2 "$gene\t$begOfALL\t$endOfALL\t$clust.WHOLE\t$total_read_unique.$total_read\t$strand\n";
 		print $out2 "$gene\t$begOfBEG\t$endOfBEG\t$clust.BEG\t$total_read_unique.$total_read\t$strand\n";
 		print $out2 "$gene\t$begOfMID\t$endOfMID\t$clust.MID\t$total_read_unique.$total_read\t$strand\n";
 		print $out2 "$gene\t$begOfEND\t$endOfEND\t$clust.END\t$total_read_unique.$total_read\t$strand\n";
 	}
 	close $out2;
-	LOG($outLog, "$YW ::: fastaFromBed -fi $faFile.footClustfastafile -bed $outDir/.TEMP/$fullName1.clust.bed -fo $outDir/.TEMP/$fullName1.clust.fa -s ::: $N\n","NA");
-	system("fastaFromBed -fi $faFile.footClustfastafile -bed $outDir/.TEMP/$fullName1.clust.bed -fo $outDir/.TEMP/$fullName1.clust.fa -s > $outDir/.TEMP/$fullName1.clust.bed.LOG 2>&1") == 0 or LOG($outLog, date() . " Failed to fastaFromBed -fi$LCY $faFile.footClustfastafile$N -bed$LGN $outDir/.TEMP/$fullName1.clust.bed$N -fo$LPR $outDir/.TEMP/$fullName1.clust.fa$N -s >$YW $outDir/.TEMP/$fullName1.clust.bed.LOG$N 2>\&1: $!\n");
+	LOG($outLog, "$YW ::: fastaFromBed -fi $faFile.footClustfastafile -bed $tempFile3_Bed -fo $tempFile4_Fa -s ::: $N\n","NA");
+	system("fastaFromBed -fi $faFile.footClustfastafile -bed $tempFile3_Bed -fo $tempFile4_Fa -s > $tempFile3_Bed.LOG 2>&1") == 0 or LOG($outLog, date() . " Failed to fastaFromBed -fi$LCY $faFile.footClustfastafile$N -bed$LGN $tempFile3_Bed$N -fo$LPR $tempFile4_Fa$N -s >$YW $tempFile3_Bed.LOG$N 2>\&1: $!\n");
 
-	LOG($outLog, date() . "$LCY\tAnalyzing Sequence Content from$N $outDir/.TEMP/$fullName1.clust.fa\n");
-	open (my $faIn, "$outDir/.TEMP/$fullName1.clust.fa") or DIELOG($outLog, "Failed to read from $outDir/.TEMP/$fullName1.clust.fa: $!\n");
+	LOG($outLog, date() . "$LCY\tAnalyzing Sequence Content from$N $tempFile4_Fa\n");
+	open (my $faIn, "$tempFile4_Fa") or DIELOG($outLog, "Failed to read from $tempFile4_Fa: $!\n");
 	my $fasta = new FAlite($faIn); $linecount = 0;
 	while (my $entry = $fasta->nextEntry()) {
 		$linecount ++;
@@ -559,3 +563,39 @@ __END__
 }
 
 =cut
+#commentcut2
+	my %cl;
+	my %clust; my %clustlen; my @clust; my $clustheader = "";
+	open (my $in2, "<", "$tempFile2_Clust") or DIELOG($outLog, date() . __LINE__ . "\tFailed to read from tempFile2_Clust: $!\n");
+	my $linecount5 = 0;
+	my %used;
+	while (my $line = <$in2>) {
+		$linecount5 ++;
+		chomp($line);
+		if ($line =~ /(clust|xmax|ymax)/) {$clustheader = $line;next;}
+		my ($orignum, $beg, $end, $y, $y2, $clust) = split("\t", $line);
+		my ($num, $ind) = $orignum =~ /^(\d+)\.(\d+)$/ if $orignum =~ /^\d+\.\d+$/;
+		$ind = "" if not defined $ind;
+		LOG($outLog, "\t\torignum=$orignum, num=$num, ind=$ind\n") if $linecount5 < 5;
+		my $numlen = $end - $beg;
+		push(@clust, $num) if not grep(/^$num$/, @clust);
+		if (not defined $clustlen{$num} or (defined $clustlen{$num} and $clustlen{$num} < $numlen)) {
+			$clust{$num} = "$num\.0\t$beg\t$end\t$y\t$y2\t$clust";
+			$clustlen{$num} = $numlen;
+		}
+		LOG($outLog, date() . "Cannot parse num from line=$line\n") if not defined $num;
+		my ($mid) = int(($end + $beg)/2+0.5);
+		if (not defined $used{$num} or (defined $used{$num}{len} and $used{$num}{len} < ($end - $beg))) {
+			$used{$num}{clust} = $clust;
+			$used{$num}{len} = $end - $beg;
+		}
+		push(@{$cl{$clust}{beg}}, $beg);
+		push(@{$cl{$clust}{mid}}, $mid);
+		push(@{$cl{$clust}{end}}, $end);
+	}
+	close $in2;
+	foreach my $num (keys %used) {
+		my $clust = $used{$num}{clust};
+		$cl{$clust}{total_read_unique}{$num} = 1;
+	}
+

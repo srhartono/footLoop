@@ -127,7 +127,6 @@ makedir($outDir);
 open (my $outLabel, ">", "$outDir/.LABEL") or die "Failed to write to $outDir/.LABEL: $!\n";
 print $outLabel "$label\n";
 close $outLabel;
-
 my $STEP = 0;
 
 # Make log file
@@ -1046,19 +1045,74 @@ sub sanityCheck {
 	die "\n$usageshort\n" if $checkopts == 0;
 	die "\n$usage\n"      if defined $opt_h;
 	die "\n$usagelong\n"  if defined $opt_H;
-
+	my $errors = "";
 	my $read0 = defined($opt_r) ? $opt_r : "FALSE";
 
-	die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -r <read.fq> not defined\n\n############################################\n\n" if not defined($opt_r);
-	die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -r $opt_r DOES NOT EXIST\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if defined $opt_r and not -e $opt_r;
-	die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -n <output directory> not defined\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not defined($opt_n);
-	die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -i <geneindex.bed> not defined\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not defined($opt_i);
-	die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -L <min read length in bp> must be positive integer!\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if defined($opt_L) and $opt_L !~ /p$/ and $opt_L !~ /^\d+$/;
-	die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -g <ref_genome.fa [hg19.fa]> not defined\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not defined($opt_g);
-	die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -i $opt_i DOES NOT EXIST\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not -e ($opt_i);
-	die "\n${LRD}########## ${N}FATAL ERROR${LRD} ##########\n\nREASON:$N -g $opt_g DOES NOT EXIST\n\n############################################\n\nDo $YW$0$N $LGN-h$N to see usage info\n\n" if not -e ($opt_g);
+	# -r read not defined
+	$errors .= "-r $LGN<read.fq>$N: is not defined.\n" if not defined($opt_r);
+	$errors .= "-r $LGN<read.fq>$N: is defined ($opt_r) but file does not exist!\n" if defined $opt_r and not -e $opt_r;
+
+
+	$errors .= "-n $LGN<output directory>$N is not defined.\n" if not defined($opt_n);
+	my $message = ""; $message = `mkdir $opt_n 2>&1` if not -d $opt_n; chomp($message);
+	$errors .= "-n $LGN<output directory>$N is defined ($YW$opt_n$N) but folder does not exist and cannot be created.\n   -> mkdir $YW$opt_n$N returned $LCY$message$N.\n" if defined $opt_n and not -d $opt_n;
+	$errors .= "-L $LGN<min read length (<integer>:in bp; <integer>p:% amplicon>$N must be positive integer!\n" if defined($opt_L) and ($opt_L =~ /^0+\.?0*[p]?$/ or $opt_L !~ /^\d+[p]?$/);
+
+	$errors .= "-i $LGN<geneindex.bed>$N: is not defined.\n" if not defined($opt_i);
+	$errors .= "-i <$LGN<geneindex.bed>$N: is defined ($YW$opt_i$N) but file does not exist!\n" if defined $opt_i and not -e ($opt_i);
+	$errors .= "-g $LGN<ref_genome.fa>$N: is not defined.\n" if not defined($opt_g);
+	$errors .= "-g $LGN<ref_genome.fa>$N: is defined ($YW$opt_g$N) but does not exist!\n" if defined $opt_g and not -e ($opt_g);
+
+	# label error
+	my $label;
+	if (defined $opt_l) {
+		$label = $opt_l;
+	}
+	elsif (defined $opt_n) {
+		my ($readName) = getFilename($opt_n, "full");
+		if ($readName =~ /PCB\d+_bcBC\d+_plasmid.+_+desc.+/i) {
+			my ($PCB, $BC, $plasmid, $desc) = $readName =~ /PCB(\d+)_bcBC(\d+)_plasmid(.+)_desc([a-zA-Z0-9_]+)\.?/;
+			if (defined $desc) {
+				$label = "PCB$PCB\_bcBC$BC\_plasmid$plasmid\_desc$desc";
+			}
+		}
+		elsif ($readName =~ /PCB\d+/i) {
+			my ($PCB) = $opt_n =~ /PCB(\d+)/;
+			if (defined $PCB) {
+				$label = "PCB$PCB";
+			}
+		}
+	}
+	if (((defined $label and $label !~ /^PCB\d+(_bcBC\d+_plasmid.+_desc.+)$/) or not defined $label) and defined $opt_r) {
+		my ($readName) = getFilename($opt_r, "full");
+		if ($readName =~ /PCB\d+_bcBC\d+_plasmid.+_+desc.+/i) {
+			my ($PCB, $BC, $plasmid, $desc) = $readName =~ /PCB(\d+)_bcBC(\d+)_plasmid(.+)_desc([a-zA-Z0-9_]+)\.?/;
+			if (defined $desc) {
+				$label = "PCB$PCB\_bcBC$BC\_plasmid$plasmid\_desc$desc";
+			}
+		}
+		elsif ($readName =~ /PCB\d+/i) {
+			my ($PCB) = $opt_r =~ /PCB(\d+)/;
+			if (defined $PCB) {
+				$label = "PCB$PCB";
+			}
+		}
+	}
+	$opt_l = $label if not defined $opt_l and defined $label;
+	$errors .= "-l $LGN<label>$N: is not defined!\n\t-> $YW Has to be this exact format$N:.\n\t  - Invivo: use PCB<digits> e.g. PCB1 or PCB12636.\n\t  - Invitro: Use PCB<digits>_bcBC<digits>_plasmid<string>_desc<string> e.g. PCB13_bcBC13_plasmidPFC53_descSUPERCOILEDCIRC.\n" if not defined($opt_l);
+	# label exists but wrong format
+	$errors .= "-l $LGN<label$N: is defined ($YW$opt_l$N) but wrong format (${LPR}case sensitive$N)! PCB<digits> or PCB<digits>_bcBC<digits>_plasmid<string>_desc<string>.\n" if defined $opt_l and $opt_l !~ /^PCB\d+$/ and $opt_l !~ /^PCB\d+_bcBC\d+_plasmid[0-9a-zA-Z]+_desc[0-9a-zA-Z]+$/;
+
 	if (not -d "$footLoopScriptsFolder/.sortTMP/") {
-		system("mkdir $footLoopScriptsFolder/.sortTMP/") == 0 or die "Failed to make directory $footLoopScriptsFolder/.sortTMP/: $!\n";
+		system("mkdir $footLoopScriptsFolder/.sortTMP/") == 0 or $errors .= "Failed to make directory $footLoopScriptsFolder/.sortTMP/: $!\n";
+	}
+	
+	if ($errors ne "") {
+		print "$usageshort";
+		print "\n${LRD}########## ${YW}FATAL ERROR${LRD} ##########\n\nREASON:$N\n";
+		print $errors;
+		print "\n\n${LRD}##################################$N\n\n" ;
+		die;
 	}
 }
 

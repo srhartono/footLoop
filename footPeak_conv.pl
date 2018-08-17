@@ -137,6 +137,7 @@ LOG($outLog, "\nxbuf = $LGN$xbuf$N\n\n");
 
 my %files;
 my %coor;
+LOG($outLog, "$footPeak_logFile\n");
 my @lines   = `cat $footPeak_logFile`;
 my ($label) = `cat $resDir/.LABEL`; chomp($label);
 DIELOG($outLog, "\n\ndied at footPeak_graph.pl: can't find $footPeak_logFile!\n\n") if not -e $footPeak_logFile;
@@ -155,7 +156,8 @@ foreach my $line (@lines) {
 		DIELOG($outLog, "\n\ndied at processing $LCY$footPeak_logFile$N: can't parse index file def gene lqines\n\n$line\n\n") if not defined $STRAND;
 		%{$coor{$GENE}} = ("CHR" => $CHR, "BEG" => $BEG, "END" => $END, "VAL" => $VAL);
 		$coor{$GENE}{STRAND} = $STRAND eq "+" ? "Pos" : $STRAND eq "-" ? "Neg" : $STRAND =~ /^(Pos|Neg|Unk)$/ ? $STRAND : "Unk";
-		$coor{$GENE}{BEG_BUFFER} = $BEG + $xbuf;
+		$coor{$GENE}{BEG_BUFFER} = $BEG + $xbuf < 1 ? 1 : $BEG + $xbuf;
+		LOG($outLog, "GENE=$GENE, STRAND=$STRAND, BEG=$BEG, xbuf=$xbuf\n");
 	}
 	elsif ($line =~ /^-t thrshld\s+:/) {
 		($thres) = $line =~ /^-t thrshld\s+:\s+(\-?\d+\.?\d*)$/;
@@ -173,6 +175,7 @@ foreach my $GENE (sort keys %coor) {
 	my @strands = qw(Pos Neg Unk);
 	my $geneStrand = $coor{$GENE}{STRAND};
 	my ($CHR, $BEG_BUFFER) = ($coor{$GENE}{CHR}, $coor{$GENE}{BEG_BUFFER});
+	LOG($outLog, "GENE=$GENE, CHR=$CHR, BEG+BUFFER = $BEG_BUFFER\n");
 	#my $strand = $coor{$GENE}{STRAND};
 	for (my $h1 = 0; $h1 < @strands; $h1++) {
 		for (my $h2 = 0; $h2 < 4; $h2++) {
@@ -227,6 +230,7 @@ foreach my $GENE (sort keys %coor) {
 			my $printcount = 0;
 			for (my $i = 0; $i < $max_x; $i++) {
 				my $pos = $BEG_BUFFER + $i;
+				LOG($outLog, " --> i = $i, BEG_BUFFER = $BEG_BUFFER, pos = beg-buffer+i = $pos\n") if $i % 100 == 0;
 				my $peakconv1 = defined $res{PEAK}->[$i]{1}{total} ? int(1000 * $res{PEAK}->[$i]{1}{total} / $res{PEAK}->[$i]{1}{count} + 0.5)/1000 : "NA";
 
 				print "\tres{NOPK} defined but undef at peakfile=$LCY$peakFile undef res{PEAK} i=$i 2\n" if $printcount == 0 and not defined $res{PEAK}->[$i]{2} and defined $res{NOPK}->[$i]{2};

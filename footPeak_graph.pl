@@ -176,10 +176,9 @@ sub main {
 		my ($pk_filename) =  getFilename($file, 'full') . ".out";
 		my $peakFile      =  "$resDir/.CALL/$pk_filename";
 		my $nopkFile      =  $peakFile;
-		my $cluster_file  =  "$resDir/FOOTCLUST/.TEMP/$pk_filename";
+		my $cluster_file  = "$resDir/FOOTCLUST/CLUST_LOCAL/" . getFilename($file, "full") . ".local.bed.indiv.clust";
 		my $kmer_file     =  "$resDir/FOOTCLUST/.TEMP/$pk_filename";
 			$nopkFile      =~ s/\.PEAK.out$/.NOPK.out/;
-			$cluster_file  =~ s/.out$/.local.bed.clust/;
 			$kmer_file     =~ s/.out$/.local.bed.clust.kmer/;
 		my $bedFile       =  "$resDir/PEAKS_LOCAL/$pk_filename.local.bed";
 			$bedFile       =~ s/.out.local.bed/.local.bed/;
@@ -493,7 +492,9 @@ p.pdf.scale = 0.33
 #####################
 # Read Table
 df = read.table(\"$currFile\",sep=\"\\t\")
-df.id = read.table(\"$currFileID\",sep=\"\\t\")
+df.id = read.table(\"$currFileID\",sep=\"\\t\",colClasses=c(\"factor\",\"factor\"))
+print(head(df[1:10]))
+print(head(df.id))
 colnames(df) = c(\"V1\",seq(1,dim(df)[2]-1))
 colnames(df.id) = c(\"V1\",\"ID\")
 df\$id = df.id\$ID
@@ -526,11 +527,14 @@ if (dim(df)[1] < 1000) {
 
 #####################
 # Cluster
-clust = read.table(\"$curr_cluster_file\",header=T,sep=\"\\t\")
-clust\$id = gsub(\"^(.+)\\\\.[0-9]+\$\",\"\\\\1\",clust\$id,perl=T)
+clust = read.table(\"$curr_cluster_file\",header=F,sep=\"\\t\",colClasses=c(\"factor\",\"integer\",\"integer\",\"integer\",\"integer\",\"integer\",\"factor\"))
+colnames(clust) = c(\"id\",\"x\",\"xmax\",\"y\",\"ymax\",\"clust\",\"id2\")
+clust = subset(clust,select=-id2)
+print(head(clust))
+#clust\$id = gsub(\"^(.+)\\\\.[0-9]+\$\",\"\\\\1\",clust\$id,perl=T)
 clust\$y = seq(1,dim(clust)[1])
 clust2 = as.data.frame(aggregate(clust\$y,by=list(clust\$clust),min))
-clust2\$max = aggregate(clust\$y,by=list(clust\$clust),max)\$x
+clust2\$ymax = aggregate(clust\$y,by=list(clust\$clust),max)\$x
 clust2\$xpos0 = aggregate(clust\$x,by=list(clust\$clust),min)\$x
 clust2\$xpos1 = aggregate(clust\$xmax,by=list(clust\$clust),max)\$x
 colnames(clust2) = c(\"clust\",\"ymin\",\"ymax\",\"xpos0\",\"xpos1\")
@@ -538,10 +542,15 @@ clust2\$xmin = 1
 clust2\$xmax = 70
 clust2\$clust = clust2\$clust + 10
 clust = subset(clust,select=c(\"id\",\"y\",\"clust\"))
+print(head(clust))
+print(head(clust2))
 df3 = merge(df,clust,by=\"id\")
+print(head(df3[1:10]))
 df3 = subset(df3,select=c(-y,-id,-V1))
 df3clust = df3\$clust
+
 df4 = as.data.frame(matrix(nrow=max(df3\$clust),ncol=dim(df3)[2]-1))
+
 for (x in 1:max(df3\$clust)) {
 	for (y in 1:(dim(df3)[2]-1)) {
 		a = df3[df3\$clust == x,y]

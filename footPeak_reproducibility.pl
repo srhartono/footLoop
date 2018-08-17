@@ -633,7 +633,8 @@ LOG($outLog, "\n\n$YW ----------- Ran R script ------------- $N\n\n$RscriptLog\n
 
 sub parseNameDetail {
 	my ($fileName1) = @_;
-	my ($label, $gene, $strand, $window, $thres, $type) = parseName($fileName1);
+	my $parseName = parseName($fileName1);
+	my ($label, $gene, $strand, $window, $thres, $type) = @{$parseName->{array}};
 	my ($label1, $label2, $label3) = ("", "", ""); my $barcode = ""; my $treat = "";
 	if ($label =~ /_BC\d+/) {
 		($label3) = $label =~ /BC\d+_(.+)$/ if $label =~ /BC\d+_.+$/;

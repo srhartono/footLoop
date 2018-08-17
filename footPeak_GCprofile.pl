@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_n $opt_i $opt_S $opt_G $opt_w);
-getopts("vn:i:SG:w:");
+use vars qw($opt_v $opt_n $opt_i $opt_S $opt_G $opt_w $opt_F $opt_D);
+getopts("vn:i:SG:w:FD");
 
 #########
 # BEGIN #
@@ -26,11 +26,7 @@ BEGIN {
 }
 use myFootLib; use FAlite;
 
-#my $OPTS = "vp:"; getopts($OPTS);
-#use vars   qw($opt_v $opt_p);
-#my @VALS =   ($opt_v,$opt_p);
-#my $MAINLOG = myFootLog::MAINLOG($0, \@VALS, $OPTS);
-
+my $DEBUG = "NA" if not defined $opt_D;
 my @treats = qw(gccont gcwskew purineskew atwskew);
 my $homedir = $ENV{"HOME"};
 my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
@@ -65,9 +61,10 @@ my ($genewant) = $opt_G if defined $opt_G;
 
 # sanity check -n footPeakFolder
 
-($footPeakFolder) = getFullpath($footPeakFolder);
-my $footClustFolder = "$footPeakFolder/FOOTCLUST/";
-my $footKmerFolder  = "$footPeakFolder/KMER/";
+#($footPeakFolder) = getFullpath($footPeakFolder);
+$footPeakFolder =~ s/\/$//;
+my $footClustFolder = "$footPeakFolder/FOOTCLUST";
+my $footKmerFolder  = "$footPeakFolder/KMER";
 my $uuid = getuuid();
 my ($user) = $homedir =~ /home\/(\w+)/;
 my $date = date();
@@ -77,30 +74,32 @@ my $date = date();
 # LOG FILE #
 ############
 open (my $outLog, ">", "$footPeakFolder/footPeak_GCprofile_logFile.txt") or die date() . ": Failed to create outLog file $footPeakFolder/footPeak_GCprofile_logFile.txt: $!\n";
-#open (my $outLog, ">", "$resDir/footPeak_GCprofile_logFile.txt") or die "Failed to write to $resDir/footPeak_GCprofile_logFile.txt: $!\n";
 LOG($outLog, ">$0 version $version\n");
-LOG($outLog, ">UUID: $uuid\n", "NA");
-LOG($outLog, ">Date: $date\n", "NA");
-LOG($outLog, ">Run script: $0 -i $opt_i -n $opt_n\n", "NA");
+LOG($outLog, ">UUID: $uuid\n", $DEBUG);
+LOG($outLog, ">Date: $date\n", $DEBUG);
+LOG($outLog, ">Run script: $0 -i $opt_i -n $opt_n\n", $DEBUG);
 
 
 ##########
 # OUTDIR #
 ##########
-my $resDir = "$footPeakFolder/GCPROFILE/";
+my $resDir = "$footPeakFolder/GCPROFILE";
 my ($resDirFullpath) = getFullpath($resDir);
 
 makedir($resDir) if not -d $resDir;
 makedir("$resDir/.TEMP") if not -d "$resDir/.TEMP";
 makedir("$resDir/.TSV") if not -d "$resDir/.TSV";
 
-#if (-e "$footPeakFolder/footPeak_GCskew/" and not -d $resDir) {
-#	LOG($outLog, "Renaming $footPeakFolder/footPeak_GCskew into $resDir\n");
-#	system("/bin/mv $footPeakFolder/footPeak_GCskew $resDir") == 0 or DIELOG($outLog, date() . " Failed to rename $footPeakFolder/footPeak_GCskew into $resDir: $!\n");
-#}
-
- my ($OUTDIRS, $PEAK, $TEMP, $RCONV, $CPG, $ALL);
-   ($OUTDIRS->{PNG}, $PEAK, $TEMP, $RCONV, $CPG, $ALL) = makeOutDir($resDirFullpath . "/PDF/");
+my $OUTDIRS;
+($OUTDIRS->{PDF}) = makeOutDir($resDirFullpath . "/PDF/");
+foreach my $OUTDIR (keys %{$OUTDIRS->{PDF}}) {
+	my $DIR = "$resDir/PDF/$OUTDIR/";
+	next if not -d $DIR;
+	my @pdf = <$DIR/*.pdf>;
+	system("rm $DIR/*.pdf") if @pdf != 0;
+	@pdf = <$DIR/ALL/*.pdf>;
+	system("rm $DIR/ALL/*.pdf") if @pdf != 0;
+}
 
 ##############
 # INDEX FILE #
@@ -139,118 +138,75 @@ print $outLog "\ngenomeFile = $LCY$genomeFile$N\n\n";
 # Get peaks from PEAKS_GENOME #
 ###############################
 my $cluster;
-my @bedFiles = <$footPeakFolder/PEAKS_GENOME/*.genome.bed>;
+my @bedFiles = <$footPeakFolder/FOOTCLUST/CLUST_GENOME/*.genome.bed.indiv.clust.bed>;
 my @files;
-LOG($outLog, date() . "1. Getting cluster and preprocessing bed files!\n");
+my %coreFile;
+my $bedFileCount = 0;
+my %data;
+LOG($outLog, "\n\n" . date() . "1. Getting cluster and preprocessing bed files! Folder:\n$LPR$footPeakFolder/FOOTCLUST/.TEMP$N\n\n");
 foreach my $bedFile (sort @bedFiles) {
 	if (defined $opt_G) {next if $bedFile !~ /$opt_G/};
-	my ($bedFileName) = $bedFile =~ /^$footPeakFolder\/PEAKS_GENOME\/(.+.PEAK.genome.bed)$/;
-	my $tempFile;
+	my ($bedFileName) = getFilename($bedFile, "full");
+	my ($coreOutFile) = $bedFileName =~ /^(.+_CG|.+_CH|.+_GC|.+_GH).*$/;
+	# process clustFile to get number of unique and non unique read with peak
+	my ($clustFile) = $bedFile =~ /^(.+).bed$/;$clustFile =~ s/.indiv.clust/.clust/;
+	open (my $clustFileIn, "<", $clustFile) or DIELOG($outLog, date() . "Failed to read from $clustFile: $!\n");
+	while (my $line = <$clustFileIn>) {
+		my ($chr, $beg, $end, $geneclust, $value, $strand) = split("\t", $line);
+		my ($gene, $clust) = split(/\./, $geneclust);
+		DIELOG($outLog, date() . "CAn't parse gene=$gene clust=$clust from geneclust=$geneclust line\n$line\nfile=$clustFile\n\n") if not defined $gene or not defined $clust;
+		my ($totalreadunique, $totalread) = split(/\./, $value);
+		$data{totalreadclust}{$coreOutFile}{$clust} = $totalread;
+		$data{totalreaduniqueclust}{$coreOutFile}{$clust} = $totalreadunique;
+		$data{totalread}{$coreOutFile} += $totalread;
+		$data{totalreadunique}{$coreOutFile} += $totalreadunique;
+#		die "$coreOutFile\n$clust\n$totalread\n$totalreadunique\n";
+	}
 	my @alphabets = qw(A B C W D E F);
 	for (my $i = 0; $i < @alphabets; $i++) {
 		for (my $j = 0; $j < @treats; $j++) {
-			$tempFile = "$footPeakFolder/GCPROFILE/$bedFileName";
 			my $tsvFile = "$footPeakFolder/GCPROFILE/.TSV/$bedFileName\_100\_$alphabets[$i].temp.fa.$treats[$j].tsv";
-			#print "\t- $LCY$tsvFile$N\n";
+			$coreFile{$tsvFile} = $coreOutFile;
 			@files = (@files, $tsvFile);
 		}
 	}
-	$tempFile =~ s/\/+/\//g;
-	$cluster = get_cluster($bedFile, $tempFile, $cluster, $outLog);
-	#print "$LCY$bedFile$N\n";
-	preprocess_bed($bedFile, $outLog) if not defined $opt_S;
+	$bedFileCount ++;
+	$cluster = get_cluster($bedFile, $coreOutFile, $cluster, $bedFileCount, $outLog);
+	preprocess_bed($bedFile, $coreOutFile, $cluster, $outLog) if not defined $opt_S;
 }
-LOG($outLog, date() . "2. Calculating Sequence profile (might take a couple minutes)\n");
+
+#########################
+# Calculate Seq profile #
+#########################
+
+LOG($outLog, "\n\n" . date() . "2. Calculating Sequence profile (might take a couple minutes)\n\n");
 if (not defined ($opt_S)) {
-	system("run_script_in_paralel2.pl \"fastaFromBed -fi $genomeFile -bed FILENAME -fo FILENAME.fa -s -name\" $resDir/.TEMP/ \"_[ABCDEFW].temp\" 1 > $resDir/.TEMP/fastaFromBed.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run fastaFromBed: $!\n");
-	system("run_script_in_paralel2.pl \"rename.pl FILENAME PCB .PCB\" $resDir/.TEMP/ temp 1  > $resDir/.TEMP/rename.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run rename.pl: $!\n");
-	system("run_script_in_paralel2.pl \"counter_cpg_indiv.pl -w 200 -s 1 -o $resDir/.TSV/ -A FILENAME\" $resDir/.TEMP/ _100.+temp.fa 1  > $resDir/.TEMP/counter_cpg_indiv.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run counter_cpg_indiv.pl: $!\n");
-}
-####### PARAMETERS
-sub get_cluster {
-	my ($bedFile, $tempFile, $cluster, $outLog) = @_; 
-	my ($tempFile2) = getFilename($tempFile, "full");
-	($tempFile2) =~ s/.PEAK.genome.bed//;
-	my ($bedFolder, $bedFilename) = getFilename($bedFile, "folderfull");
-	my ($clusterFile) = "$footPeakFolder/FOOTCLUST/.TEMP/$bedFilename";
-	$clusterFile =~ s/.genome.bed/.local.bed.clust/;
-	my $maxClust = -1;
-	if (-e $clusterFile) {
-		my $linecount = -1;
-		LOG($outLog, date() . "   bedFile=$LCY$bedFile$N, clusterFile=$LGN$clusterFile$N\n","NA");
-		open (my $clusterIn, "<", $clusterFile) or DIELOG($outLog, "Failed to read from clusterFile $clusterFile: $!\n");
-		while (my $line = <$clusterIn>) {
-			chomp($line);
-			$linecount ++;
-			next if $linecount == 0;
-			my ($id, $x, $xmax, $y, $ymax, $clust) = split("\t", $line);
-			$maxClust = $clust if $maxClust < $clust;
-			my ($id2, $number) = $id =~ /^(\d+)\.(\d+)$/;
-			($id2) = $id if not defined $id2;
-			#print "id=$id, id2=$id2, number=$number, $line\n" if $linecount < 10;
-			$id = $id2;
-			if (not defined $cluster->{$tempFile2}{$id}) {
-				my $currlen = $xmax - $x;
-				LOG($outLog, date() . "NEW id=$id clust=$clust num=$number len=$currlen, $tempFile,$id,$clust\n","NA");# if $id eq "1704132300151533640";
-				$cluster->{$tempFile2}{$id}{clust} = $clust;
-				$cluster->{$tempFile2}{$id}{len} = ($xmax - $x);
-			}
-			elsif (defined $cluster->{$tempFile2}{$id} and $cluster->{$tempFile2}{$id}{len} < $xmax - $x) {
-				my $currlen = $xmax - $x;
-				LOG($outLog, date() . "MOD id=$id clust=$cluster->{$tempFile2}{$id}{clust}, newclust=$clust, num=$number len=$cluster->{$tempFile2}{$id}{len} < $currlen\n","NA");# if $id eq "1704132300151533640";
-				$cluster->{$tempFile2}{$id}{clust} = $clust;
-				$cluster->{$tempFile2}{$id}{len} = ($xmax - $x);
-			}
-		}
+	if (not defined $opt_F) {
+		print "Re running all sequence profile? (${LCY}ENTER$N to continue,$YW CTRL+c$N to cancel)\nuse -F to disable this\n\n";
+		<STDIN>;
 	}
-	LOG($outLog, date() . "$LCY$bedFile$N cluster=$LGN$maxClust$N\n","NA");
-	#print "temp=$LPR$tempFile$N\n";
-	return($cluster);
+	print "run_script_in_paralel2.pl \"fastaFromBed -fi $genomeFile -bed FILENAME -fo FILENAME.fa -s -name\" $resDir/.TEMP/ \"_[ABCDEFW].temp\" 1 > $resDir/.TEMP/fastaFromBed.LOG 2>&1\n";
+	system("run_script_in_paralel2.pl \"fastaFromBed -fi $genomeFile -bed FILENAME -fo FILENAME.fa -s -name\" $resDir/.TEMP/ \"_[ABCDEFW].temp\" 1 > $resDir/.TEMP/fastaFromBed.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run fastaFromBed: $!\n");
+	print "run_script_in_paralel2.pl \"rename.pl FILENAME PCB .PCB\" $resDir/.TEMP/ temp 1  > $resDir/.TEMP/rename.LOG 2>&1\n";
+	system("run_script_in_paralel2.pl \"rename.pl FILENAME PCB .PCB\" $resDir/.TEMP/ temp 1  > $resDir/.TEMP/rename.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run rename.pl: $!\n");
+	print "run_script_in_paralel2.pl \"counter_cpg_indiv.pl -w 200 -s 1 -o $resDir/.TSV/ -A FILENAME\" $resDir/.TEMP/ indiv.clust.bed_100.+temp.fa 1  > $resDir/.TEMP/counter_cpg_indiv.LOG 2>&1\n";
+	system("run_script_in_paralel2.pl \"counter_cpg_indiv.pl -w 200 -s 1 -o $resDir/.TSV/ -A FILENAME\" $resDir/.TEMP/ indiv.clust.bed_100.+temp.fa 1  > $resDir/.TEMP/counter_cpg_indiv.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run counter_cpg_indiv.pl: $!\n");
 }
 
-sub preprocess_bed {
-	my ($bedFile, $outLog) = @_; 
-	LOG($outLog, date() . " Getting fasta and calculating GC skew from: $LCY$bedFile$N\n", "NA");
-	my ($bedFolder, $bedFilename) = getFilename($bedFile, "folderfull");
-	my $window = 100;
-	my $window2 = 200;
-	my $outputA = "$resDir/.TEMP/$bedFilename\_$window\_A.temp";
-	my $outputB = "$resDir/.TEMP/$bedFilename\_$window\_B.temp";
-	my $outputC = "$resDir/.TEMP/$bedFilename\_$window\_C.temp";
-	my $outputD = "$resDir/.TEMP/$bedFilename\_$window\_D.temp";
-	my $outputE = "$resDir/.TEMP/$bedFilename\_$window\_E.temp";
-	my $outputF = "$resDir/.TEMP/$bedFilename\_$window\_F.temp";
-	my $outputW = "$resDir/.TEMP/$bedFilename\_$window\_W.temp";
+######################
+# Processing tsvFile #
+######################
 
-	system("bedtools_bed_change.pl -a -x -$window2 -y 0 -i $bedFile -o $outputA > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-	system("bedtools_bed_change.pl -a -x -$window -y $window -i $bedFile -o $outputB > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-	system("bedtools_bed_change.pl -a -x 0 -y $window2 -i $bedFile -o $outputC > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-	system("bedtools_bed_change.pl -x 0 -y 0 -i $bedFile -o $outputW > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-	system("bedtools_bed_change.pl -b -x -$window2 -y 0 -i $bedFile -o $outputD > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-	system("bedtools_bed_change.pl -b -x -$window -y $window -i $bedFile -o $outputE > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-	system("bedtools_bed_change.pl -b -x 0 -y $window2 -i $bedFile -o $outputF > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-}
 
-#my @files;# = <$resDir/PCB*.tsv>;
-#if (defined $opt_G) {
-#	@files = <$resDir/PCB*$opt_G*.tsv>;
-#}
-#else {
-#	@files = <$resDir/PCB*.tsv>;
-#}
-LOG($outLog, date() . "3. Processing " . scalar(@files) . " files in $LCY$resDir$N\n");
-my %data;
+LOG($outLog, "\n\n" . date() . "3. Processing " . scalar(@files) . " files in $LCY$resDir$N\n");
 my @header = ("wind2", "sample", "type");
 print "\n\nThere i no file with .tsv in $LCY$resDir/$N!\n" and exit if (@files == 0);
-foreach my $input1 (sort @files) {
-	my ($tempFile) = $input1 =~ /^(.+)_100_.\.temp.fa.\w+.tsv$/;
-	$tempFile =~ s/\/+/\//g;
-	my ($tempFile2) = getFilename($tempFile, "full");
-	($tempFile2) =~ s/.PEAK.genome.bed//;
+foreach my $tsvFile (sort @files) {
+	LOG($outLog, "- Doing $LGN$tsvFile$N\n");
+	my ($coreOutFile) = $coreFile{$tsvFile};#$tsvFile =~ /^(.+)_100_.\.temp.fa.\w+.tsv$/;
 
-	#print "input1=$input1, tempFile=$LCY$tempFile$N\n";
-	$input1 =~ s/\/+/\//g;
-	my ($folder1, $fileName1) = getFilename($input1, "folderfull");
+	$tsvFile =~ s/\/+/\//g;
+	my ($folder1, $fileName1) = getFilename($tsvFile, "folderfull");
 	if (defined $opt_G) {
 		next if $fileName1 !~ /$opt_G/;
 	}
@@ -260,7 +216,7 @@ foreach my $input1 (sort @files) {
    my ($label2, $gene, $strand, $window, $thres, $type) = @{$parseName->{array}};
 
 	next if $fileName1 !~ /^PCB/;
-	my @arr = $fileName1 =~ /PEAK.genome.bed_(\d+)_([A-Z]).temp.fa.(\w+).tsv/;
+	my @arr = $fileName1 =~ /PEAK.genome.bed.indiv.clust.bed_(\d+)_([A-Z]).temp.fa.(\w+).tsv/;
 	for (my $i = 0; $i < @arr; $i++) {
 		DIELOG($outLog, date() . "fileName=$fileName1 Undefined i=$i header=$header[$i] arr[i] undef\n") if not defined $arr[$i];
 	}
@@ -271,18 +227,19 @@ foreach my $input1 (sort @files) {
 	$data{data}{$outName}{sample} = $SAMPLE;
 	$data{data}{$outName}{wind2} = $WINDOW;
 	$data{data}{$outName}{calctype} = $CALCTYPE;
-	LOG($outLog, date() . "  - gene=$LGN$gene$N pos=$LGN$SAMPLE$N calctype=$LPR$CALCTYPE$N input=$outName$N\n","NA") if $CALCTYPE eq "skew";
-	open (my $in1, "<", $input1) or DIELOG($outLog, date() . " Cannot read from $input1: $!\n");
+	LOG($outLog, date() . "  - gene=$LGN$gene$N pos=$LGN$SAMPLE$N calctype=$LPR$CALCTYPE$N input=$outName$N\n",$DEBUG) if $CALCTYPE eq "skew";
+	open (my $in1, "<", $tsvFile) or DIELOG($outLog, date() . " Cannot read from $tsvFile: $!\n");
 	my $linecount = 0;
 	while (my $line = <$in1>) {
 		chomp($line);
 		next if $line =~ /^#/;
 		$linecount ++;
 		my ($read, $value) = split("\t", $line);
-		my ($read_number) = $read =~ /\.(m\d+.+)$/;
-		my ($id) = parse_readName($read_number);
-		my $cluster = $cluster->{$tempFile2}{$id}{clust}; $cluster = -1 if not defined $cluster;
-		#print "id=$id, cluster=$cluster\n$input1,$id,$cluster\n" if $id eq "1704132300151533640";
+		my ($gene, $id, $cluster) = split(/\./, $read);
+		#my ($read_number) = $read =~ /\.(m\d+.+)$/;
+		#my ($id) = parse_readName($read_number);
+		#my $cluster = $c$cluster->{$coreOutFile}{$id}{clust}; $cluster = -1 if not defined $cluster;
+		#die "line=$line\ngene=$gene, id=$id, clust=$cluster\n";
 		$data{cluster}{$outName}{$read} = $cluster;
 		$data{id}{$outName}{$read} = $id;
 		$data{read}{$outName}{$read}{$SAMPLE} = $value;
@@ -299,11 +256,12 @@ foreach my $outName (sort keys %{$data{input}}) {
 	foreach my $sample (sort keys %{$data{input}{$outName}}) {
 		print $out1 "\t$sample";
 	}
-	print $out1 "\toutfile\tflag\n";
+	print $out1 "\toutfile\tflag\ttotalreadclust\ttotalreaduniqueclust\ttotalread\ttotalreadunique\n";
 	last;
 }
 
 foreach my $outName (sort keys %{$data{read}}) {
+	my ($coreOutFile) = $outName =~ /^(.+)\.\w+$/;
 	my $WINDOW = $data{data}{$outName}{wind2};
 	my $CALCTYPE = $data{data}{$outName}{calctype};
 	my $SAMPLE = $data{data}{$outName}{sample};
@@ -320,11 +278,17 @@ foreach my $outName (sort keys %{$data{read}}) {
 	my $sampleoutDir = $resDirFullpath . "/PDF/$flag/";
 	#print "$outName: gene=$GENE feature=$feature readStrand=$readStrand geneStrand=$geneStrand rconvtype=$rconvType $LCY$sampleoutDir$N\n";
 	foreach my $read (sort keys %{$data{read}{$outName}}) {
+		my $curr_cluster = $data{cluster}{$outName}{$read};
+		my $totalreadclust = $data{totalreadclust}{$coreOutFile}{$curr_cluster};
+		my $totalreaduniqueclust = $data{totalreaduniqueclust}{$coreOutFile}{$curr_cluster};
+		my $totalread = $data{totalread}{$coreOutFile};
+		my $totalreadunique = $data{totalreadunique}{$coreOutFile};
+		DIELOG($outLog, date() . "Failed to get totalread from read=$read\n$outName\n$curr_cluster\n") if not defined $totalread or not defined $totalreadunique;
 		print $out1 "$data{input}{$outName}{$SAMPLE}\t$data{id}{$outName}{$read}\t$data{cluster}{$outName}{$read}\t$read\t$WINDOW\t$CALCTYPE\t$feature";
 		foreach my $sample (sort keys %{$data{read}{$outName}{$read}}) {
 			print $out1 "\t$data{read}{$outName}{$read}{$sample}";
 		}
-		print $out1 "\t$sampleoutDir/$outName.GCPROFILE.$flag\t$flag\n";
+		print $out1 "\t$sampleoutDir/$outName.GCPROFILE.$flag\t$flag\t$totalreadclust\t$totalreaduniqueclust\t$totalread\t$totalreadunique\n";
 	}
 }
 
@@ -360,7 +324,7 @@ outfiles = unique(dfmain\$outfile)
 mytypes = unique(as.character(dfmain\$type))
 for (j in 1:length(mytypes)) {
 	df = dfmain[dfmain\$type == mytypes[j],]
-	dm = melt(df,id.vars=c(\"file\",\"id\",\"cluster\",\"read\",\"window\",\"type\",\"feature\",\"outfile\",\"flag\"));
+	dm = melt(df,id.vars=c(\"file\",\"id\",\"cluster\",\"read\",\"window\",\"type\",\"feature\",\"outfile\",\"flag\",\"totalreadclust\",\"totalreaduniqueclust\",\"totalread\",\"totalreadunique\"));
 	dm\$variable = factor(dm\$variable,levels=c(\"A\",\"B\",\"C\",\"W\",\"D\",\"E\",\"F\"))
 	dm\$gene = paste(dm\$file,dm\$feature)
 	genes = unique(dm\$gene)
@@ -408,13 +372,17 @@ for (j in 1:length(mytypes)) {
 			mytitle   = paste(\"$LABEL2\.\",mytypes[j],\"\\n\",uniquefeature[k],\" \",uniqueflag[l],sep=\"\")
 			outpdfall = paste(\"$LABEL\.\",mytypes[j],\".\",uniquefeature[k],\".\",uniqueflag[l],\".pdf\",sep=\"\")
 			print(paste(j,\"Doing pdf\",outpdfall))
-			
 			temp = dm[dm\$feature == uniquefeature[k] & dm\$flag == uniqueflag[l],]
 			if (length(temp) > 0) {
 	
 			pdf(outpdfall,width=7,height=7)
-			tempcount = length(unique(temp\$id))
-			mytitle2 = paste(mytitle,\" (\",tempcount,\" reads)\",sep=\"\")
+			mytotalreadunique = length(unique(temp\$id))
+			mytotalread = length(unique(temp\$read))
+			
+			#mytotalread = sum(temp\$totalread) / 7
+			#mytotalreadunique = sum(temp\$totalreadunique) / 7
+			#print(paste(k,l,tempcount,mytotalread,mytotalreadunique))
+			mytitle2 = paste(mytitle,\" (\",mytotalreadunique,\" unique reads, \",mytotalread,\" total peaks)\",sep=\"\")
 			mytitle2 = paste(mytitle2,\"\\n\",ylabs,sep=\"\")
 
 			p = ggplot(temp,aes(variable,value)) +
@@ -433,7 +401,7 @@ for (j in 1:length(outfiles)) {
 print(paste(j,\".\",sep=\"\"))
 outfile=outfiles[j]
 df = dfmain[dfmain\$outfile == outfiles[j],]
-dm = melt(df,id.vars=c(\"file\",\"id\",\"cluster\",\"read\",\"window\",\"type\",\"feature\",\"outfile\",\"flag\"));
+dm = melt(df,id.vars=c(\"file\",\"id\",\"cluster\",\"read\",\"window\",\"type\",\"feature\",\"outfile\",\"flag\",\"totalreadclust\",\"totalreaduniqueclust\",\"totalread\",\"totalreadunique\"));
 dm\$variable = factor(dm\$variable,levels=c(\"A\",\"B\",\"C\",\"W\",\"D\",\"E\",\"F\"))
 dm\$gene = paste(dm\$file,dm\$feature)
 genes = unique(dm\$gene)
@@ -494,7 +462,10 @@ for (i in 1:length(myclust)) {
    temp = dm[dm\$cluster == myclust[i],]
 	tempcount = length(unique(temp\$id))
 	outfile2 = paste(outfile,\".cluster\",myclust[i],\".pdf\",sep=\"\")
-	mytitle2 = paste(mytitle,\" cluster \",myclust[i],\" (\",tempcount,\" reads)\",sep=\"\")
+	mytotalreadclust = as.character(unique(temp\$totalreadclust))
+	mytotalreaduniqueclust = as.character(unique(temp\$totalreaduniqueclust))
+	print(paste(i,tempcount,mytotalreadclust,mytotalreaduniqueclust))
+	mytitle2 = paste(mytitle,\" cluster \",myclust[i],\" (\",mytotalreaduniqueclust,\" unique reads, \",mytotalreadclust,\" total peaks)\",sep=\"\")
 	mytitle2 = paste(mytitle2,\"\\n\",ylabs,sep=\"\")
 	pdf(outfile2,width=7,height=7)
    p = ggplot(temp,aes(variable,value)) +
@@ -511,7 +482,10 @@ outfile=paste(outfile,\".pdf\",sep=\"\")
 	pdf(outfile,width=7,height=7)
    temp = dm;
 	tempcount = length(unique(temp\$id))
-	mytitle2 = paste(mytitle,\" (\",tempcount,\" reads)\",sep=\"\")
+	mytotalread = as.character(unique(temp\$totalread))
+	mytotalreadunique = as.character(unique(temp\$totalreadunique))
+	print(paste(\"Total = \",tempcount,mytotalread,mytotalreadunique))
+	mytitle2 = paste(mytitle,\" (\",mytotalreadunique,\" unique reads, \",mytotalread,\" total peaks)\",sep=\"\")
 	mytitle2 = paste(mytitle2,\"\\n\",ylabs,sep=\"\")
    p = ggplot(temp,aes(variable,value)) +
       geom_boxplot(aes(fill=variable),outlier.shape=NA) +
@@ -537,6 +511,107 @@ ${YW}To Run R script manually, do:$N
 run_Rscript.pl $resDir/RESULT.R
 ");
 }
+
+####### PARAMETERS
+sub get_cluster {
+	my ($bedFile, $coreOutFile, $cluster, $bedFileCount, $outLog) = @_;
+	my ($bedFolder, $bedFilename) = getFilename($bedFile, "folderfull");
+	my ($clusterFile) = $bedFile;
+	$clusterFile =~ s/.clust.bed/.clust/;
+	my $maxClust = -1;
+	LOG($outLog, date() . "  1.$bedFileCount. ${LGN}EXIST  $N: clusterFile=$LCY$clusterFile$N\n") if -e $clusterFile;
+	LOG($outLog, date() . "  1.$bedFileCount. ${LRD}MISSING$N: clusterFile=$LCY$clusterFile$N\n") if not -e $clusterFile;
+	if (-e $clusterFile) {
+		my $linecount = -1;
+		my $printMOD = 0; #to print example if there are 1 read with 2 clusters.
+		LOG($outLog, date() . "   coreOutFile = $YW$coreOutFile$N\n");
+		open (my $clusterIn, "<", $clusterFile) or DIELOG($outLog, "Failed to read from clusterFile $clusterFile: $!\n");
+		while (my $line = <$clusterIn>) {
+			chomp($line);
+			$linecount ++;
+			my ($currid, $x, $xmax, $y, $ymax, $clust, $curridlong) = split("\t", $line);
+			$maxClust = $clust if $maxClust < $clust;
+			my $id = $currid;
+			LOG($outLog, date() . "NEW id=$id clust=$clust x=$x, xmax=$xmax, y=$y, ymax=$ymax, clust=$clust, $coreOutFile,$id,$clust\n",$DEBUG);# if $id eq "1704132300151533640";
+			$cluster->{$coreOutFile}{$id}{$x}{$xmax} = $clust;
+		}
+	}
+#commentcut
+	LOG($outLog, date() . "$LCY$bedFile$N cluster=$LGN$maxClust$N\n",$DEBUG);
+	#print "temp=$LPR$coreOutFile$N\n";
+	return($cluster);
+}
+
+sub preprocess_bed {
+	my ($bedFile, $coreOutFile, $cluster, $outLog) = @_; 
+
+	my %clust;
+	foreach my $id (sort keys %{$cluster->{$coreOutFile}}) {
+		foreach my $x (sort {$a <=> $b} keys %{$cluster->{$coreOutFile}{$id}}) {
+			foreach my $xmax (sort {$a <=> $b} keys %{$cluster->{$coreOutFile}{$id}{$x}}) {
+				my $cluster = $cluster->{$coreOutFile}{$id}{$x}{$xmax};
+				my $peakind = defined $clust{$id} ? scalar(@{$clust{$id}}) : 0;
+				push(@{$clust{$id}}, $cluster);
+				print "peakind = $peakind, id=$id, clust = $cluster, clustid = $clust{$id}[$peakind]\n" if $id eq "160130030742360360" or $id eq "1601300307421077340";
+			}
+		}
+	}
+	LOG($outLog, date() . " Getting fasta and calculating GC skew from: $LCY$bedFile$N\n", $DEBUG);
+	my ($bedFolder, $bedFilename) = getFilename($bedFile, "folderfull");
+	my $window = 100;
+	my $window2 = 200;
+
+	my $bedFileChanged = "$resDir/.TEMP/$bedFilename.BED";
+
+	my %bed;
+	open (my $bedIn, "<", $bedFile) or DIELOG($outLog, date() . "Failed to read from $bedFile: $!\n");
+	open (my $bedOut, ">", $bedFileChanged) or DIELOG($outLog, date() . "Failed to read from $bedFileChanged: $!\n");
+	while (my $line = <$bedIn>) {
+		chomp($line);
+		my ($chr, $beg, $end, $name, $zero, $strand) = split("\t", $line);
+		my ($gene, $id) = $name =~ /^(.+)\.(.+)$/;
+		DIELOG($outLog, date() . "Failed to parse gene and id name form bedfile=$bedFile\n") if not defined $gene or not defined $id;
+		#my ($id, $id1, $id2, $id3) = parse_readName($id, $outLog);
+		#$id = "$id1$id2$id3";
+		$bed{$id}{coor}{$beg}{$end} = "$chr\t$beg\t$end\t$gene.$id.MYCLUSTER\t$zero\t$strand";
+	}
+	close $bedIn;
+	foreach my $id (sort keys %bed) {
+		my $peakind = -1;
+		foreach my $beg (sort {$a <=> $b} keys %{$bed{$id}{coor}}) {
+			foreach my $end (sort {$a <=> $b} keys %{$bed{$id}{coor}{$beg}}) {
+				$peakind ++;
+				my $line = $bed{$id}{coor}{$beg}{$end};
+				my $clust = $clust{$id}[$peakind];
+				#print "id=$id ind=$peakind clust=$clust\n";# if $id eq "160130030742360360";
+				DIELOG($outLog, date() . "Failed to get cluster on bedfile=$bedFile, id=$id beg=$beg end=$end peakind=$peakind\n") if not defined $clust;
+				$line =~ s/MYCLUSTER\t/$clust\t/;
+				print $bedOut "$line\n";
+			}
+		}
+	}
+	close $bedOut;
+	my $outputA = "$resDir/.TEMP/$bedFilename\_$window\_A.temp";
+	my $outputB = "$resDir/.TEMP/$bedFilename\_$window\_B.temp";
+	my $outputC = "$resDir/.TEMP/$bedFilename\_$window\_C.temp";
+	my $outputD = "$resDir/.TEMP/$bedFilename\_$window\_D.temp";
+	my $outputE = "$resDir/.TEMP/$bedFilename\_$window\_E.temp";
+	my $outputF = "$resDir/.TEMP/$bedFilename\_$window\_F.temp";
+	my $outputW = "$resDir/.TEMP/$bedFilename\_$window\_W.temp";
+
+	print "bedtools_bed_change.pl -a -x -$window2 -y 0 -i $bedFileChanged -o $outputA > $outputA.LOG 2>&1\n";
+	system("bedtools_bed_change.pl -a -x -$window2 -y 0 -i $bedFileChanged -o $outputA > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	system("bedtools_bed_change.pl -a -x -$window -y $window -i $bedFileChanged -o $outputB > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	system("bedtools_bed_change.pl -a -x 0 -y $window2 -i $bedFileChanged -o $outputC > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	system("bedtools_bed_change.pl -x 0 -y 0 -i $bedFileChanged -o $outputW > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	system("bedtools_bed_change.pl -b -x -$window2 -y 0 -i $bedFileChanged -o $outputD > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	system("bedtools_bed_change.pl -b -x -$window -y $window -i $bedFileChanged -o $outputE > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	system("bedtools_bed_change.pl -b -x 0 -y $window2 -i $bedFileChanged -o $outputF > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+}
+
+
+
+
 __END__
 ${YW}Outputs:$N
 
@@ -562,3 +637,18 @@ close $out1;
 
 __END__
 PCB1_geneFUS_Pos_20_0.65_CH.PEAK.genome.bed_100_E.temp.fa.dens.tsv
+__END__
+#			if (not defined $cluster->{$coreOutFile}{$id}) {
+#			}
+#			elsif (defined $cluster->{$coreOutFile}{$id}) {
+#				next if $cluster->{$coreOutFile}{$id}{len} >= $xmax - $x;
+#				my $currlen = $xmax - $x;
+#				LOG($outLog, date() . "MOD id=$id clust=$cluster->{$coreOutFile}{$id}{clust}, newclust=$clust, num=$number len=$cluster->{$coreOutFile}{$id}{len} < $currlen\n",$DEBUG);
+#				LOG($outLog, date() . "Example MOD:\n" . date() . "MOD id=$id clust=$cluster->{$coreOutFile}{$id}{clust}, newclust=$clust, num=$number len=$cluster->{$coreOutFile}{$id}{len} < $currlen\n") if $printMOD == 0;
+#				$printMOD = 1;
+#				$cluster->{$coreOutFile}{$id}{'$x,$xmax'}{clust} = $clust;
+#				$cluster->{$coreOutFile}{$id}{'$x,$xmax'}{len} = ($xmax - $x);
+#			}
+		}
+	}
+

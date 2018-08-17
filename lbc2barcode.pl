@@ -25,9 +25,12 @@ if (not defined $version or (defined $version and $version eq "UNKNOWN")) {
 }
 
 my ($input1) = ($opt_i);
-my $barcodePCB11 = "/home/mitochi/pacbio_indexes/barcode_PCB11.tsv";
-my $barcode170726 = "/home/mitochi/pacbio_indexes/barcode_170726.tsv";
-my $barcode171005 = "/home/mitochi/pacbio_indexes/barcode_171005.tsv";
+my $PCB11_barcode = "/home/mitochi/pacbio_indexes/PCB11_barcode.tsv";
+my $PCB13_barcode = "/home/mitochi/pacbio_indexes/PCB13_barcode.tsv";
+my $PCB14_barcode = "/home/mitochi/pacbio_indexes/PCB14_barcode.tsv";
+my $PCB15_barcode = "/home/mitochi/pacbio_indexes/PCB15_barcode.tsv";
+my $PCB19_barcode = "/home/mitochi/pacbio_indexes/PCB19_barcode.tsv";
+my $PCB20_barcode = "/home/mitochi/pacbio_indexes/PCB20_barcode.tsv";
 
 die "
 Usage: $YW$0$N -b $LPR<barcode>$N -i $CY<folder/lbc>$N [optional: -l $LGN<label>$N]
@@ -37,9 +40,12 @@ Input:
 -i <folder>: process all lbc.fastq files in the given folder
 
 Barcode:
--b 1: barcode_171005.tsv
--b 2: barcode_170726.tsv
--b 3: barcode_PCB11.tsv
+-b 11: /home/mitochi/pacbio_indexes/PCB11_barcode.tsv (${YW}7bcc3c042b13879d08dfd3a099baf31f$N)
+-b 13: /home/mitochi/pacbio_indexes/PCB13_barcode.tsv (${YW}e791d5c6a82dd24712dd6cdb5a2e134d$N)
+-b 14: /home/mitochi/pacbio_indexes/PCB14_barcode.tsv (${YW}c733dbb565241dee3fcd80a2d4a5d9c4$N)
+-b 15: /home/mitochi/pacbio_indexes/PCB15_barcode.tsv (${YW}2dd05fae4ba9d9f65a44cab988390e10$N)
+-b 19: /home/mitochi/pacbio_indexes/PCB19_barcode.tsv (${YW}1498d98977ad1f12778b365f7011084a$N)
+-b 20: /home/mitochi/pacbio_indexes/PCB20_barcode.tsv (${YW}08260d5438fac57364863d3d6741dcf3$N)
 	
 " unless defined $opt_b;# $opt_i and -e $opt_i and defined $opt_b;
 my ($date) = getDate();
@@ -141,7 +147,14 @@ sub process_barcode {
 	$PCB =~ s/^.*PCB[\t \-\,\.\_\=\+]*(\d+).*$/PCB$1/i;
 	DIELOG($outLog, "1. Cannot parse PCB from $PCB0 (make sure to use -l PCB followed by digits, e.g. PCB15)\n") if not defined $PCB or (defined $PCB and $PCB !~ /^PCB\d+$/);
 	$PCB = uc($PCB);
-	my $barcodeFile = $optb eq 1 ? $barcode171005 : $optb eq 2 ? $barcode170726 : $optb eq 3 ? $barcodePCB11 : $optb;
+	my $barcodeFile = 
+		$optb eq 11 ? $PCB11_barcode :
+		$optb eq 13 ? $PCB13_barcode :
+		$optb eq 14 ? $PCB14_barcode :
+		$optb eq 15 ? $PCB15_barcode :
+		$optb eq 19 ? $PCB19_barcode :
+		$optb eq 20 ? $PCB20_barcode : $optb;
+
 	print "\n\nERROR! barcodeFile $LCY$barcodeFile$N does not exist!\n\n" and die if not -e $barcodeFile;
 	my %data;
 	open (my $in1, "<", $barcodeFile) or die "Cannot read from $barcodeFile: $!\n";

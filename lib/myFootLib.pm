@@ -118,6 +118,7 @@ sub parse_readName_from_fastq {
 	}
 	return \%name;
 }
+
 sub parse_readName {
 	my ($readName, $outLog) = @_;
 	DIELOG($outLog, "readName not defined!\n") if defined $outLog and not defined $readName;
@@ -396,6 +397,8 @@ sub getFilename {
 	return($folder, $shortname)             if $type eq "folder";
 	return($fullname)                       if $type eq "full" or $type eq "fullname";
 	return($folder, $fullname, $shortname)  if $type eq "all";
+	print "$0::getFilename: fh=$fh type=$type TYPE DOES NOT EXIST!\n";
+	return $shortname;
 }
 
 sub getFullpath {

@@ -64,7 +64,11 @@ foreach my $callFile (sort @callFiles) {
 #	next unless $label eq "PCB7" and $strand eq "Pos" and $gene eq "RPS24" and $type eq "CH";
 #	my ($label, $gene, $strand, $window, $thres, $type) = $fileName1 =~ /^(.+)_gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(GC|GH|CG|CH)/;
 	my $STRAND = $coor->{$gene}{strand};
-	my $clustFile = $callFile =~ /.PEAK.out/ ? "$footPeakFolder/FOOTCLUST/.TEMP/$label\_gene$gene\_$strand\_$window\_$thres\_$type.PEAK.local.bed.clust" : "";
+	my $clustFile = $callFile =~ /.PEAK.out/ ? "$footPeakFolder/FOOTCLUST/CLUST_LOCAL/$label\_gene$gene\_$strand\_$window\_$thres\_$type.PEAK.local.bed.indiv.clust" : "";
+
+#CLUST_LOCAL/PCB13_bcBC3_plasmidPFC8_descSUPERCOILED_genePFC8_SNRPN_REVERSE_Neg_20_0.55_GC.PEAK.local.bed.indiv.clust
+#.TEMP/PCB13_bcBC3_plasmidPFC8_descSUPERCOILED_genePFC8_SNRPN_REVERSE_Neg_20_0.55_GC.PEAK.local.bed.clust
+
 	makedir("$outFolder/ALL");
 	makedir("$outFolder/PEAK");
 	makedir("$outFolder/NOPK");
@@ -115,7 +119,7 @@ sub turn_into_gtf {
 		while (my $line = <$clustFileIn>) {
 			chomp($line); $linecount ++;
 			next if $line =~ /^id/;
-			my ($id, $x, $xmax, $y, $ymax, $clust) = split("\t", $line);
+			my ($id2, $x, $xmax, $y, $ymax, $clust, $id) = split("\t", $line);
 			my $idcount = 0;
 			($id, $idcount) = $id =~ /^(.+)\.(\d+)$/;
 			my $idlen = $xmax - $x;
@@ -148,13 +152,14 @@ sub turn_into_gtf {
 #		001100
 #		012345
 #		2 to 4
-		my ($num1, $num2, $num3) = $read =~ /^.*\.?m(\d+_\d+).+\/(\d+)\/(ccs|\d+_\d+)/;
-		DIELOG($outLog, "\n\nERROR AT PARSING NUMBERS from read=$LGN$read$N\n\n") if not defined $num1 or not defined $num2 or not defined $num3;
-		$num3 = "0" if $num3 eq "ccs";
-		my $num = "$num1$num2$num3";
-      $num =~ s/_//g;
-		LOG($outLog, "\tRead=$read, Num=$num\n") if $linecount <= 3;
-#		print "\n!!$BU$read$N\n" if $num eq "1803291104111173190";
+		my ($id) = parse_readName($read, $outLog);
+		#my ($num1, $num2, $num3) = $read =~ /^.*\.?m(\d+_\d+).+\/(\d+)\/(ccs|\d+_\d+)/;
+		#DIELOG($outLog, "\n\nERROR AT PARSING NUMBERS from read=$LGN$read$N\n\n") if not defined $num1 or not defined $num2 or not defined $num3;
+		#$num3 = "0" if $num3 eq "ccs";
+		#my $num = "$num1$num2$num3";
+      #$num =~ s/_//g;
+		LOG($outLog, "\tRead=$read, id=$id\n") if $linecount <= 3;
+#		print "\n!!$BU$read$N\n" if $id eq "1803291104111173190";
 
 #		$peak{$peak}{print} .= "$chr\tNA\texon\t$begPeak\t$endPeak\t0\t$strand\t0\tgene_id \"$name\"; transcript_id \"$name\"\n" if $vals[$i] =~ /^[9]$/;
 
@@ -163,29 +168,29 @@ sub turn_into_gtf {
 		($beg, $end) = ($seqborder0 + $BEG, $seqborder0 + $BEG + 1);
 		my ($beg0, $end0) = (-1,-1);#$seqborder0,$seqborder1);
 		$minborder0 = $beg if $minborder0 eq -1 or $minborder0 > $beg;
-		my $print = "$CHR\tNA\texon\t$beg\t$end\t0\t$STRAND\t0\tgene_id \"$num\"; transcript_id \"$num\"\n";# if (keys %clust) == 0;
+		my $print = "$CHR\tNA\texon\t$beg\t$end\t0\t$STRAND\t0\tgene_id \"$id\"; transcript_id \"$id\"\n";# if (keys %clust) == 0;
 		for (my $i = $seqborder0; $i < $seqborder1; $i++) {
 			my $val = $vals[$i];
 			($beg, $end) = ($BEG+$i, $BEG+$i+1);
 			$beg0 = $beg if $val =~ /[89]/ and $beg0 eq -1;
 			$end0 = $end if $val =~ /[89]/;
-			$print .= "$CHR\tNA\texon\t$beg\t$end\t0\t$STRAND\t0\tgene_id \"$num\"; transcript_id \"$num\"\n" if $val =~ /[89]/;
-#			$print .= "$CHR\tNA\tCDS\t$beg\t$end\t0\t$STRAND\t0\tgene_id \"$num\"; transcript_id \"$num\"\n" if $val =~ /[67]/ if (keys %clust) == 0;
-		#	print $out "$CHR\tNA\t5UTR\t$beg\t$end\t0\t$STRAND\t0\tgene_id \"$num\"; transcript_id \"$num\"\n" if $val =~ /[45]/;
+			$print .= "$CHR\tNA\texon\t$beg\t$end\t0\t$STRAND\t0\tgene_id \"$id\"; transcript_id \"$id\"\n" if $val =~ /[89]/;
+#			$print .= "$CHR\tNA\tCDS\t$beg\t$end\t0\t$STRAND\t0\tgene_id \"$id\"; transcript_id \"$id\"\n" if $val =~ /[67]/ if (keys %clust) == 0;
+		#	print $out "$CHR\tNA\t5UTR\t$beg\t$end\t0\t$STRAND\t0\tgene_id \"$id\"; transcript_id \"$id\"\n" if $val =~ /[45]/;
 		}
 		($beg, $end) = ($seqborder1 + $BEG, $seqborder1 + $BEG + 1);
 		$maxborder0 = $end if $maxborder0 eq -1 or $maxborder0 < $end;
 #		print "BEG=$BEG, END=$END, maxborder = $maxborder0, end=$end\n" if $linecount % 100 == 0;
 		my $mid0 = int(($beg0+$end0)/2);
-		$print .= "$CHR\tNA\texon\t$beg\t$end\t0\t$STRAND\t0\tgene_id \"$num\"; transcript_id \"$num\"\n";# if (keys %clust) == 0;
+		$print .= "$CHR\tNA\texon\t$beg\t$end\t0\t$STRAND\t0\tgene_id \"$id\"; transcript_id \"$id\"\n";# if (keys %clust) == 0;
 		if ((keys %clust) == 0) {
 			$peak{$mid0}{$beg}{$end}{$read}{print} = $print;
-			$peak{$mid0}{$beg}{$end}{$read}{num} = $num;
+			$peak{$mid0}{$beg}{$end}{$read}{id} = $id;
 		}
 		else {
-			my $y = $clust{$num}; die "Undef y atnum=$num\n" if not defined $y;
+			my $y = $clust{$id}; die "Undef y atid=$id\n" if not defined $y;
 			push(@{$peak{$y}{print}}, $print);
-			push(@{$peak{$y}{num}}, $num);
+			push(@{$peak{$y}{id}}, $id);
 #			push(@{$peak{$y}{end}}, $seqborder1 + $BEG + $y);
 		}
 	}
@@ -196,17 +201,17 @@ sub turn_into_gtf {
 	if ((keys %clust) != 0) {
 		foreach my $y (sort {$a <=> $b} keys %peak) {
 			my $printarr = $peak{$y}{print}; die "died at y=$y not defined arr\n" if not defined $printarr;
-			my $numarr = $peak{$y}{num}; die "died at y=$y not defined arr\n" if not defined $numarr;
+			my $idarr = $peak{$y}{id}; die "died at y=$y not defined arr\n" if not defined $idarr;
 #			my $endarr = $peak{$y}{end}; die "died at y=$y not defined arr\n" if not defined $endarr;
 			for (my $i = 0; $i < @{$printarr}; $i++) {
 				my $print = $printarr->[$i];
-				my $num = $numarr->[$i];
+				my $id = $idarr->[$i];
 				my $end0 = $maxborder0 + $y; #+ $BEG;
 				my $end1 = $end0 + 1;
-#				print "end0=$end0 = maxborder0=$maxborder0 + BEG=$BEG = y=$y\n" if $i % 100 == 0;#if $num eq "113867" and $gene eq "RPS24" and $STRAND eq "+" and $label eq "PCB7";#output =~ PCB7_geneRPS24_Pos_20_0.35_CH.PEAK";
-				print $out "$CHR\tNA\texon\t$minborder0\t$minborder0\t0\t$STRAND\t0\tgene_id \"$num\"; transcript_id \"$num\"\n";
+#				print "end0=$end0 = maxborder0=$maxborder0 + BEG=$BEG = y=$y\n" if $i % 100 == 0;#if $id eq "113867" and $gene eq "RPS24" and $STRAND eq "+" and $label eq "PCB7";#output =~ PCB7_geneRPS24_Pos_20_0.35_CH.PEAK";
+				print $out "$CHR\tNA\texon\t$minborder0\t$minborder0\t0\t$STRAND\t0\tgene_id \"$id\"; transcript_id \"$id\"\n";
 				print $out "$print";
-				print $out "$CHR\tNA\texon\t$end0\t$end1\t0\t$STRAND\t0\tgene_id \"$num\"; transcript_id \"$num\"\n";
+				print $out "$CHR\tNA\texon\t$end0\t$end1\t0\t$STRAND\t0\tgene_id \"$id\"; transcript_id \"$id\"\n";
 			}
 		}
 	}
@@ -216,12 +221,12 @@ sub turn_into_gtf {
 				foreach my $end (sort {$a <=> $b} keys %{$peak{$mid}{$beg}}) {
 					foreach my $read (sort keys %{$peak{$mid}{$beg}{$end}}) {
 						my $print = $peak{$mid}{$beg}{$end}{$read}{print};
-						my $num = $peak{$mid}{$beg}{$end}{$read}{num};
+						my $id = $peak{$mid}{$beg}{$end}{$read}{id};
 						my $currpos = $linecount < 500 ? $pos : int($END + ($pos-$END)/$linecount*500);
-						#die "currpos = liencount=$linecount < 500 ? pos=$pos or END=$END + (pos=$pos - END=$END) / lnecount=$linecount * 500)\n" if $num eq "113867" and $outName eq "PCB7_geneRPS24_Pos_20_0.35_CH.PEAK";
-						print $out "$CHR\tNA\texon\t$minborder0\t$minborder0\t0\t$STRAND\t0\tgene_id \"$num\"; transcript_id \"$num\"\n";
+						#die "currpos = liencount=$linecount < 500 ? pos=$pos or END=$END + (pos=$pos - END=$END) / lnecount=$linecount * 500)\n" if $id eq "113867" and $outName eq "PCB7_geneRPS24_Pos_20_0.35_CH.PEAK";
+						print $out "$CHR\tNA\texon\t$minborder0\t$minborder0\t0\t$STRAND\t0\tgene_id \"$id\"; transcript_id \"$id\"\n";
 						print $out "$print";
-						print $out "$CHR\tNA\texon\t$currpos\t$currpos\t0\t$STRAND\t0\tgene_id \"$num\"; transcript_id \"$num\"\n";
+						print $out "$CHR\tNA\texon\t$currpos\t$currpos\t0\t$STRAND\t0\tgene_id \"$id\"; transcript_id \"$id\"\n";
 						$pos ++;
 					}
 				}

@@ -111,7 +111,7 @@ while (my $line = <$in1>) {
 	my @arr = split("\t", $line);
 	next if @arr < 6;
 	$linecount ++;
-	print date() . "\t$0: Parsed $LGN$linecount$N / $LCY$total_read$N\n" if $linecount % 50 == 0;
+	LOG($outLog, date() . "\t$0: Parsed $LGN$linecount$N / $LCY$total_read$N\n","NA") if $linecount % 50 == 0;
 	my ($read, $strand, $chr, $pos, $mapq, $cigar, $junk1, $junk2, $junk3, $seqs, $qual, $junk4, $junk5, $converted, @others) = @arr;
 	$chr = uc($chr);
 	my $others = join("\t", @others); $others = @others == 0 ? "" : "\t$others";
