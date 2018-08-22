@@ -449,6 +449,7 @@ sub fix_samFile {
 			LOG($outLog, "\tfootLoop.pl subroutine fix_samFile::$LGN SUCCESS!!$N fixed sam file $LCY$origDir/$samFileName.fixed$N exists (MD5=$LGN$samMD5$N) and total row $LGN($samLineCount2)$N >= total samFile row $LGN($samLineCount1 - 500)$N ($LCY$samFile$N)!\n") if $checkSam == 1;
 		}
 	}
+
 	if ($checkSam == 0) {
 		LOG($outLog, "\tfootLoop.pl subroutine fix_samFile:: fixed sam file $LCY$origDir/$samFileName.fixed$N or .gz does not exist!\n");
 		LOG($outLog, "\t${YW}footLoop_2fixsam.pl -n $outDir -s $seqFile -o $origDir$N\n");
@@ -595,7 +596,7 @@ sub log_samFile {
 		}
 		my ($CT0, $CC0, $GA0, $GG0, $CT1, $CC1, $GA1, $GG1) = split(",", $info);
 	#	my $oldStrand = $SEQ->{$genez}{read}{$read};
-		if ($type eq "6_BOTH") {
+		if ($type eq "6_BOTH" or $type eq "3_NONE") {
 			print {$SEQ->{$genez}{outTXTUnk}} "$read\tBP\t$pos\n" if $strand eq 0;
 			print {$SEQ->{$genez}{outTXTUnk}} "$read\tBN\t$pos\n" if $strand eq 16;
 			$SEQ->{$genez}{unkpos} ++ if $strand == 0;
@@ -724,7 +725,7 @@ sub make_bismark_index {
 	}
 	$run_boolean = "" if $bismark_folder_exist == 0;
 	if ($bismark_folder_exist == 0) {
-#		die "bismark folder = $LCY$bismark_folder$N\n";
+#              die "bismark folder = $LCY$bismark_folder$N\n";
 		LOG($outLog, "\tEither bismark folder didn't exist or older bisulfite genome found but$LRD different$N (md5sum old = $CY$md5sum$N, new = $CY$md5sum2)$N\n") if defined $md5sum;
 		system($cmd) == 0 or die "Failed to run bismark genome preparation: $!\n";
 	}
