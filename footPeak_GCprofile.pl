@@ -181,10 +181,10 @@ foreach my $bedFile (sort @bedFiles) {
 
 LOG($outLog, "\n\n" . date() . "2. Calculating Sequence profile (might take a couple minutes)\n\n");
 if (not defined ($opt_S)) {
-	if (not defined $opt_F) {
-		print "Re running all sequence profile? (${LCY}ENTER$N to continue,$YW CTRL+c$N to cancel)\nuse -F to disable this\n\n";
-		<STDIN>;
-	}
+	#if (not defined $opt_F) {
+		#print "Re running all sequence profile? (${LCY}ENTER$N to continue,$YW CTRL+c$N to cancel)\nuse -F to disable this\n\n";
+		#<STDIN>;
+	#}
 	print "run_script_in_paralel2.pl \"fastaFromBed -fi $genomeFile -bed FILENAME -fo FILENAME.fa -s -name\" $resDir/.TEMP/ \"_[ABCDEFW].temp\" 1 > $resDir/.TEMP/fastaFromBed.LOG 2>&1\n";
 	system("run_script_in_paralel2.pl \"fastaFromBed -fi $genomeFile -bed FILENAME -fo FILENAME.fa -s -name\" $resDir/.TEMP/ \"_[ABCDEFW].temp\" 1 > $resDir/.TEMP/fastaFromBed.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run fastaFromBed: $!\n");
 	print "run_script_in_paralel2.pl \"rename.pl FILENAME PCB .PCB\" $resDir/.TEMP/ temp 1  > $resDir/.TEMP/rename.LOG 2>&1\n";
@@ -601,12 +601,12 @@ sub preprocess_bed {
 
 	print "bedtools_bed_change.pl -a -x -$window2 -y 0 -i $bedFileChanged -o $outputA > $outputA.LOG 2>&1\n";
 	system("bedtools_bed_change.pl -a -x -$window2 -y 0 -i $bedFileChanged -o $outputA > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-	system("bedtools_bed_change.pl -a -x -$window -y $window -i $bedFileChanged -o $outputB > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-	system("bedtools_bed_change.pl -a -x 0 -y $window2 -i $bedFileChanged -o $outputC > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-	system("bedtools_bed_change.pl -x 0 -y 0 -i $bedFileChanged -o $outputW > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-	system("bedtools_bed_change.pl -b -x -$window2 -y 0 -i $bedFileChanged -o $outputD > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-	system("bedtools_bed_change.pl -b -x -$window -y $window -i $bedFileChanged -o $outputE > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-	system("bedtools_bed_change.pl -b -x 0 -y $window2 -i $bedFileChanged -o $outputF > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	system("bedtools_bed_change.pl -a -x -$window -y $window -i $bedFileChanged -o $outputB > $outputB.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	system("bedtools_bed_change.pl -a -x 0 -y $window2 -i $bedFileChanged -o $outputC > $outputC.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	system("bedtools_bed_change.pl -x 0 -y 0 -i $bedFileChanged -o $outputW > $outputW.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	system("bedtools_bed_change.pl -b -x -$window2 -y 0 -i $bedFileChanged -o $outputD > $outputD.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	system("bedtools_bed_change.pl -b -x -$window -y $window -i $bedFileChanged -o $outputE > $outputE.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	system("bedtools_bed_change.pl -b -x 0 -y $window2 -i $bedFileChanged -o $outputF > $outputF.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
 }
 
 
