@@ -1504,7 +1504,7 @@ dev.off()
 # PDF all Conv
 currheight = 31.25 * myscale / $PDFSCALE
 currwidth = totalwidth / $PDFSCALE
-pdfout_nopk_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.c_conv.pdf\"
+pdfout_nopk_all_c_conv = \"$pdfoutFolder/$pdfoutFilename.c_conv.pdf\"
 pdf(pdfout_nopk_all_c_conv,width=currwidth,height=currheight)
 grid.arrange(p2.rand.subsample.pdf)
 dev.off()
