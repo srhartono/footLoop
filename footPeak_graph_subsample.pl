@@ -363,8 +363,8 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 		my $runPDF = $Rscripts{$outRscriptPNG}{runPDF};
 		my $runType = $Rscripts{$outRscriptPNG}{runType};
 		my $outRscriptPDF = $outRscriptPNG; 
-			$outRscriptPDF =~ s/PNG.R$/PDF.R/;
-			$outRscriptPDF =~ s/PNG_nopk_ALL.R$/PDF_nopk_ALL.R/;
+			$outRscriptPDF =~ s/PNG.$subsample.R$/PDF.$subsample.R/g;
+			$outRscriptPDF =~ s/PNG_nopk_ALL.$subsample.R$/PDF_nopk_ALL.$subsample.R/g;
 		LOG($outLog, date() . " $LCY Skipped $outRscriptPNG$N (requested gene is $LGN$opt_g$N\n") and next if defined $opt_g and $outRscriptPNG !~ /$opt_g/;
 		$fileCount ++;
 		my $RLOG = 0;
