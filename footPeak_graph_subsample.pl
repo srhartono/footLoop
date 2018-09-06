@@ -305,6 +305,7 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 				# Read Table
 				$Rscript .= $R->{readTable};
 				if (-e $curr_cluster_file and -s $curr_cluster_file > 0 and $currFile !~ /\.NOPK\./) {
+					LOG($outLog, "\n\n$LRD CLUSTER $N\n\n");
 					$Rscript .= $R->{clusterFile};
 				} 
 				else {
@@ -543,13 +544,14 @@ if (df.total > $subsample) {
 }
 
 # sorting by hclust
-if (dim(df.rand.subsample)[1] < 1000) {
-	h = hclust(dist(df.rand.subsample[,-1]))
-	df.rand.subsample = df.rand.subsample[h\$order,]
-} else if (dim(df.rand.subsample)[2] < 10) {
-	mysum = apply(df.rand.subsample[,-1],1,sum)
-	df.rand.subsample = df.rand.subsample[order(mysum),]
-}
+#if (dim(df.rand.subsample)[1] < 1000) {
+#	h = hclust(dist(df.rand.subsample[,-1]))
+#	df.rand.subsample = df.rand.subsample[h\$order,]
+#} else if (dim(df.rand.subsample)[2] < 10) {
+#	mysum = apply(df.rand.subsample[,-1],1,sum)
+#	df.rand.subsample = df.rand.subsample[order(mysum),]
+#}
+df.rand.subsample = df.rand.subsample[order(df.rand.subsample\$y),]
 df.rand.subsample\$y = seq(1,dim(df.rand.subsample)[1])
 
 #write.table(df,file=\"$resDir/.CALL/$currFilename.out.rand\",quote=F,row.names=F,col.names=F,sep=\"\\t\")
@@ -769,9 +771,7 @@ df3\$value = as.factor(df3\$value)
 clust = subset(clust,select=c(\"id\",\"y\"))
 df = merge(df,clust,by=\"id\")
 df = subset(df,select=-id)
-";
 
-=comment
 df3\$x = as.numeric(as.character(df3\$x))
 df3\$y = as.numeric(as.character(df3\$y))
 df3\$value  = as.numeric(as.character(df3\$value))
@@ -861,14 +861,22 @@ p3.pdf = ggplot(df3,aes(x,y)) +
 	#theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank())
 
 ";
-=cut
 
 # -------------------- $R->{noclusterFile}
 	$R->{noclusterFile} = " 
 
 ##########################
 # Cluster: NO CLUSTER
-df\$y = seq(1,dim(df)[1])\ndf=subset(df,select=-id)
+# sorting by hclust
+df=subset(df,select=-id)
+if (dim(df)[1] < 1000) {
+	h = hclust(dist(df[,-1]))
+	df = df[h\$order,]
+} else if (dim(df)[2] < 10) {
+	mysum = apply(df[,-1],1,sum)
+	df = df[order(mysum),]
+}
+df\$y = seq(1,dim(df)[1])
 
 ";
 
