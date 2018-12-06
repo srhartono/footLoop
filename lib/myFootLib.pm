@@ -92,6 +92,28 @@ $LPR
 
 
 #################################
+
+sub get_pcb_readname {
+	my ($outLog) = @_;
+	my %data;
+	LOG($outLog, "\n\n$0::get_pcb_readname\n\n") if defined $outLog;
+	LOG($outLog, date() . "\ncurl https://s3-us-west-1.amazonaws.com/muhucsc/pcb_readname.tsv\n\n") if defined $outLog;
+	my @line = `curl https://s3-us-west-1.amazonaws.com/muhucsc/pcb_readname.tsv 2>&1`;
+	foreach my $line (@line) {
+		next if $line !~ /^PCB/;
+		my ($PCB, $readName) = split("\t", $line);
+		my ($id1a, $id1b) = $readName =~ /^.*m(\d+)_(\d+)_\d+/;
+		DIELOG($outLog, "Failed to parse id1/2/3 from readName=$LCY$readName$N\n") if (not defined $id1a or not defined $id1b) and defined $outLog;
+		die "Failed to parse id from readName=$LCY$readName$N\n" if (not defined $id1a or not defined $id1b) and not defined $outLog;
+		my $id1 = $id1a . $id1b;
+		my $id = "$id1"; $id =~ s/_//g;
+		LOG($outLog, date() . "$0::get_pcb_readname: $PCB\t$id\n","NA") if defined $outLog;
+		$data{readName}{$id} = $PCB;
+		$data{PCB}{$PCB} = $id;
+	}
+	LOG($outLog, date() . "$0::get_pcb_readname: Parsed $LGN" . scalar(keys %{$data{PCB}}) . "$N PCBs from pcb_readname.tsv\n") if defined $outLog;
+	return \%data;
+}
 sub parse_readName_from_fastq {
 	my ($fastqFile, $outLog) = @_;
 	my %name;
@@ -124,7 +146,7 @@ sub parse_readName {
 	DIELOG($outLog, "readName not defined!\n") if defined $outLog and not defined $readName;
 	die "readName not defined!\n" if not defined $outLog and not defined $readName;
 	return -1 if not defined $readName;
-	my ($id1a, $id1b, $id2, $id3) = $readName =~ /^.*m(\d+)_(\d+)_\d+_c\w+_\w+_\w+\/(\d+)\/(ccs|\d+_\d+)/;
+	my ($id1a, $id1b, $junk, $id2, $id3) = $readName =~ /^.*m(\d+)_(\d+)_\d+(_c\w+_\w+_\w+)?\/(\d+)\/(ccs|\d+_\d+)/;
 	$id3 = (not defined $id3) ? 0 : $id3 eq "ccs" ? 0 : $id3;
 	DIELOG($outLog, "Failed to parse id1/2/3 from readName=$LCY$readName$N\n") if (not defined $id1a or not defined $id1b or not defined $id2 or not defined $id3) and defined $outLog;
 	my $id1 = $id1a . $id1b;
@@ -239,7 +261,8 @@ sub parse_indexFile {
 }
 
 sub parseName {
-	my ($filename) = @_;
+	my ($filename, @info) = @_;
+	$filename =~ s/\/+/\//g;
 	if ($filename =~ /\//) {
 		my @filename = split("/", $filename);
 		$filename = pop(@filename);
@@ -254,6 +277,11 @@ sub parseName {
 		print "Cannot parse label gene strand window thres type from filename=$LCY$filename$N\n\nMake sure that filename format is: (.+)_gene(.+)_(Pos|Neg|Unk)_(.+)_(.+)_(CH|CG|GH|GC)\n\n";
 		return -1;
 	}
+	$bc = "" if not defined $bc;
+	$plasmid = "" if not defined $plasmid;
+	$desc = "" if not defined $desc;
+	$pcb = "" if not defined $pcb;
+	$pcb = $label if not defined $pcb or $pcb eq "";
 	my @data = ($label, $gene, $strand, $window, $thres, $type, $bc, $plasmid, $desc, $pcb);
 	my %data = (
 		"label" => $label,
@@ -906,7 +934,7 @@ sub parse_footPeak_logFile {
 	my ($footPeak_logFile, $footPeak_Folder, $genewant, $outLog) = @_;
    my %coor;
    my @lines   = `cat $footPeak_logFile`;
-   LOG($outLog, " Parsing footpeak logfile $footPeak_logFile\n");
+   LOG($outLog, "$YW$0$N ::parse_footPeak_logFile: Parsing footpeak logfile $footPeak_logFile\n","NA");
    my ($label) = `cat $footPeak_Folder/.LABEL`; chomp($label);
    DIELOG($outLog, "\n\ndied at footPeak_graph.pl: can't find $footPeak_logFile!\n\n") if not -e $footPeak_logFile;
    DIELOG($outLog, "\n\ndied at footPeak_graph.pl: can't find $footPeak_Folder/.LABEL!\n\n") if not -e "$footPeak_Folder/.LABEL";
@@ -916,7 +944,7 @@ sub parse_footPeak_logFile {
       if ($line =~ /^[ \t]*def=.+, coor=.+/) {
          $line =~ s/(^\s+|\s+$)//g;
          my ($gene, $CHR, $BEG, $END, $GENE, $VAL, $STRAND) = $line =~ /^def=(.+), coor=(.+), (\d+), (\d+), (.+), (\-?\d+\.?\d*), ([\+\-])$/;
-         LOG($outLog, "gene=$gene,chr=$CHR,beg=$BEG,end=$END,gene=$GENE,val=$VAL,strand=$STRAND\n");
+         LOG($outLog, "gene=$LCY$gene$N,chr=$LCY$CHR$N,beg=$LCY$BEG$N,end=$LCY$END$N,gene=$LCY$GENE$N,val=$LCY$VAL$N,strand=$LCY$STRAND\n","NA");
          if (defined $genewant and $gene !~ /$genewant/i) {
             LOG($outLog, date() . " Skipped $LCY$gene$N as it doesn't contain $LGN-G $genewant$N\n");
             next;
