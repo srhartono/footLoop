@@ -147,6 +147,8 @@ sub parse_readName {
 	die "readName not defined!\n" if not defined $outLog and not defined $readName;
 	return -1 if not defined $readName;
 	my ($id1a, $id1b, $junk, $id2, $id3) = $readName =~ /^.*m(\d+)_(\d+)_\d+(_c\w+_\w+_\w+)?\/(\d+)\/(ccs|\d+_\d+)/;
+	   ($id1a, $id1b, $junk, $id2, $id3) = $readName =~ /^.*m(\d+)_(\d+)(_\w+)?\/(\d+)\/(ccs|\d+_\d+)/ if not defined $id1a;
+	   ($id1a, $id1b, $junk, $id2, $id3) = $readName =~ /^.*m(\d+)_(\d+)(_\w+)?\/(\d+)\/(ccs|\d+)/ if not defined $id1a;
 	$id3 = (not defined $id3) ? 0 : $id3 eq "ccs" ? 0 : $id3;
 	DIELOG($outLog, "Failed to parse id1/2/3 from readName=$LCY$readName$N\n") if (not defined $id1a or not defined $id1b or not defined $id2 or not defined $id3) and defined $outLog;
 	my $id1 = $id1a . $id1b;
