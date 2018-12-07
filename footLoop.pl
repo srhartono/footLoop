@@ -425,7 +425,7 @@ sub fix_samFile {
 	my $origDir = "$outDir/.0_orig_$samMD5/";
 	check_if_result_exist(["$origDir/.GOOD"], $outLog);
 	makedir("$origDir") if not -d "$origDir";
-	my $checkSam;
+	my $checkSam = 1;
 	my ($samFileName) = getFilename($samFile, "full");
 	my $samFileGZ = "$origDir/$samFileName.fixed.gz";
 	$checkSam = 0 if not -e "$origDir/$samFileName.fixed" and not -e "$origDir/$samFileName.fixed.gz";
@@ -484,7 +484,9 @@ sub parse_samFile {
 
 	LOG($outLog, "\ta. Parsing sam file $CY$samFile$N and getting only high quality reads\n");
 	open(my $notused, ">", "$outDir/.$readFilename.notused") or LOG($outLog, "Cannot open $outDir/.$readFilename.notused: $!\n") and exit 1;
-	open(my $sam, $samFile) or LOG($outLog, "$LRD!!!$N\tFATAL ERROR: Could not open $samFile: $!") and exit 1;
+	my $sam; 
+	open($sam, $samFile) or LOG($outLog, "$LRD!!!$N\tFATAL ERROR: Could not open $samFile: $!") and exit 1 if $samFile =~ /.sam$/;
+	open($sam, "samtools view $samFile|") or LOG($outLog, "$LRD!!!$N\tFATAL ERROR: Could not open $samFile: $!") and exit 1 if $samFile =~ /.bam$/;
 	
 	## Some stats
 	my $linecount   = 0;
@@ -740,8 +742,15 @@ sub run_bismark {
 	my ($readFile, $outDir, $mysam, $opt_F, $outReadLog, $outLog) = @_;
 	my $MAP = "";
 	LOG($outLog, "\n\tb. Running bismark\n");
+	my $bamFile = $mysam; 
+	$bamFile =~ s/.sam$/.bam/; $bamFile =~ s/.fq.gz_bismark_bt2/_bismark_bt2/;
+	my $ext = (-e $bamFile and not -e $mysam) ? "bam" : "sam";
+	$mysam = $bamFile if -e $bamFile and not -e $mysam;
+	
 	my ($mysamFilename) = getFilename($mysam, "full");
+	
 	my $run_boolean = "\n\t${LGN}WAS NOT RUN$N:${YW} ";
+
 	if (-e $mysam and not -e "$outDir/$mysamFilename") {
 		system("/bin/ln -s $mysam $outDir/$mysamFilename") == 0 or LOG($outLog, "Failed to /bin/ln $mysam $outDir/$mysamFilename: $!\n") and exit 1;
 	}
@@ -767,8 +776,8 @@ sub run_bismark {
 			print "####### SPLITRESULT LOG #######\n\n\t  Running bismark in paralel!\n";
 			my $result = system("run_script_in_paralel2.pl -v \"srun -p high --mem 8000 bismark -o $outDir/.bismark_paralel/ $bismarkOpt $bismark_folder FILENAME >> FILENAME.bismark.log 2>&1\" $outFolder .part 20");
 			LOG($outReadLog, "footLoop.pl,run_bismark,\"run_script_in_paralel2.pl -v \\\"srun -p high --mem 8000 bismark -o $outDir/.bismark_paralel/ $bismarkOpt $bismark_folder FILENAME >> FILENAME.bismark.log 2>&1\\\" $outFolder .part 20");
-			my @partSam = <$outFolder/*.part_bismark*.sam>; my $totalPartSam = @partSam;
-			LOG($outLog, "\t  All part.sam has been made (total = $totalPartSam). Now making $CY$mysam$N and then removing the part sam\n");
+			my @partSam = <$outFolder/*.part_bismark*.$ext>; my $totalPartSam = @partSam;
+			LOG($outLog, "\t  All part.$ext has been made (total = $totalPartSam). Now making $CY$mysam$N and then removing the part sam\n");
 			my @HEADER; my @REPORT;
 			for (my $p = 0; $p < @partSam; $p++) {
 				my $partSam = $partSam[$p];
@@ -777,8 +786,13 @@ sub run_bismark {
 				system("cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >> $mysam") == 0 or die "Failed to cat $partSam: $!\n" if $p != 0;
 				LOG($outReadLog, "footLoop.pl,run_bismark,cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >  $mysam") if $p == 0;
 				LOG($outReadLog, "footLoop.pl,run_bismark,cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >> $mysam") if $p != 0;
-				my ($bismark_report) = $partSam =~ /^(.+).sam/; $bismark_report .= "_SE_report.txt";
-				my ($header, $report) = parse_bismark_report($bismark_report);
+				my ($bismark_report) = $partSam . "_SE_report.txt";
+				if (not -e $bismark_report) {
+					($bismark_report) =~ /^(.+).$ext/;
+					$bismark_report .= "_SE_report.txt";
+				}
+
+				my ($header, $report) = parse_bismark_report($bismark_report, $outLog);
 				my @header = @{$header};
 				my @report = @{$report};
 				@HEADER = @header if $p == 0;
@@ -811,16 +825,15 @@ sub run_bismark {
 				LOG($outReadLog, "footLoop.pl,bismark,bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1");
 			}
 			LOG($outLog, "\t${GN}SUCCESS$N: Output $mysam\n");
-			my ($bismark_report) = "$mysam" =~ /^(.+).sam/; $bismark_report .= "_SE_report.txt";
-			my ($header, $report, $MAPTEMP) = parse_bismark_report($bismark_report);
+			my ($bismark_report) = "$mysam" =~ /^(.+).$ext/; $bismark_report .= "_SE_report.txt";
+			my ($header, $report, $MAPTEMP) = parse_bismark_report($bismark_report, $outLog);
 			$MAP = $MAPTEMP;
 		}
 	}
 	else {
-		print "A\n";
 		LOG($outLog, "\t${GN}SUCCESS$N: Output already exist: $CY$mysam$N\n");
-		my ($bismark_report) = "$mysam" =~ /^(.+).sam/; $bismark_report .= "_SE_report.txt";
-		my ($header, $report, $MAPTEMP) = parse_bismark_report($bismark_report);
+		my ($bismark_report) = "$mysam" =~ /^(.+).$ext/; $bismark_report .= "_SE_report.txt";
+		my ($header, $report, $MAPTEMP) = parse_bismark_report($bismark_report, $outLog);
 		$MAP = $MAPTEMP;
 	}
 	LOG($outLog, "${run_boolean}::: bismark $bismarkOpt $bismark_folder $readFile :::$N\n");
@@ -833,8 +846,8 @@ sub run_bismark {
 }
 
 sub parse_bismark_report {
-	my ($bismark_report_file) = @_;
-	open (my $inz, "<", $bismark_report_file) or LOG($outLog, "Failed to read from $LCY$bismark_report_file$N: $!\n") and die;
+	my ($bismark_report_file, $outLog) = @_;
+	open (my $inz, "<", $bismark_report_file) or DIELOG($outLog, "Failed to read from $LCY$bismark_report_file$N: $!\n");
 	my @report; my @header;
 	while (my $line = <$inz>) {
 		chomp($line);
@@ -1040,8 +1053,11 @@ sub sanityCheck {
 
 	my ($usageshort, $usage, $usagelong) = getUsage();
 	my $checkopts = 0;
-	foreach my $key (sort keys %{$opts}) {
-		$checkopts ++ if defined $opts->{$key};
+	if (defined $opts) {
+		my %opts = %{$opts};
+		foreach my $key (sort keys %opts) {
+			$checkopts ++ if defined $opts{$key};
+		}
 	}
 	die "\n$usageshort\n" if $checkopts == 0;
 	die "\n$usage\n"      if defined $opt_h;
@@ -1055,7 +1071,11 @@ sub sanityCheck {
 
 
 	$errors .= "-n $LGN<output directory>$N is not defined.\n" if not defined($opt_n);
-	my $message = ""; $message = `mkdir $opt_n 2>&1` if not -d $opt_n; chomp($message);
+	my $message = "";
+	if (defined $opt_n and not -d $opt_n) {
+		$message = `mkdir $opt_n 2>&1`;
+		chomp($message);
+	}
 	$errors .= "-n $LGN<output directory>$N is defined ($YW$opt_n$N) but folder does not exist and cannot be created.\n   -> mkdir $YW$opt_n$N returned $LCY$message$N.\n" if defined $opt_n and not -d $opt_n;
 	$errors .= "-L $LGN<min read length (<integer>:in bp; <integer>p:% amplicon>$N must be positive integer!\n" if defined($opt_L) and ($opt_L =~ /^0+\.?0*[p]?$/ or $opt_L !~ /^\d+[p]?$/);
 
