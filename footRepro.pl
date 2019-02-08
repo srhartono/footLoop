@@ -764,6 +764,8 @@ ggplot(df.orig,aes(as.factor(cluster),mean)) + geom_bar(aes(fill=sample),stat=\"
 	ggtitle(\"$clustFilename $flag\\nPercent Reads in each Cluster\\n(total samples=$totalsample, total clusters=$totalclust)\") +
 	coord_cartesian(ylim=c(0,100)) + xlab(\"Cluster\") + ylab(\"Percent\")
 
+write.table(origcor,file=\"$resDir/$clustFilename.$flag.repro.COR\",sep=\"\\t\",col.names=T,row.names=T,quote=F)
+options(width=200)
 print(origcor)
 ";
 	return $Rscript;
