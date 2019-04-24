@@ -1,10 +1,13 @@
 FootLoop method
 
-##0. Download/Install
+
+# 1. USAGE
+
+## 1A. Download/Install
 
 `git clone https://github.com/srhartono`
 
-##1. Mapping (footLoop.pl)
+## 1B. Mapping (footLoop.pl)
 
 ```
 footLoop.pl -r <read.fastq> -n <output directory> -l <label> -i <index.bed6> -g <genome fasta>
@@ -21,7 +24,7 @@ Options (default are in [ ] brackets)
 -F toggle to redo bismark mapping even if a .sam/.bam file is present in output_dir. [off]
 ```
 
-##2. Peak calling (footPeak.pl)
+## 1C. Peak calling (footPeak.pl)
 
 
 ```
@@ -34,7 +37,7 @@ Options:
 -G: only process this gene, e.g. -G CALM3. [off]
 ```
 
-##3. Clustering (footClust.pl)
+## 1D. Clustering (footClust.pl)
 
 
 ```
@@ -46,7 +49,7 @@ Options:
 -G: only process this gene, e.g. -G CALM3. [off]
 ```
 
-##4. Graphing (footPeak_graph.pl)
+## 1E. Graphing (footPeak_graph.pl)
 
 
 ```
@@ -64,7 +67,8 @@ Options:
    -R 2: run ALL R scripts
 -G: only process this gene, e.g. -G CALM3. [off]
 ```
-#5. Creating GTF for UCSC (footPeakGTF.pl)
+
+## 1F. Creating GTF for UCSC (footPeakGTF.pl)
 
 ```
 footPeakGTF.pl -n <footPeak output directory>
@@ -73,7 +77,7 @@ Options:
 -G: only process this gene, e.g. -G CALM3. [off]
 ```
 
-##EXTRA 1: Calculating GC Profile (footPeak_GCprofile.pl)
+## 1G. Calculating GC Profile (footPeak_GCprofile.pl)
 
 
 ```
@@ -84,7 +88,7 @@ Options:
 ```
 
 
-##EXTRA 2: Reproducibility (footRepro.pl)
+## 1H. Reproducibility (footRepro.pl)
 
 
 ```
@@ -105,13 +109,13 @@ Options:
 ```
 
 
-# Detailed Explanation
+# 2. Detailed Explanation
 
-##1. Mapping
+## 2A. Mapping
 
 Reads were mapped using Bismark v0.2.0 (Krueger and Andrews, 2011) to their respective amplicon regions, buffered by 10bp off their beginning and ends. We used bismark default setting with slightly relaxed minimum score threshold (--score_min of L,0,-0.3 instead of L,0,-0.2), as our data contains much more cytosine conversions in all contexts (CHH, CHG, and CpG, especially in non-promoter regions), whereas most Cytosine conversions in an average methylation sequencing experiment will only come from unmethylated CpGs. Nevertheless, even with relaxed mapping threshold, there is virtually nonexistent risk of misalignment as not only the read length is high quality and very long (~2kb), these reads were mapped to their own amplicon regions, and there were very little sequences in common between these regions. Furthermore, to ensure high quality read, we only keep reads which length are 95% of their respective amplicon lengths.
 
-##2. Strand Assignment
+## 2B. Strand Assignment
 
 For each read, we assign strand based on their conversion types as follows:
 1.	We excluded regions that are very GC poor (C < 6 and G < 6) and regions with very few conversions (C->T < 6 and G->A < 6).
@@ -119,16 +123,16 @@ For each read, we assign strand based on their conversion types as follows:
 3.	Otherwise, reads with more C to T conversions were assigned as non-template/R-loop forming strand, and regions with more G to A conversions were assigned as template strand.
 Furthermore, regions with indels often create false positives, as it contain higher amount of mismatched nucleotides adjacent to it. Therefore, to be more conservative, we masked up to 5bp around these regions and we treated these regions as “no data” in downstream calculation.
 
-##3. Peak Calling
+## 2C. Peak Calling
 
 For peak calling, we performed threshold-based sliding window method. Specifically, we calculated conversion percentage every 20 consecutive cytosines, and only those with at least 55% conversion were called as peak of at least 100 bp lengths. As a control, we measured the level of cytosine conversion in background and non-R-loop forming regions, as well as measuring the G conversions of each R-loop forming region.
 
-##4. Clustering
+## 2D. Clustering
 
 For each gene, R-loop peaks were clustered using their start and stop coordinates using k-means clustering. K was determined automatically by minimizing intra-cluster differences, iterating until minimum within-group distance of each clusters is at most 3.
 
 
-##5. Reproduciblity
+## 2E. Reproduciblity
 
 For each gene replicate, we quantified distribution of reads in each cluster. These distributions were used to measure Pearson correlation coefficient between each replicates. As control, we shuffled the position of each read around the amplicon region and used its position to determine its cluster. A shuffled read is considered to be inside a specific cluster if their start and end positions fall between +/- 100bp of mean start and end of all reads in that cluster. All reads that weren’t inside any specific cluster were put in an extra cluster. Then we calculated Pearson correlation coefficient in the same manner as described above.
 
