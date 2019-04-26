@@ -1,22 +1,80 @@
 #!/usr/bin/perl
 
-use strict; use warnings; use mitochy; use Getopt::Std; use FAlite;
+use strict; use warnings; use Getopt::Std; use File::Basename qw(dirname); use Cwd qw(abs_path);
 use vars qw($opt_v $opt_b $opt_i $opt_d $opt_x);
 getopts("vb:i:d:x");
-my $usage = "\nUsage: $YW$0$N ${LGN}[-x: Dry run]$N $CY-i <input1>$N $LPR-b <barcode.csv>$N\nOptional: -d <name for debug e.g. 203>\n";
+
+BEGIN {
+   my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
+   push(@INC, $libPath);
+}
+use myFootLib; use FAlite; use footPeakAddon;
+use feature 'say';
+
+my $homedir = $ENV{"HOME"};
+my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
+my @version = `cd $footLoopScriptsFolder && git log | head `;
+my $version = "UNKNOWN";
+foreach my $line (@version[0..@version-1]) {
+   if ($line =~ /^\s+V\d+\.?\d*\w*\s*/) {
+      ($version) = $line =~ /^\s+(V\d+\.?\d*\w*)\s*/;
+   }
+}
+if (not defined $version or (defined $version and $version eq "UNKNOWN")) {
+   ($version) = `cd $footLoopScriptsFolder && git log | head -n 1`;
+}
+
+my $PCB11_barcode = "/home/mitochi/pacbio_indexes/PCB11_barcode.tsv";
+my $PCB13_barcode = "/home/mitochi/pacbio_indexes/PCB13_barcode.tsv";
+my $PCB14_barcode = "/home/mitochi/pacbio_indexes/PCB14_barcode.tsv";
+my $PCB15_barcode = "/home/mitochi/pacbio_indexes/PCB15_barcode.tsv";
+my $PCB19_barcode = "/home/mitochi/pacbio_indexes/PCB19_barcode.tsv";
+my $PCB20_barcode = "/home/mitochi/pacbio_indexes/PCB20_barcode.tsv";
+
+my $usage = "
+Usage: $YW$0$N ${LGN}[-x: Dry run]$N $CY-i <input1>$N $LPR-b <barcode.csv>$N
+
+Optional: -d <name for debug e.g. 203>
+
+Barcode:
+-b 11: /home/mitochi/pacbio_indexes/PCB11_barcode.tsv (${YW}7bcc3c042b13879d08dfd3a099baf31f$N)
+-b 13: /home/mitochi/pacbio_indexes/PCB13_barcode.tsv (${YW}e791d5c6a82dd24712dd6cdb5a2e134d$N)
+-b 14: /home/mitochi/pacbio_indexes/PCB14_barcode.tsv (${YW}c733dbb565241dee3fcd80a2d4a5d9c4$N)
+-b 15: /home/mitochi/pacbio_indexes/PCB15_barcode.tsv (${YW}2dd05fae4ba9d9f65a44cab988390e10$N)
+-b 19: /home/mitochi/pacbio_indexes/PCB19_barcode.tsv (${YW}1498d98977ad1f12778b365f7011084a$N)
+-b 20: /home/mitochi/pacbio_indexes/PCB20_barcode.tsv (${YW}08260d5438fac57364863d3d6741dcf3$N)
+
+";
+
+my ($scriptFolder, $scriptName) = getFilename($0, "folderfull");
+print "\n---------------\n$YW$scriptName $version$N\n";
+print $usage  unless defined $opt_i and -e $opt_i and defined $opt_b;
+print $usage if not defined $opt_i or not defined $opt_b;
+print "$LRD ERROR$N -i not defined\n" if not defined $opt_i;
+print "$LRD ERROR$N -b not defined\n" if not defined $opt_b;
+
+die "$usage\n\nDoes not exist -b ${LPR}opt_b$N!\n" if not defined $opt_b;
+print "-b: $LPR$opt_b$N\n" if defined $opt_b;
+die "$usage\n\nDoes not exist -i $LCY$opt_i$N!\n" if defined $opt_i and not -e $opt_i;
+print "-i: $LCY$opt_i$N\n" if defined $opt_i;
+die "\n\n" if not defined $opt_x and (not defined $opt_i or not defined $opt_b or (defined $opt_i and not -e $opt_i));
+die "\n\n" if defined $opt_x and (not defined $opt_b);
+
+my $input1 = $opt_i;
 my $debugname = $opt_d;
 $debugname = "NA" if not defined $opt_d;
-my ($barcodeFile, $input1) = ($opt_b, $opt_i);
-print $usage if not defined $input1 or not defined $barcodeFile;
-print "$LRD ERROR$N -i not defined\n" if not defined $input1;
-print "$LRD ERROR$N -b not defined\n" if not defined $barcodeFile;
-die "$usage\n\nDoes not exist -b ${LPR}barcodeFile$N!\n" if defined $barcodeFile and not -e $barcodeFile;
-print "-b: $LPR$barcodeFile$N\n" if defined $barcodeFile;
-die "$usage\n\nDoes not exist -i $LCY$input1$N!\n" if defined $input1 and not -e $input1;
-print "-i: $LCY$input1$N\n" if defined $input1;
-die "\n\n" if not defined $opt_x and (not defined $input1 or not defined $barcodeFile or (defined $input1 and not -e $input1) or (defined $barcodeFile and not -e $barcodeFile));
-die "\n\n" if defined $opt_x and (not defined $barcodeFile or not -e $barcodeFile);
-
+my $barcodeFile = $opt_b;
+my @barcodeFiles = split(",", $barcodeFile);
+for (my $i = 0; $i < @barcodeFiles; $i++) {
+	$barcodeFiles[$i] =
+		$barcodeFiles[$i] eq 11 ? $PCB11_barcode :
+		$barcodeFiles[$i] eq 13 ? $PCB13_barcode :
+		$barcodeFiles[$i] eq 14 ? $PCB14_barcode :
+		$barcodeFiles[$i] eq 15 ? $PCB15_barcode :
+		$barcodeFiles[$i] eq 19 ? $PCB19_barcode :
+		$barcodeFiles[$i] eq 20 ? $PCB20_barcode : $barcodeFiles[$i];
+}
+#die join("\n", @barcodeFiles) . "\n\n";
 if (defined $opt_x and not defined $opt_i) {
 	system("touch dummy.temp") == 0 or die "Failed to create $LGN dummy.temp$N: $!\n";
 	$opt_i = "dummy.temp";
@@ -30,7 +88,7 @@ mkdir $dbfolder if not -d $dbfolder;
 open (my $outLog, ">", "$dbfolder/$inputName\_logfile.txt") or die "Cannot write to $dbfolder/logfile.txt: $!\n";
 # parse barcode
 my (%bc, %out);
-my @line = `cat $barcodeFile`; my $linecount = -1;
+my @line = `cat @barcodeFiles`; my $linecount = -1;
 print "\nOutput:\n";
 foreach my $line (@line[0..@line-1]) {
 	chomp($line);
@@ -75,7 +133,7 @@ foreach my $line (@line[0..@line-1]) {
 #	$bc =~ s/_$//g;
 #	$bc =~ s/^_//g;
 	#print "$bc\t$bcseq\n";
-	die "Multiple barcode name for the same barcode sequence (" . uc($bcseq) . ")\n" if defined $bc{uc($bcseq)};
+	die "\n${LRD}FATAL ERROR$N: Multiple barcode name for the same barcode sequence.\n$LCY" . $bc{uc($bcseq)}{bc} . "$N\ncurrent=$LPR$bc$N\nbarcode=$LGN" . uc($bcseq) . "$N)\n\n" if defined $bc{uc($bcseq)};
 	if (@arr == 2) {
 		$bc{uc($bcseq)}{target} = $target;
 		$bc{uc($bcseq)}{total} = 0;
@@ -104,7 +162,7 @@ if (defined $opt_x) {
 open (my $outnobc, ">", "$dbfolder/$inputName\_UNKNOWN.fastq") or die "Cannot write to $dbfolder/$inputName\_UNKNOWN.fastq: $!\n";
 my ($seq_nobc, $seq_dblbc, $seq_totbc, $readCount) = (0,0,0,0);
 my (%data, %bad, @len, $in1);
-my ($folder1, $fileName1) = mitochy::getFilename($input1, "folder");
+my ($folder1, $fileName1) = getFilename($input1, "folder");
 print "${LGN}1. -b $LCY$barcodeFile$N was parsed successfully!\n$N\n";
 # parse fastq
 my $isDir = -d $input1 ? "(is a directory!)" : -e $input1 ? "" : "($input1 does not exist!)";

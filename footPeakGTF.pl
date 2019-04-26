@@ -119,18 +119,15 @@ sub turn_into_gtf {
 		while (my $line = <$clustFileIn>) {
 			chomp($line); $linecount ++;
 			next if $line =~ /^id/;
-			my ($id2, $x, $xmax, $y, $ymax, $clust, $id) = split("\t", $line);
+			my ($id2, $x, $xmax, $y, $ymax, $clust, $clust2) = split("\t", $line);
+			my $id = $id2;
 			my $idcount = 0;
-			($id, $idcount) = $id =~ /^(.+)\.(\d+)$/;
+			($id, $idcount) = $id =~ /^(.+)(\d)$/;
+			$id = $id2;
 			my $idlen = $xmax - $x;
 			if (not defined $clustlen{$id} or (defined $clustlen{$id} and $clustlen{$id} < $idlen)) {
 				$clust{$id} = $total_line > 500 ? int($y/$total_line * 500) : $y;
 				$clustlen{$id} = $idlen;
-#				print "$LGN!!ID $LGN 1803291104111173190$N idcount $idcount is now y=$y len = $idlen\n" if $id =~ /1803291104111173190/;
-			}
-			else {
-#				print "$LGN!!ID $LGN 1803291104111173190$N idcount $idcount len $idlen y=$y is less than $clustlen{$id} y=$clust{$id}\n" if $id =~ /1803291104111173190/;
-
 			}
 		}
 		print "$LGN exist$N $clustFile!\n";

@@ -2,8 +2,8 @@
 # 5.1
 
 use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_N $opt_1 $opt_2 $opt_m $opt_i $opt_c $opt_n $opt_G $opt_v $opt_o); #$opt_G $opt_v $opt_n $opt_r $opt_R $opt_B $opt_c); #v $opt_x $opt_R $opt_c $opt_t $opt_n);
-getopts("cn:G:vo:N:1:2:i:m:");#vg:w:G:r:R:B:c");
+use vars qw($opt_N $opt_1 $opt_2 $opt_m $opt_i $opt_c $opt_n $opt_G $opt_v $opt_o); 
+getopts("cn:G:vo:N:1:2:i:m:");
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
@@ -42,11 +42,9 @@ with readID, 1, and 2 files:
 my ($min_read_in_cluster) = defined $opt_m ? $opt_m : 30;
 die "\nERROR: -n footPeak dir $LCY$opt_n$N doesn't exists!\n\nUsage: $YW$0$N -n <footPeak output directory>\n\n" if not -d $opt_n;
 $opt_o = $opt_n if not defined $opt_o;
-#die "\nERROR: -o output dir not defined!\n" if not defined $opt_o;
 
 my $resDir = $opt_o . "/FOOTREPRO/";
 makedir($resDir);
-#my $outLogFile = "$footPeakFolder/footPeak_repro_logFile.txt";
 my $outLogFile = "$resDir/footPeak_repro_logFile.txt";
 my ($currMainFolder) = `pwd`; chomp($currMainFolder);
 my ($user) = $homedir =~ /home\/(\w+)/;
@@ -73,93 +71,6 @@ if (defined $opt_1 or defined $opt_2 or defined $opt_i) {
 	@grp1 = split(",", $opt_1);
 	@grp2 = split(",", $opt_2);
 }
-=comment
-my ($readIDFile) = "$opt_n/.readID";
-$readIDFile = $opt_i if defined $opt_i;
-LOG($outLog, "\n\n-----------------\n${LPR}-1. Getting group1 (and group2) from $readIDFile$N\n");
-DIELOG($outLog, date() . "Cannot find readIDFile ($readIDFile)\n") if not -e $readIDFile;
-open (my $inID, $readIDFile) or DIELOG($outLog, "Cannot read from $readIDFile: $!\n");
-while (my $line = <$inID>) {
-	chomp($line);
-	$line =~ s/\t#.+//;
-	my ($readID, $num, $desc) = split("\t", $line);
-	$desc = "" if not defined $desc;
-	$read{id}{$num} = $readID;
-	$read{desc}{$num} = (not defined $desc) ? "" : $desc =~ /^#/ ? "" : $desc;
-	if (not defined $opt_1) {
-		push(@grp1, $num) if not grep(/^$num$/, @grp1);
-	}
-	LOG($outLog, "Parsed $readID\t$num\t$desc\n","NA");
-}
-
-close $inID;
-if (defined $opt_1 or @grp1 != 0) {
-	LOG($outLog, "Group 1:\n") if defined $opt_1;
-	foreach my $num (@grp1[0..@grp1-1]) {
-		my $number = $read{id}{$num};
-		my $desc   = $read{desc}{$num};
-		DIELOG($outLog, "\tGroup 1: Cannot find readID for number=$num\n") if not defined $number;
-		$read{1}{$number}{desc} = $desc;
-		$read{1}{$number}{num} = $num;
-		my $descprint = $desc eq "" ? " (No Description)" : " description=$desc";
-		LOG($outLog, "\t$num=$number$descprint\n");
-	}
-}
-if (defined $opt_2) {
-	LOG($outLog, "Group 2:\n");
-	foreach my $num (@grp2[0..@grp2-1]) {
-		my $number = $read{id}{$num};
-		my $desc   = $read{desc}{$num};
-		DIELOG($outLog, "\tGroup 2: Cannot find readID for number=$num\n") if not defined $number;
-		$read{2}{$number}{desc} = $desc;
-		$read{2}{$number}{num} = $num;
-		my $descprint = $desc eq "" ? " (No Description)" : " description=$desc";
-		LOG($outLog, "\t$num=$number$descprint\n");
-	}
-}
-=cut
-###0. GET READ NAMES
-=comment
-my %read;
-if (@ARGV != 0) {
-	my @fastqFolder = @ARGV;
-	foreach my $fastqFolder (@ARGV) {
-		my @fastq = (<$fastqFolder/*.f*q>,<$fastqFolder/*.f*q.gz>);
-		LOG($outLog, date() . "Parsing fastq files from $LPR$fastqFolder$N\n");
-		foreach my $fq (@fastq) {
-			my ($fqName) = getFilename($fq);
-			LOG($outLog, date() . "      - $LCY$fqName$N\n");
-			DIELOG($outLog, date() . " Fastq $LCY$fq$N does not exist!\n") if not -e $fq;
-			open (my $in, "zcat $fq|") or DIELOG($outLog, date() . "Failed to read from $fq: $!\n");
-			my $linecount = 0;
-			while (my $line = <$in>) {
-				chomp($line);
-				next if $line !~ /^\@m\d+/;
-				my ($num1, $num2, $num3, $num4) = $line =~ /^.*\@m?(\d+_\d+)_(.+)?\/(\d+)\/(ccs|\d+_\d+|.*)/;
-				if (not defined $num1) {
-				   ($num1, $num3) = $line =~ /^.*\@m?(\d+_\d+)\/(\d+)\//;
-					DIELOG($outLog, "Undefined mNNN_NNN and ZMW number at: $line\n") if not defined $num1;
-					$num2 = "NA";
-					$num4 = "ccs";
-				}
-				$num1 =~ s/_//g;
-				$num4 = $num4 eq "ccs" ? 0 : $num4; $num4 =~ s/_//g;
-				die "Undefined num2 at line = $line\n" if not defined $num3;
-				my $number = "$num1$num3$num4";
-				DIELOG($outLog, "fqfile name parse error at line=$line\n") if not defined $number;
-				$read{$number}{num1} = "$num1";
-				$read{$number}{num2} = "$num3";
-				($fqName) = $fqName =~ /.*PCB\d+_(bcBC\d+)_/ if $fqName =~ /.*PCB\d+_bcBC\d+_/;
-				($fqName) = $fqName =~ /.*(PCB\d+)/ if $fqName =~ /.*PCB\d+/ and $fqName !~ /.*PCB\d+_bcBC\d+_/;
-				$read{$number}{fq} = "$fqName";
-				print "\t$num1 $num3 $number\n" if $linecount < 2;
-				$linecount ++;
-			}
-			close $in;
-		}
-	}
-}
-=cut
 
 ###0. GETTING PCB IDS FROM ONLINE DATASET
 LOG($outLog, "\n\n-----------------\n${LPR}0. Getting pcb ids and readname from amazon s3 pcb_readname.tsv$N\n");
@@ -610,7 +521,7 @@ int($datashuf{$clust}{PCB}{$PCB1}[$i] / $datashuf{0}{$PCB1}[$i] * 10000 + 0.5)/1
 	my $totalsample = (keys %{$data{0}});
 	LOG($outLog, "total clust = $totalclust, total sample=$totalsample, used = $used\n");
 	my $Rscript = ($used > 1 and $totalclust > 1 and $totalsample > 1) ? get_Rscript($resDir, $clustFilename, $totalclust, $totalsample, $flag, $grpnamez) : 
-"pdf(\"$Rpdfname\");plot(NA,xlim=c(0,1),ylim=c(0,1),bty=\"n\",xlab=NA,ylab=NA,axes=F,main=\"$clustFilename\n$flag\n$totalclust clusters\n$totalsample samples\n$used uesd\");dev.off()\n";
+"pdf(\"$Rpdfname\");plot(NA,xlim=c(0,1),ylim=c(0,1),bty=\"n\",xlab=NA,ylab=NA,axes=F,main=\"$clustFilename\n$flag\n$totalclust clusters\n$totalsample samples\n$used Used\");dev.off()\n";
 	open (my $RscriptOut, ">", $Rfilename) or DIELOG($outLog, date() . "Failed to write to $Rfilename: $!\n");
 	print $RscriptOut $Rscript;
 	close $RscriptOut;

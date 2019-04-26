@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # Version 160831_Fixed_PrintOutput at the same file (step 8)
+
 use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-#use Getopt::Std::WithCheck;
 use vars   qw($opt_v $opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f $opt_l);
 my @opts = qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_l);
 getopts("vr:g:i:n:L:x:y:q:HhZFpl:");
@@ -75,13 +75,13 @@ my ($readFile, $genomeFile, $geneIndexFile, $outDir) = getFullpathAll($opt_r, $o
 my ($readFilename)  = getFilename($opt_r, "full");
 my ($geneIndexName) = getFilename($geneIndexFile);
 my $minMapQ    = (not defined($opt_q)) ? 0  : $opt_q;
-$opt_L = "85p" if not defined $opt_L;
-my ($minReadL)   = (not defined($opt_L)) ? 85 : $opt_L =~ /p$/i ? $opt_L =~ /^(.+)p$/i : $opt_L;
+$opt_L = "95p" if not defined $opt_L;
+my ($minReadL)   = $opt_L =~ /p$/i ? $opt_L =~ /^(.+)p$/i : $opt_L;
 my $bufferL    = (not defined($opt_x)) ? 0  : $opt_x;
 my $bufferR    = (not defined($opt_y)) ? 0  : $opt_y;
 my $readName   = getFilename($readFile, "full");
 my $bismarkOpt = (defined $opt_Z) ? "--bowtie2 --rdg 2,1 --rfg 2,1 --score_min L,0,-0.8" : "--bowtie2 --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3";
-my $samFile	   = ($readFile =~ /.f(ast)?q(.gz)?$/) ? $outDir .  "/$readName\_bismark_bt2.sam" : $readFile;
+my $samFile	   = ($readFile =~ /.f(ast)?q(.gz)?$/) ? $outDir .  "/$readName\_bismark_bt2.bam" : $readFile;
 my $uuid       = getuuid();
 my $date       = getDate();
 my $origDir    = $outDir . "/.0_Orig";
@@ -398,7 +398,6 @@ sub print_R_heatmap {
 				}
 			}
 		";
-	#	}
 		close $out;
 		my $cmd = "R --no-save < $Rscript >> $logFile\n";
 		print ($cmd);
@@ -420,7 +419,7 @@ sub run_example {
 
 sub fix_samFile {
 	my ($samFile, $seqFile, $outReadLog, $outLog) = @_;
-	LOG($outLog, "\n\ta. Fixing sam file $CY$samFile$N with footLoop_2fixsam.pl\n");
+	LOG($outLog, "\n\ta. Fixing sam file $CY$samFile$N with $footLoopScriptsFolder/lib/footLoop_2fixsam.pl\n");
 	my ($samMD5) = getMD5($samFile);
 	my $origDir = "$outDir/.0_orig_$samMD5/";
 	check_if_result_exist(["$origDir/.GOOD"], $outLog);
@@ -452,16 +451,15 @@ sub fix_samFile {
 
 	if ($checkSam == 0) {
 		LOG($outLog, "\tfootLoop.pl subroutine fix_samFile:: fixed sam file $LCY$origDir/$samFileName.fixed$N or .gz does not exist!\n");
-		LOG($outLog, "\t${YW}footLoop_2fixsam.pl -n $outDir -s $seqFile -o $origDir$N\n");
-		#DEBUG die "footLoop_2fixsam.pl -n $outDir -s $seqFile -o $origDir\n";
-		system("footLoop_2fixsam.pl -n $outDir -o $origDir") == 0 or LOG($outLog, "Failed to run footLoop_2fixsam.pl -n $outDir -o $origDir: $!\n") and exit 1;
-		LOG($outReadLog, "footLoop.pl,fix_samFile,footLoop_2fixsam.pl -n $outDir -o $origDir\n","NA");
+		LOG($outLog, "\t${YW}$footLoopScriptsFolder/lib/footLoop_2fixsam.pl -n $outDir -s $seqFile -o $origDir$N\n");
+		system("$footLoopScriptsFolder/lib/footLoop_2fixsam.pl -n $outDir -o $origDir") == 0 or LOG($outLog, "Failed to run $footLoopScriptsFolder/lib/footLoop_2fixsam.pl -n $outDir -o $origDir: $!\n") and exit 1;
+		LOG($outReadLog, "footLoop.pl,fix_samFile,$footLoopScriptsFolder/lib/footLoop_2fixsam.pl -n $outDir -o $origDir\n","NA");
 		LOG($outLog, "\tgzip $origDir/$samFileName.fixed");
 		system("gzip -f $origDir/$samFileName.fixed") == 0 or LOG($outLog, "\tFailed to gzip $origDir/$samFileName.fixed: $!\n");
 		$checkSam = 1;
 	}
 	else {
-		LOG($outLog, "\t${LGN}WAS NOT RUN$N: ${YW}::: footLoop_2fixsam.pl -n $outDir -s $seqFile -o $origDir :::$N\n");
+		LOG($outLog, "\t${LGN}WAS NOT RUN$N: ${YW}::: $footLoopScriptsFolder/lib/footLoop_2fixsam.pl -n $outDir -s $seqFile -o $origDir :::$N\n");
 		# rm old (bad) .gz if it exists
 		LOG($outLog, "\t/bin/rm $samFileGZ") if -e '$samFileGZ';
 		system("/bin/rm $samFileGZ") == 0 or LOG($outLog, 'Failed to rm $samFileGZ: $!\n') if -e '$samFileGZ';
@@ -691,7 +689,6 @@ sub get_lotsOfC {
 	my %nuc;
 	foreach my $nuc (@seq[0..@seq-1]) {
 		$nuc = uc($nuc);
-		#print "NUC=$nuc\n";die;
 		$nuc{$nuc} ++;
 	}
 	foreach my $nuc (sort keys %nuc) {
@@ -704,7 +701,6 @@ sub get_lotsOfC {
 			$data .= ",$nuc;$beg;$end";
 			my ($prev0) = length($prev) > 2 ? $prev =~ /(..)$/ : "NOPREV";
 			my ($next0) = length($next) > 2 ? $next =~ /^(..)/ : "NONEXT";
-#			print "\t- $nuc\t$beg\t$end\t$prev0$YW$curr$N$next0\n";
 		}
 	}
 	$data =~ s/^,// if defined $data;
@@ -716,7 +712,6 @@ sub make_bismark_index {
 	LOG($outLog, "\n\ta. Running bismark_genome_preparation$N --bowtie2 $bismark_folder$N\n");
 	my $run_boolean = "\t${LGN}WAS NOT RUN$N:${YW} ";
 	my $cmd = "bismark_genome_preparation --bowtie2 $bismark_folder > $bismark_folder/LOG.txt 2>&1 && md5sum $geneIndexFa > $bismark_folder/Bisulfite_Genome/.MD5SUM";
-#"bismark_genome_preparation --bowtie2 $bismark_folder && md5sum $geneIndexFa > $bismark_folder/Bisulfite_Genome/.MD5SUM";
 	my ($check, $md5sum, $md5sum2) = (0);
 	my $bismark_folder_exist = (-d "$bismark_folder/Bisulfite_Genome/" and -e "$bismark_folder/Bisulfite_Genome/.MD5SUM") ? 1 : 0;
 	if ($bismark_folder_exist == 1) {
@@ -727,7 +722,6 @@ sub make_bismark_index {
 	}
 	$run_boolean = "" if $bismark_folder_exist == 0;
 	if ($bismark_folder_exist == 0) {
-#              die "bismark folder = $LCY$bismark_folder$N\n";
 		LOG($outLog, "\tEither bismark folder didn't exist or older bisulfite genome found but$LRD different$N (md5sum old = $CY$md5sum$N, new = $CY$md5sum2)$N\n") if defined $md5sum;
 		system($cmd) == 0 or die "Failed to run bismark genome preparation: $!\n";
 	}
@@ -735,36 +729,31 @@ sub make_bismark_index {
 		LOG($outLog, "\t${GN}SUCCESS$N: $CY$bismark_folder\/Bisulfite_Genome$N already exist (md5sum old = $CY$md5sum$N, new = $CY$md5sum2)$N\n");
 	}
 	LOG($outLog, "${run_boolean} $YW ::: $cmd :::$N\n");
-#	die "OK\n";#bismark folder = $LCY$bismark_folder$N\n";
 }
 
 sub run_bismark {
-	my ($readFile, $outDir, $mysam, $opt_F, $outReadLog, $outLog) = @_;
+	my ($readFile, $outDir, $mybam, $opt_F, $outReadLog, $outLog) = @_;
 	my $MAP = "";
 	LOG($outLog, "\n\tb. Running bismark\n");
-	my $bamFile = $mysam; 
-	$bamFile =~ s/.sam$/.bam/; $bamFile =~ s/.fq.gz_bismark_bt2/_bismark_bt2/;
-	my $ext = (-e $bamFile and not -e $mysam) ? "bam" : "sam";
-	$mysam = $bamFile if -e $bamFile and not -e $mysam;
+	$mybam =~ s/.fq.gz_bismark_bt2/_bismark_bt2/;
+	my $bamFile = $mybam; 
+	my $ext = "bam";
 	
-	my ($mysamFilename) = getFilename($mysam, "full");
+	my ($mybamFilename) = getFilename($mybam, "full");
 	
 	my $run_boolean = "\n\t${LGN}WAS NOT RUN$N:${YW} ";
 
-	if (-e $mysam and not -e "$outDir/$mysamFilename") {
-		system("/bin/ln -s $mysam $outDir/$mysamFilename") == 0 or LOG($outLog, "Failed to /bin/ln $mysam $outDir/$mysamFilename: $!\n") and exit 1;
+	if (-e $mybam and not -e "$outDir/$mybamFilename") {
+		system("/bin/ln -s $mybam $outDir/$mybamFilename") == 0 or LOG($outLog, "Failed to /bin/ln $mybam $outDir/$mybamFilename: $!\n") and exit 1;
 	}
-	if (defined $opt_F or not -e $mysam) {
+	if (defined $opt_F or not -e $mybam) {
 		$run_boolean = "\n$YW\t ";
 		if ($opt_p) {
 			my $outFolder = $outDir . "/.bismark_paralel/";
 			if (-d $outFolder) {
 				my @files = <$outFolder/*>;
 				if (@files != 0) {
-#					my $date2 = date();
-#					makedir("$outFolder/backup_$date2/");
-#					LOG($outLog, "\tmoving all in $outFolder into $outFolder/backup (with date=$date2)\n\t$YW/bin/mv $outFolder/* $outFolder/backup_$date2/$N");
-					system("/bin/rm $outFolder/*");# $outFolder/backup_$date2/");
+					system("/bin/rm $outFolder/*");
 				}
 			}
 			makedir($outFolder) if not -d $outFolder;
@@ -773,19 +762,19 @@ sub run_bismark {
 			LOG($outReadLog, "footLoop.pl,run_bismark,SplitFastq.pl -i $readFile -o $outFolder -n 1000\n");
 
 			LOG($outLog, "$splitresult\n");	
-			print "####### SPLITRESULT LOG #######\n\n\t  Running bismark in paralel!\n";
+			LOG($outLog, "####### SPLITRESULT LOG #######\n\n\t  Running bismark in paralel!\n");
 			my $result = system("run_script_in_paralel2.pl -v \"srun -p high --mem 8000 bismark -o $outDir/.bismark_paralel/ $bismarkOpt $bismark_folder FILENAME >> FILENAME.bismark.log 2>&1\" $outFolder .part 20");
 			LOG($outReadLog, "footLoop.pl,run_bismark,\"run_script_in_paralel2.pl -v \\\"srun -p high --mem 8000 bismark -o $outDir/.bismark_paralel/ $bismarkOpt $bismark_folder FILENAME >> FILENAME.bismark.log 2>&1\\\" $outFolder .part 20");
 			my @partSam = <$outFolder/*.part_bismark*.$ext>; my $totalPartSam = @partSam;
-			LOG($outLog, "\t  All part.$ext has been made (total = $totalPartSam). Now making $CY$mysam$N and then removing the part sam\n");
+			LOG($outLog, "\t  All part.$ext has been made (total = $totalPartSam). Now making $CY$mybam$N and then removing the part sam\n");
 			my @HEADER; my @REPORT;
 			for (my $p = 0; $p < @partSam; $p++) {
 				my $partSam = $partSam[$p];
-				print "\t\tPutting $partSam into $mysam and removing it!\n";
-				system("cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >  $mysam") == 0 or die "Failed to cat $partSam: $!\n" if $p == 0;
-				system("cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >> $mysam") == 0 or die "Failed to cat $partSam: $!\n" if $p != 0;
-				LOG($outReadLog, "footLoop.pl,run_bismark,cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >  $mysam") if $p == 0;
-				LOG($outReadLog, "footLoop.pl,run_bismark,cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >> $mysam") if $p != 0;
+				print "\t\tPutting $partSam into $mybam and removing it!\n";
+				system("cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >  $mybam") == 0 or die "Failed to cat $partSam: $!\n" if $p == 0;
+				system("cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >> $mybam") == 0 or die "Failed to cat $partSam: $!\n" if $p != 0;
+				LOG($outReadLog, "footLoop.pl,run_bismark,cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >  $mybam") if $p == 0;
+				LOG($outReadLog, "footLoop.pl,run_bismark,cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >> $mybam") if $p != 0;
 				my ($bismark_report) = $partSam . "_SE_report.txt";
 				if (not -e $bismark_report) {
 					($bismark_report) =~ /^(.+).$ext/;
@@ -802,8 +791,6 @@ sub run_bismark {
 					$REPORT[$q] += $report[$q] if $header[$q] !~ /^perc_/;
 					$REPORT[$q] += $report[0]*$report[$q] if $header[$q] =~ /^perc_/;
 				}
-#				print "\t- Removing $CY$partSam$N: /bin/rm $partSam\n";
-#				system("/bin/rm $partSam") == 0 or die "Failed to /bin/rm $partSam: $!\n";
 			}
 			for (my $q = 0; $q < @HEADER; $q++) {
 				$REPORT[$q] = int(100*$REPORT[$q]/$REPORT[0]+0.5)/100 if $HEADER[$q] =~ /^perc_/;
@@ -824,25 +811,25 @@ sub run_bismark {
 				system("bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1") == 0 or die "$LRD!!!$N\tFailed to run bismark: $!\n";
 				LOG($outReadLog, "footLoop.pl,bismark,bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1");
 			}
-			LOG($outLog, "\t${GN}SUCCESS$N: Output $mysam\n");
-			my ($bismark_report) = "$mysam" =~ /^(.+).$ext/; $bismark_report .= "_SE_report.txt";
+			LOG($outLog, "\t${GN}SUCCESS$N: Output $mybam\n");
+			my ($bismark_report) = $mybam =~ /^(.+).$ext/; $bismark_report .= "_SE_report.txt";
 			my ($header, $report, $MAPTEMP) = parse_bismark_report($bismark_report, $outLog);
 			$MAP = $MAPTEMP;
 		}
 	}
 	else {
-		LOG($outLog, "\t${GN}SUCCESS$N: Output already exist: $CY$mysam$N\n");
-		my ($bismark_report) = "$mysam" =~ /^(.+).$ext/; $bismark_report .= "_SE_report.txt";
+		LOG($outLog, "\t${GN}SUCCESS$N: Output already exist: $CY$mybam$N\n");
+		my ($bismark_report) = "$mybam" =~ /^(.+).$ext/; $bismark_report .= "_SE_report.txt";
 		my ($header, $report, $MAPTEMP) = parse_bismark_report($bismark_report, $outLog);
 		$MAP = $MAPTEMP;
 	}
 	LOG($outLog, "${run_boolean}::: bismark $bismarkOpt $bismark_folder $readFile :::$N\n");
 
 	# print to $outReadLog
-	LOG($outReadLog, "footLoop.pl,samFile,$outDir/$mysamFilename\n","NA");
+	LOG($outReadLog, "footLoop.pl,samFile,$outDir/$mybamFilename\n","NA");
 	LOG($outReadLog, $MAP,"NA");
 
-	return("$outDir/$mysamFilename");
+	return("$outDir/$mybamFilename");
 }
 
 sub parse_bismark_report {
@@ -900,7 +887,6 @@ sub parse_bismark_report {
 			push(@header, "perc_meth_Unknown");
 		}
 	}
-#	print join("\t", @header) . "\n" . join("\t", @report) . "\n\n";
 	close $inz;
 	my $MAP  = "footLoop.pl,map," . "header\tlabel\t" . join("\t", @header) . "\tfootLoop_outDir\tuuid\n";
 	   $MAP .= "footLoop.pl,map," . "record\t$label\t" . join("\t", @report) . "\t$outDir\t$uuid\n";
@@ -1045,8 +1031,6 @@ sub uppercaseFasta {
 	return("$fastaFile");
 }
 
-#=SUB convert_seq {
-
 sub sanityCheck {
 	print "\n\nUse -Z if you're running invitro plasmid data!\n\n";
 	my ($opts) = @_;
@@ -1120,7 +1104,9 @@ sub sanityCheck {
 		}
 	}
 	$opt_l = $label if not defined $opt_l and defined $label;
+
 	$errors .= "-l $LGN<label>$N: is not defined!\n\t-> $YW Has to be this exact format$N:.\n\t  - Invivo: use PCB<digits> e.g. PCB1 or PCB12636.\n\t  - Invitro: Use PCB<digits>_bcBC<digits>_plasmid<string>_desc<string> e.g. PCB13_bcBC13_plasmidPFC53_descSUPERCOILEDCIRC.\n" if not defined($opt_l);
+
 	# label exists but wrong format
 	$errors .= "-l $LGN<label$N: is defined ($YW$opt_l$N) but wrong format (${LPR}case sensitive$N)! PCB<digits> or PCB<digits>_bcBC<digits>_plasmid<string>_desc<string>.\n" if defined $opt_l and $opt_l !~ /^PCB\d+$/ and $opt_l !~ /^PCB\d+_bcBC\d+_plasmid[0-9a-zA-Z]+_desc[0-9a-zA-Z]+$/;
 
@@ -1132,8 +1118,8 @@ sub sanityCheck {
 		print "$usageshort";
 		print "\n${LRD}########## ${YW}FATAL ERROR${LRD} ##########\n\nREASON:$N\n";
 		print $errors;
-		print "\n\n${LRD}##################################$N\n\n" ;
-		die;
+		print "\n\n${LRD}##################################$N\n\n\n" ;
+		die "\n";
 	}
 }
 
@@ -1201,22 +1187,21 @@ Usage: $YW$0$N [options..]
 \t$LPR-n$N output_dir
 \t$LGN-g$N genome.fa
 \t$YW-i$N geneIndex.bed
-\t$CY-x$N [0] left buffer in bp e.g. -100 for CALM3
-\t$LPR-y$N [0] right buffer in bp e.g. 100 for CALM3
-\t$LGN-L$N [500] minimum read length (percent: 50p)
-\t$YW-q$N [0] minimum map quality (0-50)
-\t$CY-Z$N toggle to use non-stringent mapping (-H for more explanation)
-\t$LPR-F$N toggle to redo bismark mapping even if a .sam file is present in output_dir
+\t$CY-x$N [0] left buffer in bp e.g. -x -10
+\t$LPR-y$N [0] right buffer in bp e.g. -y 10
+\t$LGN-L$N [95p] minimum read length (percent: 95p)
+\t$YW-q$N [0] minimum map quality (use 0 since we're expecting a lot of conversions)
+\t$CY-Z$N toggle to use non-stringent mapping
+\t$LPR-F$N toggle to redo bismark mapping even if a .sam or .bam file is present in output_dir
 
 Do $YW$0$N $LGN-h$N for longer explanation
 
 ${LRD}IMPORTANT!!$N If you see a lot of 'Chromosomal sequence could not be extracted for..' try adding $YW-x -10 -y 10$N
-If you still see then try adding $YW-x -50 -y 50$N
+-> If you still see then try adding $YW-x -50 -y 50$N
 
 $LGN----------------------------$N\n
 ";
 
-#Usage: $YW$0$N ${GN}[options]$N [-r $CY<read.fq>$N OR -S $CY<read.bismark.sam>$N -n $PR<output folder>$N -g $GN<genome.fa>$N -i $YW<geneCoordinates.bed>$N
 my $usage = "
 ${LGN}Options [default]:$N
 -x $LGN<Left pad [0]>$N -y $LGN<Right pad [0]>$N -L $LGN<min READ length [500]>$N -q $LGN<min map quality [0]>$N
@@ -1252,13 +1237,12 @@ ${YW}Optional [default]:$N
 e.g. seq is:$GN chr1 200 500 SEQ 0 +$N and$GN -x -100 -y 50$N becomes: chr1 100 550 SEQ 0 +$N
 e.g. seq is:$GN chr1 200 500 SEQ 0 -$N and$GN -x -100 -y 50$N becomes: chr1 150 600 SEQ 0 -$N
 -p: Run bismark script in paralel
--H: Run HMM peak caller$LRD NOT IMPLEMENTED$N
 -c: <default: don't include CpG> consider Cs in CpG context
 -t: ${LGN}[0.65]$N percentage (0.0-1.0) of Cs that must be converted to be considered an R-loop
 -l: ${LGN}[100]$N minimum length in base pairs to be considered an R-loop peak (also for HMM)
--L: ${LGN}[500]$N minimum ${CY}read$N length in bp to be considered valid read
+-L: ${LGN}[95p]$N minimum ${CY}read$N length in bp to be considered valid read
     Add \"p\" to make it percent of amplicon length
-    e.g. 50p = 50% of amplicon length.
+    e.g. 95p = 95% of amplicon length.
 
 If you want to re-use previously made files from step 4 and/or 6, use:
 -1: For both step 4 and step 6 (Positive/NegativeFinal.txt and methylationPos/Neg.txt)
@@ -1313,384 +1297,5 @@ pFC53_small.bed (from PCB14) is 2500bp long, with 531 C.
 All converted Cs and a 5\% mismatches (0.05*(2500-531)) and 1\% gap= 100bp mismatches
 ";
 
-return($usageshort, $usage, $usagelong);
+	return($usageshort, $usage, $usagelong);
 }
-__END__
-
-	if (defined $opt_1 or defined $opt_4) {
-		my $dir4 = defined $opt_1 ? $opt_1 : $opt_4;
-		my $PositiveFinal  = $dir4 . "/PositiveFinal.txt";
-		my $NegativeFinal  = $dir4 . "/NegativeFinal.txt";
-		die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N" . "-1 or -4 is given ($dir4) but $PositiveFinal does not exist!\n" if not -e $PositiveFinal;
-		die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N" . "-1 or -4 is given ($dir4) but $NegativeFinal does not exist!\n" if not -e $NegativeFinal;
-	}
-	if (defined $opt_1 or defined $opt_6) {
-		my $dir6 = defined $opt_1 ? $opt_1 : $opt_6;
-		my $MethylationPos = $dir6 . "/methylationPos.txt";
-		my $MethylationNeg = $dir6 . "/methylationNeg.txt";
-		die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N" . "-1 or -6 is given ($dir6) but $MethylationPos does not exist!\n" if not -e $MethylationPos;
-		die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N" . "-1 or -6 is given ($dir6) but $MethylationNeg does not exist!\n" if not -e $MethylationNeg;		
-	}
-}
-
-__END__
-Nov2017
-
-					pdf(paste(files[i],\"_$threshold.pdf\",sep=\"\"))
-					heatmap.3(
-					x=df,
-					dendrogram=\"none\",
-					Rowv=myclust, Colv=FALSE,
-					labRow=TRUE,labCol=FALSE,
-					sideRow=2,
-					cexRow=0.2,
-					ColIndividualColors=seq,
-					breaks=$breaks,
-					color.FUN=function(x) $colors,
-					main=files[i],
-					sub=paste(\"(\",dim(df)[1],\" peaks)\",sep=\"\"),
-					cex.main = 0.5
-					)
-					dev.off()
-
-					print(paste(\"   \",i,\"B. Doing PNG of \",files[i],sep=\"\"))
-					png(paste(files[i],\"_$threshold.png\",sep=\"\"),height=2000,width=2000)
-					heatmap.3(
-					x=df,
-					dendrogram=\"none\",
-					Rowv=myclust, Colv=FALSE,
-					labRow=TRUE,labCol=FALSE,
-					sideRow=2,
-					cexRow=0.2,
-					ColIndividualColors=seq,
-					breaks=$breaks,
-					color.FUN=function(x) $colors,
-					main=files[i],
-					sub=paste(\"(\",dim(df)[1],\" peaks)\",sep=\"\"),
-					cex.main = 0.5
-					)
-
-					dev.off()
-
-
-__END__
-#CUT1
-#AIRN_PFC53_REVERSE      1275-1287
-#AIRN_PFC53_REVERSE      1372-1382
-#AIRN_PFC53_REVERSE      1490-1507
-
-						#print "CHUNK\t$chunk\n" if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
-						my ($begPeak, $begPeak2) = $chunk =~ /^([023678]*)(1|4|5|9)/;
-						#print "Begpeak\t$begPeak\n" if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
-						$begPeak = defined $begPeak ? length($begPeak) + $i + 1 : $i + 1;
-						my ($temp1, $temp2, $midPeak, $temp3, $temp4) = $chunk =~ /^([023678]*)(1|4|5|9)(.+)(1|4|5|9)([023678]*)$/;
-						$midPeak = "undefined!\n" if not defined $midPeak;
-						#print "Midpeak\t$midPeak\n" if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
-						my $printPeak = "$midPeak";
-						my ($endPeak, $endPeak2, $endPeak3) = $chunk =~ /^(.*)(1|4|5|9)([023678]*)$/;
-						#print "endpeak\t$endPeak\n" if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
-						$endPeak = defined $endPeak ? length($endPeak) + $i + 1 : $i + 1;
-						my $checkPeak = 0;
-						#print "\tGENE=$gene has peak! (conv = $conPer > threshold=$opt_t), checking at beg=$LGN$begPeak$N, end=$LCY$endPeak$N\n" if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
-						foreach my $beg_C (sort keys %{$lotsOfC{$gene}}) {
-							my $end_C = $lotsOfC{$gene}{$beg_C};
-							if (($begPeak >= $beg_C and $begPeak <= $end_C) or ($endPeak >= $beg_C and $endPeak <= $end_C)) {
-								$printPeak .= "\tgene=$gene begPeak=$begPeak endPeak=$endPeak is within $beg_C-$end_C\n";# if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
-								$checkPeak = 1; last;
-							}
-						}
-#						die if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
-#CUT1
-
-__END__
-#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -n <output directory> not defined\n\n$usageshort\n\n" if not defined($opt_n);
-#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -r <read.fq> and $opt_s <read.sam> both not defined\n\n" if not defined($opt_r) and not defined($opt_S);
-#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -i <geneindex.bed> not defined\n\n" if not defined($opt_i);
-#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -l <min peak length in bp> must be positive integer!\n\n" if defined($opt_l) and $opt_l !~ /^\d+$/;
-#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -L <min read length in bp> must be positive integer!\n\n" if defined($opt_L) and $opt_L !~ /p$/ and $opt_L !~ /^\d+$/;
-#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -g <ref_genome.fa [hg19.fa]> not defined\n\n" if not defined($opt_g);
-#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -r $read0 and -S $sam0 both DOES NOT EXIST (provide at least one!)\n\n${LRD}########## FATAL ERROR ##########\n$N$usage" if (defined($opt_r) and not -e ($opt_r)) or (defined($opt_S) and not -e ($opt_S));
-#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -i $opt_i DOES NOT EXIST\n\n${LRD}########## FATAL ERROR ##########\n$N$usage" if not -e ($opt_i);
-#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -g $opt_g DOES NOT EXIST\n\n${LRD}########## FATAL ERROR ##########\n$N$usage" if not -e ($opt_g);
-#die "\n########## USAGE ##########\n$N$usage \n${LRD}########## FATAL ERROR ##########\n\n!!!$N -S $CY$opt_S$N exists but seems to be empty!\n$N$usage" if defined($opt_S) and (not -e $opt_S or (-s $opt_S < 10));
-
-
-
-__END__
-HERE1
-	if (defined $opt_1 or defined $opt_4) {
-		my $finalPositive = $outDir . "/PositiveFinal.txt";
-		my $finalNegative = $outDir . "/NegativeFinal.txt";
-		print "\tWarning: Step 4: either -1 or -4 is given, but $finalPositive and $finalNegative already exists! Moved these into $finalPositive.backup and $finalNegative.backup!\n" if (-e $finalPositive or -e $finalNegative);
-		system("/bin/mv $finalPositive $finalPositive.backup") == 0 or die "Failed to mv $finalPositive to $finalPositive.backup: $!\n" if -e "$finalPositive";
-		system("/bin/mv $finalNegative $finalNegative.backup") == 0 or die "Failed to mv $finalNegative to $finalNegative.backup: $!\n" if -e "$finalNegative";	
-
-		# Create symbolic link
-		my $dir4 = defined $opt_1 ? $opt_1 : $opt_4;
-		my $finalPositive2  = $dir4 . "/PositiveFinal.txt";
-		my $finalNegative2  = $dir4 . "/NegativeFinal.txt";
-		($finalPositive2) = myFootLib::getFullpath($finalPositive2);
-		($finalNegative2) = myFootLib::getFullpath($finalNegative2);
-	
-		system("ln -s $finalPositive2 $finalPositive") == 0 or die "\tFailed at step 4: Cannot create link of $finalPositive2 to $outDir: $!\n";
-		system("ln -s $finalNegative2 $finalNegative") == 0 or die "\tFailed at step 4: Cannot create link of $finalNegative2 to $outDir: $!\n";
-	}
-
-	if (defined $opt_1 or defined $opt_6) {
-		# If in new folder, finalPositive already exist, then die UNLESS -f is given
-		my $methylationPos = defined $opt_c ? $outDir . "/methylatioPosCG.txt" : $outDir . "/methylationPos.txt";
-		my $methylationNeg = defined $opt_c ? $outDir . "/methylatioNegCG.txt" : $outDir . "/methylationNeg.txt";
-		print "\tWarning: Step 6: either -1 or -6 is given, but $methylationPos and $methylationNeg already exists! Moved these into $methylationPos.backup and $methylationNeg.backup!\n" if (-e $methylationPos or -e $methylationNeg);
-		system("/bin/mv $methylationPos $methylationPos.backup") == 0 or die "Failed to move $methylationPos to $methylationPos.backup: $!\n" if -e "$methylationPos";
-		system("/bin/mv $methylationNeg $methylationNeg.backup") == 0 or die "Failed to move $methylationNeg to $methylationNeg.backup: $!\n" if -e "$methylationNeg";	
-
-		# Create symbolic link
-		my $dir6 = defined $opt_1 ? $opt_1 : $opt_6;
-		my $methylationPos2 = defined ($opt_c) ? $dir6 . "/methylationPosCG.txt" : $dir6 . "/methylationPos.txt";
-		my $methylationNeg2 = defined ($opt_c) ? $dir6 . "/methylationNegCG.txt" : $dir6 . "/methylationNeg.txt";
-		($methylationPos2) = myFootLib::getFullpath($methylationPos2);
-		($methylationNeg2) = myFootLib::getFullpath($methylationNeg2);
-		system("ln -s $methylationPos2 $outDir/") == 0 or die "\tFailed at step 6: Cannot create link of $methylationPos2 to $outDir: $!\n";
-		system("ln -s $methylationNeg2 $outDir/") == 0 or die "\tFailed at step 6: Cannot create link of $methylationNeg2 to $outDir: $!\n";
-	}
-HERE1END
-
-PART6
-	#my $finalPos = $outDir . "$gene\_Pos" . ($opt_t*100) . ".txt";
-	#my $finalNeg = $outDir . "$gene\_Neg" . ($opt_t*100) . ".txt";
-	#$finalPos = $outDir . "$gene\_Pos" . ($opt_t*100) . "CG.txt" if($opt_c);
-	#$finalNeg = $outDir . "$gene\_Neg" . ($opt_t*100) . "CG.txt" if($opt_c);
-	#my $finalPos_NOPEAK = $outDir . "$gene\_Pos" . ($opt_t*100) . "_NOPEAK.txt";
-	#my $finalNeg_NOPEAK = $outDir . "$gene\_Neg" . ($opt_t*100) . "_NOPEAK.txt";
-	#$finalPos_NOPEAK = $outDir . "$gene\_Pos" . ($opt_t*100) . "_NOPEAK_CG.txt" if($opt_c);
-	#$finalNeg_NOPEAK = $outDir . "$gene\_Neg" . ($opt_t*100) . "_NOPEAK_CG.txt" if($opt_c);
-#	if (not $opt_f) {
-		open (my $FINALPOS, ">", $finalPos) or die "Could not open $finalPos: $!";
-		open (my $FINALNEG, ">", $finalNeg) or die "Could not open $finalNeg: $!";
-		open (my $FINALPOS_NOPEAK, ">", "$finalPos_NOPEAK") or die "Could not open $finalPos: $!";
-		open (my $FINALNEG_NOPEAK, ">", "$finalNeg_NOPEAK") or die "Could not open $finalNeg: $!";
-		for(my $strand=0; $strand<2; $strand++)
-		{
-			my $filePos = defined($opt_c) ? "$outDir/$gene\_CG_POS" : "$outDir/$gene\_POS";
-			my $fileNeg = defined($opt_c) ? "$outDir/$gene\_CG_NEG" : "$outDir/$gene\_NEG";
-			my $fileLast = $strand == 0 ? "$filePos.tsv" : "$fileNeg.tsv";
-			LOG($outLog, "\t- Doing gene $CY$gene$N ($fileLast)\n");
-			LOG($outLog, "$fileLast doesn't exist!\n") and next if not -e $fileLast;
-			LOG($outLog, "$fileLast has no line!\n") and next if `wc -l < $fileLast` == 0;
-			open (my $fileLastIn, "<", $fileLast) or LOG($outLog, "Cannot open $fileLast\n" and die "Cannot open $fileLast: $!\n");
-			my ($fileLastCount) = `wc -l $fileLast` =~ /^(\d+) /;
-			
-			my %peak;
-			my $start = 1;
-			my $end = $minPeakLength;
-			my $LCOUNT = 0;
-			my $LENGTH = 0; my $NAME = "NA";
-			while (my $lineFinal = <$fileLastIn>)
-			{
-				$LCOUNT ++;
-				chomp($lineFinal);
-				LOG($outLog, "\tDone $GN$LCOUNT$N\n") if $LCOUNT % 500 eq 0;
-				print "\t$fileLast: Done $GN$LCOUNT$N / $fileLastCount\n" if $LCOUNT % 500 eq 0;
-				next if $lineFinal =~ /^\#READ/;
-				my ($name, @fields) = split("\t", $lineFinal);
-				my $readLength = @fields;
-				if ($readLength != $LENGTH and $NAME ne "NA") {
-					print "PREVIOUS: name=$CY$NAME$N, length=$LGN$LENGTH$N\n";
-					print "CURRENT : name=$CY$name$N, length=$LGN$readLength$N\n";
-				}
-				$LENGTH = $readLength; $NAME = $name;
-	
-				$peak{$name}{length} = 0;
-				#0= not converted (grey) # same
-				#1= converted (green)   # same
-				#2= non-C (white)       # same
-				#3= non-converted CpG (blue) # is non converted
-				#4= converted CpG  (black) # is converted
-				#5= converted CpG in R-loop (purple) # conv CPG
-				#6= no data
-				#9= converted C in R-loop (red) # not exist
-				# conversion of mine into Jenna's: 3 (no data) becomes 2 (non C)
-				
-				# peak call based on threshold
-				my @peak; my $ispeak = 0;
-				for (my $i = 0; $i < @fields - $minPeakLength; $i++)
-				{
-				#	print "8. GENE=$gene: name=$name, Doing Peak Call!\n" if $name eq "SEQ_119704"; # if $i > 1400 and $i < 1600;
-					$peak{$name}{length} ++ if $fields[$i] =~ /^[1459]$/;
-					my $chunk = join("", @fields[$i..($i+$minPeakLength)]);
-					# calculate % conv from start to end, where end is minPeakLength (e.g. 100 then 1 to 100)
-					
-					# calculate conC (converted C) and nonConC (non converted)
-					# calculate % conv
-					# if too few C, (Alex Meissner uses 5 as threshold) we can't call it as anything ... Meissner et al (Nature 2012)
-					# if % conv is more than thershold, then turn 1 (conv C) into 9 and 4 (conv C in CpG) into 5
-					my ($conC)    = $chunk =~ tr/1459/1459/;
-					my ($nonConC) = $chunk =~ tr/03/03/;
-					
-					my $conPer = $conC + $nonConC >= 5 ? $conC / ($conC + $nonConC) : 0;
-					if($conPer >= $opt_t)
-					{
-						my $checkPeak = 0;
-#= CUT1
-#= CUT1
-						if ($checkPeak == 0) {
-							$ispeak = 1;
-							$peak[$i] = 1; # from i to i + minPeakLength is a peak
-							for(my $j = $i; $j < $i + $minPeakLength; $j++)
-							{
-								$fields[$j] = 9 if $fields[$j] == 1;
-								$fields[$j] = 5 if $fields[$j] == 4;
-							}
-						}
-						else {
-							$peak[$i] = 0;
-							$ispeak = 0;
-						}
-					}
-					else {
-						$peak[$i] = 0;
-					}
-				}
-				$peak{$name}{field} = join("\t", @fields);
-				
-				# if it's a read that has peak, then we need to put the peak length etc so it'll be presorted for R
-				if ($ispeak == 1) {
-					my ($maxLength) = 0; my $length = 0; my $lastPos = -2;
-					for (my $i = 0; $i < @peak; $i++) {
-						if ($lastPos != -2 and $lastPos == $i - 1 and $peak[$i] == 1) {
-							$length ++; $lastPos = $i;
-							$maxLength = $length if $maxLength < $length;
-						}
-						else {
-							$length = 0; $lastPos = -2;
-						}
-					}
-					$peak{$name}{length} = $maxLength;
-					$peak{$name}{peak} = 1;
-				}
-				else {$peak{$name}{peak} = 0;}
-			}
-			my $peakcount = 0; my $nopeak = 0; my $total = 0; my $maxAllLength = 0;
-			foreach my $name (sort {$peak{$b}{peak} <=> $peak{$a}{peak} || $peak{$b}{length} <=> $peak{$a}{length}} keys %peak)
-			{
-				#last if $peak{$name}{peak} == 0 and $nopeak > 1000;
-				#$peak{$name}{field} =~ tr/19/91/;
-				print $FINALPOS "$name\t$peak{$name}{field}\n"        if $strand == 0 and $peak{$name}{peak} == 1;
-				print $FINALPOS_NOPEAK "$name\t$peak{$name}{field}\n" if $strand == 0 and $peak{$name}{peak} == 0;
-				print $FINALNEG "$name\t$peak{$name}{field}\n"        if $strand == 1 and $peak{$name}{peak} == 1;
-				print $FINALNEG_NOPEAK "$name\t$peak{$name}{field}\n" if $strand == 1 and $peak{$name}{peak} == 0;
-				$peakcount ++ if $peak{$name}{peak} != 0;
-				$nopeak ++ if $peak{$name}{peak} == 0;
-				$total ++;
-				$maxAllLength = $peak{$name}{length} if $maxAllLength < $peak{$name}{length};
-			}
-			LOG($outLog, "$finalPos\tlength=$maxAllLength\tpeak=$peakcount\tnopeak=$nopeak\ttotal=$total\n") if $strand == 0;
-			LOG($outLog, "$finalNeg\tlength=$maxAllLength\tpeak=$peakcount\tnopeak=$nopeak\ttotal=$total\n") if $strand == 1;
-		}
-		close $FINALPOS; close $FINALNEG;
-		close $FINALPOS_NOPEAK;
-		close $FINALNEG_NOPEAK;
-#	}	
-	# Do edge clearing
-
-PART6END
--e -f -B -D
-
-
-if ($opt_e) {
-	#0 = white
-	#1 = intron line
-	#2 = exon line
-	LOG($outLog, "\t${BR}2a. Parsing in exon intron data from $CY$exonFile$N:\n");
-	foreach my $gene (sort keys %{$SEQ}) {
-		next if -e "$outFolder/exon/$gene.exon"; # DELETE THIS
-		my ($genepos) = `grep -i -P \"\\t$gene\\t\" $geneIndexFile`; chomp($genepos);
-		my $length_seq = $SEQ->{$gene}{geneL};
-		LOG($outLog, "\n$LRD!!!$N\tWARNING: No sequence for gene $CY$gene$N is found in -s $CY$seqFile$N!\n\n") if $length_seq == 0;
-		myFootLib::parseExon($exonFile, $genepos, $gene, $outFolder, $length_seq);
-		LOG($outLog, "\t${GN}SUCCESS$N: Sequence of exon $CY$gene$N has been parsed from fasta file $CY$seqFile$N (length = $CY" . $length_seq . "$N bp)\n");
-	}
-}
-
-sub convert_seq {
-	my @seq = @{$_[0]};
-	my %new;
-	for (my $strand = 0; $strand < 2; $strand++) {
-		my @new;
-		for (my $i = 0; $i < @seq; $i++) {
-			my $lastpos = $strand == 0 ? 0 : @seq-1;
-			my $add     = $strand == 0 ? 1 : -1; 
-			my $nuc1 = $strand == 0 ? "C" : "G";
-			my $nuc2 = $strand == 0 ? "G" : "C";
-			
-			if ($i == 0 || $i == @seq - 1) {
-				$new[$i] = "B";
-			}
-			elsif ($seq[$i] ne $nuc1) {
-				$new[$i] = "N";
-			}
-			else {
-				if ($seq[$i+$add] eq $nuc2) {
-					$new[$i] = "P" if defined($opt_c);
-					$new[$i] = "N" if not defined($opt_c);
-				}
-				else {
-					$new[$i] = "C";
-				}
-			}
-		}
-		@{$new{$strand}} = @new;
-	}
-	return(\%new);
-}
-
-=BOX
-	my %box; 
-	if (defined $opt_B) {
-		my $boxFile = $opt_B;
-		die "\n${LRD}ERROR!$N: $LCY-B$N <boxfile.bed> does not exist!\n" if not -e $boxFile;
-		my @lines = `cat $boxFile`;
-		die "\n${LRD}ERROR!$N: $LCY-B$N <boxfile.bed> is empty!!\n" if @lines == 0;
-		my $lineCount = 0;
-		foreach my $line (@lines) {
-			chomp($line);
-			next if $line =~ /^\#/;
-			my ($chr, $beg, $end, $gene, $val, $strand, @others) = split("\t", $line);
-			$lineCount ++;
-			$gene = "GENE_$lineCount" if not defined $gene;
-			$strand = "+" if not defined $strand;
-			$val = 0 if not defined $val;
-			my $others = @others == 0 ? "" : "\t" . join("\t", @others);
-			$chr=uc($chr);
-			push(@{$box{$chr}}, "$chr\t$beg\t$end\t$gene\t$val\t$strand$others");
-		}
-	}
-	return(\%box);
-
-
-__END__
-		if ($line =~ /^Total methylated C's in CpG context:/) {
-			my ($num) = $line =~ /Total methylated C's in CpG context:[ \t]+(\d+\.?\d*)\%[ \t]*$/;
-			LOG($outLog, "footLoop.pl::parse_bismark_report failed to get Total methylated C in CpG from log $LCY$bismark_report_file$N!\n") if not defined $num;
-			push(@report, $num);
-			push(@header, "meth_CpG");
-		}
-		if ($line =~ /^Total methylated C's in CHG context:/) {
-			my ($num) = $line =~ /Total methylated C's in CHG context:[ \t]+(\d+\.?\d*)\%[ \t]*$/;
-			LOG($outLog, "footLoop.pl::parse_bismark_report failed to get Total methylated C in CHG from log $LCY$bismark_report_file$N!\n") if not defined $num;
-			push(@report, $num);
-			push(@header, "meth_CHG");
-		}
-		if ($line =~ /^Total methylated C's in CHH context:/) {
-			my ($num) = $line =~ /Total methylated C's in CHH context:[ \t]+(\d+\.?\d*)\%[ \t]*$/;
-			LOG($outLog, "footLoop.pl::parse_bismark_report failed to get Total methylated C in CHH from log $LCY$bismark_report_file$N!\n") if not defined $num;
-			push(@report, $num);
-			push(@header, "meth_CHH");
-		}
-		if ($line =~ /^Total methylated C's in Unknown context:/) {
-			my ($num) = $line =~ /Total methylated C's in Unknown context:[ \t]+(\d+\.?\d*)\%[ \t]*$/;
-			LOG($outLog, "footLoop.pl::parse_bismark_report failed to get Total methylated C in Unknown from log $LCY$bismark_report_file$N!\n") if not defined $num;
-			push(@report, $num);
-			push(@header, "meth_Unknown");
-		}
-

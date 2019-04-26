@@ -31,12 +31,12 @@ BEGIN {
    print "- bismark v0.13+ exists:" . `which bismark` if $bismark ne 0;
    print "- bismark_genome_preparation v0.13+ exists:" . `which bismark_genome_preparation` if $bismark_genome_preparation ne 0;
    die if $bedtools eq 0 or $bowtie2 eq 0 or $bismark eq 0 or $bismark_genome_preparation eq 0;
-   my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
+   my $libPath = dirname(dirname abs_path $0) . '/lib';
    push(@INC, $libPath);
 }
 use myFootLib; use FAlite;
 my $homedir = $ENV{"HOME"};
-my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
+my $footLoopScriptsFolder = dirname(dirname abs_path $0);
 my @version = `cd $footLoopScriptsFolder && git log | head `;
 my $version = "UNKNOWN";
 foreach my $line (@version[0..@version-1]) {
@@ -105,7 +105,9 @@ open (my $outsam, ">", "$outSam") or die "Cannot write to $outSam: $!\n";
 open (my $outdebug, ">", "$debugFile") or die "Cannot write to $debugFile: $!\n";
 my ($total_read) = `awk '\$2 == 0|| \$2 == 16 {print}' $samFile | wc -l` =~ /^(\d+)$/;
 $linecount = 0;
-open (my $in1, "<", $samFile) or die "Cannot read from $samFile: $!\n";
+my $in1;
+open ($in1, "samtools view $samFile|") or die "Cannot read from $samFile: $!\n" if $samFile =~ /.bam$/;
+open ($in1, "<", $samFile) or die "Cannot read from $samFile: $!\n" if $samFile =~ /.sam$/;
 while (my $line = <$in1>) {
 	chomp($line);
 	my @arr = split("\t", $line);

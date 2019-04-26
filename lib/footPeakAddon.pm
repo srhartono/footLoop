@@ -16,7 +16,6 @@ my ($thismd5) = getMD5_simple($0);
 
 sub main {
 	# From footPeak.pl: 
-	# $peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ;
 	my ($input1, $faFile, $mygene, $minDis, $resDir, $minLen, $SEQ, $version, $outLog) = @_;
 
 	LOG($outLog, "
@@ -29,8 +28,6 @@ $YW-------------------------------$N
 	my ($OUTDIRS, $PEAK, $TEMP, $RCONV, $CPG, $ALL);
 	($OUTDIRS->{FOOTPEAK}, $PEAK, $TEMP, $RCONV, $CPG, $ALL) = makeOutDir($resDir . "/.FOOTPEAK/");
 
-	#DIELOG($outLog, $0, "Usage: $YW$0$N [-c to use cpg] $CY<CALM3_Pos_20_0.65_CG.PEAK>$N $CY<location with lots of C>$N\n\n") unless @_ == 7;
-	#DIELOG($outLog, date() . "footPeakAddon.pm: Input cannot be directry!\n") and exit 1 if -d $input1;
 	my @foldershort = split("\/", $resDir);
 	my $foldershort = pop(@foldershort);
 	($input1) = getFullpath($input1);
@@ -74,10 +71,8 @@ $YW-------------------------------$N
 	LOG($outLog, "\n\n------------$YW\n3. Peak calling$N\n\n\n");
 	LOG($outLog, date() . "$input1; Undefined mygene=$mygene=, strand=$readStrand=, window=$window=, thres=$thres=, type=$rconvType=, isPeak=$isPeak=\n") and exit 1 if not defined $isPeak or not defined $window;
 	LOG($outLog, date() . "\n\nFolder $YW$folder$N\n");
-#	LOG($outLog, date() . "-> Processing files related to $gene $readStrand $window $thres $rconvType\n");#"$input1$N\n");
-#	LOG($outLog, date() . "\n\nFolder $YW$folder$N: Processing files related to $gene $readStrand $window $thres $rconvType\n");#"$input1$N\n");
 	my ($peakPrint, $nopkPrint, $headerPrint, $totalPrint);
-	$headerPrint = "flag\tconv\ttotpk\tcurrpk\tcurrnp\ttotln\n";
+	$headerPrint = "type\tconv\ttotal_read_unique_with_peak\ttotal_read_unique_without_peak\n";
 	my @types = qw(CH CG GH GC);
 	for (my $h = 0; $h < 4; $h++) {
 		my $rconvType = $types[$h];
@@ -113,17 +108,13 @@ $YW-------------------------------$N
 		my $peakCount = defined $data->{peak} ? @{$data->{peak}} : 0;
 		my $nopkCount = defined $data->{nopk} ? @{$data->{nopk}} : 0;
 		my $currflag;
-		#print "READ STRAND = $readStrand gene = $geneStrand\n";
 		my $flag = getFlag($nopkFile, $geneStrand, $readStrand, $rconvType);
 		$flag =~ s/^NOPK//;
-#		$nopkPrint .= "$currflag $rconvType total_nopk=$LGN$totalnopk$N actual_peak=$LCY$peakCount$N actual_nopk=$LPR$nopkCount$N totalline=$YW$totalline$N";
-		#my $nopkPrint ="$folder2\t$nopkfileName\t$peakCount\t$nopkCount\t$totalnopk\t$totalline";
-		#LOG($outLog, date() . "$nopkPrint\n");
 		$total->{$rconvType}{peak}  += $peakCount;
 		$total->{$rconvType}{nopk}  += $nopkCount;
 		$total->{$rconvType}{total} += $totalnopk;
 		my $currtotalline = $totalline;
-		$nopkPrint .= "from_nopkFile$flag\t$rconvType\t$totalnopk\t$peakCount\t$nopkCount\t$totalline\n";
+		$nopkPrint .= "from_nopkFile$flag\t$rconvType\t$peakCount\t$nopkCount\t$totalnopk\n";
 		
 		if (-e $peakFile) {
 			($totalline) = `wc -l $peakFile` =~ /^(\d+)/;
@@ -148,21 +139,17 @@ $YW-------------------------------$N
 		$nopkCount = defined $data->{nopk} ? @{$data->{nopk}} - $nopkCount : 0;
 
 
-#		$peakPrint .= "$currflag $rconvType $LGN$totalpeak$N actual_peak=$LCY$peakCount$N $LPR$nopkCount$N $YW$totalline$N";
-		#my $peakPrint ="$folder1\t$peakfileName\t$peakCount\t$nopkCount\t$totalpeak\t$totalline";
-		#LOG($outLog, date() . "$peakPrint\n");
 		$total->{$rconvType}{peak}  += $peakCount;
 		$total->{$rconvType}{nopk}  += $nopkCount;
 		$total->{$rconvType}{total} += $totalpeak;
 		$currtotalline += $totalline;
 		$flag = getFlag($peakFile, $geneStrand, $readStrand, $rconvType);
 		$flag =~ s/^PEAK//;
-		$peakPrint  .= "from_peakFile$flag\t$rconvType\t$totalpeak\t$peakCount\t$nopkCount\t$totalline\n";
-		$totalPrint .= "PEAK$flag\t$rconvType\t$total->{$rconvType}{total}\t$total->{$rconvType}{peak}\t$total->{$rconvType}{nopk}\t$currtotalline\n";
+		$peakPrint  .= "from_peakFile$flag\t$rconvType\t$peakCount\t$nopkCount\n";
+		$totalPrint .= "PEAK$flag\t$rconvType\t$total->{$rconvType}{peak}\t$total->{$rconvType}{nopk}\n";
 
 		if (defined $data->{peak}) {
 			die if @{$data->{peak}} != $total->{$rconvType}{peak};
-			#print "HERE: $folder1/$peakfileName.out\n";
 			open (my $out1, ">", "$resDir/.CALL/$peakfileName.out") or LOG($outLog, date() . "Cannot write to $peakfileName.out: $!\n") and exit 1;
 			foreach my $val (sort @{$data->{peak}}) {
 				print $out1 "$val\n";
@@ -171,23 +158,19 @@ $YW-------------------------------$N
 		}
 		if (defined $data->{nopk}) {
 			die if @{$data->{nopk}} != $total->{$rconvType}{nopk};
-			#print "HERE: $folder1/$nopkfileName.out\n";
 			open (my $out1, ">", "$resDir/.CALL/$nopkfileName.out") or LOG($outLog, date() . "Cannot write to $nopkfileName.out: $!\n") and exit 1;
 			foreach my $val (sort @{$data->{nopk}}) {
 				print $out1 "$val\n";
 			}
 			close $out1;
 		}		
-		#LOG($outLog, date . "#Folder\tFile\tPeak\tnopk\tTotalRead\tTotalLineInFile\n") if $h == 0;
 		LOG($outLog, "\n");
 	}
 	
 	LOG($outLog, "\n\n-----------\n$LGN SUCCESS!$N\n\n");
-	LOG($outLog, "${YW}4.1 Summary of peaks and fixed peaks in gene=$LCY$mygene$N peak/nopk Files:$N\n" . myFootLib::prettyPrint("$headerPrint$peakPrint\n$nopkPrint\n") . "\n");
-	LOG($outLog, "${YW}4.2 Summary of total peaks in gene=$LCY$mygene$N:$N\n" . myFootLib::prettyPrint("$headerPrint$totalPrint\n") . "\n\n");
+	LOG($outLog, "${YW}Summary of total peaks in gene=$LCY$mygene$N Strand $LRD$readStrand$N:$N\n" . myFootLib::prettyPrint("$headerPrint$totalPrint\n") . "\n\n");
 	LOG($outLog, "\n\n-----------\n\n");
 	
-#	system("footPeak_HMM.pl -n $resDir");
 
 	foreach my $file (sort keys %pk) {
 		my ($pk_filename) = getFilename($file, 'full');
@@ -223,9 +206,7 @@ $YW-------------------------------$N
 		my $foldershort = $folder[@folder-1];
 		   $foldershort = $folder[@folder-2] if not defined ($foldershort) or (defined $foldershort and $foldershort =~ /^[\s]*$/);
 		my $peakFile    = "$label\_gene$mygene\_$readStrand\_$window\_$thres\_$rconvType.PEAK";
-		#print "LGENE genestrand = $geneStrand, readStrand = $readStrand\n";		
 		my $flag = getFlag($peakFile, $geneStrand, $readStrand, $rconvType);
-		#$flag = $flag =~ /ALL/ ? $flag : "PEAK$flag";
 		print $outLGENE "$foldershort\t$peakFile\t$mygene\t$rconvType\t$total->{$rconvType}{total}\t$totalPeak\t$total->{$rconvType}{peak}\t$flag\n";
 	}
 	close $outLGENE;
@@ -240,8 +221,6 @@ $YW-------------------------------$N
 		$sampleName = $foldershort;
 	}
 	LOG($outLog, "\n--------- Back to footPeak.pl --------\n\n\n");
-	#system("footClust.pl -n $resDir -G $gene") == 0 or LOG($outLog, "Failed to run footClust.pl : $!\n");
-	#system("footPeak_kmer.pl -n $resDir -G $gene") == 0 or LOG($outLog, "Failed to run footClust2.pl : $!\n");
 }
 
 ###############
@@ -266,16 +245,8 @@ sub parse_peak {
 	my %bad = %{$bad} if defined $bad;
 	my $name_want = "AIRN_PFC66_FORWARD.16024";#CALM3.m160130_030742_42145_c100934342550000001823210305251633_s1_p0/16024/ccs";
 	shift(@val) if $val[0] eq "";
-#	for (my $i = 0; $i < @val; $i++) {
-#		if ($val[$i] !~ /^[456789]$/) {print "."} else {print "$val[$i]";}
-#		LOG($outLog, date() . "\n") if $i != 0 and ($i+1) % 100 == 0;
-#	}
-#	LOG($outLog, date() . "\n");
-#	0001234000
-#	0123456789
-#	len=10, e1=len(e1), e2=10-len(e2)
 	my $peaks;
-	my %peak; $peak{curr} = 0; #my $edge = 0; my $edge2 = 0; my $zero = 0; my $edge1 = 0;
+	my %peak; $peak{curr} = 0; 
 	my $Length = @val; 
 	my $print = "name=$name, isPeak = $isPeak, Total length = $Length\n";
 	my ($edge1) = join("", @val) =~ /^(0+)[\.1-9A-Za-z]/;
@@ -304,7 +275,7 @@ sub parse_peak {
 			$print .= "${LGN}$val[$i]$N" if $val =~ /^[46]$/;
 			$print .= "${LGN}$val[$i]$N" if $val =~ /^[57]$/;
 			$print .= "." if $val[$i] eq 1;
-			$print .= "x" if $val[$i] eq 0;# and $i < $edge1;
+			$print .= "x" if $val[$i] eq 0;
 			$print .= "EDGE2" if $i == $edge2 - 1;
 		}
 	}
@@ -313,26 +284,13 @@ sub parse_peak {
 	my %peak2;
 	$print .= "\n";
 	print "$print" if $name_want eq $name;
-#	LOG($outLog, date() . "\nDoing $YW$name$N\n" if $name eq $name_want;#"SEQ_76074" or $name eq "SEQ_34096" or $name eq "SEQ_62746");
 	if (defined $peak{peak}) {
 		foreach my $peak (sort @{$peak{peak}}) {
 			my ($beg, $end) = split("-", $peak);
-#			LOG($outLog, date() . "$name: $beg to $end\n" if $name eq 77011 or $name eq "$name_want");
 			my $checkBad = 0;
-#			if (not defined $bad->{$readStrand}) {
-#				push(@peak, "$beg-$end");
-#				push(@{$peak2{peak}}, $peak);
-#			}
-#			next if not defined $bad->{$readStrand};
 			foreach my $begBad (sort keys %{$bad->{$readStrand}}) {
 				my $endBad = $bad->{$readStrand}{$begBad};
-#			foreach my $begBad (sort keys %bad) {
-#				my $endBad = $bad->{$readStrand}{$begBad};
-#				LOG($outLog, date() . "\t$beg-$end in begBad=$begBad to endBad=$endBad?\n" if $name eq "$name_want");
 				if ($beg >= $begBad and $beg <= $endBad and $end >= $begBad and $end <= $endBad) {
-#					for (my $m = $beg; $m <= $end; $m++) {
-#						$nopk{$m} = 1;
-#					}
 					LOG($outLog, date() . "\t\t$LGN YES$N peak=$beg-$end, bad=$begBad-$endBad\n","NA") if $isPeak eq "PEAK";# if $name eq "$name_want");
 					$checkBad = 1; last;
 				}
@@ -341,8 +299,6 @@ sub parse_peak {
 				next if not defined $bad->{$readStrand};
 				foreach my $begBad (sort keys %{$bad->{$readStrand}}) {
 					my $endBad = $bad->{$readStrand}{$begBad};
-#					LOG($outLog, date() . "$name: $beg-$end in begBad=$begBad to endBad=$endBad?\n" if $name eq "SEQ_76074" or $name eq "SEQ_34096" or $name eq "$name_want");
-					#if (($beg >= $begBad and $beg <= $endBad) or ($end >= $begBad and $end <= $endBad)) {
 						my @valz = @val;
 						my ($goodC, $badC) = (0,0);
 						for (my $m = $beg; $m < $end; $m++) {
@@ -354,17 +310,13 @@ sub parse_peak {
 							}
 						}
 						if ($goodC < 5 and $badC >= 9) {
-#							LOG($outLog, date() . "\t$LRD NO!$N beg=$beg, end=$end, begBad=$begBad, endBad=$endBad, badC = $badC, goodC = $goodC\n" if $name eq "SEQ_76074" or $name eq "SEQ_34096" or $name eq "SEQ_62746");
-#							LOG($outLog, date() . "\t$YW$name$N $LRD NO!$N beg=$beg, end=$end, begBad=$begBad, endBad=$endBad, badC = $badC, goodC = $goodC\n");
 							$checkBad = 1; last;
 						}
 				}
 			}
-#			LOG($outLog, date() . "\t$name checkbad = $checkBad\n" if $name eq "SEQ_76074" or $name eq "SEQ_34096" or $name eq "SEQ_62746");
 			
 			if ($checkBad == 1) {
 				$print .= "\tCheckBad; Peak Not: $LRD$peak$N\n";
-#				LOG($outLog, date() . "\tend=$end > 100 + edge1=$edge1 OR beg=$beg < edge2=$edge2-100; Peak bad : $LRD$peak$N\n" if $name eq "$name_want");
 				for (my $j = $beg; $j <= $end; $j++) {
 					$nopk{$j} = 1;
 				}
@@ -376,7 +328,6 @@ sub parse_peak {
 				}
 			}
 			elsif ($beg < $edge2 - 100 and $end > 100 + $edge1) {
-#				LOG($outLog, date() . "something wrong\n";# if $name eq "$name_want");
 				$print .= "\tend=$end > 100 + edge1=$edge1 OR beg=$beg < edge2=$edge2-100; Peak Used: $LGN$peak$N\n";
 				push(@peak, "$beg-$end");
 				push(@{$peak2{peak}}, $peak);
@@ -395,16 +346,13 @@ sub parse_peak {
 		for (my $i = 0; $i < @val; $i++) {
 			my $val = $val[$i];
 			$val2[$i] = $val;
-			if ($val =~ /^(8|9)$/ and defined $nopk{$i}) { # Peak Converted CpG or CH
+			if ($val =~ /^(8|9)$/ and defined $nopk{$i}) { 
 				$val2[$i] = 7 if $val eq 9;
 				$val2[$i] = 6 if $val eq 8;
 			}
 		}
 	}
-	#die $print if $totalpeak > 1;
 	$print .= "$name\t$totalpeak\n" if $isPeak eq "PEAK";
-#	LOG($outLog, date() . "$print\n" if $isPeak eq "PEAK";# and $print =~ /; Peak Not/;# if $totalpeak == 1;# or $name eq "SEQ_100022") and exit 1;
-#	exit 0 if $isPeak eq "PEAK";
 	@val = @val2;
 	$print .= "\n\nVAL2: Total length = $Length\n";
 	($edge1) = join("", @val) =~ /^(0+)[\.1-9A-Za-z]/;
@@ -433,7 +381,7 @@ sub parse_peak {
 			$print .= "${LGN}$val[$i]$N" if $val =~ /^[46]$/;
 			$print .= "${LGN}$val[$i]$N" if $val =~ /^[57]$/;
 			$print .= "." if $val[$i] eq 1;
-			$print .= "x" if $val[$i] eq 0;# and $i < $edge1;
+			$print .= "x" if $val[$i] eq 0;
 			$print .= "EDGE2" if $i == $edge2 - 1;
 		}
 	}
@@ -444,7 +392,7 @@ sub parse_peak {
 }
 
 sub find_lots_of_C {
-	my ($seqFile, $mygene, $outLog) = @_;#, $geneIndex, $box) = @_; #$geneIndexesFa;
+	my ($seqFile, $mygene, $outLog) = @_;
 	my %seq;
 	LOG($outLog, "\n------------\n${YW}2. Getting polyC (or G) regions from sequence file $LCY$seqFile$N\n\n\n");
 	open(my $SEQIN, "<", $seqFile) or LOG($outLog, date() . "\n$LRD!!!$N\tFATAL ERROR: Could not open $CY$seqFile$N: $!") and exit 1;
@@ -459,7 +407,7 @@ sub find_lots_of_C {
 	   
 	
 		my $minlen = 6;
-	   my $seqz2 = $seqz;#join("", @{$seq{$gene}{seq}});
+	   my $seqz2 = $seqz;
 	   while ($seqz2 =~ /(C){$minlen,99}/g) {
 	      my ($prev, $curr, $next) = ($`, $&, $');
 	      my ($curr_C) = length($curr);
@@ -474,7 +422,7 @@ sub find_lots_of_C {
 	      $lotsOfC{$gene} .= "C;$beg_C;$end_C,";
 	   }
 		$seqz2 = "";
-	   $seqz2 =$seqz;# join("", @{$seq{$gene}{seq}});
+	   $seqz2 =$seqz;
 	   while ($seqz2 =~ /(G){$minlen,99}/g) {
 	      my ($prev, $curr, $next) = ($`, $&, $');
 	      my ($curr_G) = length($curr);

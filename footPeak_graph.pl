@@ -53,7 +53,6 @@ die "\nERROR: -n footPeak dir $LCY$opt_n$N doesn't exists!\n\nUsage: $YW$0$N -n 
 my ($currMainFolder) = `pwd`; chomp($currMainFolder);
 $opt_r = 1 if not defined $opt_r;
 $opt_R = 0 if not defined $opt_R;
-#my $toggleCpG = defined $opt_c ? 1 : 0;
 
 die "\nERROR: -r has to be 0, 1, or 2! (current: $opt_r)\n\n" if defined $opt_r and $opt_r !~ /^[012]$/;
 
@@ -66,7 +65,9 @@ my $boxFile = "";
 if (defined $opt_B and -e $opt_B) {
 	$boxFile = getFullpath($opt_B);
 }
+
 main($opt_n);
+
 sub main {
 	my ($resDir) = @_;
 	my ($resDirFullpath) = getFullpath($resDir);
@@ -127,7 +128,6 @@ sub main {
 	foreach my $GENE (sort keys %coor) {
 		my $mygene = $GENE;
 		my @strands = qw(Pos Neg Unk);
-		#my $strand = $coor{$GENE}{STRAND};
 		for (my $h1 = 0; $h1 < @strands; $h1++) {
 			for (my $h2 = 0; $h2 < 4; $h2++) {
 				my $strand = $strands[$h1];
@@ -148,6 +148,7 @@ sub main {
 	my $currfileCount = 0;
 	foreach my $file (sort keys %files) {
 		$fileCount ++;
+		print "FILE COUNT = $fileCount\n";
 		my $GENE = $files{$file};
 		my $STRAND = $coor{$GENE}{STRAND};
 		my $geneStrandPrint = $STRAND eq "Pos" ? "$LRD$STRAND$N" : $STRAND eq "Neg" ? "$LCY$STRAND$N" : "$LGN$STRAND$N";
@@ -366,10 +367,9 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 			}
 		}
 	}
-	LOG($outLog, "\n\n$YW ----------------- Running R Scripts ------------------$N\n\n");
+	LOG($outLog, "\n\n$YW ----------------- Running R Scripts (below, showing only that are run) ------------------$N\n\n");
 	$fileCount = 0;
 	$totalFile = (keys %Rscripts);
-	
 	# open outRscripts for Rscripts that aren't relevant
 	open (my $outR_notrelevantPNG, ">", "$resDir/footPeak_graph_Rscripts.PNG.sh") or DIELOG($outLog, date() . " Failed to write to $LCY$resDir/footPeak_graph_Rscripts.PNG.sh: $!\n");
 	open (my $outR_notrelevantPDF, ">", "$resDir/footPeak_graph_Rscripts.PDF.sh") or DIELOG($outLog, date() . " Failed to write to $LCY$resDir/footPeak_graph_Rscripts.PDF.sh: $!\n");
@@ -390,7 +390,7 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 			$RLOG = system("cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1");
 		}
 		else {
-			LOG($outLog, "\n" . date() . "flag=$LPR$runType$N, $LGN$fileCount/$totalFile$N.$LRD Not$N running$LGN PNG$N $LCY$outRscriptPNG$N: $summary\n");
+			LOG($outLog, "\n" . date() . "flag=$LPR$runType$N, $LGN$fileCount/$totalFile$N.$LRD Not$N running$LGN PNG$N $LCY$outRscriptPNG$N: $summary\n","NA");
 			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1\n","NA");
 			print $outR_notrelevantPNG "cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1 #$runType\n";
 			$RLOG = 1;
@@ -420,7 +420,7 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 			$RLOG = system("cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1");
 		}
 		else {
-			LOG($outLog, "\n" . date() . "flag=$LPR$runType$N, $LGN$fileCount/$totalFile$N.$LRD Not$N running$LGN PDF$N $LCY$outRscriptPDF$N: $summary\n");
+			LOG($outLog, "\n" . date() . "flag=$LPR$runType$N, $LGN$fileCount/$totalFile$N.$LRD Not$N running$LGN PDF$N $LCY$outRscriptPDF$N: $summary\n","NA");
 			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1\n","NA");
 			print $outR_notrelevantPDF "cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1 #$runType\n";
 			$RLOG = 1;
@@ -442,8 +442,6 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 			}
 		}
 	}
-#	LOG($outLog, date . "\tcd $resDir && run_Rscript.pl *MakeHeatmap.R\n");
-#	system("cd $resDir && run_Rscript.pl *MakeHeatmap.R") if not defined $opt_x and defined $$opt_R;
 	LOG($outLog, "\n\n$YW ----------------- SCP PATHS ------------------$N\n\n");
 	foreach my $file (sort keys %scp) {
 		LOG($outLog, "$file\n");
@@ -483,7 +481,7 @@ theme_blank\$panel.grid=element_blank()
 theme_blank\$panel.grid.major=element_blank()
 theme_blank\$panel.grid.minor=element_blank()
 theme_blank\$panel.background=element_blank()
-theme_blank\$panel.border= element_blank()#structure(c(0, 0, 0,0), unit = \"lines\", valid.unit = 3L, class = \"unit\")
+theme_blank\$panel.border= element_blank()
 theme_blank\$legend.position=\"none\"
 
 p.png.scale = 1
@@ -527,20 +525,21 @@ if (dim(df)[1] < 1000) {
 
 #####################
 # Cluster
-clust = read.table(\"$curr_cluster_file\",header=F,sep=\"\\t\",colClasses=c(\"factor\",\"integer\",\"integer\",\"integer\",\"integer\",\"integer\",\"factor\"))
+clust = read.table(\"$curr_cluster_file\",header=F,sep=\"\\t\",colClasses=c(\"factor\",\"integer\",\"integer\",\"integer\",\"integer\",\"numeric\",\"character\"))
 colnames(clust) = c(\"id\",\"x\",\"xmax\",\"y\",\"ymax\",\"clust\",\"id2\")
-clust = subset(clust,select=-id2)
 print(head(clust))
-#clust\$id = gsub(\"^(.+)\\\\.[0-9]+\$\",\"\\\\1\",clust\$id,perl=T)
 clust\$y = seq(1,dim(clust)[1])
-clust2 = as.data.frame(aggregate(clust\$y,by=list(clust\$clust),min))
-clust2\$ymax = aggregate(clust\$y,by=list(clust\$clust),max)\$x
-clust2\$xpos0 = aggregate(clust\$x,by=list(clust\$clust),min)\$x
-clust2\$xpos1 = aggregate(clust\$xmax,by=list(clust\$clust),max)\$x
-colnames(clust2) = c(\"clust\",\"ymin\",\"ymax\",\"xpos0\",\"xpos1\")
+clust2 = as.data.frame(aggregate(clust\$y,by=list(clust\$clust,clust\$id2),min))
+clust2\$ymax = aggregate(clust\$y,by=list(clust\$clust,clust\$id2),max)\$x
+clust2\$xpos0 = aggregate(clust\$x,by=list(clust\$clust,clust\$id2),min)\$x
+clust2\$xpos1 = aggregate(clust\$xmax,by=list(clust\$clust,clust\$id2),max)\$x
+colnames(clust2) = c(\"clust\",\"id2\",\"ymin\",\"ymax\",\"xpos0\",\"xpos1\")
+clust2 = subset(clust2,select=c(\"clust\",\"ymin\",\"ymax\",\"xpos0\",\"xpos1\",\"id2\"))
+print(clust2)
 clust2\$xmin = 1
-clust2\$xmax = 70
+clust2\$xmax = 140
 clust2\$clust = clust2\$clust + 10
+clust = subset(clust,select=-id2)
 clust = subset(clust,select=c(\"id\",\"y\",\"clust\"))
 print(head(clust))
 print(head(clust2))
@@ -560,9 +559,9 @@ for (x in 1:max(df3\$clust)) {
 		none = length(a[a == 4 | a == 5])
 		if (mymax == 1) {
 			df4[x,y] = 99
-		} else if (peak != 0 & peak/2 >= conv) {#mymax == 8 | mymax == 9) {
+		} else if (peak != 0 & peak/2 >= conv) {
 			df4[x,y] = as.integer(length(a[a == 8 | a == 9]) / length(a) * 9+0.5)
-		} else if (conv != 0 & conv > peak/2) {#mymax == 6 | mymax == 7) {
+		} else if (conv != 0 & conv > peak/2) {
 			df4[x,y] = as.integer(length(a[a == 6 | a == 7]) / length(a) * -9+0.5)
 		} else if (mymax == 4 | mymax == 5) {
 			df4[x,y] = 0
@@ -606,7 +605,7 @@ df3\$x = as.numeric(as.character(df3\$x))
 df3\$y = as.numeric(as.character(df3\$y))
 df3\$value  = as.numeric(as.character(df3\$value))
 df4\$clust2 = df4\$clust + 10
-
+print(unique(df4\$clust2))
 greens = rev(brewer.pal(9,\"Greens\"))
 reds = brewer.pal(9,\"Reds\")
 p3.col=c(
@@ -635,6 +634,7 @@ p3.col=c(
 get_cluster_color = function(cluster) {
 	#9 SET1 color
 	cluster_color_array = c(\"#e41a1c\",\"#377eb8\",\"#4daf4a\",\"#984ea3\",\"#ff7f00\",\"#ffff33\",\"#a65628\",\"#f781bf\",\"#999999\")
+	cluster_color_array = c(cluster_color_array,cluster_color_array,cluster_color_array)
    cluster_color_values = c()
    cluster_color_names = c()
    for (i in 1:length(unique(cluster))) {
@@ -671,7 +671,6 @@ p3.png = ggplot(df3,aes(x,y)) +
 	scale_color_manual(values=c(p3.col,cluster_color)) +
 	scale_x_continuous(expand = c(0,0)) + scale_y_continuous(expand = c(0,0)) +
 	theme_blank
-	#theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank())
 
 
 p3.pdf = ggplot(df3,aes(x,y)) +
@@ -688,7 +687,6 @@ p3.pdf = ggplot(df3,aes(x,y)) +
 	scale_color_manual(values=c(p3.col,cluster_color)) +
 	scale_x_continuous(expand = c(0,0)) + scale_y_continuous(expand = c(0,0)) +
 	theme_blank
-	#theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank())
 
 ";
 
@@ -796,7 +794,6 @@ if (dim(df.rand.100)[1] < 1000) {
 }
 df.rand.100\$y = seq(1,dim(df.rand.100)[1])
 
-#write.table(df,file=\"$resDir/.CALL/$currFilename.out.rand\",quote=F,row.names=F,col.names=F,sep=\"\\t\")
 write.table(df.rand.100,file=\"$currFile.100.rand\",quote=F,row.names=F,col.names=F,sep=\"\\t\")
 print(\"Wrote to $currFile.100.rand\")
 
@@ -862,7 +859,6 @@ if (dim(df.rand.1000)[1] < 1000) {
 }
 df.rand.1000\$y = seq(1,dim(df.rand.1000)[1])
 
-#write.table(df,file=\"$resDir/.CALL/$currFilename.out.rand\",quote=F,row.names=F,col.names=F,sep=\"\\t\")
 write.table(df.rand.1000,file=\"$currFile.rand\",quote=F,row.names=F,col.names=F,sep=\"\\t\")
 print(\"Wrote to $currFile.rand\")
 
@@ -937,11 +933,9 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
    } else {
       end = i * mywindow
    }
-#   print(paste(\"i=\",i,\", beg=\",beg,\", end=\",end,sep=\"\"))
    dm.temp = dm[dm\$y >= beg & dm\$y <= end,]
    dm.temp\$y = dm.temp\$y - beg + 1
    print(head(dm.temp))
-#	dm.temp = dm[seq( ((i-1)*mywindow+1), (i*mywindow) ),]
 	p = ggplot(dm.temp,aes(variable,y)) +  
 		 geom_tile(aes(fill=as.factor(value))) + 
 		 theme_bw() + theme(legend.position=\"none\") + 
@@ -969,13 +963,13 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 p.png = p + 
 	 geom_rect(data=clust2,aes(fill=as.factor(clust),x=xmin,y=ymin,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax),alpha=0.5,size=0.5*p.png.scale) + # SIZE
 	 geom_rect(data=clust2,aes(color=as.factor(clust),x=xpos0,y=ymin,xmin=xpos0,xmax=xpos1,ymin=ymin,ymax=ymax),size=0.5*p.png.scale,fill=rgb(1,1,1,alpha=0),lwd=1*p.png.scale) + # SIZE
-	 geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=clust-10),hjust=0,size=10*p.png.scale) +
+	 geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=paste(clust-10,\"(\",id2,\")\",sep=\"\")),hjust=0,size=5*p.png.scale) +
 	 theme(plot.title = element_text(size = 10*p.png.scale))
 
 p.pdf = p + 
 	 geom_rect(data=clust2,aes(fill=as.factor(clust),x=xmin,y=ymin,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax),alpha=0.5,size=0.5*p.pdf.scale) + # SIZE
 	 geom_rect(data=clust2,aes(color=as.factor(clust),x=xpos0,y=ymin,xmin=xpos0,xmax=xpos1,ymin=ymin,ymax=ymax),size=0.5*p.pdf.scale,fill=rgb(1,1,1,alpha=0),lwd=1*p.pdf.scale) + # SIZE
-	 geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=clust-10),hjust=0,size=20*p.pdf.scale) +
+	 geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=paste(clust-10,\"(\",id2,\")\",sep=\"\")),hjust=0,size=10*p.png.scale) +
 	 theme(plot.title = element_text(size = 20*p.pdf.scale))
 
 ";
@@ -1045,13 +1039,19 @@ if (length(bed) != 0 & dim(bed)[1] > 0) {
 
 # Calculate % Conversion
 df2 = subset(df,select=c(-V1,-y));
+print(head(df))
+print(tail(df))
 if (length(df2[df2 < $peakminVal]) > 0) {
 	df2[df2 < $peakminVal] = 0;
 }
 if (length(df2[df2 >= $peakminVal]) > 0) {
 	df2[df2 >= $peakminVal] = 1
 }
+
+min.df2.x2 = min(as.numeric(as.character(df2\$x)))
+max.df2.x2 = max(as.numeric(as.character(df2\$x)))
 df2 = data.frame(x=seq(1,dim(df2)[2]), y=apply(df2,2,mean))
+df2temp = data.frame(x=NA,x2=NA,y=NA,y2=NA)
 if (dim(df2[df2\$y > 0,])[1] > $plotminReads) {
 	df2 = df2[df2\$y > 0,]
 	df2\$x = as.numeric(as.character(df2\$x));
@@ -1059,10 +1059,15 @@ if (dim(df2[df2\$y > 0,])[1] > $plotminReads) {
 	df2\$x2 = df2\$x
 	df2\$y2 = df2\$y
 	for (i in 1:(dim(df2)[1]-10)) {
-		a = df2[df2\$x >= df2[i,]\$x & df2\$x <= df2[i+10-1,]\$x,]
+		a = df2[df2\$x >= df2[i,]\$x & df2\$x <= (df2[i,]\$x+10),]
 		if (length(a) != 0 & dim(a)[1] != 0) {
+			df2[i,]\$x2 = df2[i,]\$x
 			df2[i,]\$y2 = mean(a\$y)
-			df2[i,]\$x2 = mean(a\$x)
+			print(paste(\"#\",i))
+			print(a\$x)
+			print(a\$y)
+			print(df2[i,]\$x2)
+			print(df2[i,]\$y2)
 		}
 	}
 	mins = seq(1,as.integer(df2[1,]\$x2)-1,10)
@@ -1072,7 +1077,50 @@ if (dim(df2[df2\$y > 0,])[1] > $plotminReads) {
 } else {
 	df2 = data.frame(x=seq(1,dim(df)[2]), y=0, x2=seq(1,dim(df)[2]), y2=0);
 }
- 
+
+df2 = data.frame(x=seq(1,dim(df2)[2]), y=apply(df2,2,mean))
+df2temp = data.frame(x=NA,x2=NA,y=NA,y2=NA)
+if (dim(df2[df2\$y > 0,])[1] > $plotminReads) {
+	df2 = df2[df2\$y > 0,]
+	df2\$x = as.numeric(as.character(df2\$x));
+	df2\$y = as.numeric(as.character(df2\$y));
+	df2\$x2 = df2\$x
+	df2\$y2 = df2\$y
+	for (i in 1:(dim(df2)[1]-10)) {
+		a = df2[df2\$x >= df2[i,]\$x & df2\$x <= (df2[i,]\$x+10),]
+		if (length(a) != 0 & dim(a)[1] != 0) {
+			df2[i,]\$x2 = df2[i,]\$x
+			df2[i,]\$y2 = mean(a\$y)
+			print(paste(\"#\",i))
+			print(a\$x)
+			print(a\$y)
+			print(df2[i,]\$x2)
+			print(df2[i,]\$y2)
+		}
+	}
+	mins = seq(1,as.integer(df2[1,]\$x2)-1,10)
+	maxs = seq(max(df2\$x2),dim(df)[2]-2,10)
+	df2 = rbind(data.frame(x=mins,y=0,x2=mins,y2=0),df2)
+	df2 = rbind(df2,data.frame(x=maxs,y=0,x2=maxs,y2=0))
+} else {
+	df2 = data.frame(x=seq(1,dim(df)[2]), y=0, x2=seq(1,dim(df)[2]), y2=0);
+}
+
+
+min.df2.x2 = min(c(df2\$x2))
+max.df2.x2 = max(c(df2\$x2))
+df2temp = data.frame(x=NA,x2=seq(min.df2.x2,max.df2.x2),y=NA,y2=NA)
+for (i in dim(df2temp)[1]) {
+	if (dim(df2[df2\$x2 == df2temp[i,]\$x2,])[1] > 0) {
+		df2temp[i,]\$x = df2[i,]\$x
+		df2temp[i,]\$x2 = df2[i,]\$x2
+		df2temp[i,]\$y = df2[i,]\$y
+		df2temp[i,]\$y2 = df2[i,]\$y2
+	}
+}
+write.table(df2,file=\"$currFile.fixedwig\",quote=F,row.names=F,col.names=T,sep=\"\\t\")
+write.table(df2temp,file=\"$currFile.fixedwig2\",quote=F,row.names=F,col.names=T,sep=\"\\t\")
+
 # P2 % Conversion XY Plot
 	p2.png.scale = p.png.scale
 	p2.pdf.scale = p.pdf.scale
@@ -1084,7 +1132,7 @@ p2.png =
 	theme_bw() +
 	scale_x_continuous(expand = c(0,0)) +
 	scale_y_continuous(expand = c(0,0)) +
-	theme_blank + #(line = element_blank(),axis.text = element_blank(),axis.title = element_blank()) +
+	theme_blank +
 	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5*p2.png.scale,hjust=0) +
 	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5*p2.png.scale,hjust=0) +
 	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5*p2.png.scale,hjust=0) +
@@ -1099,7 +1147,7 @@ p2.pdf =
 	theme_bw() +
 	scale_x_continuous(expand = c(0,0)) +
 	scale_y_continuous(expand = c(0,0)) +
-	theme_blank +#(line = element_blank(),axis.text = element_blank(),axis.title = element_blank()) +
+	theme_blank +
 	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5*p2.pdf.scale,hjust=0) +
 	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5*p2.pdf.scale,hjust=0) +
 	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5*p2.pdf.scale,hjust=0) +
@@ -1352,7 +1400,6 @@ dev.off()
 
 	$R->{PNG_nopk_ALL} = "
 
-#plot_list = list();
 for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 	pngout_nopk = \"$pngoutFolder/ALL/$pngoutFilename\"
 	pngout_nopk = gsub(\"^(.+).png\$\",\"\\\\1\",pngout_nopk,perl=T)
@@ -1467,7 +1514,6 @@ dev.off()
 
 	$R->{PDF_nopk_ALL} = "
 
-#plot_list = list();
 for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 	pdfout_nopk = \"$pdfoutFolder/ALL/$pdfoutFilename\"
 	pdfout_nopk = gsub(\"^(.+).pdf\$\",\"\\\\1\",pdfout_nopk,perl=T)
@@ -1494,390 +1540,4 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 	return $R;
 }
 
-sub make_total_hash {
-	my $total;
-	my @types = qw(CH CG GH GC);
-	foreach my $type (@types) {
-		$total->{$type}{peak} = 0; 
-		$total->{$type}{nopk} = 0;
-		$total->{$type}{total} = 0;
-	}
-	return($total);
-}
-sub make_heatmap {
-	
-
-}
-
-
-
-
-
-sub parse_peak {
-	my ($ARG, $bad, $minDis, $minLen, $outLog) = @_;
-	my ($name, $isPeak, $mygene, $type, $strand, @val) = split("\t", $ARG);
-	my %bad = %{$bad} if defined $bad;
-	my $name_want = "AIRN_PFC66_FORWARD.16024";#CALM3.m160130_030742_42145_c100934342550000001823210305251633_s1_p0/16024/ccs";
-	shift(@val) if $val[0] eq "";
-#	for (my $i = 0; $i < @val; $i++) {
-#		if ($val[$i] !~ /^[456789]$/) {print "."} else {print "$val[$i]";}
-#		LOG($outLog, date() . "\n") if $i != 0 and ($i+1) % 100 == 0;
-#	}
-#	LOG($outLog, date() . "\n");
-#	0001234000
-#	0123456789
-#	len=10, e1=len(e1), e2=10-len(e2)
-	my $peaks;
-	my %peak; $peak{curr} = 0; #my $edge = 0; my $edge2 = 0; my $zero = 0; my $edge1 = 0;
-	my $Length = @val; 
-	my $print = "name=$name, isPeak = $isPeak, Total length = $Length\n";
-	my ($edge1) = join("", @val) =~ /^(0+)[\.1-9A-Za-z]/;
-	$edge1 = defined $edge1 ? length($edge1) : 0;
-	my ($edge2) = join("", @val) =~ /[\.1-9A-Za-z](0+)$/;
-	$edge2 = defined $edge2 ? @val-length($edge2) : @val;
-	for (my $i = 0; $i < @val; $i++) {
-		my $val = $val[$i];
-		if ($i % 100 == 0) {$print .= "\n$YW" . $i . "$N:\t";}
-		if ($val[$i] =~ /[89]/) {
-			$peak{beg} = $i if $peak{curr} == 0;
-			$print .= "${LPR}$val[$i]$N" if $peak{curr} == 0;
-			$print .= "${LRD}$val[$i]$N" if $peak{curr} == 1;
-			$peak{curr} = 1;
-		}
-		elsif ($val[$i] =~ /[23]/) {
-			$peak{end} = $i+1;
-			push(@{$peak{peak}}, "$peak{beg}-$peak{end}");
-			undef $peak{beg}; undef $peak{end};
-			$peak{curr} = 0;
-			$val[$i] =~ tr/23/89/;
-			$print .= "${LPR}$val$N";
-		}
-		else {
-			$print .= "EDGE1" if $i == $edge1;
-			$print .= "${LGN}$val[$i]$N" if $val =~ /^[46]$/;
-			$print .= "${LGN}$val[$i]$N" if $val =~ /^[57]$/;
-			$print .= "." if $val[$i] eq 1;
-			$print .= "x" if $val[$i] eq 0;# and $i < $edge1;
-			$print .= "EDGE2" if $i == $edge2 - 1;
-		}
-	}
-	my (%nopk, @peak);
-	$strand = $type =~ /^C/ ? 0 : $type =~ /^G/ ? 16 : 255;
-	my %peak2;
-	$print .= "\n";
-	print "$print" if $name_want eq $name;
-#	LOG($outLog, date() . "\nDoing $YW$name$N\n" if $name eq $name_want;#"SEQ_76074" or $name eq "SEQ_34096" or $name eq "SEQ_62746");
-	if (defined $peak{peak}) {
-		foreach my $peak (sort @{$peak{peak}}) {
-			my ($beg, $end) = split("-", $peak);
-#			LOG($outLog, date() . "$name: $beg to $end\n" if $name eq 77011 or $name eq "$name_want");
-			my $checkBad = 0;
-#			if (not defined $bad->{$strand}) {
-#				push(@peak, "$beg-$end");
-#				push(@{$peak2{peak}}, $peak);
-#			}
-#			next if not defined $bad->{$strand};
-			foreach my $begBad (sort keys %{$bad->{$strand}}) {
-				my $endBad = $bad->{$strand}{$begBad};
-#			foreach my $begBad (sort keys %bad) {
-#				my $endBad = $bad->{$strand}{$begBad};
-#				LOG($outLog, date() . "\t$beg-$end in begBad=$begBad to endBad=$endBad?\n" if $name eq "$name_want");
-				if ($beg >= $begBad and $beg <= $endBad and $end >= $begBad and $end <= $endBad) {
-#					for (my $m = $beg; $m <= $end; $m++) {
-#						$nopk{$m} = 1;
-#					}
-					LOG($outLog, date() . "\t\t$LGN YES$N peak=$beg-$end, bad=$begBad-$endBad\n") if $isPeak eq "PEAK";# if $name eq "$name_want");
-					$checkBad = 1; last;
-				}
-			}
-			if ($checkBad != 1) {
-				next if not defined $bad->{$strand};
-				foreach my $begBad (sort keys %{$bad->{$strand}}) {
-					my $endBad = $bad->{$strand}{$begBad};
-#					LOG($outLog, date() . "$name: $beg-$end in begBad=$begBad to endBad=$endBad?\n" if $name eq "SEQ_76074" or $name eq "SEQ_34096" or $name eq "$name_want");
-					#if (($beg >= $begBad and $beg <= $endBad) or ($end >= $begBad and $end <= $endBad)) {
-						my @valz = @val;
-						my ($goodC, $badC) = (0,0);
-						for (my $m = $beg; $m < $end; $m++) {
-							if ($m >= $begBad and $m <= $endBad) {
-								$badC ++ if $valz[$m] =~ /[2389]/;
-							}
-							else {
-								$goodC ++ if $valz[$m] =~ /[2389]/;
-							}
-						}
-						if ($goodC < 5 and $badC >= 9) {
-#							LOG($outLog, date() . "\t$LRD NO!$N beg=$beg, end=$end, begBad=$begBad, endBad=$endBad, badC = $badC, goodC = $goodC\n" if $name eq "SEQ_76074" or $name eq "SEQ_34096" or $name eq "SEQ_62746");
-#							LOG($outLog, date() . "\t$YW$name$N $LRD NO!$N beg=$beg, end=$end, begBad=$begBad, endBad=$endBad, badC = $badC, goodC = $goodC\n");
-							$checkBad = 1; last;
-						}
-#						else {
-#							#LOG($outLog, date() . "\t$LGN OKAY!$N beg=$beg, end=$end, begBad=$begBad, endBad=$endBad, badC = $badC, goodC = $goodC\n" if $name eq "SEQ_76074" or $name eq "SEQ_34096" or $name eq "SEQ_62746");
-#						}
-#					LOG($outLog, date() . "\t\t$LGN YES$N\n" if $name eq "$name_want");
-					#}
-				}
-			}
-#			LOG($outLog, date() . "\t$name checkbad = $checkBad\n" if $name eq "SEQ_76074" or $name eq "SEQ_34096" or $name eq "SEQ_62746");
-			
-			if ($checkBad == 1) {
-				$print .= "\tCheckBad; Peak Not: $LRD$peak$N\n";
-#				LOG($outLog, date() . "\tend=$end > 100 + edge1=$edge1 OR beg=$beg < edge2=$edge2-100; Peak bad : $LRD$peak$N\n" if $name eq "$name_want");
-				for (my $j = $beg; $j <= $end; $j++) {
-					$nopk{$j} = 1;
-				}
-			}
-			elsif ($end - $beg < $minLen) {
-				$print .= "\tend-$end < $minLen; Peak Not: $LRD$peak$N\n";
-				for (my $j = $beg; $j <= $end; $j++) {
-					$nopk{$j} = 1;
-				}
-			}
-			elsif ($beg < $edge2 - 100 and $end > 100 + $edge1) {
-#				LOG($outLog, date() . "something wrong\n";# if $name eq "$name_want");
-				$print .= "\tend=$end > 100 + edge1=$edge1 OR beg=$beg < edge2=$edge2-100; Peak Used: $LGN$peak$N\n";
-				push(@peak, "$beg-$end");
-				push(@{$peak2{peak}}, $peak);
-			}
-			else {
-				$print .= "\tbeg=$beg, end=4end, peak Not: $LRD$peak$N\n";
-				for (my $j = $beg; $j <= $end; $j++) {
-					$nopk{$j} = 1;
-				}
-			}
-		}
-	}
-	my $totalpeak = scalar(@peak);
-	my @val2 = @val;
-	if ($totalpeak > 0) {
-		for (my $i = 0; $i < @val; $i++) {
-			my $val = $val[$i];
-			$val2[$i] = $val;
-			if ($val =~ /^(8|9)$/ and defined $nopk{$i}) { # Peak Converted CpG or CH
-				$val2[$i] = 7 if $val eq 9;
-				$val2[$i] = 6 if $val eq 8;
-			}
-		}
-	}
-	#die $print if $totalpeak > 1;
-	$print .= "$name\t$totalpeak\n" if $isPeak eq "PEAK";
-#	LOG($outLog, date() . "$print\n" if $isPeak eq "PEAK";# and $print =~ /; Peak Not/;# if $totalpeak == 1;# or $name eq "SEQ_100022") and exit 1;
-#	exit 0 if $isPeak eq "PEAK";
-	@val = @val2;
-	$print .= "\n\nVAL2: Total length = $Length\n";
-	($edge1) = join("", @val) =~ /^(0+)[\.1-9A-Za-z]/;
-	$edge1 = defined $edge1 ? length($edge1) : 0;
-	($edge2) = join("", @val) =~ /[\.1-9A-Za-z](0+)$/;
-	$edge2 = defined $edge2 ? @val-length($edge2) : @val;
-	for (my $i = 0; $i < @val; $i++) {
-		my $val = $val[$i];
-		if ($i % 100 == 0) {$print .= "\n$YW" . $i . "$N:\t";}
-		if ($val[$i] =~ /[89]/) {
-			$peak{beg} = $i if $peak{curr} == 0;
-			$print .= "${LPR}$val[$i]$N" if $peak{curr} == 0;
-			$print .= "${LRD}$val[$i]$N" if $peak{curr} == 1;
-			$peak{curr} = 1;
-		}
-		elsif ($val[$i] =~ /[23]/) {
-			$peak{end} = $i+1;
-			push(@{$peak{peak}}, "$peak{beg}-$peak{end}");
-			undef $peak{beg}; undef $peak{end};
-			$peak{curr} = 0;
-			$val[$i] =~ tr/23/89/;
-			$print .= "${LPR}$val$N";
-		}
-		else {
-			$print .= "EDGE1" if $i == $edge1;
-			$print .= "${LGN}$val[$i]$N" if $val =~ /^[46]$/;
-			$print .= "${LGN}$val[$i]$N" if $val =~ /^[57]$/;
-			$print .= "." if $val[$i] eq 1;
-			$print .= "x" if $val[$i] eq 0;# and $i < $edge1;
-			$print .= "EDGE2" if $i == $edge2 - 1;
-		}
-	}
-	$print .= "\n";
-	print "$print" if $name_want eq $name;
-
-	return ($name, \@val2, $totalpeak, $peak2{peak});
-}
-
-sub find_lots_of_C {
-	my ($seqFile, $mygene, $outLog) = @_;#, $geneIndex, $box) = @_; #$geneIndexesFa;
-	my %seq;
-	LOG($outLog, date . "\n${YW}2. Parsing in sequence for genes from sequence file $CY$seqFile$N\n");
-	open(my $SEQIN, "<", $seqFile) or LOG($outLog, date() . "\n$LRD!!!$N\tFATAL ERROR: Could not open $CY$seqFile$N: $!") and exit 1;
-	my $fasta = new FAlite($SEQIN);
-	my %lotsOfC;
-
-	while (my $entry = $fasta->nextEntry()) {
-	   my $gene = uc($entry->def); $gene =~ s/^>//;
-	   my $seqz = uc($entry->seq);
-		next if $gene ne $mygene;
-	   LOG($outLog, date . "\t\tgenez=$gene ($gene)\n");
-	   
-	
-		my $minlen = 6;
-	   my $seqz2 = $seqz;#join("", @{$seq{$gene}{seq}});
-	   while ($seqz2 =~ /(C){$minlen,99}/g) {
-	      my ($prev, $curr, $next) = ($`, $&, $');
-	      my ($curr_C) = length($curr);
-	      my ($next_C) = $next =~ /^(C+)[AGTN]*$/;
-	      $next_C = defined $next_C ? length($next_C) : 0;
-	      my ($beg_C) = defined $prev ? length($prev) : 0;
-	      my ($end_C) = $curr_C + $next_C + $beg_C;
-	      my $length = $curr_C + $next_C;
-	      ($prev) = $prev =~ /^.*(\w{$minlen})$/ if length($prev) > $minlen; $prev = "NA" if not defined $prev;
-	      ($next) = $next =~ /^(\w{$minlen}).*$/ if length($next) > $minlen; $next = "NA" if not defined $next;
-	      LOG($outLog, date() . "$gene: $beg_C to $end_C ($length)\n\tPREV=$prev\n\tCURR=$curr\n\tNEXT=$next\n");
-	      $lotsOfC{$gene} .= "C;$beg_C;$end_C,";
-	   }
-		$seqz2 = "";
-	   $seqz2 =$seqz;# join("", @{$seq{$gene}{seq}});
-	   while ($seqz2 =~ /(G){$minlen,99}/g) {
-	      my ($prev, $curr, $next) = ($`, $&, $');
-	      my ($curr_G) = length($curr);
-	      my ($next_G) = $next =~ /^(G+)[ACTN]*$/;
-	      $next_G = defined $next_G ? length($next_G) : 0;
-	      my ($beg_G) = defined $prev ? length($prev) : 0;
-	      my ($end_G) = $curr_G + $next_G + $beg_G;
-	      my $length = $curr_G + $next_G;
-	      ($prev) = $prev =~ /^.*(\w{$minlen})$/ if length($prev) > $minlen; $prev = "NA" if not defined $prev;
-	      ($next) = $next =~ /^(\w{$minlen}).*$/ if length($next) > $minlen; $next = "NA" if not defined $next;
-	      LOG($outLog, date() . "$gene: $beg_G to $end_G ($length)\n\tPREV=$prev\n\tCURR=$curr\n\tNEXT=$next\n");
-	      $lotsOfC{$gene} .= "G;$beg_G;$end_G,";
-	   }
-		my $bad;
-		if (defined $lotsOfC{$gene}) {
-			$lotsOfC{$gene} =~ s/,$//;
-			my @lotsOfC = split(",", $lotsOfC{$gene});
-			foreach my $coor (@lotsOfC) {
-				my ($nuc, $beg, $end) = split(";", $coor);
-				my $strands = $nuc eq "C" ? 0 : $nuc eq "G" ? 16 : 255;
-				$bad->{$strands}{$beg} = $end-1;
-				LOG($outLog, date() . "$strands: coor=$coor, nuc=$nuc, beg=$beg, end=$end, beg-end=$beg-$bad->{$strands}{$beg}\n");
-			}
-			return $bad;
-		}
-	}
-	return;
-}
-
 __END__
-# 0 = not converted
-# 1 = converted C
-# 2 = A T or G (non C)
-# 3 = Non converted CpG
-# 4 = Converted CpG
-# 5 = PEAK Converted CpG
-# 6 = No data
-# 9 = PEAK Converted C
-
-   # For nucleotide
-# 10 = Nucleotide A
-# 11 = Nucleotide C
-# 12 = Nucleotide T
-# 13 = Nucleotide G
-__END__
-=comment
-			if (($STRAND eq "Pos" and $strand3 eq "Pos" and $type3 eq "CH") or ($STRAND eq "Neg" and $strand3 eq "Neg" and $type3 eq "GH")) {
-				$pngoutDir = $p == 0 ? $PEAK->[0] : $PEAK->[1]; #"PEAK" : "NOPK";
-			}
-			elsif (($STRAND eq "Pos" and $strand3 eq "Neg" and $type3 eq "GH") or ($STRAND eq "Neg" and $strand3 eq "Pos" and $type3 eq "CH")) {
-				$pngoutDir = $p == 0 ? $PEAK->[0] . $TEMP->[1] : $PEAK->[1] . $TEMP->[1]; #"PEAKNEG/" : "NOPKNEG/";
-			}
-			elsif (($STRAND eq "Pos" and $strand3 eq "Pos" and $type3 eq "CG") or ($STRAND eq "Neg" and $strand3 eq "Neg" and $type3 eq "GC")) {
-				$pngoutDir = $p == 0 ? $PEAK->[0] . $CPG->[1] : $PEAK->[1] . $CPG->[1]; #"PEAK/" : "NOPK/"; CG
-			}
-			elsif (($STRAND eq "Pos" and $strand3 eq "Neg" and $type3 eq "GC") or ($STRAND eq "Neg" and $strand3 eq "Pos" and $type3 eq "CG")) {
-				$pngoutDir = $p == 0 ? $PEAK->[0] . $TEMP->[1] . $CPG->[1] : $PEAK->[1] . $TEMP->[1] . $CPG->[1]; #"PEAKNEG/" : "NOPKNEG/"; CG
-			}
-			else {
-				$pngoutDir = "ALL/";
-			}
-=cut
-
-__END__
-	$R->{PDF} = "
-
-# PDF
-pdf(\"$pdfout\",width=totalwidth/100,height=totalheight/100)
-if (mynrow == 3) {
-	grid.arrange(p.pdf,p2.pdf,p3.pdf,ncol=1,nrow=mynrow,heights=totalratio)
-} else {
-	grid.arrange(p.pdf,p2.pdf,ncol=1,nrow=mynrow,heights=totalratio)
-}
-dev.off()
-
-# PDF all Conv
-pdfout_peak_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.ALL.c_conv.pdf\"
-pdf(pdfout_peak_all_c_conv,width=totalwidth,height=31.25*myscale)
-grid.arrange(p2.pdf)
-dev.off()
-
-";
-	
-
-
-	$R->{PDF_nopk} = "
-# PDF
-totalheight = (dim(df.rand.1000)[1] + 31.25) * myscale
-pdf(\"$pdfout\",width=totalwidth,height=totalheight)
-grid.arrange(p.rand,p2.rand,ncol=1,nrow=mynrow,heights=totalratio)
-dev.off()
-	
-# PDF all Conv
-pdfout_nopk_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.ALL.c_conv.pdf\"
-pdf(pdfout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
-grid.arrange(p2)
-dev.off()
-
-";
-
-
-
-__END__
-	$R->{PDF_nopk} = "
-
-# PDF
-currheight = (dim(df.rand.1000)[1] + 31.25) * myscale / 1000
-currwidth = totalwidth / 100
-print(currheight)
-pdf(\"$pdfout\",width=currwidth,height=currheight)
-grid.arrange(p.rand.1000.pdf,p2.rand.1000.pdf,ncol=1,nrow=mynrow,heights=totalratio)
-dev.off()
-
-# PDF all Conv
-currheight = 31.25 * myscale / 100
-currwidth = totalwidth / 100
-print(currheight)
-pdfout_nopk_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.ALL.c_conv.pdf\"
-pdf(pdfout_nopk_all_c_conv,width=currwidth,height=currheight)
-grid.arrange(p2.pdf)
-dev.off()
-
-";
-
-	$R->{PDF_nopk_rand_100} = "
-currheight = (dim(df.rand.100)[1]) * myscale / 100
-currwidth = totalwidth / 100
-pdfout_nopk_rand_100 = \"$pdfoutFolder/ALL/$pdfoutFilename.RAND.100.pdf\"
-# PDF
-pdf(pdfout_nopk_rand_100,width=currwidth,height=currheight)
-grid.arrange(p.rand.100.pdf,p2.rand.100.pdf,ncol=1,nrow=mynrow,heights=totalratio)
-dev.off()
-
-# PDF all Conv
-currheight = 31.25 * myscale / 100
-currwidth = totalwidth / 100
-pdfout_nopk_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.RAND.100.c_conv.pdf\"
-pdf(pdfout_nopk_all_c_conv,width=currwidth,height=currheight)
-grid.arrange(p2.rand.100.pdf)
-dev.off()
-
-";
-
-
-
-
-__END__
-# BAD PNG TO PDF
