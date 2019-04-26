@@ -104,7 +104,7 @@ my $debugFile = "$footLoop_2fixsam_outDir/debug.txt";
 my $outSam = "$footLoop_2fixsam_outDir/$samName.fixed";
 open (my $outsam, ">", "$outSam") or die "Cannot write to $outSam: $!\n";
 open (my $outdebug, ">", "$debugFile") or die "Cannot write to $debugFile: $!\n";
-my ($total_read) = `awk '\$2 == 0|| \$2 == 16 {print}' $samFile | wc -l` =~ /^(\d+)$/;
+my ($total_read) = `awk '\$2 == 0|| \$2 == 16 {print}' $samFile | wc -l` =~ /^\s*(\d+)$/;
 $linecount = 0;
 my $in1;
 open ($in1, "samtools view $samFile|") or die "Cannot read from $samFile: $!\n" if $samFile =~ /.bam$/;
@@ -236,15 +236,16 @@ sub check_file {
 	my $total_line = 0;
 	my $checkfileIn;
 	if ($file =~ /\.(rmdup|bam)$/) {
-		($total_line) = `samtools view $file| wc -l` =~ /^(\d+)/;
+		($total_line) = `samtools view $file| wc -l` =~ /^\s*(\d+)/;
+		LOG($outLog, "samtools view $file| wc -l = $total_line\n","NA");
 		open ($checkfileIn, "samtools view $file|") or DIELOG($outLog, "footLoop_2fixsam.pl: Failed to read from filetype=$filetype, file=$LCY$file$N: $!\n");
 	}
 	elsif ($file =~ /\.gz$/ or ($filetype =~ /(gzip|binary)/ and $file !~ /\.(rmdup|bam)$/)) {
-		($total_line) = `zcat $file| wc -l` =~ /^(\d+)/;
-		open ($checkfileIn, "zcat $file|") or DIELOG($outLog, "footLoop_2fixsam.pl: Failed to read from filetype=$filetype, file=$LCY$file$N: $!\n");
+		($total_line) = `zcat < $file| wc -l` =~ /^\s*(\d+)/;
+		open ($checkfileIn, "zcat < $file|") or DIELOG($outLog, "footLoop_2fixsam.pl: Failed to read from filetype=$filetype, file=$LCY$file$N: $!\n");
 	}
 	else {
-		($total_line) = `wc -l $file` =~ /^(\d+)/;
+		($total_line) = `wc -l $file` =~ /^\s*(\d+)/;
 		open ($checkfileIn, "<", $file) or DIELOG($outLog, "footLoop_2fixsam.pl: Failed to read from filetype=$filetype, file=$LCY$file$N: $!\n") 
 	}
 	

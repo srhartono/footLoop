@@ -99,7 +99,7 @@ sub parse_bamFile {
 	my %data;
 	my $in;
 	if ($bamFile =~ /.gz$/) {
-		open ($in, "zcat $bamFile|") or DIELOG($outLog, date() . " Failed to read from bamFile $LCY$bamFile$N: $!\n");
+		open ($in, "zcat < $bamFile|") or DIELOG($outLog, date() . " Failed to read from bamFile $LCY$bamFile$N: $!\n");
 	}
 	elsif ($bamFile =~ /.sam$/) {
 		open ($in, "<", "$bamFile") or DIELOG($outLog, date() . " Failed to read from bamFile $LCY$bamFile$N: $!\n");

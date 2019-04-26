@@ -588,7 +588,7 @@ sub log_samFile {
 	}
 	
 	my $skipped = 0; my ($passedFilterP, $passedFilterN) = (0,0);
-	open (my $inSamFix, "zcat $origDir/$samFileName.fixed.gz|") or LOG($outLog, "Failed to open $origDir/$samFileName.fixed.gz: $!\n") and exit 1;
+	open (my $inSamFix, "zcat < $origDir/$samFileName.fixed.gz|") or LOG($outLog, "Failed to open $origDir/$samFileName.fixed.gz: $!\n") and exit 1;
 	while (my $line = <$inSamFix>) {
 		chomp($line);
 		my ($read, $type, $oldStrand, $strand, $genez, $pos, $info) = split("\t", $line);

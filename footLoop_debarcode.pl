@@ -168,7 +168,7 @@ print "${LGN}1. -b $LCY$barcodeFile$N was parsed successfully!\n$N\n";
 my $isDir = -d $input1 ? "(is a directory!)" : -e $input1 ? "" : "($input1 does not exist!)";
 die "$LRD FATAL ERROR$N: -i $LCY$input1$N is not a fastq file! $LRD$isDir$N\n" if -d $input1 or not -e $input1;
 open ($in1, "<", $input1) or die "Cannot read from $input1: $!\n" if $input1 !~ /.gz$/i;
-open ($in1, "zcat $input1|") or die "Cannot read from $input1: $!\n" if $input1 =~ /.gz$/i;
+open ($in1, "zcat < $input1|") or die "Cannot read from $input1: $!\n" if $input1 =~ /.gz$/i;
 while (my $line = <$in1>) { chomp($line);
 	# 1. name: m171023_184836_42145_c101402632550000001823289101251862_s1_p0/0/ccs
 	$readCount ++;
