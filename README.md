@@ -9,7 +9,7 @@ git clone https://github.com/srhartono
 #Example run:
 tar zxvf example.tar.gz
 cd example
-footLoop.pl -r PCB190425.fq.gz -n PCB190425_MAP -g ~/Bowtie2_indexes/hg19/hg19.fa -l PCB190425 -x -10 -y 10 -i geneIndexes.bed
+footLoop.pl -r PCB190425.fq.gz -n PCB190425_MAP -g hg19.fa -l PCB190425 -x -10 -y 10 -i geneIndexes.bed
 footPeak.pl -n PCB190425_MAP -o PCB190425_PEAK
 footClust.pl -n PCB190425_PEAK
 footPeak_graph.pl -n PCB190425_PEAK
