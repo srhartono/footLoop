@@ -122,10 +122,6 @@ my $SEQ = parse_indexFile_and_seqFile($indexFile, $seqFile, $outLog);
 # get seq from faFile
 # process peak
 
-#PEAK	.......999..9.999.....{300 more dots}...999.999999........
-#           | P1| | P2 |                      | Peak 3  |         # if max non-9 buffer length is < 2
-#           |  Peak1   |                      | Peak 2  |         # if max non-9 buffer length is < 300
-#           |              Peak 1                       |         # if max non-9 buffer length is < 500
 my @origFile = <$origFolder/*.orig>;
 open (my $outLogAddon, ">", "$resDir/footLoop_addition_logFile.txt") or DIELOG($outLog, "Failed to write to $resDir/footLoop_addition_logFile.txt: $!\n");
 close $outLogAddon;

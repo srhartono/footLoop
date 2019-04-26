@@ -4,7 +4,7 @@ use strict; use warnings; use Getopt::Std;
 use vars qw($opt_x $opt_y $opt_o $opt_a $opt_b $opt_i $opt_s $opt_f $opt_m $opt_c $opt_r $opt_q);
 getopts("i:x:o:y:abcsf:mrq");
 
-die "
+die " 
 Usage: $0 [option] -i bed file
 
 options:

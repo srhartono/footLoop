@@ -7,7 +7,6 @@ getopts("vd:n:G:t:RD:");
 #########
 # BEGIN #
 #########
-#
 
 BEGIN {
    my ($bedtools) = `bedtools --version`;
