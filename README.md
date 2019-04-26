@@ -1,5 +1,17 @@
 FootLoop method
 
+# 0. SYNOPSIS
+
+```
+cd footLoop/example/
+footLoop.pl -r PCB190425.fq.gz -n PCB190425_MAP -g ~/Bowtie2_indexes/hg19/hg19.fa -l PCB190425 -x -10 -y 10 -i geneIndexes.bed
+footPeak.pl -n PCB190425_MAP -o PCB190425_PEAK
+footClust.pl -n PCB190425_PEAK
+footPeak_graph.pl -n PCB190425_PEAK
+footPeakGTF.pl -n PCB190425_PEAK
+footPeak_GCprofile.pl -n PCB190425_PEAK -i geneIndexes.bed
+footStats.pl -n PCB190425_PEAK
+```
 
 # 1. USAGE
 
@@ -97,16 +109,21 @@ footRepro.pl -n <footPeak output directory>
 Options:
 -c: Include Cytosines in CpG context. [off]
 -G: only process this gene, e.g. -G CALM3. [off]
+```
+
+## 1I. Stats summary (footStats.pl)
 
 
-Extra:
-Creating % Conversion for UCSC (footPeak_conv.pl)
-footPeak_conv.pl -n <footPeak output directory>
+```
+footStats.pl -n <footPeak output directory>
 
 Options:
--c: Include Cytosines in CpG context. [off]
 -G: only process this gene, e.g. -G CALM3. [off]
+
+Will produce 0_SUMMARY.TXT and 1_PEAKSTATS.TXT, which contain statistics of the run, e.g. how many peaks in a read.
 ```
+
+
 
 
 # 2. Detailed Explanation
@@ -135,4 +152,3 @@ For each gene, R-loop peaks were clustered using their start and stop coordinate
 ## 2E. Reproduciblity
 
 For each gene replicate, we quantified distribution of reads in each cluster. These distributions were used to measure Pearson correlation coefficient between each replicates. As control, we shuffled the position of each read around the amplicon region and used its position to determine its cluster. A shuffled read is considered to be inside a specific cluster if their start and end positions fall between +/- 100bp of mean start and end of all reads in that cluster. All reads that weren’t inside any specific cluster were put in an extra cluster. Then we calculated Pearson correlation coefficient in the same manner as described above.
-
