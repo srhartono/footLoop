@@ -37,7 +37,7 @@ BEGIN {
 	push(@INC, $libPath);
 }
 use myFootLib; use FAlite;
-my $md5script = `which md5` =~ /^\w+$/ ? "md5" : "md5sum";
+my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 my $homedir = $ENV{"HOME"};
 my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
 ($opt_r, $opt_i, $opt_n, $opt_g, $opt_x, $opt_y) = run_example() if @ARGV and $ARGV[0] eq "ex";
