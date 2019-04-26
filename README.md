@@ -3,19 +3,21 @@ FootLoop method
 # 0. SYNOPSIS
 
 ```
-#Install:
+# 1. Install:
 git clone https://github.com/srhartono/footLoop
 
-#Example run:
+# 2. Example run:
+# Download example.tar.gz and move everything in it into footLoop folder
 tar zxvf example.tar.gz
-cd example
-footLoop.pl -r PCB190425.fq.gz -n PCB190425_MAP -g hg19.fa -l PCB190425 -x -10 -y 10 -i geneIndexes.bed
-footPeak.pl -n PCB190425_MAP -o PCB190425_PEAK
-footClust.pl -n PCB190425_PEAK
-footPeak_graph.pl -n PCB190425_PEAK
-footPeakGTF.pl -n PCB190425_PEAK
-footPeak_GCprofile.pl -n PCB190425_PEAK -i geneIndexes.bed
-footStats.pl -n PCB190425_PEAK
+mv example/* footLoop/
+cd footLoop
+./footLoop.pl -r PCB190425.fq.gz -n PCB190425_MAP -g hg19.fa -l PCB190425 -x -10 -y 10 -i geneIndexes.bed
+./footPeak.pl -n PCB190425_MAP -o PCB190425_PEAK
+./footClust.pl -n PCB190425_PEAK
+./footPeak_graph.pl -n PCB190425_PEAK
+./footPeakGTF.pl -n PCB190425_PEAK
+./footPeak_GCprofile.pl -n PCB190425_PEAK -i geneIndexes.bed
+./footStats.pl -n PCB190425_PEAK
 ```
 
 # 1. USAGE
