@@ -26,6 +26,24 @@ cd footLoop
 
 `git clone https://github.com/srhartono`
 
+### Other required packages/softwares (and versions used for this pipeline)
+
+Softwares:
+
+- [bedtools2 (v2.25.0)](https://github.com/arq5x/bedtools2/releases/download/v2.25.0/bedtools-2.25.0.tar.gz)
+- [bowtie2 (v2.2.6)](https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.2.6/bowtie2-2.2.6-source.zip/download)
+- [bismark2 (v0.20.0)](https://www.bioinformatics.babraham.ac.uk/projects/bismark/bismark_v0.20.0.tar.gz)
+- [R (v3.4.4)](https://cloud.r-project.org/src/base/R-3/R-3.4.4.tar.gz)
+
+R packages:
+
+- RColorBrewer v1.1-2 
+- gridExtra v2.3
+- labeling v0.3
+- reshape2 v1.4.3    
+- ggplot2 v3.1.0
+- GMD v0.3.3         
+
 ## 1B. Mapping (footLoop.pl)
 
 ```
