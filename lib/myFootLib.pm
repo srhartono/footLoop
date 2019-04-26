@@ -334,13 +334,13 @@ sub checkBismarkIndex {
 	my $md5res = "";
    if ($md5script eq "md5sum") {
       $md5res = `$md5script $tomd5`;
-		die "Failed to $md5script $samFileGZ: $!\n" if not defined $md5res;
+		die "Failed to $md5script $tomd5: $!\n" if not defined $md5res;
    }
    if ($md5script eq "md5") {
       ($md5res) = `$md5script $tomd5` =~ /^.+\= (\w+)$/; 
-		die "Failed to $md5script $samFileGZ: $!\n" if not defined $md5res;
+		die "Failed to $md5script $tomd5: $!\n" if not defined $md5res;
    }
-	$md1 = $md5res;
+	my $md1 = $md5res;
 	$bismark_folder = "$mainFolder/Bismark_indexes/footLoop/$md1";
 	mkdir $bismark_folder if not -d $bismark_folder;
 	if (not -d $bismark_folder) {mkdir $bismark_folder; return(0, $bismark_folder);}
@@ -870,11 +870,11 @@ sub getMD5 {
 		my $md5res = "";
 	   if ($md5script eq "md5sum") {
 	      $md5res = `$md5script $tomd5`;
-			die "Failed to $md5script $samFileGZ: $!\n" if not defined $md5res;
+			die "Failed to $md5script $tomd5: $!\n" if not defined $md5res;
 	   }
 	   if ($md5script eq "md5") {
 	      ($md5res) = `$md5script $tomd5` =~ /^.+\= (\w+)$/; 
-			die "Failed to $md5script $samFileGZ: $!\n" if not defined $md5res;
+			die "Failed to $md5script $tomd5: $!\n" if not defined $md5res;
 	   }
       system("echo '$md5res\t$tomd5' > $folder/.$filename.md5") == 0 or print date() . "mitochy::getMD5 $YW$filetemp$N: failed to $md5script $filetemp!\n" and return;
 
