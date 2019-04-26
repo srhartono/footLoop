@@ -7,6 +7,7 @@ FootLoop method
 git clone https://github.com/srhartono/footLoop
 
 # 2. Example run:
+# Download hg19.fa.gz from http://hgdownload.cse.ucsc.edu/goldenPath/hg19/bigZips/hg19.fa.gz then put into footLoop folder
 # Download example.tar.gz and move everything in it into footLoop folder
 tar zxvf example.tar.gz
 mv example/* footLoop/
