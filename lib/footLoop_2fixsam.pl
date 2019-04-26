@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
+use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
 use vars qw($opt_v $opt_s $opt_i $opt_g $opt_n $opt_S $opt_c $opt_C $opt_o $opt_v $opt_n);
 getopts("s:i:g:f:S:cCo:vn:");
 
@@ -36,6 +36,7 @@ BEGIN {
 }
 use myFootLib; use FAlite;
 my $homedir = $ENV{"HOME"};
+my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 my $footLoopScriptsFolder = dirname(dirname abs_path $0);
 my @version = `cd $footLoopScriptsFolder && git log | head `;
 my $version = "UNKNOWN";

@@ -22,6 +22,7 @@ use Thread::Queue;
 
 
 my $date = getDate();
+my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 
 
 my ($input) = @ARGV;
@@ -140,7 +141,7 @@ else {
 print "\nOutput:\n";
 foreach my $outputtype (@outputtypes) {
 	my $outputfile = defined $opt_W ? "$outdir/$outName.$outputtype.wig" : "$outdir/$outName.$outputtype.tsv";
-	my ($md5) = `md5sum $outputfile` =~ /^(\w+) /;
+	my ($md5) = `$md5script $outputfile` =~ /^(\w+) /;
 	print "- $LGN$outputfile$N (md5=$YW$md5$N)\n";
 }
 print "\n";
