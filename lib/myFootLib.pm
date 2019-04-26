@@ -90,6 +90,7 @@ $LRD
 $LPR
 );
 
+my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 
 #################################
 
@@ -329,7 +330,7 @@ sub checkBismarkIndex {
 	mkdir $bismark_folder if not -d $bismark_folder;
 	print $outLog "\n$LRD!!!$N FATAL ERROR: $geneIndexes is empty!\n" and die "\n" if -s $geneIndexes == 0;
 
-	my ($md1) = `md5sum $geneIndexes` =~ /^(\w+)[ ]+/;
+	my ($md1) = `$md5script $geneIndexes` =~ /^(\w+)[ ]+/;
 	$bismark_folder = "$mainFolder/Bismark_indexes/footLoop/$md1";
 	mkdir $bismark_folder if not -d $bismark_folder;
 	if (not -d $bismark_folder) {mkdir $bismark_folder; return(0, $bismark_folder);}
@@ -837,7 +838,7 @@ sub getFullpathAll {
 
 sub getMD5_simple {
 	my ($file) = @_;
-	my ($md5) = `md5sum $file` =~ /^(\w+)\s+/;
+	my ($md5) = `$md5script $file` =~ /^(\w+)\s+/;
 	return ($md5);
 }
 sub getMD5 {
@@ -855,7 +856,7 @@ sub getMD5 {
 			die "file=\n$CY$filetemp$N\nHERE\n";
 			return "NA";
 		}
-      system("md5sum $filetemp > $folder/.$filename.md5") == 0 or print date() . "mitochy::getMD5 $YW$filetemp$N: failed to md5sum $filetemp!\n" and return;
+      system("$md5script $filetemp > $folder/.$filename.md5") == 0 or print date() . "mitochy::getMD5 $YW$filetemp$N: failed to $md5script $filetemp!\n" and return;
       $file = "$folder/.$filename.md5";
    }
 	if (not -e $filetemp) {
