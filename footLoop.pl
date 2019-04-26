@@ -37,6 +37,7 @@ BEGIN {
 	push(@INC, $libPath);
 }
 use myFootLib; use FAlite;
+my $md5script = `which md5` =~ /^\w+$/ ? "md5" : "md5sum";
 my $homedir = $ENV{"HOME"};
 my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
 ($opt_r, $opt_i, $opt_n, $opt_g, $opt_x, $opt_y) = run_example() if @ARGV and $ARGV[0] eq "ex";
@@ -469,8 +470,8 @@ sub fix_samFile {
 	}
 
 	# re-md5 samfile gz
-	LOG($outLog, "\t${YW}md5sum $samFileGZ > $origDir/.$samFileName.fixed.gz.md5$N\n");
-	system("md5sum $samFileGZ > $origDir/.$samFileName.fixed.gz.md5") == 0 or LOG($outLog, "Failed to md5sum $samFileGZ > $origDir/.$samFileName.fixed.gz.md5: $!\n") and exit 1;
+	LOG($outLog, "\t${YW}$md5script $samFileGZ > $origDir/.$samFileName.fixed.gz.md5$N\n");
+	system("$md5script $samFileGZ > $origDir/.$samFileName.fixed.gz.md5") == 0 or LOG($outLog, "Failed to $md5script $samFileGZ > $origDir/.$samFileName.fixed.gz.md5: $!\n") and exit 1;
 	LOG($outReadLog, "footLoop.pl,samFixedFile,$samFileGZ\n","NA");
 	LOG($outReadLog, "footLoop.pl,samFixedFileMD5,$samMD5\n","NA");
 	return($samFile, $origDir);
@@ -711,7 +712,7 @@ sub make_bismark_index {
 	my ($geneIndexFa, $bismark_folder, $bismarkOpt, $outLog) = @_;
 	LOG($outLog, "\n\ta. Running bismark_genome_preparation$N --bowtie2 $bismark_folder$N\n");
 	my $run_boolean = "\t${LGN}WAS NOT RUN$N:${YW} ";
-	my $cmd = "bismark_genome_preparation --bowtie2 $bismark_folder > $bismark_folder/LOG.txt 2>&1 && md5sum $geneIndexFa > $bismark_folder/Bisulfite_Genome/.MD5SUM";
+	my $cmd = "bismark_genome_preparation --bowtie2 $bismark_folder > $bismark_folder/LOG.txt 2>&1 && $md5script $geneIndexFa > $bismark_folder/Bisulfite_Genome/.$md5script";
 	my ($check, $md5sum, $md5sum2) = (0);
 	my $bismark_folder_exist = (-d "$bismark_folder/Bisulfite_Genome/" and -e "$bismark_folder/Bisulfite_Genome/.MD5SUM") ? 1 : 0;
 	if ($bismark_folder_exist == 1) {
