@@ -4,6 +4,7 @@
 use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
 use vars qw($opt_N $opt_1 $opt_2 $opt_m $opt_i $opt_c $opt_n $opt_G $opt_v $opt_o); 
 getopts("cn:G:vo:N:1:2:i:m:");
+
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);

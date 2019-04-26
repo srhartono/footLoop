@@ -8,8 +8,8 @@ BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
 }
+
 use myFootLib; use FAlite; use footPeakAddon;
-use feature 'say';
 
 my $homedir = $ENV{"HOME"};
 my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";

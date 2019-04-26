@@ -4,37 +4,19 @@ use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basen
 use vars qw($opt_v $opt_d $opt_n $opt_G $opt_t $opt_R $opt_D);
 getopts("vd:n:G:t:RD:");
 
-#########
-# BEGIN #
-#########
-
 BEGIN {
-   my ($bedtools) = `bedtools --version`;
-   my ($bowtie2) = `bowtie2 --version`;
-   my ($bismark) = `bismark --version`;
-   my ($bismark_genome_preparation) = `bismark_genome_preparation --version`;
-	print "\n\n\e[1;33m ------------- BEGIN ------------ \e[0m\n";
-   if (not defined $bedtools or $bedtools =~ /command not found/ or $bedtools =~ /bedtools v?([01].\d+|2\.0[0-9]|2\.1[0-6])/) {
-      print "Please install bedtools at least version 2.17 before proceeding!\n";
-      $bedtools = 0;
-   }
-   print "\n- \e[1;32m bedtools v2.17+ exists:\e[0m " . `which bedtools` if $bedtools ne 0;
-   die if $bedtools eq 0;
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
-#	print "\n\n\e[1;33m ------------ BEGIN ------------> \e[0m\n";
 }
-use myFootLib; use FAlite;
 
-################
-# ARGV Parsing #
-###############
+use myFootLib;
+use FAlite;
 
 my $date = getDate();
 my $uuid = getuuid();
 my ($dist, $footPeakFolder) = ($opt_d, $opt_n);
 my $toggleRstrand = defined $opt_R ? "Yes" : "No";
-# sanity check -n footPeakFolder
+
 die "\nUsage: $YW$0$N $LGN-g gene$N $CY-n <footPeak's output folder (footPeak's -o)>$N
 
 -D: tightness of read placement in each cluster (default: 200)

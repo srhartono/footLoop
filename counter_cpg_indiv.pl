@@ -5,15 +5,13 @@ use vars qw($opt_w $opt_s $opt_c $opt_m $opt_W $opt_f $opt_B $opt_a $opt_b $opt_
 getopts("o:Ww:s:cm:fBa:b:MA1");
 
 
-#########
-# BEGIN #
-#########
-
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
 }
-use myFootLib; use FAlite;
+
+use myFootLib;
+use FAlite;
 use Thread::Queue;
 
 ################

@@ -1,14 +1,5 @@
 #!/usr/bin/perl
 
-# 0 is bad or not data (was 6)
-# 1 is non C/G
-# 4 is CH non conv
-# 5 is CG non conv
-# 6 is CH conv
-# 7 is CG conv
-# 8 is CH peak
-# 9 is CG peak
-
 use strict; use warnings; use Getopt::Std; use Time::HiRes; use Benchmark qw(:all); use Benchmark ':hireswallclock'; use Carp;
 use Thread; use Thread::Queue;
 use Cwd qw(abs_path); use File::Basename qw(dirname);
@@ -19,8 +10,10 @@ BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
 }
-use myFootLib; use FAlite; use footPeakAddon;
-use feature 'say';
+
+use myFootLib;
+use FAlite;
+use footPeakAddon;
 
 my $homedir = $ENV{"HOME"};
 my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
@@ -1067,3 +1060,11 @@ ${YW}---------------------$N
 
 # -------------------------------->
 
+# 0 is bad or not data (was 6)
+# 1 is non C/G
+# 4 is CH non conv
+# 5 is CG non conv
+# 6 is CH conv
+# 7 is CG conv
+# 8 is CH peak
+# 9 is CG peak

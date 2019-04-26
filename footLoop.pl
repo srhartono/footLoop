@@ -1,5 +1,4 @@
 #!/usr/bin/perl
-# Version 160831_Fixed_PrintOutput at the same file (step 8)
 
 use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
 use vars   qw($opt_v $opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f $opt_l);
@@ -7,55 +6,9 @@ my @opts = qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $op
 getopts("vr:g:i:n:L:x:y:q:HhZFpl:");
 
 BEGIN {
-	my ($samtools) = `samtools 2>&1 | grep Version`; $samtools = "Unknown Samtools Version!" if not defined $samtools;
-	my ($bedtools) = `bedtools --version`;  $bedtools = "Unknown bedtools Version!" if not defined $bedtools;
-	my ($bowtie2) = `bowtie2 --version | grep version`;  $bowtie2 = "Unknown bowtie2 Version!" if not defined $bowtie2;
-	my ($bismark) = `bismark --version| grep Version`;  $bismark = "Unknown bismark Version!" if not defined $bismark;
-	my ($bismark_genome_preparation) = `bismark_genome_preparation --version | grep Version`;  $bismark_genome_preparation = "Unknown bismark_genome_preparation Version!" if not defined $bismark_genome_preparation;
-	my ($R) = `R --version |grep version`; $R = "Unknown R Version!" if not defined $R;
-	
-	if ($samtools !~ /Version: (0\.1\.(19|[2-9]\d*)|0\.2|[1-9])/i) {
-		print "Please install samtools at least version 0.1.19 before proceeding!\n\nsamtools=$samtools\n\n";
-		$samtools = 0;
-	}
-	if ($bedtools !~ /bedtools v(2\.(2[5-9]|[3-9]\d*)|[3-9])/) {
-		print "Please install bedtools at least version 2.25.0 before proceeding!\n\nbedtools=$bedtools\n\n";
-		$bedtools = 0;
-	}
-	if ($bowtie2 !~ /version [2-9]\./) {
-		print "Please install bowtie2 at least version 2.2.6 before proceeding!\n\nbowtie2=$bowtie2\n\n";
-		$bowtie2 = 0;
-	}
-	if ($bismark !~ /v?(0\.2[0-9])/) {
-		print "Please install bismark at least version 0.20.0 before proceeding!\n\nbismark=$bismark\n\n";
-		$bismark = 0;
-	}
-	if ($bismark_genome_preparation !~ /v?(0\.[2-9])/) {
-		print "\n\nPlease install bismark_genome_preparation at least version 0.20.0 before proceeding!\n\n\nbismark_genome_preparation=$bismark_genome_preparation\n\n";
-		$bismark_genome_preparation = 0;
-	}
-	if ($R !~ /version (3\.(4\.[4-9]|[5-9])|[4-9])/) {
-		print "Please install R at least version 3.4.4 before proceeding!\n\nR=$R\n\n";
-		$R = 0;
-	}
-	my ($samtools_version) = $samtools eq 0 ? "NA" : $samtools =~ /Version.\s+(.+)$/; die "Can't determine samtools version from\n$samtools\n\n" if not defined $samtools_version;
-	my ($bedtools_version) = $bedtools eq 0 ? "NA" : $bedtools =~ /bedtools\s+(.+)$/; die "Can't determine bedtools version from\n$bedtools\n\n" if not defined $bedtools_version;
-	my ($bowtie2_version) = $bowtie2 eq 0 ? "NA" : $bowtie2 =~ /version\s+(.+)$/; die "Can't determine bowtie2 version from\n$bowtie2\n\n" if not defined $bowtie2_version;
-	my ($bismark_version) = $bismark eq 0 ? "NA" : $bismark =~ /Version.\s+(.+)$/; die "Can't determine bismark version from\n$bismark\n\n" if not defined $bismark_version;
-	my ($bismark_genome_preparation_version) = $bismark_genome_preparation eq 0 ? "NA" : $bismark_genome_preparation =~ /Version.\s+(.+)$/; die "Can't determine bismark_genome_preparation version from\n$bismark_genome_preparation\n\n" if not defined $bismark_genome_preparation_version;
-	my ($R_version) = $R eq 0 ? "NA" : $R =~ /version\s+(\d+\.\d+\.\d+)\s*/; die "Can't determine R version from\n$R\n\n" if not defined $R_version;
-	print "\n--------------------\n Software Check\n--------------------\n\n";
-	print "- samtools \e[1;36m$samtools_version\e[0m exists: \e[1;32m" . `which samtools` . "\e[0m" if $samtools ne 0;
-	print "- bedtools \e[1;36m$bedtools_version\e[0m exists: \e[1;32m" . `which bedtools` . "\e[0m" if $bedtools ne 0;
-	print "- bowtie2 \e[1;36m$bowtie2_version\e[0m exists: \e[1;32m" . `which bowtie2` . "\e[0m" if $bowtie2 ne 0;
-	print "- bismark \e[1;36m$bismark_version\e[0m exists: \e[1;32m" . `which bismark` . "\e[0m" if $bismark ne 0;
-	print "- bismark_genome_preparation \e[1;36m$bismark_genome_preparation_version\e[0m exists: \e[1;32m" . `which bismark_genome_preparation` . "\e[0m" if $bismark_genome_preparation ne 0;
-	print "- R \e[1;36m$R_version\e[0m exists: \e[1;32m" . `which R` . "\e[0m" if $R ne 0;
-	print "\n--------------------\n";
-	die if $samtools eq 0 or $bedtools eq 0 or $bowtie2 eq 0 or $bismark eq 0 or $bismark_genome_preparation eq 0 or $R eq 0;
 	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
 	push(@INC, $libPath);
-	print "- Pushed $libPath into perl lib path INC\n\n";
+	print "\n- Pushed $libPath into perl lib path INC\n";
 }
 
 use myFootLib; use FAlite;
@@ -63,22 +16,32 @@ use myFootLib; use FAlite;
 my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 my $homedir = $ENV{"HOME"};
 my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
+
+# footLoop.pl Version 1.00
+# Copyright (C) 2019 Stella Regina Hartono
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# The license can be found at https://www.gnu.org/licenses/gpl-3.0.en.html. 
+# By downloading or using this software, you agree to the terms and conditions of the license. 
+
 ($opt_r, $opt_i, $opt_n, $opt_g, $opt_x, $opt_y) = run_example() if @ARGV and $ARGV[0] eq "ex";
 
-my @version = `cd $footLoopScriptsFolder && git log | head `;
-my $version = "UNKNOWN";
-foreach my $line (@version[0..@version-1]) {
-	if ($line =~ /^\s+V\d+\.?\d*\w*\s*/) {
-		($version) = $line =~ /^\s+(V\d+\.?\d*\w*)\s*/;
-	}
-}
-if (not defined $version or (defined $version and $version eq "UNKNOWN")) {
-	($version) = `cd $footLoopScriptsFolder && git log | head -n 1`;
-}
+my @version = `$footLoopScriptsFolder/check_software.pl | tail -n 12`;
+my $version = join("\n", @version);
 if (defined $opt_v) {
-	print "\n\n$YW$0 $LGN$version$N\n\n";
+	print "$version\n";
 	exit;
 }
+
 
 ###################
 # 0. Check Sanity #
@@ -1069,7 +1032,6 @@ sub uppercaseFasta {
 }
 
 sub sanityCheck {
-	print "\n\nUse -Z if you're running invitro plasmid data!\n\n";
 	my ($opts) = @_;
 
 	my ($usageshort, $usage, $usagelong) = getUsage();
@@ -1083,6 +1045,7 @@ sub sanityCheck {
 	die "\n$usageshort\n" if $checkopts == 0;
 	die "\n$usage\n"      if defined $opt_h;
 	die "\n$usagelong\n"  if defined $opt_H;
+
 	my $errors = "";
 	my $read0 = defined($opt_r) ? $opt_r : "FALSE";
 
@@ -1155,9 +1118,11 @@ sub sanityCheck {
 		print "$usageshort";
 		print "\n${LRD}########## ${YW}FATAL ERROR${LRD} ##########\n\nREASON:$N\n";
 		print $errors;
-		print "\n\n${LRD}##################################$N\n\n\n" ;
+		print "\n\n${LRD}##################################$N\n\n" ;
+		print "Use -Z if you're running invitro plasmid data!\n";
 		die "\n";
 	}
+	print "Use -Z if you're running invitro plasmid data!\n";
 }
 
 sub record_options {

@@ -4,27 +4,13 @@ use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basen
 use vars qw($opt_v $opt_d $opt_n $opt_G $opt_c);
 getopts("vd:n:G:c");
 
-#########
-# BEGIN #
-#########
-
 BEGIN {
-   my ($bedtools) = `bedtools --version`;
-   my ($bowtie2) = `bowtie2 --version`;
-   my ($bismark) = `bismark --version`;
-   my ($bismark_genome_preparation) = `bismark_genome_preparation --version`;
-   print "\n\n\e[1;33m ------------- BEGIN ------------ \e[0m\n";
-   if (not defined $bedtools or $bedtools =~ /command not found/ or $bedtools =~ /bedtools v?([01].\d+|2\.0[0-9]|2\.1[0-6])/) {
-      print "Please install bedtools at least version 2.17 before proceeding!\n";
-      $bedtools = 0;
-   }
-   print "\n- \e[1;32m bedtools v2.17+ exists:\e[0m " . `which bedtools` if $bedtools ne 0;
-   die if $bedtools eq 0;
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
-#  print "\n\n\e[1;33m ------------ BEGIN ------------> \e[0m\n";
 }
-use myFootLib; use FAlite;
+
+use myFootLib;
+use FAlite;
 
 my $homedir = $ENV{"HOME"};
 my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
