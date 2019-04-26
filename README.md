@@ -4,7 +4,7 @@ FootLoop method
 
 ```
 #Install:
-git clone https://github.com/srhartono
+git clone https://github.com/srhartono/footLoop
 
 #Example run:
 tar zxvf example.tar.gz
