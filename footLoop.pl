@@ -14,7 +14,7 @@ BEGIN {
 	my ($bismark_genome_preparation) = `bismark_genome_preparation --version | grep Version`;  $bismark_genome_preparation = "Unknown bismark_genome_preparation Version!" if not defined $bismark_genome_preparation;
 	my ($R) = `R --version |grep version`; $R = "Unknown R Version!" if not defined $R;
 	
-	if ($samtools !~ /Version: (0\.1\.(19|[2-9]\d*)|0\.2)/i) {
+	if ($samtools !~ /Version: (0\.1\.(19|[2-9]\d*)|0\.2|[1-9])/i) {
 		print "Please install samtools at least version 0.1.19 before proceeding!\n\nsamtools=$samtools\n\n";
 		$samtools = 0;
 	}
