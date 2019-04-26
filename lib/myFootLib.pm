@@ -853,14 +853,14 @@ sub getMD5 {
               -e "$folder/$filename.md5sum"  ? "$folder/$filename.md5sum" :
               -e "$folder/$filename.md5"     ? "$folder/$filename.md5" : "";
 		if (not -e $filetemp) {
-			die "file=\n$CY$filetemp$N\nHERE\n";
+			print "$CY$filetemp$N\nfile does not exist!\n\n";
 			return "NA";
 		}
       system("$md5script $filetemp > $folder/.$filename.md5") == 0 or print date() . "mitochy::getMD5 $YW$filetemp$N: failed to $md5script $filetemp!\n" and return;
       $file = "$folder/.$filename.md5";
    }
 	if (not -e $filetemp) {
-		die "file=\n$CY$filetemp$N\nHERE\n";
+		print "$CY$filetemp$N\nfile does not exist!\n\n";
 		return "NA";
 	}
    my @line = `cat $file`;
