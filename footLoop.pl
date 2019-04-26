@@ -471,7 +471,13 @@ sub fix_samFile {
 
 	# re-md5 samfile gz
 	LOG($outLog, "\t${YW}$md5script $samFileGZ > $origDir/.$samFileName.fixed.gz.md5$N\n");
-	system("$md5script $samFileGZ > $origDir/.$samFileName.fixed.gz.md5") == 0 or LOG($outLog, "Failed to $md5script $samFileGZ > $origDir/.$samFileName.fixed.gz.md5: $!\n") and exit 1;
+	if ($md5script eq "md5sum") {
+		system("$md5script $samFileGZ > $origDir/.$samFileName.fixed.gz.md5") == 0 or LOG($outLog, "Failed to $md5script $samFileGZ > $origDir/.$samFileName.fixed.gz.md5: $!\n") and exit 1;
+	}
+	if ($md5script eq "md5") {
+		my ($md5res) = `$md5script $samFileGZ` =~ /^.+\= (\w+)$/; die "Failed to $md5script $samFileGZ: $!\n" if not defined $md5res;
+		system("echo '$md5res $samFileGZ' > $origDir/.$samFileName.fixed.gz.md5") == 0 or LOG($outLog, "Failed to $md5script $samFileGZ > $origDir/.$samFileName.fixed.gz.md5: $!\n") and exit 1;
+	}
 	LOG($outReadLog, "footLoop.pl,samFixedFile,$samFileGZ\n","NA");
 	LOG($outReadLog, "footLoop.pl,samFixedFileMD5,$samMD5\n","NA");
 	return($samFile, $origDir);
@@ -712,7 +718,10 @@ sub make_bismark_index {
 	my ($geneIndexFa, $bismark_folder, $bismarkOpt, $outLog) = @_;
 	LOG($outLog, "\n\ta. Running bismark_genome_preparation$N --bowtie2 $bismark_folder$N\n");
 	my $run_boolean = "\t${LGN}WAS NOT RUN$N:${YW} ";
-	my $cmd = "bismark_genome_preparation --bowtie2 $bismark_folder > $bismark_folder/LOG.txt 2>&1 && $md5script $geneIndexFa > $bismark_folder/Bisulfite_Genome/.$md5script";
+	my $cmd = "bismark_genome_preparation --bowtie2 $bismark_folder > $bismark_folder/LOG.txt 2>&1";
+	if ($md5script eq "md5sum") {
+		$cmd .= " && $md5script $geneIndexFa > $bismark_folder/Bisulfite_Genome/.$md5script";
+	}
 	my ($check, $md5sum, $md5sum2) = (0);
 	my $bismark_folder_exist = (-d "$bismark_folder/Bisulfite_Genome/" and -e "$bismark_folder/Bisulfite_Genome/.MD5SUM") ? 1 : 0;
 	if ($bismark_folder_exist == 1) {
@@ -725,6 +734,10 @@ sub make_bismark_index {
 	if ($bismark_folder_exist == 0) {
 		LOG($outLog, "\tEither bismark folder didn't exist or older bisulfite genome found but$LRD different$N (md5sum old = $CY$md5sum$N, new = $CY$md5sum2)$N\n") if defined $md5sum;
 		system($cmd) == 0 or die "Failed to run bismark genome preparation: $!\n";
+	   if ($md5script eq "md5") {
+	      my ($md5res) = `$md5script $geneIndexFa` =~ /^.+\= (\w+)$/; die "Failed to $md5script $geneIndexFa: $!\n" if not defined $md5res;
+	      system("echo '$md5res $geneIndexFa' > $bismark_folder/Bisulfite_Genome/.$md5script") == 0 or LOG($outLog, "Failed to $md5script $geneIndexFa: $!\n");
+	   }
 	}
 	else { 
 		LOG($outLog, "\t${GN}SUCCESS$N: $CY$bismark_folder\/Bisulfite_Genome$N already exist (md5sum old = $CY$md5sum$N, new = $CY$md5sum2)$N\n");
