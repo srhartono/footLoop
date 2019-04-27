@@ -70,9 +70,9 @@ foreach my $gene (sort keys %samFixedData) {
 	my $negpos = $samFixedData{uc($gene)}{change}{Neg}{Pos}; $negpos = 0 if not defined $negpos;
 	my $pospos = $samFixedData{uc($gene)}{change}{Pos}{Pos}; $pospos = 0 if not defined $pospos;
 	my $negneg = $samFixedData{uc($gene)}{change}{Neg}{Neg}; $negneg = 0 if not defined $negneg;
-	my $posorig = "$origDir/$gene\_Pos.orig"; ($posorig) = -e $posorig ? `wc -l $posorig` =~ /^(\d+)/ : 0;
-	my $negorig = "$origDir/$gene\_Neg.orig"; ($negorig) = -e $negorig ? `wc -l $negorig` =~ /^(\d+)/ : 0;
-	my $unkorig = "$origDir/$gene\_Unk.orig"; ($unkorig) = -e $unkorig ? `wc -l $unkorig` =~ /^(\d+)/ : 0;
+	my $posorig = "$origDir/$gene\_Pos.orig"; ($posorig) = -e $posorig ? `wc -l $posorig` =~ /^\s*(\d+)/ : 0;
+	my $negorig = "$origDir/$gene\_Neg.orig"; ($negorig) = -e $negorig ? `wc -l $negorig` =~ /^\s*(\d+)/ : 0;
+	my $unkorig = "$origDir/$gene\_Unk.orig"; ($unkorig) = -e $unkorig ? `wc -l $unkorig` =~ /^\s*(\d+)/ : 0;
 	$dataorig{uc($gene)}{posorig} = $posorig;
 	$dataorig{uc($gene)}{negorig} = $negorig;
 	$dataorig{uc($gene)}{unkorig} = $unkorig;
