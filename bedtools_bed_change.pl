@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
-use strict; use warnings; use Getopt::Std;
-use vars qw($opt_x $opt_y $opt_o $opt_a $opt_b $opt_i $opt_s $opt_f $opt_m $opt_c $opt_r $opt_q);
-getopts("i:x:o:y:abcsf:mrq");
+use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
+use vars qw($opt_x $opt_y $opt_o $opt_a $opt_b $opt_i $opt_s $opt_f $opt_m $opt_c $opt_r $opt_q $opt_v);
+getopts("i:x:o:y:abcsf:mrqv");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -12,10 +12,30 @@ BEGIN {
 use myFootLib;
 use FAlite;
 
-die " 
+my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
+my $homedir = $ENV{"HOME"};
+my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
+my @version = `$footLoopScriptsFolder/check_software.pl | tail -n 12`;
+my $version = join("", @version);
+if (defined $opt_v) {
+   print "$version\n";
+   exit;
+}
+my ($version_small) = "vUNKNOWN";
+foreach my $versionz (@version[0..@version-1]) {
+   ($version_small) = $versionz =~ /^(v?\d+\.\d+\w*)$/ if $versionz =~ /^v?\d+\.\d+\w*$/;
+}
+
+my $usage = " 
+
+-----------------
+$YW $0 $version_small $N
+-----------------
+
 Usage: $0 [option] -i bed file
 
 options:
+-v: get version
 -a: Get start of gene (strand specific) and offset accordingly
 -b: Get end of gene (strand specific) and offset accordingly
 -c: Get middle of gene and offset accordingly
@@ -39,7 +59,9 @@ $0 -i foo.bed -x -1000 -y 4000 -o bar.bed
 E.g. +/- 1kb region of TSS (strand specific)
 $0 -i foo.bed -x -1000 -y 1000 -o bar.bed
 
-" unless defined($opt_i);
+";
+
+die $usage unless defined($opt_i);
 
 my $input  = $opt_i;
 my $x_off  = defined($opt_x) ? $opt_x : 0;

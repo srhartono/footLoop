@@ -7,23 +7,47 @@ getopts("vd:n:G:t:RD:");
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
+   print "\n- Pushed $libPath into perl lib path INC\n";
 }
 
 use myFootLib;
 use FAlite;
 
+my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
+my $homedir = $ENV{"HOME"};
+my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
+my @version = `$footLoopScriptsFolder/check_software.pl | tail -n 12`;
+my $version = join("", @version);
+if (defined $opt_v) {
+   print "$version\n";
+   exit;
+}
+my ($version_small) = "vUNKNOWN";
+foreach my $versionz (@version[0..@version-1]) {
+   ($version_small) = $versionz =~ /^(v?\d+\.\d+\w*)$/ if $versionz =~ /^v?\d+\.\d+\w*$/;
+}
+
 my $date = getDate();
 my $uuid = getuuid();
+
 my ($dist, $footPeakFolder) = ($opt_d, $opt_n);
 my $toggleRstrand = defined $opt_R ? "Yes" : "No";
 
-die "\nUsage: $YW$0$N $LGN-g gene$N $CY-n <footPeak's output folder (footPeak's -o)>$N
+my $usage = "
+
+-----------------
+$YW $0 $version_small $N
+-----------------
+
+Usage: $YW$0$N $LGN-g gene$N $CY-n <footPeak's output folder (footPeak's -o)>$N
 
 -D: tightness of read placement in each cluster (default: 200)
 -R: toggle to order reads reversely (good foor in vitro REVERSE_ genes)
 
+";
 
-" unless defined $opt_n and -d $opt_n;
+die $usage  unless defined $opt_n and -d $opt_n;
+
 my $outDir = "$footPeakFolder/FOOTCLUST/";
 $outDir= getFullpath($outDir);
 my $windowDiv = defined $opt_D ? $opt_D : 200;

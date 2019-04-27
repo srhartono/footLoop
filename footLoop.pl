@@ -1,23 +1,5 @@
 #!/usr/bin/perl
-
-use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars   qw($opt_v $opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f $opt_l);
-my @opts = qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_l);
-getopts("vr:g:i:n:L:x:y:q:HhZFpl:");
-
-BEGIN {
-	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
-	push(@INC, $libPath);
-	print "\n- Pushed $libPath into perl lib path INC\n";
-}
-
-use myFootLib; use FAlite;
-
-my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
-my $homedir = $ENV{"HOME"};
-my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
-
-# footLoop.pl Version 1.00
+# footLoop pipeline Version 1.2
 # Copyright (C) 2019 Stella Regina Hartono
 #
 # This program is free software: you can redistribute it and/or modify
@@ -33,17 +15,35 @@ my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
 # The license can be found at https://www.gnu.org/licenses/gpl-3.0.en.html. 
 # By downloading or using this software, you agree to the terms and conditions of the license. 
 
-($opt_r, $opt_i, $opt_n, $opt_g, $opt_x, $opt_y) = run_example() if @ARGV and $ARGV[0] eq "ex";
+use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
+use vars   qw($opt_v $opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f $opt_l $opt_e);
+my @opts = qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_l $opt_e);
+getopts("vr:g:i:n:L:x:y:q:HhZFpl:e");
 
-my @version = `$footLoopScriptsFolder/check_software.pl | tail -n 12`;
-my $version = join("\n", @version);
-if (defined $opt_v) {
-	print "$version\n";
-	exit;
+BEGIN {
+	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
+	push(@INC, $libPath);
+	print "\n- Pushed $libPath into perl lib path INC\n";
 }
 
+use myFootLib;
+use FAlite;
 
-###################
+my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
+my $homedir = $ENV{"HOME"};
+my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
+my @version = `$footLoopScriptsFolder/check_software.pl | tail -n 12`;
+my $version = join("", @version);
+if (defined $opt_v) {
+   print "$version\n";
+   exit;
+}
+my ($version_small) = "vUNKNOWN";
+foreach my $versionz (@version[0..@version-1]) {
+   ($version_small) = $versionz =~ /^(v?\d+\.\d+\w*)$/ if $versionz =~ /^v?\d+\.\d+\w*$/;
+}
+
+##################
 # 0. Check Sanity #
 ##################
 
@@ -53,11 +53,12 @@ my %OPTS  = ('r' => $opt_r, 'g' => $opt_g, 'i' => $opt_i, 'n' => $opt_n,
 				 'p' => 'NONE', 'q' => $opt_q, 'l' => $opt_l);
 my %OPTS2 = ('p' => $opt_p, 'Z' => $opt_Z, 'F' => $opt_F);
 
-sanityCheck(\%OPTS, \%OPTS2);
+check_sanity(\%OPTS, \%OPTS2);
 
 ###################
 # 1. Define Input #
 ###################
+
 my ($readFile, $genomeFile, $geneIndexFile, $outDir) = getFullpathAll($opt_r, $opt_g, $opt_i, $opt_n);
 my ($readFilename)  = getFilename($opt_r, "full");
 my ($geneIndexName) = getFilename($geneIndexFile);
@@ -392,16 +393,6 @@ sub print_R_heatmap {
 		system("rm Rplots.pdf") if -e "Rplots.pdf";
 		LOG($outLog, "\n${LPR}If there is not PDF made from step (8) then it's due to too low number of read/peak$N\n\n");
 	}
-}
-
-sub run_example {
-	my $exFolder = "$footLoopScriptsFolder/example";
-	print "Running example folder $LCY$exFolder$N\n";
-	my $opt_r = "$exFolder/CALM3/CALM3.sam";
-	my $opt_i = "$exFolder/CALM3/CALM3index.bed";
-	my $opt_g = "$exFolder/CALM3/hg19.fa";
-	my $opt_n = "$exFolder/CALM3/CALM3out/";
-	return($opt_r, $opt_i, $opt_n, $opt_g, -100, 100);
 }
 
 sub fix_samFile {
@@ -1031,10 +1022,12 @@ sub uppercaseFasta {
 	return("$fastaFile");
 }
 
-sub sanityCheck {
+sub check_sanity {
 	my ($opts) = @_;
 
-	my ($usageshort, $usage, $usagelong) = getUsage();
+	my ($usageshort, $usage, $usagelong, $example) = getUsage();
+
+	print $example and exit if defined $opt_e;
 	my $checkopts = 0;
 	if (defined $opts) {
 		my %opts = %{$opts};
@@ -1183,7 +1176,12 @@ sub check_if_result_exist {
 
 
 sub getUsage {
-my $usageshort = "\n$YW----------------------------$N\n
+my $usageshort = "
+
+-----------------
+$YW $0 $version_small $N
+-----------------
+
 Usage: $YW$0$N [options..]
 \t$CY-r$N read.fq
 \t$LPR-n$N output_dir
@@ -1197,19 +1195,14 @@ Usage: $YW$0$N [options..]
 \t$LPR-F$N toggle to redo bismark mapping even if a .sam or .bam file is present in output_dir
 
 Do $YW$0$N $LGN-h$N for longer explanation
+Do $YW$0$N $LGN-e$N for example run
 
 ${LRD}IMPORTANT!!$N If you see a lot of 'Chromosomal sequence could not be extracted for..' try adding $YW-x -10 -y 10$N
 -> If you still see then try adding $YW-x -50 -y 50$N
 
-$YW----------------------------$N\n
 ";
 
 my $usage = "
-${LGN}Options [default]:$N
--x $LGN<Left pad [0]>$N -y $LGN<Right pad [0]>$N -L $LGN<min READ length [500]>$N -q $LGN<min map quality [0]>$N
-
-Example:
-$YW$0$N\n\t$CY-r$N example/pacbio12ccs.fq \n\t$PR-n$N myoutput\n\t$GN-g$N example/hg19.fa.fa\n\t$YW-i$N example/pacbio12index.bed\n\t-x-100\n\t-y 100\n\t-L 1000\n
 
 $LGN-Z$N: Make mapping parameters not stringent. 
 Bismark uses bowtie2 mapping parameters:
@@ -1218,7 +1211,6 @@ Bismark uses bowtie2 mapping parameters:
 
 -H: Longer explanation about bismark parameters above.
 
-
 (..continued; Use -H to display longer help!)
 
 ";
@@ -1226,53 +1218,42 @@ Bismark uses bowtie2 mapping parameters:
 my $usagelong = "$usage
 
 ${YW}Required:$N
-1) Either:
-	${CY}-r$N: must be path to reads file itself named pacbio.fastq
-	${CY}-S$N: supply a sam file
+1) -r: Input Fastq file
 2) -n: Output directoy name (will create if not exist)
 3) -g: Fasta file of reference genome (e.g. hg19.fa)
-4) -i: index bed file (bed4 with gene name on each)
+4) -i: index bed file (bed6 with gene name on each)
 
 ${YW}Optional [default]:$N
+
 -x: ${LGN}[0]$N Add this number from the$GN start$N of the index (strand taken into account)
--y: ${LGN}[0]$N Add this number from the$GN end$N of the index 
-e.g. seq is:$GN chr1 200 500 SEQ 0 +$N and$GN -x -100 -y 50$N becomes: chr1 100 550 SEQ 0 +$N
-e.g. seq is:$GN chr1 200 500 SEQ 0 -$N and$GN -x -100 -y 50$N becomes: chr1 150 600 SEQ 0 -$N
--p: Run bismark script in paralel
--c: <default: don't include CpG> consider Cs in CpG context
--t: ${LGN}[0.65]$N percentage (0.0-1.0) of Cs that must be converted to be considered an R-loop
--l: ${LGN}[100]$N minimum length in base pairs to be considered an R-loop peak (also for HMM)
+
+-y: ${LGN}[0]$N Add this number from the$GN end$N of the index, for example:
+\tcoordinate is:$GN chr1 200 500 SEQ 0 +$N and$GN -x -100 -y 50$N becomes: chr1 100 550 SEQ 0 +$N
+\tcoordinate is:$GN chr1 200 500 SEQ 0 -$N and$GN -x -100 -y 50$N becomes: chr1 150 600 SEQ 0 -$N
+
+-p: (not implemented) Run bismark script in paralel.
+
+-c: consider Cs in CpG context (default: off; Don't include Cs in CpG context)
+
 -L: ${LGN}[95p]$N minimum ${CY}read$N length in bp to be considered valid read
     Add \"p\" to make it percent of amplicon length
     e.g. 95p = 95% of amplicon length.
 
-If you want to re-use previously made files from step 4 and/or 6, use:
--1: For both step 4 and step 6 (Positive/NegativeFinal.txt and methylationPos/Neg.txt)
--4: For step 4 (Positive/NegativeFinal.txt)
--6: For step 6 (methylationPos/Neg.txt)
-$LRD IF -1 is present, it'll override -4 and -6!
--F: Force re-create SAM file
--q: ${LGN}[0]$N q = map quality, where probability of (wrong) = 10^(q/-10). 
-However for something like R-loop footprint from pacbio, where most stuff will be weird (indel+converted), this score is kind of meaningless so use default (0)
-Some examples:
--  0 = 100     %
-- 10 =  10     %
-- 20 =   1     %
-- 30 =    0.1  %
-- 40 =    0.01 %
+-F: Force re-create BAM file
 
-${GN}Example:$N
+-q: ${LGN}[0]$N q = map quality, where probability of mapped incorrectly = 10^(q/-10). 
+Some quick -q references:
+- 0  = 100  %
+- 10 = 10   %
+- 20 = 1    %
+- 30 = 0.1  %
+- 40 = 0.01 %
 
-If you have .fq file but no SAM file:
-$CY$0$N ${YW}-r example/pacbio12ccs.fq$N -n ${CY}myoutput$N -g$CY example/hg19.fa.fa$N -i$CY example/pacbio12index.bed$N -p -t ${CY}0.65$N -L$CY 500$N -l$CY 250$N 
-
-If you have SAM file, use -S instead of -r (everything is the same as above except$YW yellow$N):
-$CY$0$N ${YW}-S example/pacbio12ccs.bismark.sam$N -n ${CY}myoutput$N -g$CY example/hg19.fa.fa$N -i$CY example/pacbio12index.bed$N -p -t ${CY}0.65$N -L$CY 500$N -l$CY 250$N 
+${LCY}PS: Using -q 0 when mapping barcoded reads onto KNOWN unique amplicon sequences will not produce incorrect result$N.
 
 
+FYI, Bowtie2 mapping parameters used in bismark2:
 
-###### BISMARK (BOWTIE2) PARAMETERS
-(bowtie2 in bismark)
 --rdg <int1>,<int2>      Sets the read gap open (<int1>) and extend (<int2>) penalties. A read gap of length N gets a penalty
                          of <int1> + N * <int2>. Default: 5, 3.
 
@@ -1295,9 +1276,26 @@ Not stringent (-Z): --rdg 2,1 --rfg 2,1 --score_min L,0,-0.8
 --rfg 5,3: ref. gap of length N penalty = 5+3N (stringent) or 2+N (not stringent)
 --score_min: minimum threshold of a read with length of L: -0.3L (stringent) or -0.8L (not stringent)
 
-pFC53_small.bed (from PCB14) is 2500bp long, with 531 C. 
-All converted Cs and a 5\% mismatches (0.05*(2500-531)) and 1\% gap= 100bp mismatches
 ";
 
-	return($usageshort, $usage, $usagelong);
+my $example = "
+
+${GN}Example:$N
+
+## Download hg19.fa.gz from http://hgdownload.cse.ucsc.edu/goldenPath/hg19/bigZips/hg19.fa.gz, gunzip it, then put into footLoop folder.
+## Download example.tar.gz and move everything in it into footLoop folder.
+tar zxvf example.tar.gz
+mv example/* footLoop/
+cd footLoop
+./footLoop.pl -r PCB190425.fq.gz -n PCB190425_MAP -g hg19.fa -l PCB190425 -x -10 -y 10 -i geneIndexes.bed
+./footPeak.pl -n PCB190425_MAP -o PCB190425_PEAK
+./footClust.pl -n PCB190425_PEAK
+./footPeak_graph.pl -n PCB190425_PEAK
+./footPeakGTF.pl -n PCB190425_PEAK
+./footPeak_GCprofile.pl -n PCB190425_PEAK -i geneIndexes.bed
+./footStats.pl -n PCB190425_PEAK
+
+";
+
+	return($usageshort, $usage, $usagelong, $example);
 }

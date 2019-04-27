@@ -7,27 +7,26 @@ getopts("vd:n:G:c");
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
+	print "\n- Pushed $libPath into perl lib path INC\n";
 }
 
 use myFootLib;
 use FAlite;
 
+my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 my $homedir = $ENV{"HOME"};
 my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
-my @version = `cd $footLoopScriptsFolder && git log | head `;
-my $version = "UNKNOWN";
-foreach my $line (@version[0..@version-1]) {
-   if ($line =~ /^\s+V\d+\.?\d*\w*\s*/) {
-      ($version) = $line =~ /^\s+(V\d+\.?\d*\w*)\s*/;
-   }
-}
-if (not defined $version or (defined $version and $version eq "UNKNOWN")) {
-   ($version) = `cd $footLoopScriptsFolder && git log | head -n 1`;
-}
+my @version = `$footLoopScriptsFolder/check_software.pl | tail -n 12`;
+my $version = join("", @version);
 if (defined $opt_v) {
-   print "\n\n$YW$0 $LGN$version$N\n\n";
+   print "$version\n";
    exit;
 }
+my ($version_small) = "vUNKNOWN";
+foreach my $versionz (@version[0..@version-1]) {
+   ($version_small) = $versionz =~ /^(v?\d+\.\d+\w*)$/ if $versionz =~ /^v?\d+\.\d+\w*$/;
+}
+
 my $date = getDate();
 my $uuid = getuuid();
 my $numThread = 1;
@@ -229,7 +228,19 @@ $footPeakFolder/99_FOOTSTATS/1_PEAKSTATS.TXT
 $footPeakFolder/99_FOOTSTATS/0_SUMMARY.TXT\n");
 
 sub check_sanity {
-	die "\nUsage: $YW$0$N [Optional: -G <genewant>] -n $LCY<footPeak_folder>$N\n" unless defined $opt_n and -d $opt_n;
+
+	my $usage = "
+
+-----------------
+$YW $0 $version_small $N
+-----------------
+
+Usage: $YW$0$N [Optional: -G <genewant>] -n $LCY<footPeak_folder>$N
+
+";
+
+	die $usage unless defined $opt_n and -d $opt_n;
+
 	my ($footPeakFolder) = $opt_n;
 	my ($logFile) = $footPeakFolder . "/footStats_logFile.txt";
 	my ($outDir) = $footPeakFolder . "/99_FOOTSTATS/";

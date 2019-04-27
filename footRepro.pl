@@ -1,5 +1,4 @@
 #!/usr/bin/perl
-# 5.1
 
 use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
 use vars qw($opt_N $opt_1 $opt_2 $opt_m $opt_i $opt_c $opt_n $opt_G $opt_v $opt_o); 
@@ -8,26 +7,33 @@ getopts("cn:G:vo:N:1:2:i:m:");
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
-}
-use myFootLib; use FAlite;
-my $homedir = $ENV{"HOME"};
-my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
-my @version = `cd $footLoopScriptsFolder && git log | head `;
-my $version = "UNKNOWN";
-foreach my $line (@version[0..@version-1]) {
-   if ($line =~ /^\s+V\d+\.?\d*\w*\s*/) {
-      ($version) = $line =~ /^\s+(V\d+\.?\d*\w*)\s*/;
-   }
-}
-if (not defined $version or (defined $version and $version eq "UNKNOWN")) {
-   ($version) = `cd $footLoopScriptsFolder && git log | head -n 1`;
-}
-if (defined $opt_v) {
-   print "\n\n$YW$0 $LGN$version$N\n\n";
-   exit;
+	print "\n- Pushed $libPath into perl lib path INC\n";
 }
 
-die "\nUsage: $YW$0$N -n$LCY <footPeak output directory>$N $LPR <original .fq files>$N
+use myFootLib;
+use FAlite;
+
+my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
+my $homedir = $ENV{"HOME"};
+my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
+my @version = `$footLoopScriptsFolder/check_software.pl | tail -n 12`;
+my $version = join("", @version);
+if (defined $opt_v) {
+   print "$version\n";
+   exit;
+}
+my ($version_small) = "vUNKNOWN";
+foreach my $versionz (@version[0..@version-1]) {
+   ($version_small) = $versionz =~ /^(v?\d+\.\d+\w*)$/ if $versionz =~ /^v?\d+\.\d+\w*$/;
+}
+
+my $usage = "
+
+-----------------
+$YW $0 $version_small $N
+-----------------
+
+Usage: $YW$0$N -n$LCY <footPeak output directory>$N $LPR <original .fq files>$N
 
 ${LGN}Optionals$N:
 
@@ -39,7 +45,10 @@ with readID, 1, and 2 files:
 -c: This is CpG (in vitro)
 -o: output
 
-" if not defined $opt_n;
+";
+
+die $usage if not defined $opt_n;
+
 my ($min_read_in_cluster) = defined $opt_m ? $opt_m : 30;
 die "\nERROR: -n footPeak dir $LCY$opt_n$N doesn't exists!\n\nUsage: $YW$0$N -n <footPeak output directory>\n\n" if not -d $opt_n;
 $opt_o = $opt_n if not defined $opt_o;

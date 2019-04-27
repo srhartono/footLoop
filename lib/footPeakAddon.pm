@@ -5,12 +5,28 @@ use vars qw($opt_v $opt_x $opt_R $opt_c $opt_t);
 
 ##### BEGIN ######
 BEGIN {
-   my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
+   my $libPath = dirname(dirname abs_path $0) . '/lib';
    push(@INC, $libPath);
+   print "\n- Pushed $libPath into perl lib path INC\n";
 }
-use myFootLib; use FAlite;
+
+use myFootLib;
+use FAlite;
+
+my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 my $homedir = $ENV{"HOME"};
-my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
+my $footLoopScriptsFolder = dirname(dirname abs_path $0);
+my @version = `$footLoopScriptsFolder/check_software.pl | tail -n 12`;
+my $version = join("", @version);
+if (defined $opt_v) {
+   print "$version\n";
+   exit;
+}
+my ($version_small) = "vUNKNOWN";
+foreach my $versionz (@version[0..@version-1]) {
+   ($version_small) = $versionz =~ /^(v?\d+\.\d+\w*)$/ if $versionz =~ /^v?\d+\.\d+\w*$/;
+}
+
 my ($thisfileName) = getFilename($0, "fullname");
 my ($thismd5) = getMD5_simple($0);
 
@@ -19,9 +35,9 @@ sub main {
 	my ($input1, $faFile, $mygene, $minDis, $resDir, $minLen, $SEQ, $version, $outLog) = @_;
 
 	LOG($outLog, "
-$YW-------------------------------$N
- footPeakAddon.pm version $version
-$YW-------------------------------$N
+-----------------
+$YW $0 $version_small $N
+---------
 ");
 
 

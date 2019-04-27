@@ -1,36 +1,52 @@
 #!/usr/bin/perl
+# footLoop pipeline Version 1.2
+# Copyright (C) 2019 Stella Regina Hartono
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# The license can be found at https://www.gnu.org/licenses/gpl-3.0.en.html. 
+# By downloading or using this software, you agree to the terms and conditions of the license. 
 
-use strict; use warnings; use Getopt::Std; use Time::HiRes; use Benchmark qw(:all); use Benchmark ':hireswallclock'; use Carp;
-use Thread; use Thread::Queue;
-use Cwd qw(abs_path); use File::Basename qw(dirname);
+use strict; use warnings; use Getopt::Std; use Time::HiRes; use Benchmark qw(:all); use Benchmark ':hireswallclock'; use Carp; use Thread; use Thread::Queue; use Cwd qw(abs_path); use File::Basename qw(dirname);
 use vars qw($opt_v $opt_g $opt_p $opt_d $opt_s $opt_k $opt_K $opt_n $opt_h $opt_t $opt_w $opt_l $opt_o $opt_A $opt_G);
 getopts("vg:p:d:s:k:K:n:ht:w:l:A:o:G:");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
+	print "\n- Pushed $libPath into perl lib path INC\n";
 }
 
 use myFootLib;
 use FAlite;
 use footPeakAddon;
 
+my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 my $homedir = $ENV{"HOME"};
 my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
-my @version = `cd $footLoopScriptsFolder && git log | head `;
-my $version = "UNKNOWN";
-foreach my $line (@version[0..@version-1]) {
-   if ($line =~ /^\s+V\d+\.?\d*\w*\s*/) {
-      ($version) = $line =~ /^\s+(V\d+\.?\d*\w*)\s*/;
-   }
-}
-if (not defined $version or (defined $version and $version eq "UNKNOWN")) {
-   ($version) = `cd $footLoopScriptsFolder && git log | head -n 1`;
-}
+my @version = `$footLoopScriptsFolder/check_software.pl | tail -n 12`;
+my $version = join("", @version);
 if (defined $opt_v) {
-   print "\n\n$YW$0 $LGN$version$N\n\n";
+	print "$version\n";
    exit;
 }
+my ($version_small) = "vUNKNOWN";
+foreach my $versionz (@version[0..@version-1]) {
+	($version_small) = $versionz =~ /^(v?\d+\.\d+\w*)$/ if $versionz =~ /^v?\d+\.\d+\w*$/;
+}
+
+##################
+# 0. Check Sanity #
+##################
+
 my $date = getDate();
 my $uuid = getuuid();
 my $numThread = 1;
@@ -38,7 +54,7 @@ my ($footFolder) = $opt_n;
 my ($usage) = check_sanity($footFolder);
 my $logFile = "$footFolder/logFile.txt";
 
-my ($opts, $outLog) = parse_footLoop_logFile($logFile, $date, $uuid, $footFolder, $version);
+my ($opts, $outLog) = parse_footLoop_logFile($logFile, $date, $uuid, $footFolder, $version_small);
 $opts->{label}    = defined $opt_l ? $opt_l : $opts->{label};
 my $label         = $opts->{label};
 my $seqFile       = $opts->{seqFile};
@@ -53,10 +69,11 @@ my $min 				= $opts->{d};
 my $groupsize 		= $opts->{s};
 my $minDis 			= $opts->{k};
 my $outDir 			= $opts->{n};
-my $Kmerz			= $opts->{K};
 my $resDir        = $opts->{o};
 
-# naming
+#########################
+# 1. Define Input/Names #
+#########################
 
 if (defined $opt_l) {
 	print "label = $label\n";
@@ -92,16 +109,10 @@ if (not defined $label or (defined $label and $label !~ /PCB/i)) {
 		$label =~ s/PCB[0\-_]+(\d+)/PCB$1/g;
 	}
 }
-#die "resdir = $resDir, LABEL = $label\n";
 system("echo $label > $resDir/.LABEL");
 system("/bin/cp $seqFile $resDir");
 LOG($outLog, "seqFile=$seqFile\n");
 makedir("$resDir/.CALL") if not -d "$resDir/.CALL";
-#print "FAFILE = $seqFile, index=$indexFile, origDir = $opts->{origDir}\n";die;
-LOG($outLog, "$N: -K *must* be 2 or 3 or 4! (Currently:$LGN$Kmerz$N)\n\n") and die unless $Kmerz =~ /^[234]$/;
-
-# Create kmer (deprecated)
-my @kmer = @{make_kmer($Kmerz)};
 
 LOG($outLog, $usage . "faFile=$seqFile\nindexFile=$indexFile\norigFolder=$origFolder\noutdir=$outDir\n") and die unless defined $seqFile and defined $indexFile and defined $origFolder and -e $seqFile and -e $indexFile and -e $origFolder and defined $outDir;
 #die $usage if mydefined($seqFile, $indexFile, $x, $y, $min, $groupsize, $minDis, $outDir) != 0;
@@ -277,7 +288,7 @@ for (my $i = 0; $i < @origFile; $i++) {
 	LOG($outLog, "\n\n" . date() . "\n\n");
 	my $peakFilez = "$resDir/.CALL/$peakFilename\_$window\_$threshold\_CG.PEAK";
 #   my ($input1, $faFile, $mygene, $minDis, $resDir, $minLen, $SEQ, $outLog) = @_;
-	my $footPeakres = footPeakAddon::main(($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ, $version, $outLog));
+	my $footPeakres = footPeakAddon::main(($peakFilez, $seqFile, $gene, $minDis, $resDir, $minLen, $SEQ, $version_small, $outLog));
 	die "Failed footpeak\n" if defined $footPeakres and $footPeakres eq -1;
 }
 #system("/bin/cp $opts->{origDir}/footPeak_logFile.txt $resDir/");
@@ -576,27 +587,8 @@ sub mydefined {
 	}
 	return 0;
 }
-sub kmer {
-	my ($seq, $type, $kmer) = @_;
-	my %kmer = %{$kmer};
-	$seq = uc($seq);
-	my @seqz = split("", $seq);
-	for (my $i = 0; $i < @seqz-($Kmerz-1); $i++) {
-		my $kmer;
-		for (my $j = $i; $j < $i+$Kmerz; $j++) {
-			$kmer .= $seqz[$j];
-		}
-		$kmer{$type}{$kmer} ++;
-		$kmer{$type}{total} ++;
-	}
-#	for (my $i = 0; $i < @seqz-1; $i++) {
-#		my $kmer = "$seqz[$i]$seqz[$i+1]";
-#		print "$type $kmer = $kmer{$type}{$kmer}\n";
-#	}
-	return(\%kmer);
-}
 sub record_options {
-   my ($defOpts, $usrOpts, $usrOpts2, $other, $outLog, $logFile, $date, $uuid, $version) = @_;
+   my ($defOpts, $usrOpts, $usrOpts2, $other, $outLog, $logFile, $date, $uuid, $version_small) = @_;
    my $optPrint = "$0";
 	my $optShort = "$0";
    foreach my $opt (sort keys %{$defOpts}) {
@@ -610,7 +602,7 @@ sub record_options {
 
 $YW<-----------------------------------------------$N
 ${YW}Initializing...$N
->footPeak.pl version : $version   
+>footPeak.pl version : $version_small
 >Run Params
 Date                : $date
 Run ID              : $uuid
@@ -620,7 +612,6 @@ Run script full     : $optPrint
 -d minDis  : $defOpts->{d}
 -s grpSize : $defOpts->{s}
 -k Dist    : $defOpts->{k}
--K Kmer    : $defOpts->{K}
 -t thrshld : $defOpts->{t}
 -w window  : $defOpts->{w}
 
@@ -649,7 +640,7 @@ footLoop samFixedMD5 : $defOpts->{samFixedMD5}
 }
 
 sub parse_footLoop_logFile {
-	my ($logFile, $date, $uuid, $footFolder, $version) = @_;
+	my ($logFile, $date, $uuid, $footFolder, $version_small) = @_;
 	my @line = `cat $logFile`;
 	my $paramsFile = "$footFolder/.PARAMS";
 	my ($defOpts, $usrOpts, $usrOpts2) = set_default_opts();
@@ -741,7 +732,7 @@ sub parse_footLoop_logFile {
 	makedir($defOpts->{o}) if not -d $defOpts->{o};
 	#die "opt = $opt_o = $defOpts->{o}\n";
 	open ($outLog, ">", "$defOpts->{o}/footPeak_logFile.txt") or print "Failed to write to $defOpts->{o}/footPeak_logFile.txt: $!\n" and die;
-	record_options($defOpts, $usrOpts, $usrOpts2, $other, $outLog, $logFile, $date, $uuid, $version);
+	record_options($defOpts, $usrOpts, $usrOpts2, $other, $outLog, $logFile, $date, $uuid, $version_small);
 #	print "Output = $defOpts->{o}\n";
 	return($defOpts, $outLog);
 }
@@ -965,28 +956,6 @@ sub parse_indexFile_and_seqFile {
 	return $SEQ;
 }
 
-sub make_kmer {
-	# Initialize Count tables. Don't mind the commented-out, these are for debug.
-	my ($order) = @_;
-	my @preword = qw(A C G T);
-	my @words = qw(A C G T);
-	for (my $i = 1; $i < $order; $i++) {
-		my @curr;
-		for (my $k = 0; $k < @preword; $k++) {
-			for (my $j = 0; $j < @words; $j++) {
-				push(@curr, "$preword[$k]$words[$j]");
-			}
-		}
-		@preword = @curr;
-	}
-	my $max = @preword > 9 ? 9 : @preword-1;
-	#print "\nK=$Kmerz; Kmer = " . join(",", @preword[0..$max]);
-	#print "\n" if @preword <= 9;
-	#print "..." . "(total =$LGN " . scalar(@preword) . "$N)\n\n" if @preword > 9;
-	return(\@preword);
-}
-
-
 sub check_sanity {
 	my ($footFolder) = @_;
 	my ($usage, $usage_long) = usage();
@@ -1010,7 +979,7 @@ my ($scriptFolder, $scriptName) = getFilename($0, "folderfull");
 ####### Usage #######
 	my $usage = "
 ${YW}----------------------$N
-$YW|$N $scriptName $version  $YW|$N
+$YW|$N $scriptName $version_small  $YW|$N
 ${YW}----------------------$N
 
 Usage: $YW$scriptName$LGN [Options: -w|-t|-G]$N -n $LCY<footLoop output folder>$N -o $LCY<output png dir>$N

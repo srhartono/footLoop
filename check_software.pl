@@ -82,5 +82,12 @@ foreach my $line (@version[0..@version-1]) {
 	}
 }
 $version = "UNKNOWN VERSION" if not defined $version;
-print "\n--------------------\n\e[1;33m footLoop Version\e[0m\n--------------------\n\n";
+
+my ($version_small) = "vUNKNOWN";
+foreach my $versionz (@version[0..@version-1]) {
+   ($version_small) = $versionz =~ /^(v?\d+\.\d+\w*)$/ if $versionz =~ /^v?\d+\.\d+\w*$/;
+}
+
+print "\n--------------------\n\e[1;33m footLoop Version $version_small\e[0m\n--------------------\n\n";
 print "$version\n---------------\n\n";
+

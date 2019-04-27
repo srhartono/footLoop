@@ -2,17 +2,44 @@
 
 use warnings;use strict;use Getopt::Std;
 use Cwd qw(abs_path);use File::Basename qw(dirname);
-use vars qw($opt_i $opt_f $opt_x $opt_y $opt_o $opt_p $opt_t $opt_n $opt_G);
-getopts("i:f:x:y:o:p:t:n:G:");
+use vars qw($opt_i $opt_f $opt_x $opt_y $opt_o $opt_p $opt_t $opt_n $opt_G $opt_v);
+getopts("i:f:x:y:o:p:t:n:G:v");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
+	print "\n- Pushed $libPath into perl lib path INC\n";
 }
-use myFootLib;use FAlite;
+
+use myFootLib;
+use FAlite;
+
+my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
+my $homedir = $ENV{"HOME"};
+my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
+my @version = `$footLoopScriptsFolder/check_software.pl | tail -n 12`;
+my $version = join("", @version);
+if (defined $opt_v) {
+   print "$version\n";
+   exit;
+}
+my ($version_small) = "vUNKNOWN";
+foreach my $versionz (@version[0..@version-1]) {
+   ($version_small) = $versionz =~ /^(v?\d+\.\d+\w*)$/ if $versionz =~ /^v?\d+\.\d+\w*$/;
+}
 
 my ($footPeakFolder) = ($opt_n);
-my $usage = "\nUsage: $YW$0$LGN [Optional: -G <gene to process>]$N -n $LCY<footPeak output folder>$N\n";
+
+my $usage = "
+
+-----------------
+$YW $0 $version_small $N
+-----------------
+
+Usage: $YW$0$LGN [Optional: -G <gene to process>]$N -n $LCY<footPeak output folder>$N
+
+";
+
 die $usage if not defined $opt_n;
 
 my $outFolder = "$footPeakFolder/GTF";

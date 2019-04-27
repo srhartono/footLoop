@@ -7,47 +7,37 @@ getopts("vb:i:d:x");
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
+   print "\n- Pushed $libPath into perl lib path INC\n";
 }
 
 use myFootLib; use FAlite; use footPeakAddon;
 
+my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 my $homedir = $ENV{"HOME"};
 my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
-my @version = `cd $footLoopScriptsFolder && git log | head `;
-my $version = "UNKNOWN";
-foreach my $line (@version[0..@version-1]) {
-   if ($line =~ /^\s+V\d+\.?\d*\w*\s*/) {
-      ($version) = $line =~ /^\s+(V\d+\.?\d*\w*)\s*/;
-   }
+my @version = `$footLoopScriptsFolder/check_software.pl | tail -n 12`;
+my $version = join("", @version);
+if (defined $opt_v) {
+   print "$version\n";
+   exit;
 }
-if (not defined $version or (defined $version and $version eq "UNKNOWN")) {
-   ($version) = `cd $footLoopScriptsFolder && git log | head -n 1`;
+my ($version_small) = "vUNKNOWN";
+foreach my $versionz (@version[0..@version-1]) {
+   ($version_small) = $versionz =~ /^(v?\d+\.\d+\w*)$/ if $versionz =~ /^v?\d+\.\d+\w*$/;
 }
-
-my $PCB11_barcode = "/home/mitochi/pacbio_indexes/PCB11_barcode.tsv";
-my $PCB13_barcode = "/home/mitochi/pacbio_indexes/PCB13_barcode.tsv";
-my $PCB14_barcode = "/home/mitochi/pacbio_indexes/PCB14_barcode.tsv";
-my $PCB15_barcode = "/home/mitochi/pacbio_indexes/PCB15_barcode.tsv";
-my $PCB19_barcode = "/home/mitochi/pacbio_indexes/PCB19_barcode.tsv";
-my $PCB20_barcode = "/home/mitochi/pacbio_indexes/PCB20_barcode.tsv";
 
 my $usage = "
+
+-----------------
+$YW $0 $version_small $N
+-----------------
+
 Usage: $YW$0$N ${LGN}[-x: Dry run]$N $CY-i <input1>$N $LPR-b <barcode.csv>$N
 
 Optional: -d <name for debug e.g. 203>
 
-Barcode:
--b 11: /home/mitochi/pacbio_indexes/PCB11_barcode.tsv (${YW}7bcc3c042b13879d08dfd3a099baf31f$N)
--b 13: /home/mitochi/pacbio_indexes/PCB13_barcode.tsv (${YW}e791d5c6a82dd24712dd6cdb5a2e134d$N)
--b 14: /home/mitochi/pacbio_indexes/PCB14_barcode.tsv (${YW}c733dbb565241dee3fcd80a2d4a5d9c4$N)
--b 15: /home/mitochi/pacbio_indexes/PCB15_barcode.tsv (${YW}2dd05fae4ba9d9f65a44cab988390e10$N)
--b 19: /home/mitochi/pacbio_indexes/PCB19_barcode.tsv (${YW}1498d98977ad1f12778b365f7011084a$N)
--b 20: /home/mitochi/pacbio_indexes/PCB20_barcode.tsv (${YW}08260d5438fac57364863d3d6741dcf3$N)
-
 ";
 
-my ($scriptFolder, $scriptName) = getFilename($0, "folderfull");
-print "\n---------------\n$YW$scriptName $version$N\n";
 print $usage  unless defined $opt_i and -e $opt_i and defined $opt_b;
 print $usage if not defined $opt_i or not defined $opt_b;
 print "$LRD ERROR$N -i not defined\n" if not defined $opt_i;
@@ -65,16 +55,7 @@ my $debugname = $opt_d;
 $debugname = "NA" if not defined $opt_d;
 my $barcodeFile = $opt_b;
 my @barcodeFiles = split(",", $barcodeFile);
-for (my $i = 0; $i < @barcodeFiles; $i++) {
-	$barcodeFiles[$i] =
-		$barcodeFiles[$i] eq 11 ? $PCB11_barcode :
-		$barcodeFiles[$i] eq 13 ? $PCB13_barcode :
-		$barcodeFiles[$i] eq 14 ? $PCB14_barcode :
-		$barcodeFiles[$i] eq 15 ? $PCB15_barcode :
-		$barcodeFiles[$i] eq 19 ? $PCB19_barcode :
-		$barcodeFiles[$i] eq 20 ? $PCB20_barcode : $barcodeFiles[$i];
-}
-#die join("\n", @barcodeFiles) . "\n\n";
+
 if (defined $opt_x and not defined $opt_i) {
 	system("touch dummy.temp") == 0 or die "Failed to create $LGN dummy.temp$N: $!\n";
 	$opt_i = "dummy.temp";
@@ -93,7 +74,6 @@ print "\nOutput:\n";
 foreach my $line (@line[0..@line-1]) {
 	chomp($line);
 	$linecount ++;
-#	next if $linecount == 0;
 	next if $line =~ /^\n$/;
 	next if $line !~ /[a-zA-Z0-9]+/;
 	next if $line =~ /^(\#|No)/i or $line =~ /\ttarget/i;
@@ -121,18 +101,8 @@ foreach my $line (@line[0..@line-1]) {
 	$bc = uc($bc);
 	$plasmid = uc($plasmid);
 	$desc = uc($desc);
-#	$bcseq =~ s/(^[ \s]+|[ \s]$//g;
-#	$bc =~ s/(^[ \s]+|[ \s]$//g;
-#	$bc =~ s/^[ \s]+//g;
-#	$bcseq =~ s/[ \s]+$//g;
-#	$bc =~ s/[ \s]+$//g;
 	my $bcbefore = $bc;
 	$bc = "bc$bc\_plasmid$plasmid\_desc$desc" if $plasmid ne "NA" or $desc ne "NA";#defined $plasmid and defined $desc;
-#	$plasmid = "" if not defined $plasmid;
-#	$desc = "" if not defined $desc;
-#	$bc =~ s/_$//g;
-#	$bc =~ s/^_//g;
-	#print "$bc\t$bcseq\n";
 	die "\n${LRD}FATAL ERROR$N: Multiple barcode name for the same barcode sequence.\n$LCY" . $bc{uc($bcseq)}{bc} . "$N\ncurrent=$LPR$bc$N\nbarcode=$LGN" . uc($bcseq) . "$N)\n\n" if defined $bc{uc($bcseq)};
 	if (@arr == 2) {
 		$bc{uc($bcseq)}{target} = $target;
@@ -173,8 +143,6 @@ while (my $line = <$in1>) { chomp($line);
 	# 1. name: m171023_184836_42145_c101402632550000001823289101251862_s1_p0/0/ccs
 	$readCount ++;
 	my ($readName) = $line;
-#	my ($readName) = $line =~ /\/(\w+)\/ccs/;
-#       $readName  = $line if not defined $readName;
 	$line = <$in1>; chomp($line);
 	# 2. seqs: ACTGTCG....
 	my $len = int(length($line));
@@ -193,7 +161,6 @@ while (my $line = <$in1>) { chomp($line);
 	print {$out{$bc}} "$readName\n$seq2\n\+\n$qua2\n" if defined $seq2;
 
 	print date() . "\t$YW$input1$N: Done $LGN$readCount$N\n" if $readCount % 500 == 0;
-#DEBUG	last if $readCount % 1000 == 0;
 }
 close $in1;
 print "${LGN}2. -i $LCY$input1$N was parsed successfully!\n$N\n";
@@ -220,7 +187,6 @@ foreach my $bcseq (sort {$bc{$a}{line} <=> $bc{$b}{line}} keys %bc) {
 	print $outLog "\t$bc{$bcseq}{bc}\t$bcseq\t$bc{$bcseq}{total}\n";
 	print STDERR "\t$bc{$bcseq}{bc}\t$bcseq\t$bc{$bcseq}{total}\n";
 }
-#print $outLog "\n";\n###print STDERR "\n";
 
 sub infer_barcode {
 	my ($seq, $qua, $name) = @_;
@@ -229,7 +195,6 @@ sub infer_barcode {
 	my $seq_length = length($seq);
 	my ($beg, $end) = 0;
 	for (my $l = 0; $l < 4; $l++) {
-#		last if $l != 0;
 		foreach my $bcseq2 (sort {$bc{$a}{bc} cmp $bc{$b}{bc}} keys %bc) {
 			my $bcseq = substr($bcseq2, $l, length($bcseq2)-$l+1);
 			my $length = length($bcseq);
@@ -245,13 +210,11 @@ sub infer_barcode {
 				die "$name: barcode=$barcode, bcseq=$bcseq, pos1=$pos1 pos2=$pos2\n" if not defined $pos;
 				$barcode2 = $seq =~ /$bcseq/ ? "$type,$bcseq" : "$type,$bcseqrev";
 				if (defined $barcode) {
-					#print "$LRD DBL$N  $name\t$l\t$bcseq2: $bcseq\n" if $l != 0;
 					$bad{$name} = 1;
 					$seq2 = $bcseq;
 					print $outLog "$LCY$name\tDBL\t$pos/$seq_length\t$barcode\t$bc{$bcseq2}{bc}\t$seq1\t$seq2$N\n";
 				}
 				else {
-					#print "$LGN GOOD$N $name\t$l\t$bcseq2: $bcseq\n" if $l != 0;
 					$barcode = $bc{$bcseq2}{bc};
 					$seq1 = $bcseq;
 					$data{$name} = $barcode;
@@ -269,22 +232,18 @@ sub infer_barcode {
 			$bcseqrev = reverse($bcseqrev);
 			my ($bad1, $good1) = $seq =~ /^(.{0,14}$bcseq|.{0,14}$bcseqrev)(.+)$/ if $seq =~ /^(.{0,14}$bcseq|.{0,14}$bcseqrev)/;
 			my ($good2, $bad2) = $seq =~ /^(.+)($bcseq.{0,14}|$bcseqrev.{0,14})$/ if $seq =~ /^(.+)($bcseq.{0,14}|$bcseqrev.{0,14})$/;
-#			print "$name, barcode = $LGN$bcseq$N or $LCY$bcseqrev$N\n$seq\n$qua\n";
 			if (defined $bad1) {
 				my $len = length($bad1);
-#				print "-> beginning has bad of length $LGN$len$N\n";
 				$seq =~ s/^.{$len}//;
 				$qua =~ s/^.{$len}//;
 			}
 			if (defined $bad2) {
 				my $len = length($bad2);
-#				print "-> end has bad of length $LCY$len$N\n";
 				$seq =~ s/.{$len}$//;
 				$qua =~ s/.{$len}$//;
 			}
 			$bad1 = "" if not defined $bad1;
 			$bad2 = "" if not defined $bad2;
-#			print "\n$LGN$bad1$N$seq$LCY$bad2$N\n$LGN$bad1$N$qua$LCY$bad2$N\n";
 			return ($barcode, $barcode2, $seq, $qua);
 		}
 	}
@@ -294,43 +253,3 @@ sub infer_barcode {
 }
 
 __END__
-==line 198
-	for (my $l = 1; $l <= 3; $l++) {
-	foreach my $bcseq2 (sort keys %bc) {
-		my $bcseq = substr($bcseq2, $l, length($bcseq2)-$l+1);
-		my $length = length($bcseq);
-		my $bcseqrev = $bcseq;
-		$bcseqrev =~ tr/ACGT/TGCA/;
-		$bcseqrev = reverse($bcseqrev);
-		if (not defined $barcode and ($seq =~ /$bcseq/ or $seq =~ /$bcseqrev/)) {
-			my $pos = 0 if $seq =~ /^$bcseq/ or $seq =~ /^$bcseqrev/;
-			   $pos = $seq_length if $seq =~ /$bcseq$/ or $seq =~ /$bcseqrev$/;
-			my ($pos1, $pos2) = $seq =~ /^(.+)$bcseq(.+)$/ if not defined $pos and $seq =~ /$bcseq/;
-			   ($pos1, $pos2) = $seq =~ /^(.+)$bcseqrev(.+)$/ if not defined $pos and $seq =~ /$bcseqrev/;
-				$pos = defined $pos ? $pos : $seq =~ /$bcseq/ ? length($pos1) : $seq =~ /$bcseqrev/ ? length($pos2) : "-1";
-			my $type = $pos < 0.5 * $seq_length ? 1 : 2;
-			$barcode2 = $seq =~ /$bcseq/ ? "$type,$bcseq" : "$type,$bcseqrev";
-			die "$name: barcode=$barcode, bcseq=$bcseq, pos1=$pos1 pos2=$pos2\n" if not defined $pos;
-			$barcode = $bc{$bcseq2}{bc};
-			$seq1 = $bcseq;
-			$data{$name} = $barcode;
-			$bc{$bcseq2}{total} ++;
-			print $outLog "$LCY$name\tOffseq=$l; GOOD\t$pos/$seq_length\t$barcode$N\n";
-		}
-		elsif (defined $barcode and ($seq =~ /$bcseq/ or $seq =~ /$bcseqrev/) and $barcode ne $bc{$bcseq2}{bc}) {
-			my $pos = 0 if $seq =~ /^$bcseq/ or $seq =~ /^$bcseqrev/;
-			   $pos = $seq_length if $seq =~ /$bcseq$/ or $seq =~ /$bcseqrev$/;
-			my ($pos1, $pos2) = $seq =~ /^(.+)$bcseq(.+)$/ if not defined $pos and $seq =~ /$bcseq/;
-			   ($pos1, $pos2) = $seq =~ /^(.+)$bcseqrev(.+)$/ if not defined $pos and $seq =~ /$bcseqrev/;
-				$pos = defined $pos ? $pos : $seq =~ /$bcseq/ ? length($pos1) : $seq =~ /$bcseqrev/ ? length($pos2) : "-1";
-			my $type = $pos < 0.5 * $seq_length ? 1 : 2;
-			$barcode2 .= $seq =~ /$bcseq/ ? ";$type,$bcseq" : ";$type,$bcseqrev";
-			$bad{$name} = 1;
-			$seq2 = $bcseq if $seq =~ /$bcseq/;
-			$seq2 = $bcseqrev if $seq =~ /$bcseqrev/;
-			print $outLog "$LPR$name\tOffset=$l; DBL\t$pos/$seq_length\t$barcode\t$bc{$bcseq2}{bc}\t$seq1\t$seq2$N\n";
-		}
-	}
-	last if defined $barcode;
-	}
-

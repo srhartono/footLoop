@@ -5,53 +5,37 @@ use vars qw($opt_v $opt_s $opt_i $opt_g $opt_n $opt_S $opt_c $opt_C $opt_o $opt_
 getopts("s:i:g:f:S:cCo:vn:");
 
 BEGIN {
-   my ($bedtools) = `bedtools --version`;
-   my ($bowtie2) = `bowtie2 --version`;
-   my ($bismark) = `bismark --version`;
-   my ($bismark_genome_preparation) = `bismark_genome_preparation --version`;
-
-   if (not defined $bedtools or $bedtools =~ /command not found/ or $bedtools =~ /bedtools v?([01].\d+|2\.0[0-9]|2\.1[0-6])/) {
-      print "Please install bedtools at least version 2.17 before proceeding!\n";
-      $bedtools = 0;
-   }
-   if (not defined $bowtie2 or $bowtie2 =~ /command not found/ or $bowtie2 =~ /version [0-1]./) {
-      print "Please install bowtie2 at least version 2.1.0 before proceeding!\n";
-      $bowtie2 = 0;
-   }
-   if (not defined $bismark or $bismark =~ /command not found/ or $bismark =~ /v?(0\.1[0-2]|0\.0[0-9])/) {
-      print "Please install bismark at least version 0.13 before proceeding!\n";
-      $bismark = 0;
-   }
-   if (not defined $bismark_genome_preparation or $bismark_genome_preparation =~ /command not found/ or $bismark_genome_preparation =~ /v?(0\.1[0-2]|0\.0[0-9])/) {
-      print "\n\nPlease install bismark_genome_preparation at least version 0.13 before proceeding!\n\n";
-      $bismark_genome_preparation = 0;
-   }
-   print "- bedtools v2.17+ exists:" . `which bedtools` if $bedtools ne 0;
-   print "- bowtie2 v2.1+ exists:" . `which bowtie2` if $bowtie2 ne 0;
-   print "- bismark v0.13+ exists:" . `which bismark` if $bismark ne 0;
-   print "- bismark_genome_preparation v0.13+ exists:" . `which bismark_genome_preparation` if $bismark_genome_preparation ne 0;
-   die if $bedtools eq 0 or $bowtie2 eq 0 or $bismark eq 0 or $bismark_genome_preparation eq 0;
    my $libPath = dirname(dirname abs_path $0) . '/lib';
    push(@INC, $libPath);
+	print "\n- Pushed $libPath into perl lib path INC\n";
 }
-use myFootLib; use FAlite;
-my $homedir = $ENV{"HOME"};
+
+use myFootLib;
+use FAlite;
+
 my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
+my $homedir = $ENV{"HOME"};
 my $footLoopScriptsFolder = dirname(dirname abs_path $0);
-my @version = `cd $footLoopScriptsFolder && git log | head `;
-my $version = "UNKNOWN";
-foreach my $line (@version[0..@version-1]) {
-   if ($line =~ /^\s+V\d+\.?\d*\w*\s*/) {
-      ($version) = $line =~ /^\s+(V\d+\.?\d*\w*)\s*/;
-   }
-}
-if (not defined $version or (defined $version and $version eq "UNKNOWN")) {
-   ($version) = `cd $footLoopScriptsFolder && git log | head -n 1`;
-}
+my @version = `$footLoopScriptsFolder/check_software.pl | tail -n 12`;
+my $version = join("", @version);
 if (defined $opt_v) {
-   print "\n\n$YW$0 $LGN$version$N\n\n";
+   print "$version\n";
    exit;
 }
+my ($version_small) = "vUNKNOWN";
+foreach my $versionz (@version[0..@version-1]) {
+   ($version_small) = $versionz =~ /^(v?\d+\.\d+\w*)$/ if $versionz =~ /^v?\d+\.\d+\w*$/;
+}
+
+my $usage = "
+
+-----------------
+$YW $0 $version_small $N
+-----------------
+
+Usage: $YW$0$N $CY-n [folder of -n footLop.pl]$N $LGN-o$N [output dir]
+
+";
 
 my ($footLoop_folder) = $opt_n;
 my ($footLoop_2fixsam_outDir) = $opt_o;
@@ -59,13 +43,13 @@ $footLoop_folder = "footLoop_folder_unknown" if not defined $opt_n;
 my $footLoop_folder_forLog = $footLoop_folder;
 $footLoop_folder_forLog =~ s/\/+/_/g;
 $footLoop_folder_forLog =~ s/^\/+/SLASH_/;
-my $tempLog = "./.$footLoop_folder_forLog\_TEMPOUTLOG.txt";
-system("touch $tempLog") == 0 or print "Failed to write to $tempLog!\n";
-open (my $tempLogOut, ">", $tempLog) or print "Failed to write to $tempLog: $!\n";
-DIELOG($tempLogOut, "\nTEMPLOG:\n$tempLog\n$footLoop_folder: footLoop_2fixsam.pl: usage: $YW$0$N $CY-n [folder of -n footLop.pl]$N $LGN-o$N [output dir]\n\n") unless ex([$opt_s,$opt_S,$opt_i,$opt_g]) == 1 or ex($opt_n) == 1 and -e $tempLog;
-DIELOG($tempLogOut, "\nTEMPLOG:\n$tempLog\n$footLoop_folder: footLoop_2fixsam.pl: please define output (-o)\n") if not defined $opt_o and -e $tempLog;
-print "\nfootLoop_2fixsam.pl: usage: $YW$0$N $CY-n [folder of -n footLop.pl]$N $LGN-o$N [output dir]\n\n" unless ex([$opt_s,$opt_S,$opt_i,$opt_g]) == 1 or ex($opt_n) == 1 and not -e $tempLog;
-print "\nfootLoop_2fixsam.pl: please define output (-o)\n" if not defined $opt_o and not -e $tempLog;
+#my $tempLog = "./.$footLoop_folder_forLog\_TEMPOUTLOG.txt";
+#system("touch $tempLog") == 0 or print "Failed to write to $tempLog!\n";
+#open (my $tempLogOut, ">", $tempLog) or print "Failed to write to $tempLog: $!\n";
+#DIELOG($tempLogOut, "\nTEMPLOG:\n$tempLog\n$footLoop_folder: footLoop_2fixsam.pl: $usage") unless ex([$opt_s,$opt_S,$opt_i,$opt_g]) == 1 or ex($opt_n) == 1 and -e $tempLog;
+#DIELOG($tempLogOut, "\nTEMPLOG:\n$tempLog\n$footLoop_folder: footLoop_2fixsam.pl: please define output (-o)\n") if not defined $opt_o and -e $tempLog;
+(print "\nfootLoop_2fixsam.pl: $usage\n" and exit) unless ex([$opt_s,$opt_S,$opt_i,$opt_g]) == 1 or ex($opt_n) == 1;
+(print "\nfootLoop_2fixsam.pl: please define output (-o)\n" and exit) if not defined $opt_o;
 makedir($footLoop_2fixsam_outDir);
 
 

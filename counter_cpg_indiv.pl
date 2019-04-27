@@ -1,31 +1,48 @@
 #!/usr/bin/perl
 
 use strict; use warnings; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname); use Getopt::Std;
-use vars qw($opt_w $opt_s $opt_c $opt_m $opt_W $opt_f $opt_B $opt_a $opt_b $opt_M $opt_A $opt_o $opt_1);
-getopts("o:Ww:s:cm:fBa:b:MA1");
-
+use vars qw($opt_w $opt_s $opt_c $opt_m $opt_W $opt_f $opt_B $opt_a $opt_b $opt_M $opt_A $opt_o $opt_1 $opt_v);
+getopts("o:Ww:s:cm:fBa:b:MA1v");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
+   print "\n- Pushed $libPath into perl lib path INC\n";
 }
 
 use myFootLib;
 use FAlite;
 use Thread::Queue;
 
+my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
+my $homedir = $ENV{"HOME"};
+my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
+my @version = `$footLoopScriptsFolder/check_software.pl | tail -n 12`;
+my $version = join("", @version);
+if (defined $opt_v) {
+   print "$version\n";
+   exit;
+}
+my ($version_small) = "vUNKNOWN";
+foreach my $versionz (@version[0..@version-1]) {
+   ($version_small) = $versionz =~ /^(v?\d+\.\d+\w*)$/ if $versionz =~ /^v?\d+\.\d+\w*$/;
+}
+
+my $date = getDate();
+
 ################
 # ARGV Parsing #
 ###############
 
-
-my $date = getDate();
-my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
-
-
 my ($input) = @ARGV;
 
-die "\nUsage: $YW$0$N [options] $LCY<fasta>$N
+my $usage = "
+
+-----------------
+$YW $0 $version_small $N
+-----------------
+
+Usage: $YW$0$N [options] $LCY<fasta>$N
 
 Options:
 -1: include cpg dens and non-weighted atskew and gcskew
@@ -37,7 +54,9 @@ Options:
 -w: Window size [default: 200]
 -s: Step size [default: 10]
 
-" unless @ARGV == 1;
+";
+
+die $usage unless @ARGV == 1;
 
 my ($outFolder, $outName) = getFilename($input, "folderfull") if not ($opt_c);
 my $outdir = defined $opt_o ? $opt_o : $outFolder;
