@@ -28,7 +28,7 @@ cd footLoop
 
 ## 1A. Download/Install
 
-`git clone https://github.com/srhartono`
+`git clone https://github.com/srhartono/footLoop`
 
 ### Other required packages/softwares (and versions used for this pipeline)
 
