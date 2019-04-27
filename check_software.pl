@@ -70,14 +70,18 @@ print "\n--------------------\n";
 
 # Version
 my @version = `cd $footLoopScriptsFolder && git log | head -n 15`;
-my $version;
+my $version; my $commit = 0;
 foreach my $line (@version[0..@version-1]) {
+	last if $commit >= 2;
 	chomp($line);
-	if ($line =~ /^\s+V\d+\.?\d*\w*\s*/i) {
+	if ($line =~ /^commit \w+$/) {
+		$commit ++;
+	}
+	if ($line =~ /^\s+V\d+\.?\d*\w*\s*/i and $commit < 2) {
 		my ($version2) = $line =~ /^\s+(V\d+\.?\d*\w*)\s*/i;
 		$version .= "$version2\n";
 	}
-	elsif ($line !~ /^\s*$/) {
+	elsif ($line !~ /^\s*$/ and $commit < 2) {
 		$version .= "$line\n";
 	}
 }
