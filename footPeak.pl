@@ -672,7 +672,7 @@ sub parse_footLoop_logFile {
 	
 	foreach my $line (@line[0..@line-1]) {
 		if ($line =~ /^\s*Date\s*:/) {
-			($other->{date}) = $line =~ /^Date\s+:\s*([a-zA-Z0-9\:\-].+)$/;
+			($other->{date}) = $line =~ /^Date\s*:\s*([a-zA-Z0-9\:\-].+)$/;
 			print "Undefined date from $line\n" and die if not defined $other->{date};
 		}
 		if ($line =~ /^\s*Run ID\s*:/) {
