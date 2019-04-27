@@ -69,7 +69,7 @@ print "- FootLoop script folder: \e[1;36m$footLoopScriptsFolder\e[0m\n";
 print "\n--------------------\n";
 
 # Version
-my @version = `cd $footLoopScriptsFolder && git log | head -n 5`;
+my @version = `cd $footLoopScriptsFolder && git log | head -n 10`;
 my $version;
 foreach my $line (@version[0..@version-1]) {
 	chomp($line);
