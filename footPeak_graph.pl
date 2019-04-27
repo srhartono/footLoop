@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
+use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
 use vars qw($opt_w $opt_g $opt_G $opt_v $opt_n $opt_r $opt_R $opt_B $opt_c); #v $opt_x $opt_R $opt_c $opt_t $opt_n);
 getopts("n:vg:w:G:r:R:B:c");
 
@@ -10,7 +10,8 @@ BEGIN {
 	print "\n- Pushed $libPath into perl lib path INC\n";
 }
 
-use myFootLib; use FAlite;
+use myFootLib;
+use FAlite;
 
 my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 my $homedir = $ENV{"HOME"};

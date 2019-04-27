@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
+use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
 use vars qw($opt_v $opt_n $opt_i $opt_S $opt_G $opt_w $opt_F $opt_D);
 getopts("vn:i:SG:w:FD");
 

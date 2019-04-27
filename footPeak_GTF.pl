@@ -1,7 +1,6 @@
 #!/usr/bin/perl
 
-use warnings;use strict;use Getopt::Std;
-use Cwd qw(abs_path);use File::Basename qw(dirname);
+use warnings;use strict;use Getopt::Std; use Cwd qw(abs_path);use File::Basename qw(dirname);
 use vars qw($opt_i $opt_f $opt_x $opt_y $opt_o $opt_p $opt_t $opt_n $opt_G $opt_v);
 getopts("i:f:x:y:o:p:t:n:G:v");
 
