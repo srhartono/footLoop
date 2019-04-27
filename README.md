@@ -6,11 +6,17 @@ footLoop method
 # 1. Install:
 git clone https://github.com/srhartono/footLoop
 
-## Make sure you have bedtools (v2.25.0), bowtie2 (v2.2.6), bismark2 (v0.20.0), R (v3.4.4), and required R packages (ggplot2, reshape2, grid, gridExtra, GMD, labeling, RColorBrewer).
+# 2. Check if required software exists:
+## Make sure you have bedtools (v2.25.0), bowtie2 (v2.2.6), bismark2 (v0.20.0), R (v3.4.4).
+cd footLoop.pl
+./check_software.pl
+
+## Make sure you have required R packages, which are NOT checked: ggplot2, reshape2, grid, gridExtra, GMD, labeling, and RColorBrewer.
+
 ## Download hg19.fa.gz from http://hgdownload.cse.ucsc.edu/goldenPath/hg19/bigZips/hg19.fa.gz, gunzip it, then put into footLoop folder.
 
 
-# 2. Example run:
+# 3. Example run:
 # Download example.tar.gz and move everything in it into footLoop folder.
 tar zxvf example.tar.gz
 mv example/* footLoop/
