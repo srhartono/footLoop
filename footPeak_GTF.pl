@@ -141,7 +141,7 @@ sub turn_into_gtf {
 	if ($clustFile ne "" and -e $clustFile) {
 		open (my $clustFileIn, "<", $clustFile) or DIELOG($outLog, "Failed to read from $clustFile: $!\n");
 		my $linecount = 0;
-		my ($total_line) = `wc -l $clustFile` =~ /^(\d+)/;
+		my ($total_line) = `wc -l $clustFile` =~ /^\s*(\d+)/;
 		while (my $line = <$clustFileIn>) {
 			chomp($line); $linecount ++;
 			next if $line =~ /^id/;
