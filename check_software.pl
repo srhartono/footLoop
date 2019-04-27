@@ -56,7 +56,7 @@ BEGIN {
 	print "\n- Pushed \e[1;36m$libPath\e[0m into perl library paths at \@INC\n";
 }
 
-use myFootLib; use FAlite; use footPeakAddon;
+use myFootLib; use FAlite;
 
 # MD5 script check
 my $md5script = `which md5` =~ /md5/ ? "md5" : `which md5sum` =~ /md5sum/ ? "md5sum" : die "md5 or md5sum does not exist!\n";
@@ -82,7 +82,6 @@ foreach my $line (@version[0..@version-1]) {
 	}
 }
 $version = "UNKNOWN VERSION" if not defined $version;
-
 my ($version_small) = "vUNKNOWN";
 foreach my $versionz (@version[0..@version-1]) {
    ($version_small) = $versionz =~ /^(v?\d+\.\d+\w*)$/ if $versionz =~ /^v?\d+\.\d+\w*$/;

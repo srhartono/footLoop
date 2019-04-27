@@ -31,8 +31,10 @@ use FAlite;
 
 my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 my $homedir = $ENV{"HOME"};
-my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
-my @version = `$footLoopScriptsFolder/check_software.pl | tail -n 12`;
+my $footLoopScriptsFolder = dirname(dirname abs_path $0);
+$footLoopScriptsFolder .= "/footLoop";
+my $cmd = "$footLoopScriptsFolder/check_software.pl | tail -n 12";
+my @version = `$cmd`;
 my $version = join("", @version);
 if (defined $opt_v) {
    print "$version\n";
