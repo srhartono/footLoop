@@ -1,4 +1,4 @@
-FootLoop method
+footLoop method
 
 # 0. SYNOPSIS
 
