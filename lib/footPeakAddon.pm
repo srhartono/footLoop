@@ -86,7 +86,7 @@ $YW $0 $version_small $N
 		my $data;
 		my ($linecount, $totalpeak, $totalnopk, $totalline) = (0,0,0,0);
 		if (-e $nopkFile) {
-			($totalline) = `wc -l $nopkFile` =~ /^(\d+)/;
+			($totalline) = `wc -l $nopkFile` =~ /^\s*(\d+)/;
 			$linecount = 0;
 			open (my $in1, "<", $nopkFile) or LOG($outLog, date() . "Cannot read from $nopkFile: $!\n") and exit 1;
 			LOG($outLog, date . " -> Processing NOPK file ($LGN$totalline$N lines)\n");
@@ -116,7 +116,7 @@ $YW $0 $version_small $N
 		$nopkPrint .= "from_nopkFile$flag\t$rconvType\t$peakCount\t$nopkCount\t$totalnopk\n";
 		
 		if (-e $peakFile) {
-			($totalline) = `wc -l $peakFile` =~ /^(\d+)/;
+			($totalline) = `wc -l $peakFile` =~ /^\s*(\d+)/;
 			$linecount = 0;
 			open (my $in1, "<", $peakFile) or LOG($outLog, date() . "Cannot read from $peakFile: $!\n") and exit 1;
 			LOG($outLog, date . " -> Processing PEAK file ($LGN$totalline$N lines)\n");
