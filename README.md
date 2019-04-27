@@ -6,9 +6,12 @@ FootLoop method
 # 1. Install:
 git clone https://github.com/srhartono/footLoop
 
+## Make sure you have bedtools (v2.25.0), bowtie2 (v2.2.6), bismark2 (v0.20.0), R (v3.4.4), and required R packages (ggplot2, reshape2, grid, gridExtra, GMD, labeling, RColorBrewer).
+## Download hg19.fa.gz from http://hgdownload.cse.ucsc.edu/goldenPath/hg19/bigZips/hg19.fa.gz, gunzip it, then put into footLoop folder.
+
+
 # 2. Example run:
-# Download hg19.fa.gz from http://hgdownload.cse.ucsc.edu/goldenPath/hg19/bigZips/hg19.fa.gz then put into footLoop folder
-# Download example.tar.gz and move everything in it into footLoop folder
+# Download example.tar.gz and move everything in it into footLoop folder.
 tar zxvf example.tar.gz
 mv example/* footLoop/
 cd footLoop
@@ -16,7 +19,7 @@ cd footLoop
 ./footPeak.pl -n PCB190425_MAP -o PCB190425_PEAK
 ./footClust.pl -n PCB190425_PEAK
 ./footPeak_graph.pl -n PCB190425_PEAK
-./footPeakGTF.pl -n PCB190425_PEAK
+./footPeak_GTF.pl -n PCB190425_PEAK
 ./footPeak_GCprofile.pl -n PCB190425_PEAK -i geneIndexes.bed
 ./footStats.pl -n PCB190425_PEAK
 ```
@@ -35,6 +38,7 @@ Softwares:
 - [bowtie2 (v2.2.6)](https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.2.6/bowtie2-2.2.6-source.zip/download)
 - [bismark2 (v0.20.0)](https://www.bioinformatics.babraham.ac.uk/projects/bismark/bismark_v0.20.0.tar.gz)
 - [R (v3.4.4)](https://cloud.r-project.org/src/base/R-3/R-3.4.4.tar.gz)
+- [samtools (v0.1.19-96b5f2294a)](https://sourceforge.net/projects/samtools/files/samtools/0.1.19/samtools-0.1.19.tar.bz2/download)
 
 R packages:
 
@@ -178,3 +182,22 @@ For each gene, R-loop peaks were clustered using their start and stop coordinate
 ## 2E. Reproduciblity
 
 For each gene replicate, we quantified distribution of reads in each cluster. These distributions were used to measure Pearson correlation coefficient between each replicates. As control, we shuffled the position of each read around the amplicon region and used its position to determine its cluster. A shuffled read is considered to be inside a specific cluster if their start and end positions fall between +/- 100bp of mean start and end of all reads in that cluster. All reads that weren’t inside any specific cluster were put in an extra cluster. Then we calculated Pearson correlation coefficient in the same manner as described above.
+
+# 3. LICENSE
+
+>footLoop pipeline Version 1.2 
+>
+>Copyright (C) 2019 Stella Regina Hartono
+>
+>This program is free software: you can redistribute it and/or modify
+>it under the terms of the GNU General Public License as published by
+>the Free Software Foundation, either version 3 of the License, or
+>(at your option) any later version.
+>
+>This program is distributed in the hope that it will be useful,
+>but WITHOUT ANY WARRANTY; without even the implied warranty of
+>MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+>GNU General Public License for more details.
+>
+>The license can be found at https://www.gnu.org/licenses/gpl-3.0.en.html. 
+>By downloading or using this software, you agree to the terms and conditions of the license. 
