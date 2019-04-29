@@ -230,8 +230,6 @@ If R dies for any reason, make sure you have these required R libraries:
 			}
 			$max_cluster = 0 if not defined $max_cluster;
 			my $summary = $p == 0 ? "PEAK: $LGN$totpeak$N, cluster=$LCY$max_cluster$N" : "NOPK: $LGN$totnopk$N";
-			#$currFilename =~ s/\.0_orig_//i;
-			#my $flag = $readStrand eq "Unk" ? "" : $p == 0 ? $PEAK->[0] : $PEAK->[1]; #PEAK : NOPK;
 			my $flag = getFlag($currFile, $geneStrand, $readStrand, $rconvType);
 			my $pngoutDir = $flag;
 			my $pdfoutDir = $flag;
@@ -244,7 +242,6 @@ If R dies for any reason, make sure you have these required R libraries:
 ","NA");
 			LOG($outLog, "$readStrandPrint\t$rconvTypePrint\t$flag\n","NA");
 
-####SPACESHIP
 
 			my $resDir2 = getFullpath($resDir);
 			my $madePNG = ($opt_r == 0) ? 0 : ($opt_r == 1 and defined $opt_c and $flag =~ /^(PEAK_C|NOPK_C|PEAK_TEMP_C|NOPK_TEMP_C)$/) ? 1 : ($opt_r == 1 and $flag =~ /(ALL|RCONV|_C)/) ? 0 : 1;
@@ -256,14 +253,19 @@ If R dies for any reason, make sure you have these required R libraries:
 			my $lenpdfout = "$resDir/PDF/$pngoutDir$currFilename\_length.pdf";
 			$scp{"scp $user\@crick.cse.ucdavis.edu:$resDir2/PNG/$pngoutDir/$currFilename.$flag.png ./"} = 1 if $madePNG eq 1;
 			$scp{"scp $user\@crick.cse.ucdavis.edu:$resDir2/PDF/$pdfoutDir/$currFilename.$flag.pdf ./"} = 1 if $madePDF eq 1;
-			#LOG($outLog, "!HERE STRAND=$STRAND strand=$strand type=$type label=$label pngoutDir = $pngoutDir, p = $p, PNGOUT = $pngout\n");
+
 			my ($RscriptPDF, $RscriptPNG, $RscriptPDF_nopk_ALL, $RscriptPNG_nopk_ALL);
+
 			my $Rscript = "
-.libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\", \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\", .libPaths()) )
-library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(gridExtra)\nlibrary(RColorBrewer)
+library(labeling)
+library(ggplot2)
+library(reshape2)
+library(grid)
+library(gridExtra)
+library(RColorBrewer)
+
 ";
 			
-			#if (-e $currFile and linecount($currFile) > 10) {
 			my $totread = $totpeak + $totnopk;
 			if (not -e $currFile or (-e $currFile and linecount($currFile) <= 5)) {
 				$Rscript .= "png(\"$pngout\",1000,1000)\nplot(NA,xlim=c(1,100),ylim=c(1,100),xlab=NA,ylab=NA,bty=\"n\")\ntext(50,50,cex=3,labels=c(\"$currFilename\n\nPEAK = $totpeak / $totread\"))\ndev.off()\n";
@@ -378,7 +380,7 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 				open (my $outRscriptPNG_nopk_ALL, ">", "$currFile.PNG_nopk_ALL.R") or (LOG($outLog, date() . "Failed to write R script into $currFile.PNG_nopk_ALL.R: $!\n") and print $outLog $Rscript and next);
 				print $outRscriptPNG_nopk_ALL $RscriptPNG_nopk_ALL;
 				$Rscripts{"$currFile.PNG_nopk_ALL.R"}{summary} = $summary;
-				$Rscripts{"$currFile.PNG_nopk_ALL.R"}{runR} = 0;#$flag =~ /(ALL|RCONV|_C)/ ? 0 : 1;
+				$Rscripts{"$currFile.PNG_nopk_ALL.R"}{runR} = 0;
 				$Rscripts{"$currFile.PNG_nopk_ALL.R"}{runType} = $flag . "_ALL";
 				close $outRscriptPNG_nopk_ALL;
 
@@ -1557,8 +1559,5 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 
 ";
 
-
 	return $R;
 }
-
-__END__

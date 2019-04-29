@@ -280,7 +280,6 @@ foreach my $input1 (sort @local_peak_files) {
 			my $xbeg = $data{$id}[$i][0];
 			my $xend = $data{$id}[$i][1];
 			my $read = $data{$id}[$i][2];
-#			print $out1 "$id\t$xbeg\t$xend\n";
 			print $out1 "$id\t$xbeg\t$xend\t$total_peak\n";
 		}
 	}
@@ -289,18 +288,21 @@ foreach my $input1 (sort @local_peak_files) {
 	# Write and run R script
 	LOG($outLog, date() . "$LCY\tRunning R script$N $tempFile1_Peak.R\n");
 	my $Rscript = "
-	.libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\", \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\", .libPaths()) )\nlibrary(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(gridExtra)\nlibrary(RColorBrewer)
+		library(labeling)
+		library(ggplot2)
+		library(reshape2)
+		library(grid)
+		library(gridExtra)
+		library(RColorBrewer)
 	
 	set.seed(420)
-	#setwd(\"$outDir/../../\");
 	library(ggplot2)
 	df.main = read.table(\"$tempFile1_Peak\",header=T,sep=\"\\t\",colClasses=c(\"factor\",\"integer\",\"integer\",\"integer\")) # changed df to df.main
-	df.main.total_peak = unique(df.main[,4]) #add
+	df.main.total_peak = unique(df.main[,4])
 
 	last_cluster = 0
-#	for (h in 1:length(df.main.total_peak)) {
 
-	df = df.main#[df.main\$total_peak == df.main.total_peak[h],-4]
+	df = df.main
 	df2 = df[,-1]
 	lenz = length(unique(paste(df\$xbeg,df\$xend)))
 	k.best = 0
@@ -353,7 +355,7 @@ foreach my $input1 (sort @local_peak_files) {
 	df\$clust = df\$clust2
 	df\$id2 = paste(df\$id,\".\",df\$clust,sep=\"\")
 	df = subset(df,select=-clust2)
-	#mylen=500;
+
 	mylen = $windowDiv;
 	if (Rstrand == \"Neg\" & toggleRstrand == \"Yes\") {
 		df = df[order(-df\$clust, -as.integer(df\$xend/mylen), -as.integer(df\$xbeg/mylen)),]
@@ -365,16 +367,9 @@ foreach my $input1 (sort @local_peak_files) {
 	curr_last_cluster = max(df\$clust)
 	df\$clust = df\$clust + last_cluster
 	last_cluster = curr_last_cluster
-	#if (h == 1) { #add
-		df = subset(df,select=c(id,xbeg,xend,ybeg,yend,clust,id2));# df\$h = h
-		df.final = df
-	#} else {
-	#	df = subset(df,select=c(id,xbeg,xend,ybeg,yend,clust,id2)); df\$h = h
-	#	df.final = rbind(df.final,df)
-	#}
-#	}
+	df = subset(df,select=c(id,xbeg,xend,ybeg,yend,clust,id2));# df\$h = h
+	df.final = df
 
-#add
 	df = df.final
 	df\$ybeg = seq(1,dim(df)[1])
 	df\$yend = seq(2,dim(df)[1]+1)
