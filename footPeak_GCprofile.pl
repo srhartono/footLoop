@@ -178,16 +178,27 @@ foreach my $bedFile (sort @bedFiles) {
 
 LOG($outLog, "\n\n" . date() . "2. Calculating Sequence profile (might take a couple minutes)\n\n");
 if (not defined ($opt_S)) {
-	#if (not defined $opt_F) {
-		#print "Re running all sequence profile? (${LCY}ENTER$N to continue,$YW CTRL+c$N to cancel)\nuse -F to disable this\n\n";
-		#<STDIN>;
-	#}
-	print "run_script_in_paralel2.pl \"fastaFromBed -fi $genomeFile -bed FILENAME -fo FILENAME.fa -s -name\" $resDir/.TEMP/ \"_[ABCDEFW].temp\" 1 > $resDir/.TEMP/fastaFromBed.LOG 2>&1\n";
-	system("run_script_in_paralel2.pl \"fastaFromBed -fi $genomeFile -bed FILENAME -fo FILENAME.fa -s -name\" $resDir/.TEMP/ \"_[ABCDEFW].temp\" 1 > $resDir/.TEMP/fastaFromBed.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run fastaFromBed: $!\n");
-	print "run_script_in_paralel2.pl \"rename.pl FILENAME PCB .PCB\" $resDir/.TEMP/ temp 1  > $resDir/.TEMP/rename.LOG 2>&1\n";
-	system("run_script_in_paralel2.pl \"rename.pl FILENAME PCB .PCB\" $resDir/.TEMP/ temp 1  > $resDir/.TEMP/rename.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run rename.pl: $!\n");
-	print "run_script_in_paralel2.pl \"counter_cpg_indiv.pl -w 200 -s 1 -o $resDir/.TSV/ -A FILENAME\" $resDir/.TEMP/ indiv.clust.bed_100.+temp.fa 1  > $resDir/.TEMP/counter_cpg_indiv.LOG 2>&1\n";
-	system("run_script_in_paralel2.pl \"counter_cpg_indiv.pl -w 200 -s 1 -o $resDir/.TSV/ -A FILENAME\" $resDir/.TEMP/ indiv.clust.bed_100.+temp.fa 1  > $resDir/.TEMP/counter_cpg_indiv.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run counter_cpg_indiv.pl: $!\n");
+	my $res1 = ""; my $res2 = "";
+	my @bedFiles = <$resDir/.TEMP/*_[ABCDEFW].temp>;
+	my $fileCount = 0;
+	foreach my $bedFile (@bedFiles[0..@bedFiles-1]) {
+		$fileCount ++;
+		my ($bedFolder, $bedFilename) = getFilename($bedFile, "folderfull");
+		my $cmd = "fastaFromBed -fi $genomeFile -bed $bedFile -fo $bedFolder/$bedFilename.fa -s -name";
+		LOG($outLog, date() . "$YW$fileCount.$N Creating seq Profile of $LCY$bedFile$N\n");
+		LOG($outLog, date() . "\t- $cmd\n","NA");
+		$res1 .= `$cmd`;
+
+		$cmd = "$footLoopScriptsFolder/counter_cpg_indiv.pl -w 200 -s 1 -o $resDir/.TSV/ -A $bedFolder/$bedFilename.fa";
+		LOG($outLog, date() . "\t- $cmd\n","NA");
+		$res2 .= `$cmd`;
+	}
+	open (my $outRes1, ">", "$resDir/.TEMP/fastaFromBed.LOG") or LOG($outLog, "Cannot write to $resDir/.TEMP/fastaFromBed.LOG: $!\n");
+	print $outRes1 "$res1\n";
+	close $outRes1;
+	open (my $outRes2, ">", "$resDir/.TEMP/counter_cpg_indiv.LOG") or LOG($outLog, "Cannot write to $resDir/.TEMP/counter_cpg_indiv.LOG: $!\n");
+	print $outRes2 "$res2\n";
+	close $outRes2;
 }
 
 ######################
@@ -299,18 +310,28 @@ my $RESULT = $resDir . "/RESULT.TSV";
 my $LABEL = `cat $resDir/../.LABEL`; DIELOG($outLog, "Cannot find $resDir/../.LABEL!\n") if not defined $LABEL; chomp($LABEL);
 my $LABEL2 = $LABEL;
 $LABEL = $resDirFullpath . "/$LABEL";
+
+LOG($outLog, "
+
+If R dies for any reason, make sure you have these required R libraries:
+- RColorBrewer v1.1-2
+- gridExtra v2.3
+- labeling v0.3
+- reshape2 v1.4.3
+- ggplot2 v3.1.0
+- GMD v0.3.3
+
+");
+
+
 my $Rscript = "
-.libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\",
-\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\",
-.libPaths()) )
+
 library(labeling)
 library(ggplot2)
 library(reshape2)
 library(grid)
 library(gridExtra)
 library(RColorBrewer)    
-library(ggplot2);
-library(reshape2);
 
 RESULT=\"$RESULT\";
 
@@ -498,7 +519,7 @@ LOG($outLog, date() . "4. $YW Running R script $LCY$resDir/RESULT.R$N\n");
 open (my $outR, ">", "$resDir/RESULT.R") or DIELOG($outLog, date() . " Failed to write to $LCY$resDir/RESULT.R$N: $!\n");
 print $outR $Rscript;
 close $outR;
-system("run_Rscript.pl $resDir/RESULT.R > $resDir/RESULT.R.LOG 2>&1") == 0 or DIELOG($outLog, date() . " Failed to run $LCY$resDir/RESULT.R$N: $!\n");
+system("R --vanilla --no-save < $resDir/RESULT.R > $resDir/RESULT.R.LOG 2>&1") == 0 or DIELOG($outLog, date() . " Failed to run $LCY$resDir/RESULT.R$N: $!\n");
 my $tailR = `tail $resDir/RESULT.R.LOG`;
 
 LOG($outLog, "\n\n" . date() . " ${LGN}SUCCESS on running $LCY$resDir/RESULT.R$YW.\nLast 5 rows of log message:$N\n$N$tailR
