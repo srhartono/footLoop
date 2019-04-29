@@ -1,4 +1,4 @@
-# footLoop Pipeline
+# footLoop Pipeline v1.4
 
 # 0. SYNOPSIS
 
