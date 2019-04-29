@@ -42,7 +42,7 @@ cd footLoop
 
 # 1. USAGE
 
-## 1A. Download/Install
+## 1a. Download/Install
 
 `git clone https://github.com/srhartono/footLoop`
 
@@ -65,7 +65,7 @@ R packages:
 - ggplot2 v3.1.0
 - GMD v0.3.3         
 
-## 1B. Mapping (footLoop.pl)
+## 1b. Mapping (footLoop.pl)
 
 ```
 footLoop.pl -r <read.fastq> -n <output directory> -l <label> -i <index.bed6> -g <genome fasta>
@@ -82,7 +82,7 @@ Options (default are in [ ] brackets)
 -F toggle to redo bismark mapping even if a .sam/.bam file is present in output_dir. [off]
 ```
 
-## 1C. Peak calling (footPeak.pl)
+## 1c. Peak calling (footPeak.pl)
 
 
 ```
@@ -95,7 +95,7 @@ Options:
 -G: only process this gene, e.g. -G CALM3. [off]
 ```
 
-## 1D. Clustering (footClust.pl)
+## 1d. Clustering (footClust.pl)
 
 
 ```
@@ -107,7 +107,7 @@ Options:
 -G: only process this gene, e.g. -G CALM3. [off]
 ```
 
-## 1E. Graphing (footPeak_graph.pl)
+## 1e. Graphing (footPeak_graph.pl)
 
 
 ```
@@ -126,7 +126,7 @@ Options:
 -G: only process this gene, e.g. -G CALM3. [off]
 ```
 
-## 1F. Creating GTF for UCSC (footPeakGTF.pl)
+## 1f. Creating GTF for UCSC (footPeakGTF.pl)
 
 ```
 footPeakGTF.pl -n <footPeak output directory>
@@ -135,7 +135,7 @@ Options:
 -G: only process this gene, e.g. -G CALM3. [off]
 ```
 
-## 1G. Calculating GC Profile (footPeak_GCprofile.pl)
+## 1g. Calculating GC Profile (footPeak_GCprofile.pl)
 
 
 ```
@@ -145,19 +145,7 @@ Options:
 -G: only process this gene, e.g. -G CALM3. [off]
 ```
 
-
-## 1H. Reproducibility (footRepro.pl)
-
-
-```
-footRepro.pl -n <footPeak output directory>
-
-Options:
--c: Include Cytosines in CpG context. [off]
--G: only process this gene, e.g. -G CALM3. [off]
-```
-
-## 1I. Stats summary (footStats.pl)
+## 1h. Stats summary (footStats.pl)
 
 
 ```
@@ -170,7 +158,17 @@ Will produce 0_SUMMARY.TXT and 1_PEAKSTATS.TXT, which contain statistics of the 
 ```
 
 
+## 1i. Reproducibility (footRepro.pl)
 
+```
+footRepro.pl -n <footPeak output directory>
+
+Options:
+-c: Include Cytosines in CpG context. [off]
+-G: only process this gene, e.g. -G CALM3. [off]
+```
+
+`PS: This will only work if the gene have more than 1 bioreps/pacbio runs.`
 
 # 2. Detailed Explanation
 
