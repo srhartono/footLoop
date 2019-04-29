@@ -31,8 +31,10 @@ cd footLoop
 
 #4. Results folders:
 
+- BED files of peaks: PCB190425_PEAK/PEAKS_GENOME/
+- GTF files of peaks: PCB190425_PEAK/GTF/PEAK/
 - PNG footprint of peaks: PCB190425_PEAK/PNG/PEAK/
-- GTF of peaks: PCB190425_PEAK/GTF/PEAK/
+- PDF of GC profile: PCB190425_PEAK/GCPROFILE/PDF/PEAK/
 - Stats summary: PCB190425_PEAK/99_FOOTSTATS/1_PEAKSTATS.TXT
 
 
