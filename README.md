@@ -25,6 +25,7 @@ cd footLoop
 ./footPeak.pl -n PCB190425_MAP -o PCB190425_PEAK
 ./footClust.pl -n PCB190425_PEAK
 ./footPeak_graph.pl -n PCB190425_PEAK
+./footPeak_GCprofile.pl -n PCB190425_PEAK -i geneIndexes.bed
 ./footPeak_GTF.pl -n PCB190425_PEAK
 ./footStats.pl -n PCB190425_PEAK
 
