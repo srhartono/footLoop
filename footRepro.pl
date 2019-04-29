@@ -543,7 +543,7 @@ int($datashuf{$clust}{PCB}{$PCB1}[$i] / $datashuf{0}{$PCB1}[$i] * 10000 + 0.5)/1
 LOG($outLog, "\n\n-----------------\n${LPR}4. Running $LGN" . scalar(keys %Rscript) . "$LPR R scripts$N\n");
 
 foreach my $Rscript (sort keys %Rscript) {
-	system("run_Rscript.pl $Rscript > $Rscript.LOG 2>&1") == 0 or DIELOG($outLog, date() . "\n\nFailed to run R script: $!\n\nrun_Rscript.pl $Rscript\n\n");
+	system("R --vanilla --no-save < $Rscript > $Rscript.LOG 2>&1") == 0 or DIELOG($outLog, date() . "\n\nFailed to run R script: $!\n\nR --vanilla --no-save < $Rscript\n\n");
 	my $RLog = `tail -n 20 $Rscript.LOG`;
 	LOG($outLog, "\n\n" . date() . "last 20 lines of R Log:\n\n$RLog\n\n");
 	my $pdf = getFullpath($Rscript{$Rscript});

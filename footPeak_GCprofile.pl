@@ -526,7 +526,7 @@ LOG($outLog, "\n\n" . date() . " ${LGN}SUCCESS on running $LCY$resDir/RESULT.R$Y
 
 
 ${YW}To Run R script manually, do:$N
-run_Rscript.pl $resDir/RESULT.R
+R --vanilla --no-save < $resDir/RESULT.R
 ");
 }
 

@@ -65,6 +65,20 @@ die "Failed to create output directory $LCY$outDir/PNG$N!\n" unless -d "$outDir/
 # establish log file
 open (my $outLog, ">", "$outDir/logFile_footClust.txt") or die "Failed to create outLog file $outDir/logFile_footClust.txt: $!\n";
 
+
+LOG($outLog, "
+
+If R dies for any reason, make sure you have these required R libraries:
+- RColorBrewer v1.1-2
+- gridExtra v2.3
+- labeling v0.3
+- reshape2 v1.4.3
+- ggplot2 v3.1.0
+- GMD v0.3.3
+
+");
+
+
 # parse footLoop log file
 ($footPeakFolder) = getFullpath($footPeakFolder);
 my ($footPeak_logFile) = "$footPeakFolder/footPeak_logFile.txt";
@@ -370,6 +384,8 @@ foreach my $input1 (sort @local_peak_files) {
 	dev.off()
 	write.table(df,\"$tempFile2_Clust\",quote=F,row.names=F,col.names=T,sep=\"\\t\")
 	";
+
+
 	open (my $outR, ">", "$tempFile1_Peak.R") or DIELOG($outLog, date() . __LINE__ . "Failed to write to $tempFile1_Peak.R: $!\n");
 	print $outR $Rscript;
 	system("R --vanilla --no-save < $tempFile1_Peak.R > $tempFile1_Peak.R.log 2>&1");

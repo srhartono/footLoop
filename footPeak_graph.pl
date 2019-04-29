@@ -109,6 +109,18 @@ sub main {
 	DIELOG($outLog, "\n\ndied at footPeak_graph.pl: can't find $footPeak_logFile!\n\n") if not -e $footPeak_logFile;
 	DIELOG($outLog, "\n\ndied at footPeak_graph.pl: can't find $resDir/.LABEL!\n\n") if not -e "$resDir/.LABEL";
 	my ($thres, $window);
+
+LOG($outLog, "
+
+If R dies for any reason, make sure you have these required R libraries:
+- RColorBrewer v1.1-2
+- gridExtra v2.3
+- labeling v0.3
+- reshape2 v1.4.3
+- ggplot2 v3.1.0
+- GMD v0.3.3
+");
+
 	foreach my $line (@lines) {
 		chomp($line);
 		if ($line =~ /^[ \t]*def=.+, coor=.+/) {
@@ -414,10 +426,10 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 					my @RLOG = `tail -n 5 $outRscriptPNG.LOG`;
 					$RLOG = "\t" . join("\n\t", @RLOG);
 				}
-				LOG($outLog, date() . "\t--> ${LRD}Failed$N to run_Rscript.pl $outRscriptPNG: $prevRLOG, LOG:\n$RLOG\n") if $runR == 1;
+				LOG($outLog, date() . "\t--> ${LRD}Failed$N to R --vanilla --no-save < $outRscriptPNG: $prevRLOG, LOG:\n$RLOG\n") if $runR == 1;
 			}
 			else {
-				LOG($outLog, date() . "\t--> ${LGN}Success$N on running run_Rscript.pl $LCY$outRscriptPNG$N\n");
+				LOG($outLog, date() . "\t--> ${LGN}Success$N on running R --vanilla --no-save < $LCY$outRscriptPNG$N\n");
 			}
 		}
 
@@ -444,10 +456,10 @@ library(labeling)\nlibrary(ggplot2)\nlibrary(reshape2)\nlibrary(grid)\nlibrary(g
 					my @RLOG = `tail -n 5 $outRscriptPDF.LOG`;
 					$RLOG = "\t" . join("\n\t", @RLOG);
 				}
-				LOG($outLog, date() . "\t--> ${LRD}Failed$N to run_Rscript.pl $outRscriptPDF: $prevRLOG, LOG:\n$RLOG\n") if $runR == 1;
+				LOG($outLog, date() . "\t--> ${LRD}Failed$N to R --vanilla --no-save < $outRscriptPDF: $prevRLOG, LOG:\n$RLOG\n") if $runR == 1;
 			}
 			else {
-				LOG($outLog, date() . "\t--> ${LGN}Success$N on running run_Rscript.pl $LCY$outRscriptPDF$N\n");
+				LOG($outLog, date() . "\t--> ${LGN}Success$N on running R --vanilla --no-save < $LCY$outRscriptPDF$N\n");
 			}
 		}
 	}
