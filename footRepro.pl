@@ -68,6 +68,17 @@ my ($OUTDIRS) = makeOutDir($resDir);
 open (my $outLog, ">", $outLogFile) or die "Failed to write to $outLogFile: $!\n";
 my $COOR; 
 
+LOG($outLog, "
+
+If R dies for any reason, make sure you have these required R libraries:
+- RColorBrewer v1.1-2
+- gridExtra v2.3
+- labeling v0.3
+- reshape2 v1.4.3
+- ggplot2 v3.1.0
+- GMD v0.3.3
+");
+
 ### Make sure group 1 and 2 exists ###
 my %read;
 my (@grp1, @grp2);
@@ -127,60 +138,7 @@ if (defined $opt_1) {
 	print "grpname2 = $grpname = @{$grpnames}\n";
 	$read{grppcbid2} = $grpname;
 }
-=comment
-LOG($outLog, "\nGroup 1:\n");
-#foreach my $number (sort keys %{$read{1}}) {
-foreach my $number (sort @grp1) {
-	my $desc = $read{1}{$number}{desc};
-	my $num = $read{1}{$number}{num};
-	my ($num1, $num4) = $number =~ /^(.+);(.+)$/;
-	my $fqName = "FQNAME";
-	$num1 =~ s/_//g;
-	my $pcbid = $pcb{readName}{$num1};
-	$pcbid = $number if not defined $pcbid;
-	#LOG($outLog, "grp1: num1 = $num1, num4=$num4, pcb=$pcbid, desc=$desc\n");
-	#my $num1 = $read{1}{$number}{num1};
-	#my $num2 = $read{1}{$number}{num2};
-	#my $fqName = $read{1}{$number}{fq};
-	LOG($outLog, date() . "Undefined pcbid for number=$number num1=$num1 num4=$num4 desc=$desc using '$number' as pcbid!\n") if not defined $pcbid;
-	my $current_readID = $pcbid;# eq $fqName ? $pcbid : "$pcbid\_$fqName";
-	$read{1}{$number}{pcbid} = $pcbid;
-	push(@{$read{1}{$number}{grppcbids}}, $pcbid);
-	$read{1}{$num1}{pcbid} = $pcbid;
-	$read{1}{$number}{num4} = $num4;
-	$read{1}{$num1}{num4} = $num4;
-	push(@{$read{1}{$num1}{grppcbids}}, $pcbid);
-	LOG($outLog, "read1 number=$number num1=$num1 pcbid=$pcbid desc=$desc num=$num\n");
-}
-foreach my $number (sort keys %{$read{1}}) {
-	$read{1}{$number}{grppcbid} = join("_", @{$read{1}{$number}{grppcbids}});
-}
 
-if (defined $read{2}) {
-	LOG($outLog, "\nGroup 2:\n");
-	foreach my $number (sort keys %{$read{2}}) {
-		my $desc = $read{2}{$number}{desc};
-		my $num = $read{2}{$number}{num};
-		my ($num1, $num4) = $number =~ /^(.+);(.+)$/;
-		my $fqName = "FQNAME";
-		$num1 =~ s/_//g;
-		my $pcbid = $pcb{readName}{$num1};
-		$pcbid = $number if not defined $pcbid;
-		LOG($outLog, date() . "Undefined pcbid for number=$number num1=$num1 num4=$num4 desc=$desc using '$number' as pcbid!\n") if not defined $pcbid;
-		$pcbid = $desc if not defined $pcbid;
-		$read{2}{$number}{pcbid} = $pcbid;
-		push(@{$read{2}{$number}{grppcbids}}, $pcbid);
-		$read{2}{$number}{num4} = $num4;
-		$read{2}{$num1}{num4} = $num4;
-		$read{2}{$num1}{pcbid} = $pcbid;
-		push(@{$read{2}{$num1}{grppcbids}}, $pcbid);
-		LOG($outLog, "read1 number=$number num1=$num1 pcbid=$pcbid desc=$desc num=$num\n");
-	}
-	foreach my $number (sort keys %{$read{2}}) {
-		$read{2}{$number}{grppcbid} = join("_", @{$read{2}{$number}{grppcbids}});
-	}
-}
-=cut
 sub det_pcb {
 	my ($readID, $readhash, $grp) = @_;
 	my %read = %{$readhash};
@@ -194,11 +152,12 @@ sub det_pcb {
 	   ($number) = $readID if not defined $number;
 	return($number, "PCB$number", 0);
 }
-###1. PARSING FOOTPEAK LOGFILE TO GET GENE INFO
+
+# 1. PARSING FOOTPEAK LOGFILE TO GET GENE INFO
 LOG($outLog, "\n\n-----------------\n${LPR}1. Parsing footPeak logFile $LCY$footPeakFolder/${LGN}footPeak_logFile.txt$N\n");
 ($COOR, $outLog) = parse_footPeak_logFile("$footPeakFolder/footPeak_logFile.txt", $footPeakFolder, $opt_G, $outLog);
 
-###2. GET FOOTCLUST BED.INDIV.CLUST FILES
+# 2. GET FOOTCLUST BED.INDIV.CLUST FILES
 LOG($outLog, "\n\n-----------------\n${LPR}2. Getting footClust bed.indiv.clust file $LCY$footPeakFolder/${LGN}FOOTCLUST/CLUST_GENOME/*.PEAK.genome.bed.indiv.clust$N\n");
 my @clustFiles = <$footPeakFolder/FOOTCLUST/CLUST_GENOME/*.PEAK.genome.bed.indiv.clust>;
 my $maxClustFile = @clustFiles >= 3 ? 2 : @clustFiles == 0 ? 0 : @clustFiles-1;
@@ -208,7 +167,7 @@ if ($maxClustFile > 0) {
 	LOG($outLog, join("\n" . date() . "   \t --> ", @clustFiles[0..$maxClustFile]) . "\n","NA");
 }
 
-###3. PARSING EACH CLUST FILES AND WRITE OUTPUT TABLE
+# 3. PARSING EACH CLUST FILES AND WRITE OUTPUT TABLE
 LOG($outLog, "\n\n-----------------\n${LPR}3. Parsing each bed.indiv.clust files and writing tables$N\n");
 my $fileCount = 0;
 my %Rscript;
@@ -234,7 +193,6 @@ for (my $f = 0; $f < @clustFiles; $f++) {
 	my $grpnamez = "ALL";
 	if (defined $opt_1) {
 		$grpnamez = $read{grppcbid1} . "vs" . $read{grppcbid2};
-		#print "grp = $grpnamez\n";
 	}
 	$flag = getFlag($clustFile, $geneStrand, $readStrand, $rconvType);
 	$currLog .= date() . "\t$LCY DEBUG$N: $clustFile: flag=$flag, " . join(",", @arr) . "\n";
@@ -256,7 +214,6 @@ for (my $f = 0; $f < @clustFiles; $f++) {
 	my $total = 0;
 	my %data;
 	my @clust;
-	#1610242350461581470	72794386	72794517	1	2	1	1610242350461581470.1
 	my %clusts;
 	my $clustallFile = $clustFile; $clustallFile =~ s/.bed.indiv.clust/.bed.clust/;
 	open (my $inAll, "<", $clustallFile) or DIELOG($outLog, "Failed to read from clustallFile $clustallFile: $!\n");
@@ -274,7 +231,6 @@ for (my $f = 0; $f < @clustFiles; $f++) {
 	while (my $line = <$in>) {
 		chomp($line);
 		next if $line =~ /^id\t/;
-#		LOG($outLog, date() . "Example line:$LCY$line$N\n") if $total == 0;
 		my ($name, $x, $xmax, $y, $ymax, $clust) = split("\t", $line);
 		my $current_readID = $name;
 		my $len = $xmax - $x;
@@ -287,141 +243,92 @@ for (my $f = 0; $f < @clustFiles; $f++) {
 		my $PCB2 = defined $opt_2 ? $read{grppcbid2} : $PCB2real;
 		$PCB2 =~ s/_PCB/_/g;
 		next if $good1 eq 0 and $good2 eq 0 and defined $opt_1;
-		#print "bestPCB = $bestPCB number=$number1\n";
-		#my $PCB1 = $number1;#$read{1}{$bestPCB}{pcbid};
-		#my $PCB2 = $number2;
-#		print "HERE! name=$name\n" if $name =~ /1708140058251003640/;
-#		#if (not defined $read{$bestPCB}) {
-#			foreach my $pcbid (sort keys %read) {
-#				if ($current_readID =~ /1708140058251003640/) {
-#					print "current PCBid=$current_readID, same as pcbid=$pcbid, PCB=$read{$pcbid}{pcbid}?\n";
-#				}
-#				if ($current_readID =~ /$pcbid/) {
-#					$bestPCB = $pcbid;
-#					$PCB1 = $read{$pcbid}{pcbid};
-#					print "YES\n" if ($current_readID eq "1708140058251003640");# or $current_readID eq 1708140058251003640;
-#					last;
-#				}
-##			}
-#		#}
-#		#else {$PCB1 = $read{$bestPCB}{pcbid};}
-		#my $idtake = 12;
-		#while (not defined $PCB1) {
-		#	($bestPCB) = $name =~ /^(\d{$idtake})/;
-		#	DIELOG($outLog, "clustFile=$LCY$clustFile$N, name=$LCY$name$N, UNDEF bestPCB\n") if not defined $bestPCB;
-		#	$PCB1 = $read{$bestPCB}{pcbid};
-		#	#print "bestPCB = $bestPCB\n" if $name eq 1610242350461581470 or $name eq 161024235046898060;
-		#	last if $idtake < 8;
-		#	last if defined $PCB1;
-		#	$idtake --;
-		#}
+
 		DIELOG($outLog, "clustFile=$LCY$clustFile$N, PCB=$LCY$current_readID$N, best=$bestPCB, name=$LCY$name$N, can't find PCB for this PCBid in database at step (0) (pcb_readname.tsv from amazon s3 ${LCY}https://s3-us-west-1.amazonaws.com/muhucsc/pcb_readname.tsv$N)\n") if (not defined $PCB1);
 		LOG($outLog, "current read id=$current_readID, number1=$number1, PCB1=$PCB1real, pcbgrp1=$PCB1\n") if not defined $opt_1;
 		if (defined $opt_1) {
 			LOG($outLog, date() . "1: Example line:$LCY$line$N\n") if $total <= 5 and $good1 ne 0;
-			#LOG($outLog, "current read id=$current_readID, number1=$number1, PCB grp1=$PCB1real, pcbgrp1=$PCB1\n") if $good1 ne 0;
 			LOG($outLog, date() . "2: Example line:$LCY$line$N\n") if $total <= 5 and $good2 ne 0;
-			#LOG($outLog, "current read id=$current_readID, number2=$number2, PCB grp2=$PCB2real, pcbgrp2=$PCB2\n") if $good2 ne 0;
 		}
 		$data{$clust}{total} ++;
 		if (not defined $opt_1) {
-		$data{0}{$PCB1} ++;
-		$data{$clust}{PCB}{$PCB1} ++;
-		$total ++;
-		my %clust = ("name" => $name, "id" => $PCB1, "clust" => $clust);
-		push(@clust, \%clust);
-		for (my $i = 0; $i < 1000; $i++) {
-			my $Xrand = int(rand($LEN - $len)) + $BEG;
-			my $Xrandmax = $Xrand + $len;
-			my %diff; my @currclust;
-			foreach my $currclust (sort keys %clusts) {
-				my $currbeg = $clusts{$currclust}{beg};
-				my $currend = $clusts{$currclust}{end};
-				#push(@currclust, $currclust) if ($currbeg >= $Xrand and $currbeg <= $Xrandmax) or ($Xrand >= $currbeg or $Xrand <= $currend);
-				next if $Xrand < $currbeg - 100 or $Xrand > $currbeg + 100 or $Xrandmax < $currend - 100 or $Xrandmax > $currend + 100;
-				$diff{$currclust} = sqrt(($currbeg - $Xrand)**2 + ($currend - $Xrandmax)**2);
-				#print "$Xrand-$Xrandmax vs $currbeg-$currend: $currclust: $diff{$currclust}\n";
+			$data{0}{$PCB1} ++;
+			$data{$clust}{PCB}{$PCB1} ++;
+			$total ++;
+			my %clust = ("name" => $name, "id" => $PCB1, "clust" => $clust);
+			push(@clust, \%clust);
+			for (my $i = 0; $i < 1000; $i++) {
+				my $Xrand = int(rand($LEN - $len)) + $BEG;
+				my $Xrandmax = $Xrand + $len;
+				my %diff; my @currclust;
+				foreach my $currclust (sort keys %clusts) {
+					my $currbeg = $clusts{$currclust}{beg};
+					my $currend = $clusts{$currclust}{end};
+					next if $Xrand < $currbeg - 100 or $Xrand > $currbeg + 100 or $Xrandmax < $currend - 100 or $Xrandmax > $currend + 100;
+					$diff{$currclust} = sqrt(($currbeg - $Xrand)**2 + ($currend - $Xrandmax)**2);
+				}
+				my $best = -1; my $bestclust = -1;
+				foreach my $currclust (sort {$diff{$a} <=> $diff{$b}} keys %diff) {
+					$best = $diff{$currclust}; $bestclust = $currclust; last;
+				}
+				$datashuf{0}{$PCB1}[$i] ++;
+				$datashuf{$bestclust}{PCB}{$PCB1}[$i] ++;
+				$datashuf{$bestclust}{total}[$i] ++;
 			}
-			my $best = -1; my $bestclust = -1;
-			foreach my $currclust (sort {$diff{$a} <=> $diff{$b}} keys %diff) {
-				$best = $diff{$currclust}; $bestclust = $currclust; last;
-			}
-#			if ($bestclust eq -1) {
-#				$bestclust = @currclust == 0 ? -1 : $currclust[int(rand(@currclust))];
-#			}
-			#$bestclust = int(rand(scalar(keys %data) - 1)) + 1 if $bestclust eq -1;
-			#print "best = $best ($bestclust)\n";
-			$datashuf{0}{$PCB1}[$i] ++;
-			$datashuf{$bestclust}{PCB}{$PCB1}[$i] ++;
-			$datashuf{$bestclust}{total}[$i] ++;
-		}
 		}
 		if (defined $opt_1 and $good1 ne 0) {
-		$data{0}{$PCB1} ++;
-		$data{$clust}{PCB}{$PCB1} ++;
-		$total ++;
-		my %clust = ("name" => $name, "id" => $PCB1, "clust" => $clust);
-		push(@clust, \%clust);
-		for (my $i = 0; $i < 1000; $i++) {
-			my $Xrand = int(rand($LEN - $len)) + $BEG;
-			my $Xrandmax = $Xrand + $len;
-			my %diff; my @currclust;
-			foreach my $currclust (sort keys %clusts) {
-				my $currbeg = $clusts{$currclust}{beg};
-				my $currend = $clusts{$currclust}{end};
-				#push(@currclust, $currclust) if ($currbeg >= $Xrand and $currbeg <= $Xrandmax) or ($Xrand >= $currbeg or $Xrand <= $currend);
-				next if $Xrand < $currbeg - 100 or $Xrand > $currbeg + 100 or $Xrandmax < $currend - 100 or $Xrandmax > $currend + 100;
-				$diff{$currclust} = sqrt(($currbeg - $Xrand)**2 + ($currend - $Xrandmax)**2);
-				#print "$Xrand-$Xrandmax vs $currbeg-$currend: $currclust: $diff{$currclust}\n";
+			$data{0}{$PCB1} ++;
+			$data{$clust}{PCB}{$PCB1} ++;
+			$total ++;
+			my %clust = ("name" => $name, "id" => $PCB1, "clust" => $clust);
+			push(@clust, \%clust);
+			for (my $i = 0; $i < 1000; $i++) {
+				my $Xrand = int(rand($LEN - $len)) + $BEG;
+				my $Xrandmax = $Xrand + $len;
+				my %diff; my @currclust;
+				foreach my $currclust (sort keys %clusts) {
+					my $currbeg = $clusts{$currclust}{beg};
+					my $currend = $clusts{$currclust}{end};
+					next if $Xrand < $currbeg - 100 or $Xrand > $currbeg + 100 or $Xrandmax < $currend - 100 or $Xrandmax > $currend + 100;
+					$diff{$currclust} = sqrt(($currbeg - $Xrand)**2 + ($currend - $Xrandmax)**2);
+				}
+				my $best = -1; my $bestclust = -1;
+				foreach my $currclust (sort {$diff{$a} <=> $diff{$b}} keys %diff) {
+					$best = $diff{$currclust}; $bestclust = $currclust; last;
+				}
+				$datashuf{0}{$PCB1}[$i] ++;
+				$datashuf{$bestclust}{PCB}{$PCB1}[$i] ++;
+				$datashuf{$bestclust}{total}[$i] ++;
 			}
-			my $best = -1; my $bestclust = -1;
-			foreach my $currclust (sort {$diff{$a} <=> $diff{$b}} keys %diff) {
-				$best = $diff{$currclust}; $bestclust = $currclust; last;
-			}
-#			if ($bestclust eq -1) {
-#				$bestclust = @currclust == 0 ? -1 : $currclust[int(rand(@currclust))];
-#			}
-			#$bestclust = int(rand(scalar(keys %data) - 1)) + 1 if $bestclust eq -1;
-			#print "best = $best ($bestclust)\n";
-			$datashuf{0}{$PCB1}[$i] ++;
-			$datashuf{$bestclust}{PCB}{$PCB1}[$i] ++;
-			$datashuf{$bestclust}{total}[$i] ++;
-		}
 		}
 		if (defined $opt_1 and $good2 ne 0) {
-		$data{0}{$PCB2} ++;
-		$data{$clust}{PCB}{$PCB2} ++;
-		$total ++;
-		my %clust = ("name" => $name, "id" => $PCB2, "clust" => $clust);
-		push(@clust, \%clust);
-		for (my $i = 0; $i < 1000; $i++) {
-			my $Xrand = int(rand($LEN - $len)) + $BEG;
-			my $Xrandmax = $Xrand + $len;
-			my %diff; my @currclust;
-			foreach my $currclust (sort keys %clusts) {
-				my $currbeg = $clusts{$currclust}{beg};
-				my $currend = $clusts{$currclust}{end};
-				#push(@currclust, $currclust) if ($currbeg >= $Xrand and $currbeg <= $Xrandmax) or ($Xrand >= $currbeg or $Xrand <= $currend);
-				next if $Xrand < $currbeg - 100 or $Xrand > $currbeg + 100 or $Xrandmax < $currend - 100 or $Xrandmax > $currend + 100;
-				$diff{$currclust} = sqrt(($currbeg - $Xrand)**2 + ($currend - $Xrandmax)**2);
-				#print "$Xrand-$Xrandmax vs $currbeg-$currend: $currclust: $diff{$currclust}\n";
+			$data{0}{$PCB2} ++;
+			$data{$clust}{PCB}{$PCB2} ++;
+			$total ++;
+			my %clust = ("name" => $name, "id" => $PCB2, "clust" => $clust);
+			push(@clust, \%clust);
+			for (my $i = 0; $i < 1000; $i++) {
+				my $Xrand = int(rand($LEN - $len)) + $BEG;
+				my $Xrandmax = $Xrand + $len;
+				my %diff; my @currclust;
+				foreach my $currclust (sort keys %clusts) {
+					my $currbeg = $clusts{$currclust}{beg};
+					my $currend = $clusts{$currclust}{end};
+					next if $Xrand < $currbeg - 100 or $Xrand > $currbeg + 100 or $Xrandmax < $currend - 100 or $Xrandmax > $currend + 100;
+					$diff{$currclust} = sqrt(($currbeg - $Xrand)**2 + ($currend - $Xrandmax)**2);
+				}
+				my $best = -1; my $bestclust = -1;
+				foreach my $currclust (sort {$diff{$a} <=> $diff{$b}} keys %diff) {
+					$best = $diff{$currclust}; $bestclust = $currclust; last;
+				}
+				$datashuf{0}{$PCB2}[$i] ++;
+				$datashuf{$bestclust}{PCB}{$PCB2}[$i] ++;
+				$datashuf{$bestclust}{total}[$i] ++;
 			}
-			my $best = -1; my $bestclust = -1;
-			foreach my $currclust (sort {$diff{$a} <=> $diff{$b}} keys %diff) {
-				$best = $diff{$currclust}; $bestclust = $currclust; last;
-			}
-#			if ($bestclust eq -1) {
-#				$bestclust = @currclust == 0 ? -1 : $currclust[int(rand(@currclust))];
-#			}
-			#$bestclust = int(rand(scalar(keys %data) - 1)) + 1 if $bestclust eq -1;
-			#print "best = $best ($bestclust)\n";
-			$datashuf{0}{$PCB2}[$i] ++;
-			$datashuf{$bestclust}{PCB}{$PCB2}[$i] ++;
-			$datashuf{$bestclust}{total}[$i] ++;
-		}
 		}
 	}
 	close $in;
+
 	LOG($outLog, date() . "Dividing cluster shufs\n");
 	foreach my $clust (sort keys %datashuf) {
 		next if $clust eq 0;
@@ -431,29 +338,24 @@ for (my $f = 0; $f < @clustFiles; $f++) {
 				$datashuf{0}{$PCB1}[$i] = 0 if not defined $datashuf{0}{$PCB1}[$i];
 				$datashuf{$clust}{PCB}{$PCB1}[$i] = 0 if not defined $datashuf{$clust}{PCB}{$PCB1}[$i];
 				die "UNDEF clust=$clust PCBid=$PCB1 i=$i datashuftotal=$datashuf{0}{$PCB1}[$i] datashufPCBid=$datashuf{$clust}{PCB}{$PCB1}[$i]\n" if not defined $datashuf{$clust}{PCB}{$PCB1}[$i] or not defined $datashuf{0}{$PCB1}[$i];
-				$datashuf{$clust}{PCB}{$PCB1}[$i] = $datashuf{0}{$PCB1}[$i] == 0 ? 0 : 
-int($datashuf{$clust}{PCB}{$PCB1}[$i] / $datashuf{0}{$PCB1}[$i] * 10000 + 0.5)/100;
+				$datashuf{$clust}{PCB}{$PCB1}[$i] = $datashuf{0}{$PCB1}[$i] == 0 ? 0 : int($datashuf{$clust}{PCB}{$PCB1}[$i] / $datashuf{0}{$PCB1}[$i] * 10000 + 0.5)/100;
 			}
 		}
 	}
 
-	# get random reads for shuffle
-#	my $shufhash = get_random_reads(\%data, \@clust, $outLog);
-#	DIELOG($outLog, "Failed to get shufhash from get_random_reads!\n") if not defined $shufhash;
-#	my %shuf = %{$shufhash};
+	# Get random reads for shuffle. 
+	# Open and print to repro table, which makes corr heatmap
 
-	#open and print to repro table, which makes corr heatmap
-	LOG($outLog, date() . "PRintint output\n");
+	LOG($outLog, date() . "Printing output\n");
 	my $forbar;
+
 	LOG($outLog, "\n\n#clust\tcombine");
-	#my $total = 0;
 	my $used = 0;
 	foreach my $PCB (sort keys %{$data{0}}) {
 		my $total_PCBid_clust = $data{0}{$PCB};
 		LOG($outLog, "PCB=$PCB total = $total_PCBid_clust\n");
 		next if $total_PCBid_clust < $min_read_in_cluster;
 		$used ++;
-#		LOG($outLog, "\t$PCB");
 	}
 	LOG($outLog, "\n");
 	open (my $outTableForBar, ">", "$resDir/$clustFilename.$flag.repro.$grpnamez.tsv") or DIELOG($outLog, date() . "Failed to write to $resDir/$clustFilename.$flag.repro.$grpnamez.tsv: $!\n");
@@ -465,6 +367,7 @@ int($datashuf{$clust}{PCB}{$PCB1}[$i] / $datashuf{0}{$PCB1}[$i] * 10000 + 0.5)/1
 		print $outTableForBar "$clust\tPCB0\t$total\torig\t" . int($total_clust / $total * 10000 + 0.5)/100 . "\t0\t\"\"\n";
 		$forbar .= "$clust\tPCB0\t$total\torig\t" . int($total_clust / $total * 10000 + 0.5)/100 . "\t0\t\"\"\n";
 	}
+
 	foreach my $clust (sort {$a <=> $b} keys %data) {
 		next if $clust eq 0;
 		my $total_clust = $data{$clust}{total};
@@ -473,17 +376,11 @@ int($datashuf{$clust}{PCB}{$PCB1}[$i] / $datashuf{0}{$PCB1}[$i] * 10000 + 0.5)/1
 		LOG($outLog, "$clust\t$clustperc");
 		my $print0 = 0;
 		foreach my $current_readID (sort keys %{$data{0}}) {
-#			my $PCB = $current_readID;
-			my $PCB = $current_readID;#$read{$current_readID}{pcbid};
+			my $PCB = $current_readID;
 			DIELOG($outLog, date() . "Can't find PCB of PCBid=$LGN$current_readID$N, clustFile=$LPR$clustFile$N\n\n") if not defined $PCB;
-			#my $PCB = $pcb{readName}{$current_readID};
 			$pcbcount ++;
 			my $total_PCBid_clust = $data{0}{$current_readID};
 			my $total_clust_perc = defined $data{$clust}{PCB}{$current_readID} ? int($data{$clust}{PCB}{$current_readID} / $total_PCBid_clust * 10000 + 0.5)/100 : 0;
-#			my $shufmean = int(100*$shuf{$clust}{$current_readID}{mean}+0.5)/100;
-#			my $shufse = int(100*$shuf{$clust}{$current_readID}{sd}+0.5)/100;
-#			my $shufpval = $shuf{$clust}{$current_readID}{pval};
-#			my $pvalstar = $shufpval <= 0.05 ? "*" : "\"\"";
 			my $shufrandtotal = defined $datashuf{0}{$current_readID} ? int(mean(@{$datashuf{0}{$current_readID}})) : 0;
 			my $shufrandmean = defined $datashuf{$clust}{PCB}{$current_readID} ? int(mean(@{$datashuf{$clust}{PCB}{$current_readID}}) * 100)/100 : 0;
 			my $shufrandse = defined $datashuf{$clust}{PCB}{$current_readID} ? int(se(@{$datashuf{$clust}{PCB}{$current_readID}}) * 100)/100 : 0;
@@ -495,11 +392,9 @@ int($datashuf{$clust}{PCB}{$PCB1}[$i] / $datashuf{0}{$PCB1}[$i] * 10000 + 0.5)/1
 			$forbar .= "$clust\t$PCB\t$shufrandtotal\tshufrand\t$shufrandmean\t$shufrandse\t\"\"\n";
 			if ($clust eq 1) {
 				my $maxClust = scalar(keys %data);
-#				$shufrandmean = defined $datashuf{'-1'}{PCB}{$current_readID} ? int(1/($maxClust-1) * mean(@{$datashuf{'-1'}{PCB}{$current_readID}}) * 100)/100 : 0;
-#				$shufrandse = defined $datashuf{'-1'}{PCB}{$current_readID} ? int(1/($maxClust-1) * se(@{$datashuf{'-1'}{PCB}{$current_readID}}) * 100)/100 : 0;
 				$shufrandmean = defined $datashuf{'-1'}{PCB}{$current_readID} ? int(mean(@{$datashuf{'-1'}{PCB}{$current_readID}}) * 100)/100 : 0;
 				$shufrandse = defined $datashuf{'-1'}{PCB}{$current_readID} ? int(se(@{$datashuf{'-1'}{PCB}{$current_readID}}) * 100)/100 : 0;
-				for (my $k = -1; $k > -2; $k--) {#-1 * $maxClust; $k--) {
+				for (my $k = -1; $k > -2; $k--) {
 					printf $outTableForBar "$k\tPCB0\t$total\torig\t0\t0\t\"\"\n" if $print0 == 0; $print0 = 1;
 					printf $outTableForBar "$k\t$PCB\t$total_PCBid_clust\torig\t0\t0\t\"\"\n";
 					printf $outTableForBar "$k\t$PCB\t$shufrandtotal\tshufrand\t$shufrandmean\t$shufrandse\t\"\"\n";
@@ -508,14 +403,6 @@ int($datashuf{$clust}{PCB}{$PCB1}[$i] / $datashuf{0}{$PCB1}[$i] * 10000 + 0.5)/1
 					$forbar .= "$k\t$PCB\t$shufrandtotal\tshufrand\t$shufrandmean\t$shufrandse\t\"\"\n";
 				}
 			}
-
-#			printf $outTableForBar "$clust\t$PCB\t$total_PCBid_clust\tshuf\t$shufmean\t$shufse\t$pvalstar\n";
-#			$forbar .= "$clust\t$PCB\t$total_PCBid_clust\tshuf\t$shufmean\t$shufse\t$pvalstar\n";
-#			my @shufarr = @{$shuf{$clust}{$current_readID}{array}};
-#			for (my $i = 0; $i < @shufarr; $i++) {
-#				my $shufperc = int($shufarr[$i] * 10000 + 0.5)/100;
-#				print $outTableForBar "$clust\t$PCB\t$total_PCBid_clust\tshufindiv\t$shufperc\t0\t\"\"\n";
-#			}
 		}
 		LOG($outLog, "\n");
 	}
@@ -523,15 +410,13 @@ int($datashuf{$clust}{PCB}{$PCB1}[$i] / $datashuf{0}{$PCB1}[$i] * 10000 + 0.5)/1
 	LOG($outLog, "\n$forbar\n","NA");
 	close $outTableForBar;
 
-
-	#####WRITE TO R SCRIPT
+	# WRITE TO R SCRIPT
 	my $Rfilename = "$resDir/$clustFilename.$flag.repro.cor.$grpnamez.R";
 	my $Rpdfname  = "$resDir/$clustFilename.$flag.repro.cor.$grpnamez.pdf";
 	my $totalclust = (keys %data) - 1;
 	my $totalsample = (keys %{$data{0}});
 	LOG($outLog, "total clust = $totalclust, total sample=$totalsample, used = $used\n");
-	my $Rscript = ($used > 1 and $totalclust > 1 and $totalsample > 1) ? get_Rscript($resDir, $clustFilename, $totalclust, $totalsample, $flag, $grpnamez) : 
-"pdf(\"$Rpdfname\");plot(NA,xlim=c(0,1),ylim=c(0,1),bty=\"n\",xlab=NA,ylab=NA,axes=F,main=\"$clustFilename\n$flag\n$totalclust clusters\n$totalsample samples\n$used Used\");dev.off()\n";
+	my $Rscript = ($used > 1 and $totalclust > 1 and $totalsample > 1) ? get_Rscript($resDir, $clustFilename, $totalclust, $totalsample, $flag, $grpnamez) : "pdf(\"$Rpdfname\");plot(NA,xlim=c(0,1),ylim=c(0,1),bty=\"n\",xlab=NA,ylab=NA,axes=F,main=\"$clustFilename\n$flag\n$totalclust clusters\n$totalsample samples\n$used Used\");dev.off()\n";
 	open (my $RscriptOut, ">", $Rfilename) or DIELOG($outLog, date() . "Failed to write to $Rfilename: $!\n");
 	print $RscriptOut $Rscript;
 	close $RscriptOut;
@@ -539,7 +424,7 @@ int($datashuf{$clust}{PCB}{$PCB1}[$i] / $datashuf{0}{$PCB1}[$i] * 10000 + 0.5)/1
 	$Rscript{$Rfilename} = $Rpdfname;
 }
 
-###4. RUN R SCRIPTS
+# 4. RUN R SCRIPTS
 LOG($outLog, "\n\n-----------------\n${LPR}4. Running $LGN" . scalar(keys %Rscript) . "$LPR R scripts$N\n");
 
 foreach my $Rscript (sort keys %Rscript) {
@@ -547,7 +432,6 @@ foreach my $Rscript (sort keys %Rscript) {
 	my $RLog = `tail -n 20 $Rscript.LOG`;
 	LOG($outLog, "\n\n" . date() . "last 20 lines of R Log:\n\n$RLog\n\n");
 	my $pdf = getFullpath($Rscript{$Rscript});
-	LOG($outLog, "${YW}scp mitochi\@crick.cse.ucdavis.edu:$pdf ./$N\n");
 }
 
 ###############
@@ -572,7 +456,7 @@ sub get_random_reads {
 			foreach my $clust (sort keys %data) {
 				next if $clust eq 0;
 				my $shufcurrtot = defined $shufcurr{$clust} ? $shufcurr{$clust} : 0;
-				push(@{$shuf{$clust}{$current_readID}{array}}, $shufcurrtot / $total_PCBid);# * 100 + 0.5)/100);
+				push(@{$shuf{$clust}{$current_readID}{array}}, $shufcurrtot / $total_PCBid);
 				LOG($outLog, date() . "example: clust=$clust, shufcurrtotal=$shufcurrtot, total_in_clust=$total_PCBid\n", "NA") if $clust eq 1 and $shufnum == 0;
 			}
 		}
@@ -601,8 +485,9 @@ sub get_random_reads {
 
 sub get_Rscript {
 	my ($resDir, $clustFilename, $totalclust, $totalsample, $flag, $grpnamez) = @_;
+
 	my $Rscript = "
-.libPaths( c(\"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.4/\", \"/home/mitochi/R/x86_64-pc-linux-gnu-library/3.2/\", .libPaths()) )
+
 library(labeling)
 library(ggplot2)
 library(reshape2)
@@ -691,26 +576,3 @@ print(origcor)
 ";
 	return $Rscript;
 }
-
-
-
-
-
-__END__
-pdf(\"Clust.pdf\",height=13*3.5,width=7)
-ggplot(dm3,aes(as.factor(variable),value)) + geom_bar(aes(fill=as.factor(variable)),stat = \"identity\",position=position_dodge(width=0.75)) + theme_bw() +ylab(\"% Read\") + xlab(\"Cluster Number\") +
-	geom_text(aes(group=as.factor(variable),label=star),stat=\"identity\",position=position_dodge(width=0.75)) + theme(panel.grid = element_blank()) + facet_grid(cluster~.)
-dev.off()
-
-
-#corrplot(cor(df2),col=rev(brewer.pal(11,\"RdBu\")),low=0,upp=1,order=\"hclust\",method=\"color\",addgrid=1,number);
-#corrplot(cor(df2),col=\"black\",method=\"number\",add=T);
-
-#pdf(\"$resDir/$clustFilename.$flag.repro.pdf\",width=7,height=15)
-#temp = df[df\$type == \"orig\" | df\$type == \"shuf\",]
-#p = ggplot(temp,aes(as.factor(sample),mean)) + geom_bar(aes(fill=as.factor(type)),stat = \"identity\",position=position_dodge(width=0.75)) + theme_bw() +ylab(\"% Read\") + xlab(\"Cluster Number\") +
-#	geom_errorbar(aes(group=as.factor(type),ymin=mean-se,ymax=mean+se),stat=\"identity\",position=position_dodge(width=0.9),width=0.5) +
-#	geom_text(aes(group=as.factor(type),label=pval),stat=\"identity\") + theme(panel.grid = element_blank()) + facet_grid(cluster~.)
-#print(p)
-#dev.off()
-
