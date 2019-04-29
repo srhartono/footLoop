@@ -74,6 +74,7 @@ install.packages("gridExtra")
 install.packages("labeling")
 install.packages("reshape2")
 install.packages("ggplot2")
+install.packages("gplots")
 ```
 
 To install GMD:
