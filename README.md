@@ -36,6 +36,7 @@ cd footLoop
 - GTF files of peaks: PCB190425_PEAK/GTF/PEAK/
 - PNG footprint of peaks: PCB190425_PEAK/PNG/PEAK/
 - PDF of GC profile: PCB190425_PEAK/GCPROFILE/PDF/PEAK/
+- PDF of Reproducibility Correlation: PCB190425_PEAK/FOOTREPRO/*.pdf
 - Stats summary: PCB190425_PEAK/99_FOOTSTATS/1_PEAKSTATS.TXT
 
 
