@@ -66,6 +66,24 @@ R packages:
 - ggplot2 v3.1.0
 - GMD v0.3.3         
 
+To Install R packages, type these in an R session:
+
+```
+install.packages("RColorBrewer")
+install.packages("gridExtra")
+install.packages("labeling")
+install.packages("reshape2")
+install.packages("ggplot2")
+```
+
+To install GMD:
+
+```
+cd footLoop/softwares
+tar zxvf GMD_0.3.1.1.tar.gz
+R CMD INSTALL GMD
+```
+
 ## 1b. Mapping (footLoop.pl)
 
 ```
