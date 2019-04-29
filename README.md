@@ -26,8 +26,15 @@ cd footLoop
 ./footClust.pl -n PCB190425_PEAK
 ./footPeak_graph.pl -n PCB190425_PEAK
 ./footPeak_GTF.pl -n PCB190425_PEAK
-./footPeak_GCprofile.pl -n PCB190425_PEAK -i geneIndexes.bed
 ./footStats.pl -n PCB190425_PEAK
+
+#4. Results folders:
+
+- PNG footprint of peaks: PCB190425_PEAK/PNG/PEAK/
+- GTF of peaks: PCB190425_PEAK/GTF/PEAK/
+- Stats summary: PCB190425_PEAK/99_FOOTSTATS/1_PEAKSTATS.TXT
+
+
 ```
 
 # 1. USAGE
