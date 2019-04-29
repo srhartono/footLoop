@@ -1,4 +1,4 @@
-footLoop method
+# footLoop Pipeline
 
 # 0. SYNOPSIS
 
