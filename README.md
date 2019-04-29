@@ -28,6 +28,7 @@ cd footLoop
 ./footPeak_GCprofile.pl -n PCB190425_PEAK -i geneIndexes.bed
 ./footPeak_GTF.pl -n PCB190425_PEAK
 ./footStats.pl -n PCB190425_PEAK
+./footRepro.pl -n PCB190425_PEAK # Will not work, as example fastq only contains 1 biorep for each gene.
 
 #4. Results folders:
 
