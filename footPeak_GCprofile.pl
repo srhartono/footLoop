@@ -189,7 +189,7 @@ if (not defined ($opt_S)) {
 		LOG($outLog, date() . "\t- $cmd\n","NA");
 		$res1 .= `$cmd`;
 
-		$cmd = "$footLoopScriptsFolder/counter_cpg_indiv.pl -w 200 -s 1 -o $resDir/.TSV/ -A $bedFolder/$bedFilename.fa";
+		$cmd = "$footLoopScriptsFolder/lib/counter_cpg_indiv.pl -w 200 -s 1 -o $resDir/.TSV/ -A $bedFolder/$bedFilename.fa";
 		LOG($outLog, date() . "\t- $cmd\n","NA");
 		$res2 .= `$cmd`;
 	}
@@ -617,14 +617,14 @@ sub preprocess_bed {
 	my $outputF = "$resDir/.TEMP/$bedFilename\_$window\_F.temp";
 	my $outputW = "$resDir/.TEMP/$bedFilename\_$window\_W.temp";
 
-	print "bedtools_bed_change.pl -a -x -$window2 -y 0 -i $bedFileChanged -o $outputA > $outputA.LOG 2>&1\n";
-	system("bedtools_bed_change.pl -a -x -$window2 -y 0 -i $bedFileChanged -o $outputA > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-	system("bedtools_bed_change.pl -a -x -$window -y $window -i $bedFileChanged -o $outputB > $outputB.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-	system("bedtools_bed_change.pl -a -x 0 -y $window2 -i $bedFileChanged -o $outputC > $outputC.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-	system("bedtools_bed_change.pl -x 0 -y 0 -i $bedFileChanged -o $outputW > $outputW.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-	system("bedtools_bed_change.pl -b -x -$window2 -y 0 -i $bedFileChanged -o $outputD > $outputD.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-	system("bedtools_bed_change.pl -b -x -$window -y $window -i $bedFileChanged -o $outputE > $outputE.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
-	system("bedtools_bed_change.pl -b -x 0 -y $window2 -i $bedFileChanged -o $outputF > $outputF.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run bedtools_bed_change.pl: $!\n");
+	print "$footLoopScriptsFolder/lib/bedtools_bed_change.pl -a -x -$window2 -y 0 -i $bedFileChanged -o $outputA > $outputA.LOG 2>&1\n";
+	system("$footLoopScriptsFolder/lib/bedtools_bed_change.pl -a -x -$window2 -y 0 -i $bedFileChanged -o $outputA > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoopScriptsFolder/lib/bedtools_bed_change.pl: $!\n");
+	system("$footLoopScriptsFolder/lib/bedtools_bed_change.pl -a -x -$window -y $window -i $bedFileChanged -o $outputB > $outputB.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoopScriptsFolder/lib/bedtools_bed_change.pl: $!\n");
+	system("$footLoopScriptsFolder/lib/bedtools_bed_change.pl -a -x 0 -y $window2 -i $bedFileChanged -o $outputC > $outputC.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoopScriptsFolder/lib/bedtools_bed_change.pl: $!\n");
+	system("$footLoopScriptsFolder/lib/bedtools_bed_change.pl -x 0 -y 0 -i $bedFileChanged -o $outputW > $outputW.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoopScriptsFolder/lib/bedtools_bed_change.pl: $!\n");
+	system("$footLoopScriptsFolder/lib/bedtools_bed_change.pl -b -x -$window2 -y 0 -i $bedFileChanged -o $outputD > $outputD.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoopScriptsFolder/lib/bedtools_bed_change.pl: $!\n");
+	system("$footLoopScriptsFolder/lib/bedtools_bed_change.pl -b -x -$window -y $window -i $bedFileChanged -o $outputE > $outputE.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoopScriptsFolder/lib/bedtools_bed_change.pl: $!\n");
+	system("$footLoopScriptsFolder/lib/bedtools_bed_change.pl -b -x 0 -y $window2 -i $bedFileChanged -o $outputF > $outputF.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoopScriptsFolder/lib/bedtools_bed_change.pl: $!\n");
 }
 
 

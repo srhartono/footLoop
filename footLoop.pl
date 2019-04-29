@@ -134,7 +134,7 @@ record_options(\%OPTS, \%OPTS2, $outReadLog, $version, $outLog);
 #######################################
 ($STEP) = LOGSTEP($outLog, "BEG", $STEP, 1, "Preprocessing gene index file and getting sequences\n");
 
-# Add buffers to geneIndexFile ($footLoopScriptsFolder/bedtools_bed_change.pl) and get their sequences using fastaFromBed, then get their info from fasta=$seqFile
+# Add buffers to geneIndexFile ($footLoopScriptsFolder/lib/bedtools_bed_change.pl) and get their sequences using fastaFromBed, then get their info from fasta=$seqFile
 
 my ($SEQ, $geneIndexHash, $seqFile, $bismark_folder) = parse_geneIndexFile($geneIndexFile, $genomeFile, $outDir, $minReadL, $outReadLog, $outLog);
 
@@ -900,8 +900,8 @@ sub get_geneIndex_fasta {
 		LOG($outLog, "\t${GN}SUCCESS$N: Created index file $LGN$geneIndexFileNew$N from $LCY$geneIndexFile$N\n");
 	}
 	else {
-		LOG($outLog, "$YW\t::: $footLoopScriptsFolder/bedtools_bed_change.pl -m -x $bufferL -y $bufferR -i $geneIndexFile -o $geneIndexFileNew >> $logFile 2>&1 :::$N\n") == 0 or LOG($outLog, "Failed to get (beg $bufferL, end $bufferR) bp of $geneIndexFile!\n") and exit 1;
-		system("$footLoopScriptsFolder/bedtools_bed_change.pl -m -x $bufferL -y $bufferR -i $geneIndexFile -o $geneIndexFileNew >> $logFile 2>&1") == 0 or LOG($outLog, "\tfootLoop.pl::get_geneIndex_fasta: Failed to$YW $footLoopScriptsFolder/bedtools_bed_change.pl -m -x $bufferL -y $bufferR -i $geneIndexFile -o $geneIndexFileNew >> $logFile 2>&1$N\n: $!\n") and exit 1;
+		LOG($outLog, "$YW\t::: $footLoopScriptsFolder/lib/bedtools_bed_change.pl -m -x $bufferL -y $bufferR -i $geneIndexFile -o $geneIndexFileNew >> $logFile 2>&1 :::$N\n") == 0 or LOG($outLog, "Failed to get (beg $bufferL, end $bufferR) bp of $geneIndexFile!\n") and exit 1;
+		system("$footLoopScriptsFolder/lib/bedtools_bed_change.pl -m -x $bufferL -y $bufferR -i $geneIndexFile -o $geneIndexFileNew >> $logFile 2>&1") == 0 or LOG($outLog, "\tfootLoop.pl::get_geneIndex_fasta: Failed to$YW $footLoopScriptsFolder/lib/bedtools_bed_change.pl -m -x $bufferL -y $bufferR -i $geneIndexFile -o $geneIndexFileNew >> $logFile 2>&1$N\n: $!\n") and exit 1;
 		LOG($outLog, "\t${GN}SUCCESS$N: Created index file $LGN$geneIndexFileNew$N from bedtools bed change of $LCY$geneIndexFile$N\n");
 	}
 	return($geneIndexFileNew);
