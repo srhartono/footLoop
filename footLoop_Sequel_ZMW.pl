@@ -110,7 +110,7 @@ while (my $line = <$in1>) {
 	$lastline = $linecount if $zmw ne $lastzmw;
 	$lastzmw = $zmw;
 	next if $done == 1;
-	#die if $linecount > 1000;
+#	die if $linecount > 1000;
 	my $length = length($arr[9]);
 	DIELOG($outLog, date() . ": Can't parse zmw from $LCY$input1$N line=\n\n$LGN$arr[0]$N\n\n") if not defined $zmw;
 #	print "$linecount total=$total_zmw ZMW=$zmw\n" if $linecount % 100 == 0;
