@@ -77,9 +77,9 @@ foreach my $line (@line[0..@line-1]) {
 	next if $line =~ /^\n$/;
 	next if $line !~ /[a-zA-Z0-9]+/;
 	next if $line =~ /^(\#|No)/i or $line =~ /\ttarget/i;
-	my $delim = $line =~ /\t/ ? "\\t" : $line =~ /,/ ? "," : $line =~ /[ ]/ ? " " : die "Cannot determine delimiter at line=$LCY\n$line\n$N\n";
-	print "Delimiter = $delim\n";
-	my @arr = split("$delim", $line);
+	#my $delim = $line =~ /\t/ ? "\\t" : $line =~ /,/ ? "," : $line =~ /[ ]/ ? " " : die "Cannot determine delimiter at line=$LCY\n$line\n$N\n";
+	#print "Delimiter = $delim\n";
+	my @arr = split("[\t ]+", $line);
 	my ($no, $target, $size, $conc, $vol, $bc, $bcseq, $desc, $plasmid) = @arr;
 	if (@arr == 2) {
 		($bc, $bcseq, $desc, $plasmid) = @arr;
