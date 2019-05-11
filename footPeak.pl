@@ -16,8 +16,8 @@
 # By downloading or using this software, you agree to the terms and conditions of the license. 
 
 use strict; use warnings; use Getopt::Std; use Time::HiRes; use Benchmark qw(:all); use Benchmark ':hireswallclock'; use Carp; use Thread; use Thread::Queue; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_g $opt_p $opt_d $opt_s $opt_k $opt_K $opt_n $opt_h $opt_t $opt_w $opt_l $opt_o $opt_A $opt_G);
-getopts("vg:p:d:s:k:K:n:ht:w:l:A:o:G:");
+use vars qw($opt_v $opt_g $opt_p $opt_d $opt_s $opt_k $opt_K $opt_n $opt_h $opt_t $opt_w $opt_L $opt_l $opt_o $opt_A $opt_G);
+getopts("vg:p:d:s:k:K:n:ht:w:l:A:o:G:L:");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -55,7 +55,7 @@ my ($usage) = check_sanity($footFolder);
 my $logFile = "$footFolder/logFile.txt";
 
 my ($opts, $outLog) = parse_footLoop_logFile($logFile, $date, $uuid, $footFolder, $version_small);
-$opts->{label}    = defined $opt_l ? $opt_l : $opts->{label};
+$opts->{label}    = defined $opt_L ? $opt_L : $opts->{label};
 my $label         = $opts->{label};
 my $seqFile       = $opts->{seqFile};
 my $indexFile		= $opts->{geneIndexFile};
@@ -75,7 +75,7 @@ my $resDir        = $opts->{o};
 # 1. Define Input/Names #
 #########################
 
-if (defined $opt_l) {
+if (defined $opt_L) {
 	print "label = $label\n";
 }
 elsif (-e "$footFolder/.LABEL") {
@@ -824,7 +824,7 @@ sub set_default_opts {
 		'd' => '250'     ,'g' => ''        ,'i' => ''        ,'k' => '50'      ,
 		'l' => '100'     ,'n' => ''        ,'q' => '0'       ,'r' => ''        ,
 		's' => '200'     ,'t' => '55'      ,'w' => '20'      ,'x' => '0'       ,
-		'y' => '0'       ,'K' => '2'       ,'L' => '0'       ,'A' => ''        ,
+		'y' => '0'       ,'K' => '2'       ,'L' => ''       ,'A' => ''        ,
 		'o' => 'RESULTS' ,'G' => ''
 	);
 
@@ -836,7 +836,7 @@ sub set_default_opts {
 		'd' => $opt_d    ,'g' => $opt_g    ,'h' => 'FALSE'   ,'k' => $opt_k    ,
 		'l' => $opt_l    ,'n' => $opt_n    ,'p' => $opt_p    ,'s' => $opt_s    ,
 		't' => $opt_t    ,'w' => $opt_w    ,'K' => $opt_K    ,'A' => 'FALSE'   ,
-		'o' => $opt_o    ,'G' => 'FALSE'
+		'o' => $opt_o    ,'G' => 'FALSE'   ,'L' => ''
 		);
 
 	my %usrOpts2 =
@@ -844,7 +844,7 @@ sub set_default_opts {
 		'd' => 'd'    ,'g' => 'g'    ,'h' => 'FALSE'    ,'k' => 'k'    ,
 		'l' => 'l'    ,'n' => 'n'    ,'p' => 'p'    		,'s' => 's'    ,
 		't' => 't'    ,'w' => 'w'    ,'K' => 'K'        ,'G' => 'G'    ,
-      'A' => 'A'
+      'A' => 'A'    ,'L' => 'L'
 		);
 
 	print_default_opts(\%defOpts, \%usrOpts) and die if @ARGV == 1 and $ARGV[0] eq "ex";
@@ -988,6 +988,7 @@ Options$LGN [default]$N:
 -w: window size$LGN [20]$N
 -t: threshold in \%$LGN [55]$N
 -G: only process this gene$LGN [NA]$N
+-l: min length of peak$LGN [100]$N
 
 footLoop folder: $scriptFolder$N
 
