@@ -77,7 +77,13 @@ foreach my $gene (sort keys %samFixedData) {
 	$dataorig{uc($gene)}{negorig} = $negorig;
 	$dataorig{uc($gene)}{unkorig} = $unkorig;
 	my $include_cpg = $samData{uc($gene)}{include_cpg};
-	$print0{gene}{uc($gene)} = "$gene\t$total\t$pos\t$neg\t$pos2\t$neg2\t$pospos\t$negneg\t$posneg\t$negpos\t$posorig\t$negorig\t$unkorig\t$include_cpg";
+	my @print0curr = ($gene,$total,$pos,$neg,$pos2,$neg2,$pospos,$negneg,$posneg,$negpos,$posorig,$negorig,$unkorig,$include_cpg);
+	for (my $i = 0; $i < @print0curr; $i++) {
+		$print0curr[$i] = "NA" if not defined $print0curr[$i]; 
+		$print0curr[$i] = "NA" if $print0curr[$i] =~ /^\s*$/;
+	}
+	$print0{gene}{uc($gene)} = join("\t", @print0curr);
+	
 }
 sub parse_bamFile {
 	my ($bamFile, $outLog) = @_;
@@ -180,6 +186,7 @@ foreach my $label (sort keys %{$data}) {
 						$print1{uc($gene)}{OTHERS_TOTAL} ++ if $type eq "OTHERS";
 						
 						$print{$type} .= "$type\t$label\t$gene\t$read_strand\t$window\t$thres\t$conv\t$read_unique_total\t$read_unique_peak_total\t$read_unique_peak_fraction\t$currfootPeakFolder\t$currpeakFile\t$include_cpg\n";
+						$print{ALL} = "$type\t$label\t$gene\t$read_strand\t$window\t$thres\t$conv\t0\t0\t0\t$currfootPeakFolder\t$currpeakFile\t$include_cpg\n";
 						$LABEL = $label;
 					}
 				}
@@ -192,6 +199,9 @@ open (my $out2, ">", "$footPeakFolder/99_FOOTSTATS/0_SUMMARY.TXT") or die;
 print $out2 "label\tstrand\t$print0{header}";
 my @types = qw(PEAK PEAK_TEMP PEAK_RCONV PEAK_TEMP_RCONV OTHERS); 
 for (my $i = 0; $i < @types; $i++) { 
+	if (not defined $print{$types[$i]}) {
+		$print{$types[$i]} = $print{ALL};
+	}
 	print $out $print{$types[$i]};
 	print $out2 "\t$types[$i]\t$types[$i]/total";
 }
@@ -199,7 +209,9 @@ print $out2 "\n";
 
 foreach my $gene (sort keys %{$print0{gene}}) {
 	my $print0 = $print0{gene}{uc($gene)};
-	my $strand = $coor->{uc($gene)}{strand}; $strand = "Pos" if $strand eq "+"; $strand = "Neg" if $strand eq "-";
+	my $strand2 = $coor->{uc($gene)}{strand}; 
+	my $strand = $strand2 eq "+" ? "Pos" : $strand2 eq "-" ? "Neg" : "UNKSTRAND";
+	die "Undefined strand (strand=$strand, strand2=$strand2) at gne=$gene\n" if $strand eq "UNKSTRAND";
 	my $posorig = $dataorig{uc($gene)}{posorig};
 	my $negorig = $dataorig{uc($gene)}{negorig};
 	my $unkorig = $dataorig{uc($gene)}{unkorig};

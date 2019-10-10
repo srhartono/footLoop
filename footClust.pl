@@ -288,15 +288,16 @@ foreach my $input1 (sort @local_peak_files) {
 	# Write and run R script
 	LOG($outLog, date() . "$LCY\tRunning R script$N $tempFile1_Peak.R\n");
 	my $Rscript = "
+print(.libPaths())
+		require(stringi)
 		library(labeling)
 		library(ggplot2)
 		library(reshape2)
 		library(grid)
 		library(gridExtra)
 		library(RColorBrewer)
-	
+	library(Cairo)
 	set.seed(420)
-	library(ggplot2)
 	df.main = read.table(\"$tempFile1_Peak\",header=T,sep=\"\\t\",colClasses=c(\"factor\",\"integer\",\"integer\",\"integer\")) # changed df to df.main
 	df.main.total_peak = unique(df.main[,4])
 
@@ -373,7 +374,7 @@ foreach my $input1 (sort @local_peak_files) {
 	df = df.final
 	df\$ybeg = seq(1,dim(df)[1])
 	df\$yend = seq(2,dim(df)[1]+1)
-	png(\"$tempFile2_PNG\",height=(dim(df)[1])*5,width=max(df\$xend)+10)
+	png(type=\"cairo\",\"$tempFile2_PNG\",height=(dim(df)[1])*5,width=max(df\$xend)+10)
 	ggplot(df, aes(xbeg,ybeg)) + geom_rect(aes(xmin=xbeg,ymin=ybeg,xmax=xend,ymax=yend,fill=as.factor(clust))) + theme_bw() + 
 	theme(panel.grid=element_blank()) + coord_fixed(ratio=10)
 	dev.off()

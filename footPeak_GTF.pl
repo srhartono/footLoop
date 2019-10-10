@@ -48,7 +48,7 @@ my ($footPeak_logFile) = "$footPeakFolder/footPeak_logFile.txt";
 my ($logFile) = "$footPeakFolder/footPeakGTF_logFile.txt";
 open (my $outLog, ">", $logFile) or print "\n\nFailed to write to $logFile: $!\n\n" and die;
 print "LOGFILE:\n$YW$logFile$N\n";
-my $opts = parse_footPeak_logFile($footPeakFolder, $footPeak_logFile, $outLog);
+my $opts = parse_GTF_footPeak_logFile($footPeakFolder, $footPeak_logFile, $outLog);
 
 my ($bufferL) = $opts->{footLoop2}{x};
 my ($bufferR) = $opts->{footLoop2}{y};
@@ -67,13 +67,13 @@ my (@callFiles) = <$footPeakFolder/.CALL/*.out>;
 
 my $label = "";
 if (-e "$footPeakFolder/.LABEL") {
+	print "cat $footPeakFolder/.LABEL";
    ($label) = `cat $footPeakFolder/.LABEL`;
    chomp($label);
 }
 else {
    DIELOG($outLog, "Failed to parse label from .LABEL in $footPeakFolder/.LABEL\n");
 }
-
 
 foreach my $callFile (sort @callFiles) {
    if (defined $opt_G and $callFile !~ /$opt_G/i) {
@@ -95,39 +95,71 @@ foreach my $callFile (sort @callFiles) {
 #CLUST_LOCAL/PCB13_bcBC3_plasmidPFC8_descSUPERCOILED_genePFC8_SNRPN_REVERSE_Neg_20_0.55_GC.PEAK.local.bed.indiv.clust
 #.TEMP/PCB13_bcBC3_plasmidPFC8_descSUPERCOILED_genePFC8_SNRPN_REVERSE_Neg_20_0.55_GC.PEAK.local.bed.clust
 
-	makedir("$outFolder/ALL");
-	makedir("$outFolder/PEAK");
-	makedir("$outFolder/NOPK");
-	makedir("$outFolder/PEAKNEG");
-	makedir("$outFolder/NOPKNEG");
-	my ($peak) = $callFile =~ /.PEAK.out/ ? "PEAK" : "NOPK";
-	my $outName = "$label\_gene$gene\_$strand\_$window\_$thres\_$type.$peak";
-	my $output = "$outFolder/ALL/$outName.gtf";
-	if ($peak eq "PEAK") {
-		$output = "$outFolder/PEAK/$outName.gtf" if $strand eq "Pos" and $STRAND eq "+" and $type eq "CG" and $gene =~ /FORWARD/;
-		$output = "$outFolder/PEAK/$outName.gtf" if $strand eq "Neg" and $STRAND eq "-" and $type eq "GC" and $gene =~ /REVERSE/;
-		$output = "$outFolder/PEAK/$outName.gtf" if $strand eq "Pos" and $STRAND eq "+" and $type eq "CH" and $gene !~ /FORWARD/;
-		$output = "$outFolder/PEAK/$outName.gtf" if $strand eq "Neg" and $STRAND eq "-" and $type eq "GH" and $gene !~ /REVERSE/;
-		$output = "$outFolder/PEAKNEG/$outName.gtf" if $strand eq "Pos" and $STRAND eq "-" and $type eq "CG" and $gene =~ /REVERSE/;
-		$output = "$outFolder/PEAKNEG/$outName.gtf" if $strand eq "Neg" and $STRAND eq "+" and $type eq "GC" and $gene =~ /FORWARD/;
-		$output = "$outFolder/PEAKNEG/$outName.gtf" if $strand eq "Pos" and $STRAND eq "-" and $type eq "CH" and $gene !~ /REVERSE/;
-		$output = "$outFolder/PEAKNEG/$outName.gtf" if $strand eq "Neg" and $STRAND eq "+" and $type eq "GH" and $gene !~ /FORWARD/;
+	my @folderz = qw(PEAK PEAK_C PEAK_TEMP PEAK_TEMP_C PEAK_RCONV PEAK_RCONV_C PEAK_TEMP_RCONV PEAK_TEMP_RCONV_C NOPK NOPK_C NOPK_TEMP NOPK_TEMP_C NOPK_RCONV NOPK_RCONV_C NOPK_TEMP_RCONV NOPK_TEMP_RCONV_C ALL);
+	foreach my $folderz (@folderz) {
+		makedir("$outFolder/$folderz") if not -d "$outFolder/$folderz";
 	}
-	elsif ($peak eq "NOPK") {
-		$output = "$outFolder/NOPK/$outName.gtf" if $strand eq "Pos" and $STRAND eq "+" and $type eq "CG" and $gene =~ /FORWARD/;
-		$output = "$outFolder/NOPK/$outName.gtf" if $strand eq "Neg" and $STRAND eq "-" and $type eq "GC" and $gene =~ /REVERSE/;
-		$output = "$outFolder/NOPK/$outName.gtf" if $strand eq "Pos" and $STRAND eq "+" and $type eq "CH" and $gene !~ /FORWARD/;
-		$output = "$outFolder/NOPK/$outName.gtf" if $strand eq "Neg" and $STRAND eq "-" and $type eq "GH" and $gene !~ /REVERSE/;
-		$output = "$outFolder/NOPKNEG/$outName.gtf" if $strand eq "Pos" and $STRAND eq "-" and $type eq "CG" and $gene =~ /REVERSE/;
-		$output = "$outFolder/NOPKNEG/$outName.gtf" if $strand eq "Neg" and $STRAND eq "+" and $type eq "GC" and $gene =~ /FORWARD/;
-		$output = "$outFolder/NOPKNEG/$outName.gtf" if $strand eq "Pos" and $STRAND eq "-" and $type eq "CH" and $gene !~ /REVERSE/;
-		$output = "$outFolder/NOPKNEG/$outName.gtf" if $strand eq "Neg" and $STRAND eq "+" and $type eq "GH" and $gene !~ /FORWARD/;
-	}
-	next if $output =~ /ALL/;
-	print "Output=$LPR$output$N\n";
+	my $fwstrand = $STRAND eq "+" ? "Pos" : "Neg";
+	my $rvstrand = $STRAND eq "+" ? "Neg" : "Pos";
+	my $fwconv 	 = $STRAND eq "+" ? "CH" : "GH";
+	my $rvconv   = $STRAND eq "+" ? "GH" : "CH";
+	my $fwconv_c = $STRAND eq "+" ? "CG" : "GC";
+	my $rvconv_c = $STRAND eq "+" ? "GC" : "CG";
+	my $gtfFolder = "ALL";
+	$gtfFolder = "PEAK" if $callFile =~ /$fwstrand.+$fwconv.PEAK.out/;
+	$gtfFolder = "NOPK" if $callFile =~ /$fwstrand.+$fwconv.NOPK.out/;
+	$gtfFolder = "PEAK_C" if $callFile =~ /$fwstrand.+$fwconv_c.PEAK.out/;
+	$gtfFolder = "NOPK_C" if $callFile =~ /$fwstrand.+$fwconv_c.NOPK.out/;
+	$gtfFolder = "PEAK_TEMP" if $callFile =~ /$rvstrand.+$rvconv.PEAK.out/;
+	$gtfFolder = "NOPK_TEMP" if $callFile =~ /$rvstrand.+$rvconv.NOPK.out/;
+	$gtfFolder = "PEAK_TEMP_C" if $callFile =~ /$rvstrand.+$rvconv_c.PEAK.out/;
+	$gtfFolder = "NOPK_TEMP_C" if $callFile =~ /$rvstrand.+$rvconv_c.NOPK.out/;
+	$gtfFolder = "PEAK_RCONV" if $callFile =~ /$fwstrand.+$rvconv.PEAK.out/;
+	$gtfFolder = "NOPK_RCONV" if $callFile =~ /$fwstrand.+$rvconv.NOPK.out/;
+	$gtfFolder = "PEAK_RCONV_C" if $callFile =~ /$fwstrand.+$rvconv_c.PEAK.out/;
+	$gtfFolder = "NOPK_RCONV_C" if $callFile =~ /$fwstrand.+$rvconv_c.NOPK.out/;
+	$gtfFolder = "PEAK_TEMP_RCONV" if $callFile =~ /$rvstrand.+$fwconv.PEAK.out/;
+	$gtfFolder = "NOPK_TEMP_RCONV" if $callFile =~ /$rvstrand.+$fwconv.NOPK.out/;
+	$gtfFolder = "PEAK_TEMP_RCONV_C" if $callFile =~ /$rvstrand.+$fwconv_c.PEAK.out/;
+	$gtfFolder = "NOPK_TEMP_RCONV_C" if $callFile =~ /$rvstrand.+$fwconv_c.NOPK.out/;
+
+#	my ($peak) = $callFile =~ /$fwstrand.+$fwconv.PEAK.out/ ? "PEAK" : $callFile =~ /$fwstrand.+$fwconv_c.PEAK.out/ ? "PEAK_C" :
+#					 $callFile =~ /$fwstrand.+CG.NOPK.out/ ? "NOPK_C" : $callFile =~ /$fwstrand.+CH.NOPK.out/ ? "NOPK" :
+#					 $callFile =~ /$fwstrand.+GC.PEAK.out/ ? "PEAK_TEMP_C" : $callFile =~ /$fwstrand.+GH.PEAK.out/ ? "PEAK_TEMP" :
+##					 $callFile =~ /$fwstrand.+GC.NOPK.out/ ? "NOPK_TEMP_C" : $callFile =~ /$fwstrand.+GH.NOPK.out/ ? "NOPK_TEMP" :
+#					 $callFile =~ /$fwstrand.+CG.PEAK.out/ ? "PEAK_C" : $callFile =~ /$fwstrand.+CH.PEAK.out/ ? "PEAK" :
+#					 $callFile =~ /$fwstrand.+CG.NOPK.out/ ? "NOPK_C" : $callFile =~ /$fwstrand.+CH.NOPK.out/ ? "NOPK" :
+#					 $callFile =~ /$fwstrand.+GC.PEAK.out/ ? "PEAK_TEMP_C" : $callFile =~ /$fwstrand.+GH.PEAK.out/ ? "PEAK_TEMP" :
+#					 $callFile =~ /$fwstrand.+GC.NOPK.out/ ? "NOPK_TEMP_C" : $callFile =~ /$fwstrand.+GH.NOPK.out/ ? "NOPK_TEMP" :
+#
+	my $outName = "$label\_gene$gene\_$strand\_$window\_$thres\_$type.$gtfFolder";
+	my $output = "$outFolder/$gtfFolder/$outName.gtf";
+	my $outputColor = "$LCY$outFolder/LGN$gtfFolder/$LPR$outName.gtf$N";
+#	if ($peak eq "PEAK") {
+#		$output = "$outFolder/PEAK/$outName.gtf" if $strand eq "Pos" and $STRAND eq "+" and $type eq "CG" and $gene =~ /FORWARD/;
+#		$output = "$outFolder/PEAK/$outName.gtf" if $strand eq "Neg" and $STRAND eq "-" and $type eq "GC" and $gene =~ /REVERSE/;
+#		$output = "$outFolder/PEAK/$outName.gtf" if $strand eq "Pos" and $STRAND eq "+" and $type eq "CH" and $gene !~ /FORWARD/;
+#		$output = "$outFolder/PEAK/$outName.gtf" if $strand eq "Neg" and $STRAND eq "-" and $type eq "GH" and $gene !~ /REVERSE/;
+#		$output = "$outFolder/PEAKNEG/$outName.gtf" if $strand eq "Pos" and $STRAND eq "-" and $type eq "CG" and $gene =~ /REVERSE/;
+#		$output = "$outFolder/PEAKNEG/$outName.gtf" if $strand eq "Neg" and $STRAND eq "+" and $type eq "GC" and $gene =~ /FORWARD/;
+#		$output = "$outFolder/PEAKNEG/$outName.gtf" if $strand eq "Pos" and $STRAND eq "-" and $type eq "CH" and $gene !~ /REVERSE/;
+#		$output = "$outFolder/PEAKNEG/$outName.gtf" if $strand eq "Neg" and $STRAND eq "+" and $type eq "GH" and $gene !~ /FORWARD/;
+#	}
+#	elsif ($peak eq "NOPK") {
+#		$output = "$outFolder/NOPK/$outName.gtf" if $strand eq "Pos" and $STRAND eq "+" and $type eq "CG" and $gene =~ /FORWARD/;
+#		$output = "$outFolder/NOPK/$outName.gtf" if $strand eq "Neg" and $STRAND eq "-" and $type eq "GC" and $gene =~ /REVERSE/;
+#		$output = "$outFolder/NOPK/$outName.gtf" if $strand eq "Pos" and $STRAND eq "+" and $type eq "CH" and $gene !~ /FORWARD/;
+#		$output = "$outFolder/NOPK/$outName.gtf" if $strand eq "Neg" and $STRAND eq "-" and $type eq "GH" and $gene !~ /REVERSE/;
+#		$output = "$outFolder/NOPKNEG/$outName.gtf" if $strand eq "Pos" and $STRAND eq "-" and $type eq "CG" and $gene =~ /REVERSE/;
+#		$output = "$outFolder/NOPKNEG/$outName.gtf" if $strand eq "Neg" and $STRAND eq "+" and $type eq "GC" and $gene =~ /FORWARD/;
+#		$output = "$outFolder/NOPKNEG/$outName.gtf" if $strand eq "Pos" and $STRAND eq "-" and $type eq "CH" and $gene !~ /REVERSE/;
+#		$output = "$outFolder/NOPKNEG/$outName.gtf" if $strand eq "Neg" and $STRAND eq "+" and $type eq "GH" and $gene !~ /FORWARD/;
+#	}
+#	next if $output =~ /ALL/;
+	LOG($outLog, "\n\nOutput=$outputColor\n");
 	my $color = $strand eq "Pos" ? "200,50,0" : $strand eq "Neg" ? "0,50,200" : "50,155,50";
 	my $header = "track name=$outName color=$color";
-	turn_into_gtf($gene, $callFile, $coor->{$gene}, $output, $header, $outLog, $clustFile) if -s $callFile != 0;
+	turn_into_gtf($gene, $callFile, $coor->{$gene}, $output, $header, $outLog, $clustFile, $gtfFolder) if -s $callFile != 0;
 #	parse($gene, $negFile, $data{$gene}, $GTFNegfile) if -e $negFile and -s $negFile != 0;
 #	print "\tgene $gene\'s neg file $negFile does not exist or has nothign in it!\n" if not -e $negFile or (-e $negFile and -s $negFile == 0);
 }
@@ -135,7 +167,7 @@ foreach my $callFile (sort @callFiles) {
 close $outLog;
 
 sub turn_into_gtf {
-	my ($gene, $callFile, $coor, $output, $header, $outLog, $clustFile) = @_;
+	my ($gene, $callFile, $coor, $output, $header, $outLog, $clustFile, $gtfFolder) = @_;
 	my %clust;
 	my %clustlen;
 	if ($clustFile ne "" and -e $clustFile) {
@@ -163,7 +195,7 @@ sub turn_into_gtf {
 	}
 	my ($CHR, $BEG, $END, $STRAND) = ($coor->{chr}, $coor->{beg}, $coor->{end}, $coor->{strand});
 	$STRAND = $STRAND eq "Pos" ? "+" : $STRAND eq "Neg" ? "-" : $STRAND eq "Unk" ? "+" : $STRAND;
-	print "\n>Doing$YW gene$N=$gene\n - ${LCY}callFile$N=$callFile\n - ${LCY}output$N=$output\n";
+	print "\n>Doing ${YW}gene$N=$gene $LPR$gtfFolder$N\n - ${LCY}callFile$N=$callFile\n - ${LCY}output$N=$output\n";
 	open (my $callFileIn, "<", $callFile) or DIELOG($outLog, "Failed to read from $callFile: $!\n");
 	my $linecount = 0;
 	my %peak; my ($minborder0, $maxborder0) = (-1,-1);
@@ -261,7 +293,7 @@ sub turn_into_gtf {
 	system("gzip -f $output");
 }
 
-sub parse_footPeak_logFile {
+sub parse_GTF_footPeak_logFile {
 	my ($footPeakFolder, $footPeak_logFile, $outLog) = @_;
 	my %opts; my $debugprint = "\n\n$YW<--------- 0. PARSING LOGFILES ----------$N\n\n"; my $optprint = "";
 	open (my $footPeak_logFileIn, "<", $footPeak_logFile) or DIELOG($outLog, "Cannot read from $footPeak_logFile: $!\n");
