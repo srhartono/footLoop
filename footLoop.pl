@@ -283,7 +283,7 @@ sub print_R_heatmap {
 			.libPaths()
 			library(\"GMD\")
 			library(ggplot2)
-	
+			library(Cairo)
 			#Sequence
 			$seqR
 	
@@ -372,7 +372,7 @@ sub print_R_heatmap {
 	               ### PNG ###
 	
 	               print(paste(\"    \",i,\"B. Doing PNG of \",files[i],sep=\"\"))
-	               png(PNGout[i],height=4*2*dim(df)[1],width=2*dim(df)[2])
+	               png(type=\"cairo\",PNGout[i],height=4*2*dim(df)[1],width=2*dim(df)[2])
 	               grid.draw(gt[ge\$t:ge\$b, ge\$l:ge\$r])
 	               dev.off()
 	
