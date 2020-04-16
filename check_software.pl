@@ -44,8 +44,11 @@ BEGIN {
 	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
 	push(@INC, $libPath);
 	
-	die "\nPlease make sure to install these softwares first!\n" if $samtools eq 0 or $bedtools eq 0 or $bowtie2 eq 0 or $bismark eq 0 or $bismark_genome_preparation eq 0 or $R eq 0;
-	
+	if ($samtools eq 0 or $bedtools eq 0 or $bowtie2 eq 0 or $bismark eq 0 or $bismark_genome_preparation eq 0 or $R eq 0) {
+		print "\nPlease make sure to install these softwares first!\n";	
+		print "bedtools (v2.25.0), bowtie2 (v2.2.6), bismark2 (v0.20.0), R (v3.4.4)\n\n";
+	}
+
 	print "\n--------------------\n\e[1;33m Software Check\e[0m\n--------------------\n\n";
 	print "- samtools \e[1;36m$samtools_version\e[0m exists: \e[1;32m" . `which samtools` . "\e[0m" if $samtools ne 0;
 	print "- bedtools \e[1;36m$bedtools_version\e[0m exists: \e[1;32m" . `which bedtools` . "\e[0m" if $bedtools ne 0;
