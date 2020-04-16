@@ -8,6 +8,7 @@ git clone https://github.com/srhartono/footLoop
 
 # 2. Check if required software exists:
 ## Make sure you have bedtools (v2.25.0), bowtie2 (v2.2.6), bismark2 (v0.20.0), R (v3.4.4). These are available in `softwares` folder.
+## NEWER VERSIONS of these softwares MIGHT NOT WORK due to output file differences.
 ## These are also avaiable in softwares folder. Make sure to also put their folder location into $PATH after unzipping!
 ## Make sure you have required R packages, which are NOT checked: ggplot2, reshape2, grid, gridExtra, GMD, labeling, and RColorBrewer.
 
