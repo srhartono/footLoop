@@ -4,6 +4,9 @@
 use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
 
 BEGIN {
+	my $softwarePath = dirname(dirname abs_path $0) . '/footLoop/softwares/';
+   $ENV{PATH} = "$softwarePath/Bismark_v0.20.0/:$softwarePath/bedtools2/bin/:$softwarePath/bowtie2-2.2.6/:
+$softwarePath/samtools-0.1.19/:$softwarePath/R-3.6.1/bin/:$ENV{PATH}";
 	my ($samtools) = `samtools 2>&1 | grep Version`; $samtools = "Unknown Samtools Version!" if not defined $samtools;
 	my ($bedtools) = `bedtools --version`;  $bedtools = "Unknown bedtools Version!" if not defined $bedtools;
 	my ($bowtie2) = `bowtie2 --version | grep version`;  $bowtie2 = "Unknown bowtie2 Version!" if not defined $bowtie2;

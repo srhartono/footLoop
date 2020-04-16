@@ -23,6 +23,10 @@ BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
 	print "\n- Pushed $libPath into perl lib path INC\n";
+
+   my $softwarePath = dirname(dirname abs_path $0) . '/footLoop/softwares/';
+   $ENV{PATH} = "$softwarePath/Bismark_v0.20.0/:$softwarePath/bedtools2/bin/:$softwarePath/bowtie2-2.2.6/:
+$softwarePath/samtools-0.1.19/:$softwarePath/R-3.6.1/bin/:$ENV{PATH}";
 }
 
 use myFootLib;
