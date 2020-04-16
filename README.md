@@ -1,4 +1,4 @@
-# footLoop Pipeline v1.4
+# footLoop Pipeline v1.5c
 
 # 0. SYNOPSIS
 
@@ -7,14 +7,18 @@
 git clone https://github.com/srhartono/footLoop
 
 # 2. Check if required software exists:
-## Make sure you have bedtools (v2.25.0), bowtie2 (v2.2.6), bismark2 (v0.20.0), R (v3.4.4).
+## Make sure you have bedtools (v2.25.0), bowtie2 (v2.2.6), bismark2 (v0.20.0), R (v3.4.4). These are available in `softwares` folder.
+## These are also avaiable in softwares folder. Make sure to also put their folder location into $PATH after unzipping!
+## Make sure you have required R packages, which are NOT checked: ggplot2, reshape2, grid, gridExtra, GMD, labeling, and RColorBrewer.
+
 cd footLoop
 ./check_software.pl
 
-## Make sure you have required R packages, which are NOT checked: ggplot2, reshape2, grid, gridExtra, GMD, labeling, and RColorBrewer.
 
 ## Download hg19.fa.gz from http://hgdownload.cse.ucsc.edu/goldenPath/hg19/bigZips/hg19.fa.gz, gunzip it, then put into footLoop folder.
 
+wget http://hgdownload.cse.ucsc.edu/goldenPath/hg19/bigZips/hg19.fa.gz
+gunzip hg19.fa.gz
 
 # 3. Example run:
 # Download example.tar.gz and move everything in it into footLoop folder.
@@ -32,12 +36,12 @@ cd footLoop
 
 #4. Results folders:
 
-- BED files of peaks: PCB190425_PEAK/PEAKS_GENOME/
-- GTF files of peaks: PCB190425_PEAK/GTF/PEAK/
-- PNG footprint of peaks: PCB190425_PEAK/PNG/PEAK/
-- PDF of GC profile: PCB190425_PEAK/GCPROFILE/PDF/PEAK/
-- PDF of Reproducibility Correlation: PCB190425_PEAK/FOOTREPRO/*.pdf
-- Stats summary: PCB190425_PEAK/99_FOOTSTATS/1_PEAKSTATS.TXT
+## BED files of peaks: PCB190425_PEAK/PEAKS_GENOME/
+## GTF files of peaks: PCB190425_PEAK/GTF/PEAK/
+## PNG footprint of peaks: PCB190425_PEAK/PNG/PEAK/
+## PDF of GC profile: PCB190425_PEAK/GCPROFILE/PDF/PEAK/
+## PDF of Reproducibility Correlation: PCB190425_PEAK/FOOTREPRO/*.pdf
+## Stats summary: PCB190425_PEAK/99_FOOTSTATS/1_PEAKSTATS.TXT
 
 
 ```
