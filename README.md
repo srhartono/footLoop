@@ -1,4 +1,4 @@
-# footLoop Pipeline v1.5c
+# footLoop Pipeline v1.6
 
 # 0. SYNOPSIS
 
@@ -7,9 +7,8 @@
 git clone https://github.com/srhartono/footLoop
 
 # 2. Check if required software exists:
-## Make sure you have bedtools (v2.25.0), bowtie2 (v2.2.6), bismark2 (v0.20.0), R (v3.4.4). These are available in `softwares` folder.
-## NEWER VERSIONS of these softwares MIGHT NOT WORK due to output file differences.
-## These are also avaiable in softwares folder. Make sure to also put their folder location into $PATH after unzipping!
+## Make sure you have bedtools (v2.25.0), bowtie2 (v2.2.6), bismark2 (v0.20.0), R (v3.6.1), samtools (v0.1.19)
+## NEWER VERSIONS of these softwares MIGHT NOT WORK due to output file differences. If you get errors it's very likely due to this.
 ## Make sure you have required R packages, which are NOT checked: ggplot2, reshape2, grid, gridExtra, GMD, labeling, and RColorBrewer.
 
 cd footLoop
@@ -55,12 +54,17 @@ cd footLoop
 
 ### Other required packages/softwares (and versions used for this pipeline)
 
-Softwares:
+Softwares (also in softwares/ folder):
+
+**NEWER VERSIONS of these softwares MIGHT NOT WORK due to output file differences. If you get errors it's very likely due to this.**
+
+**These are also avaiable in softwares folder. Make sure to install, then put their folder location into $PATH after unzipping!**
+
 
 - [bedtools2 (v2.25.0)](https://github.com/arq5x/bedtools2/releases/download/v2.25.0/bedtools-2.25.0.tar.gz)
 - [bowtie2 (v2.2.6)](https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.2.6/bowtie2-2.2.6-source.zip/download)
 - [bismark2 (v0.20.0)](https://www.bioinformatics.babraham.ac.uk/projects/bismark/bismark_v0.20.0.tar.gz)
-- [R (v3.4.4)](https://cloud.r-project.org/src/base/R-3/R-3.4.4.tar.gz)
+- [R (v3.6.1)](https://cloud.r-project.org/src/base/R-3/R-3.6.1.tar.gz)
 - [samtools (v0.1.19-96b5f2294a)](https://sourceforge.net/projects/samtools/files/samtools/0.1.19/samtools-0.1.19.tar.bz2/download)
 
 R packages:
