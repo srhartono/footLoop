@@ -271,7 +271,7 @@ library(Cairo)
 ";
 			
 			my $totread = $totpeak + $totnopk;
-			if (not -e $currFile or (-e $currFile and linecount($currFile) <= 5)) {
+			if (not -e $currFile or (-e $currFile and linecount($currFile) <= 2)) { #5
 				$Rscript .= "png(type=\"cairo\",\"$pngout\",1000,1000)\nplot(NA,xlim=c(1,100),ylim=c(1,100),xlab=NA,ylab=NA,bty=\"n\")\ntext(50,50,cex=3,labels=c(\"$currFilename\n\nPEAK = $totpeak / $totread\"))\ndev.off()\n";
 				$RscriptPNG = $Rscript;
 				$RscriptPDF = $Rscript;
@@ -488,11 +488,12 @@ sub Rscript {
 	my ($currFolder, $currFilename) = getFilename($currFile, "folderfull");
 	($bedFilename) =~ s/(CG|CH|GC|GH).+$/$1/;
 	my $peakminVal = $currFile =~ /PEAK.out$/ ? 8 : 6;
-	my $plotminReads = 5;
+	my $plotminReads = 4;
 
 # -------------------- $R->{readTable}
 	$R->{readTable} = "	
 
+#plotminReads = $plotminReads
 
 theme_blank <- theme_bw()
 theme_blank\$line <- element_blank()
@@ -774,6 +775,8 @@ p.heatmaponly = ggplot(dm,aes(variable,y)) +
 	 scale_x_continuous(expand = c(0,0)) + 
 	 scale_y_continuous(expand = c(0,0)) +
 	 labs(x=NULL,y=NULL) + theme_blank
+p.png = p
+p.pdf = p
 ";
 
 	$R->{box} = "
@@ -977,6 +980,8 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 		 ) + 
 		 ggtitle(paste(\"PLOT #\",i,\" (total peak=\",$totpeak,\"; total nopk=\",$totnopk,\")\",sep=\"\"))
 	plot_list[[i]] = p
+	p.png = p
+	p.pdf = p
 }
 ";
 
@@ -987,13 +992,13 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 # Main Plot Cluster Addition
 # geom rect default size = 0.5
 # geom text default size = 10
-p.png = p + 
+p.png = p.png + 
 	 geom_rect(data=clust2,aes(fill=as.factor(clust),x=xmin,y=ymin,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax),alpha=0.5,size=0.5*p.png.scale) + # SIZE
 	 geom_rect(data=clust2,aes(color=as.factor(clust),x=xpos0,y=ymin,xmin=xpos0,xmax=xpos1,ymin=ymin,ymax=ymax),size=0.5*p.png.scale,fill=rgb(1,1,1,alpha=0),lwd=1*p.png.scale) + # SIZE
 	 geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=paste(clust-10,\"(\",id2,\")\",sep=\"\")),hjust=0,size=5*p.png.scale) +
 	 theme(plot.title = element_text(size = 10*p.png.scale))
 
-p.pdf = p + 
+p.pdf = p.pdf + 
 	 geom_rect(data=clust2,aes(fill=as.factor(clust),x=xmin,y=ymin,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax),alpha=0.5,size=0.5*p.pdf.scale) + # SIZE
 	 geom_rect(data=clust2,aes(color=as.factor(clust),x=xpos0,y=ymin,xmin=xpos0,xmax=xpos1,ymin=ymin,ymax=ymax),size=0.5*p.pdf.scale,fill=rgb(1,1,1,alpha=0),lwd=1*p.pdf.scale) + # SIZE
 	 geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=paste(clust-10,\"(\",id2,\")\",sep=\"\")),hjust=0,size=10*p.png.scale) +
@@ -1079,7 +1084,8 @@ min.df2.x2 = min(as.numeric(as.character(df2\$x)))
 max.df2.x2 = max(as.numeric(as.character(df2\$x)))
 df2 = data.frame(x=seq(1,dim(df2)[2]), y=apply(df2,2,mean))
 df2temp = data.frame(x=NA,x2=NA,y=NA,y2=NA)
-if (dim(df2[df2\$y > 0,])[1] > $plotminReads) {
+#if (dim(df2[df2\$y > 0,])[1] > $plotminReads) {
+if (dim(df2[df2\$y > 0,])[1] > $plotminReads & $plotminReads > 5) {
 	df2 = df2[df2\$y > 0,]
 	df2\$x = as.numeric(as.character(df2\$x));
 	df2\$y = as.numeric(as.character(df2\$y));
@@ -1107,7 +1113,8 @@ if (dim(df2[df2\$y > 0,])[1] > $plotminReads) {
 
 df2 = data.frame(x=seq(1,dim(df2)[2]), y=apply(df2,2,mean))
 df2temp = data.frame(x=NA,x2=NA,y=NA,y2=NA)
-if (dim(df2[df2\$y > 0,])[1] > $plotminReads) {
+if (dim(df2[df2\$y > 0,])[1] > $plotminReads & $plotminReads > 5) {
+#if (dim(df2[df2\$y > 0,])[1] > $plotminReads) {
 	df2 = df2[df2\$y > 0,]
 	df2\$x = as.numeric(as.character(df2\$x));
 	df2\$y = as.numeric(as.character(df2\$y));
@@ -1195,7 +1202,8 @@ if (length(df2.rand.100[df2.rand.100 >= $peakminVal]) > 0) {
 	df2.rand.100[df2.rand.100 >= $peakminVal] = 1
 }
 df2.rand.100 = data.frame(x=seq(1,dim(df2.rand.100)[2]), y=apply(df2.rand.100,2,mean))
-if (dim(df2.rand.100[df2.rand.100\$y > 0,])[1] > $plotminReads) {
+if (dim(df2.rand.100[df2.rand.100\$y > 0,])[1] > $plotminReads & $plotminReads > 5) {
+#if (dim(df2.rand.100[df2.rand.100\$y > 0,])[1] > $plotminReads) {
 	df2.rand.100 = df2.rand.100[df2.rand.100\$y > 0,]
 	df2.rand.100\$x = as.numeric(as.character(df2.rand.100\$x));
 	df2.rand.100\$y = as.numeric(as.character(df2.rand.100\$y));
@@ -1263,7 +1271,8 @@ if (length(df2.rand.1000[df2.rand.1000 >= $peakminVal]) > 0) {
 	df2.rand.1000[df2.rand.1000 >= $peakminVal] = 1
 }
 df2.rand.1000 = data.frame(x=seq(1,dim(df2.rand.1000)[2]), y=apply(df2.rand.1000,2,mean))
-if (dim(df2.rand.1000[df2.rand.1000\$y > 0,])[1] > $plotminReads) {
+if (dim(df2.rand.1000[df2.rand.1000\$y > 0,])[1] > $plotminReads & $plotminReads > 5) {
+#if (dim(df2.rand.1000[df2.rand.1000\$y > 0,])[1] > $plotminReads) {
 	df2.rand.1000 = df2.rand.1000[df2.rand.1000\$y > 0,]
 	df2.rand.1000\$x = as.numeric(as.character(df2.rand.1000\$x));
 	df2.rand.1000\$y = as.numeric(as.character(df2.rand.1000\$y));
