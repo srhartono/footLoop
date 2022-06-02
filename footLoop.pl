@@ -758,8 +758,10 @@ sub run_bismark {
 
 			LOG($outLog, "$splitresult\n");	
 			LOG($outLog, "####### SPLITRESULT LOG #######\n\n\t  Running bismark in paralel!\n");
-			my $result = system("run_script_in_paralel2.pl -v \"srun -p high --mem 8000 bismark -o $outDir/.bismark_paralel/ $bismarkOpt $bismark_folder FILENAME >> FILENAME.bismark.log 2>&1\" $outFolder .part 20");
-			LOG($outReadLog, "footLoop.pl,run_bismark,\"run_script_in_paralel2.pl -v \\\"srun -p high --mem 8000 bismark -o $outDir/.bismark_paralel/ $bismarkOpt $bismark_folder FILENAME >> FILENAME.bismark.log 2>&1\\\" $outFolder .part 20");
+			#my $result = system("run_script_in_paralel2.pl -v \"srun -p high --mem 8000 bismark -o $outDir/.bismark_paralel/ $bismarkOpt $bismark_folder FILENAME >> FILENAME.bismark.log 2>&1\" $outFolder .part 20");
+			my $result = system("run_script_in_paralel2.pl -v \"srun -p high --mem 8000 bismark --non_directional -o $outDir/.bismark_paralel/ $bismarkOpt $bismark_folder FILENAME >> FILENAME.bismark.log 2>&1\" $outFolder .part 20");
+			#LOG($outReadLog, "footLoop.pl,run_bismark,\"run_script_in_paralel2.pl -v \\\"srun -p high --mem 8000 bismark -o $outDir/.bismark_paralel/ $bismarkOpt $bismark_folder FILENAME >> FILENAME.bismark.log 2>&1\\\" $outFolder .part 20");
+			LOG($outReadLog, "footLoop.pl,run_bismark,\"run_script_in_paralel2.pl -v \\\"srun -p high --mem 8000 bismark --non_directional -o $outDir/.bismark_paralel/ $bismarkOpt $bismark_folder FILENAME >> FILENAME.bismark.log 2>&1\\\" $outFolder .part 20");
 			my @partSam = <$outFolder/*.part_bismark*.$ext>; my $totalPartSam = @partSam;
 			LOG($outLog, "\t  All part.$ext has been made (total = $totalPartSam). Now making $CY$mybam$N and then removing the part sam\n");
 			my @HEADER; my @REPORT;
@@ -794,17 +796,23 @@ sub run_bismark {
 		   $MAP .= "footLoop.pl,map," . "record\t$label\t" . join("\t", @REPORT) . "\t$outDir\t$uuid\n";
 		}
 		else {
-			LOG($outLog, "\t  bismark -o <outDir> $LCY$bismarkOpt$N <bismark_folder> <readFile> > <outDir/.bismark_log> 2>&1\n");
-			LOG($outReadLog, "footLoop.pl,bismark,bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1\n","NA");
-			my $result = system("bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1");
+			LOG($outLog, "\t  bismark --non_directional -o <outDir> $LCY$bismarkOpt$N <bismark_folder> <readFile> > <outDir/.bismark_log> 2>&1\n");
+			#LOG($outLog, "\t  bismark -o <outDir> $LCY$bismarkOpt$N <bismark_folder> <readFile> > <outDir/.bismark_log> 2>&1\n");
+			LOG($outReadLog, "footLoop.pl,bismark,bismark --non_directional -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1\n","NA");
+			#LOG($outReadLog, "footLoop.pl,bismark,bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1\n","NA");
+			my $result = system("bismark --non_directional -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1");
+			#my $result = system("bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1");
 
 			if ($result != 0) {
 				LOG($outLog, "\t\t${LRD}Bisulfte_Genome seems to be corrupted so re-running:\n\t${YW}-bismark_genome_preparation$N --bowtie2 $bismark_folder\n");
 				make_bismark_index($seqFile, $bismark_folder, $bismarkOpt, $outLog);
 				system("bismark_genome_preparation --bowtie2 $bismark_folder") == 0 or die "Failed to run bismark genome preparation: $!\n";
 				LOG($outReadLog, "footLoop.pl,bismark,bismark_genome_preparation --bowtie2 $bismark_folder","NA");
-				system("bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1") == 0 or die "$LRD!!!$N\tFailed to run bismark: $!\n";
-				LOG($outReadLog, "footLoop.pl,bismark,bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1");
+				system("bismark --non_directional -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1") == 0 or die "$LRD!!!$N\tFailed to run bismark: $!\n";
+				LOG($outReadLog, "footLoop.pl,bismark,bismark --non_directional -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1");
+				#LOG($outReadLog, "footLoop.pl,bismark,bismark_genome_preparation --bowtie2 $bismark_folder","NA");
+				#system("bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1") == 0 or die "$LRD!!!$N\tFailed to run bismark: $!\n";
+				#LOG($outReadLog, "footLoop.pl,bismark,bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1");
 			}
 			LOG($outLog, "\t${GN}SUCCESS$N: Output $mybam\n");
 			my ($bismark_report) = $mybam =~ /^(.+).$ext/; $bismark_report .= "_SE_report.txt";
