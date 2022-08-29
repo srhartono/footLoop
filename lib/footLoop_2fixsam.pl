@@ -119,7 +119,8 @@ while (my $line = <$in1>) {
 	my	($CTcons, $CC0, $GG0, $CC1, $GG1, $CT0, $GA0, $CT1, $GA1) = det_C_type($ref3, $seq3, $bad3, $seqborder0, $seqborder1);
 	my ($refPrint, $seqPrint) = colorconv($ref3, $seq3);
 	my $CTPrint = join("", @{$CTcons});
-	my $newstrand = $CT1 > $GA1 ? 0 : $GA1 > $CT1 ? 16 : $strand;
+	my $newstrand = $strand;
+	#my $newstrand = $CT1 > $GA1 ? 0 : $GA1 > $CT1 ? 16 : $strand;
 
 	# 3. DETERMINING TYPE BASED ON CONVERSION
 	my $type;
