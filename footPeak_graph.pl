@@ -43,7 +43,7 @@ ${LGN}Optionals$N:
 
 -G $LGN<gene to process>$N] 
 
--c: This is CpG (in vitro)
+-c: Include Cytosine from CpG (use this for in vitro data)
 
 
 -r Option to run R scripts $LCY(PNG)$N
@@ -284,7 +284,7 @@ library(Cairo)
 				while (my $line = <$incurrFile>) {
 					chomp($line);
 					my ($id) = split("\t", $line);
-					my ($num1, $num2, $num3) = $id =~ /^.*m(\d+_\d+)_.+\/(\d+)\/(ccs|\d+_\d+)/;
+					my ($num1, $num2, $num3) = $id =~ /^.*m([A-Za-z0-9]+_\d+)_.+\/(\d+)\/(ccs|\d+_\d+)/;
 					DIELOG($outLog, "\n\n" . date() . " Failed to parse numbers from currFile=$LCY$currFile$N id = $LPR$id$N\n\n") if not defined $num1 or not defined $num2 or not defined $num3;
 					$num3 = 0 if $num3 eq "ccs";
 					my $num = "$num1$num2$num3";

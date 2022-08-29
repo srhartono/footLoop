@@ -103,7 +103,7 @@ sub get_pcb_readname {
 	foreach my $line (@line) {
 		next if $line !~ /^PCB/;
 		my ($PCB, $readName) = split("\t", $line);
-		my ($id1a, $id1b) = $readName =~ /^.*m(\d+)_(\d+)_\d+/;
+		my ($id1a, $id1b) = $readName =~ /^.*m([A-Za-z0-9]+)_(\d+)_\d+/;
 		DIELOG($outLog, "Failed to parse id1/2/3 from readName=$LCY$readName$N\n") if (not defined $id1a or not defined $id1b) and defined $outLog;
 		die "Failed to parse id from readName=$LCY$readName$N\n" if (not defined $id1a or not defined $id1b) and not defined $outLog;
 		my $id1 = $id1a . $id1b;
@@ -147,11 +147,19 @@ sub parse_readName {
 	DIELOG($outLog, "readName not defined!\n") if defined $outLog and not defined $readName;
 	die "readName not defined!\n" if not defined $outLog and not defined $readName;
 	return -1 if not defined $readName;
-	my ($id1a, $id1b, $junk, $id2, $id3) = $readName =~ /^.*m(\d+)_(\d+)_\d+(_c\w+_\w+_\w+)?\/(\d+)\/(ccs|\d+_\d+)/;
-	   ($id1a, $id1b, $junk, $id2, $id3) = $readName =~ /^.*m(\d+)_(\d+)(_\w+)?\/(\d+)\/(ccs|\d+_\d+)/ if not defined $id1a;
-	   ($id1a, $id1b, $junk, $id2, $id3) = $readName =~ /^.*m(\d+)_(\d+)(_\w+)?\/(\d+)\/(ccs|\d+)/ if not defined $id1a;
+	my ($id1a, $id1b, $junk, $id2, $id3) = $readName =~ /^.*m([A-Za-z0-9]+)_(\d+)_\d+(_c\w+_\w+_\w+)?\/(\d+)\/(ccs|\d+_\d+)/;
+	   ($id1a, $id1b, $junk, $id2, $id3) = $readName =~ /^.*m([A-Za-z0-9]+)_(\d+)(_\w+)?\/(\d+)\/(ccs|\d+_\d+)/ if not defined $id1a;
+	   ($id1a, $id1b, $junk, $id2, $id3) = $readName =~ /^.*m([A-Za-z0-9]+)_(\d+)(_\w+)?\/(\d+)\/(ccs|\d+)/ if not defined $id1a;
+	if (not defined $id1a) {
+		my @ids = split("/", $readName);
+	   ($id1a, $id1b) = $ids[0] =~ /^.*m([A-Za-z0-9]+)_(\d+)_?\w?/;
+	   ($id2) = $ids[1];
+	   ($id3) = $ids[2];
+	}
 	$id3 = (not defined $id3) ? 0 : $id3 eq "ccs" ? 0 : $id3;
-	DIELOG($outLog, "Failed to parse id1/2/3 from readName=$LCY$readName$N\n") if (not defined $id1a or not defined $id1b or not defined $id2 or not defined $id3) and defined $outLog;
+	my @ids = split("/", $readName);
+	DIELOG($outLog, 
+"myfootLib.pm::parse_readName: Failed to parse id1/2/3 from readName=$LCY$readName$N\nReadname split by backslash:" . join("\n", @ids) . "\n\nid1a=$LGN$id1a$N\nid1b=$LGN$id1b$N\nid2=$LGN$id2$N\nid3=$LGN$id3$N\n") if (not defined $id1a or not defined $id1b or not defined $id2 or not defined $id3) and defined $outLog;
 	my $id1 = $id1a . $id1b;
 	my $id = "$id1$id2$id3"; $id =~ s/_//g;
 	return ($id, $id1, $id2, $id3);
