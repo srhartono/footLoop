@@ -800,11 +800,14 @@ sub run_bismark {
 			#LOG($outLog, "\t  bismark -o <outDir> $LCY$bismarkOpt$N <bismark_folder> <readFile> > <outDir/.bismark_log> 2>&1\n");
 			LOG($outReadLog, "footLoop.pl,bismark,bismark --non_directional -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1\n","NA");
 			#LOG($outReadLog, "footLoop.pl,bismark,bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1\n","NA");
+			LOG($outLog, "bismark --non_directional -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1");
 			my $result = system("bismark --non_directional -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1");
 			#my $result = system("bismark -o $outDir $bismarkOpt $bismark_folder $readFile > $outDir/.bismark_log 2>&1");
 
 			if ($result != 0) {
 				LOG($outLog, "\t\t${LRD}Bisulfte_Genome seems to be corrupted so re-running:\n\t${YW}-bismark_genome_preparation$N --bowtie2 $bismark_folder\n");
+				my $bismark_log = `cat $outDir/.bismark_log`;
+				LOG($outLog, "\n${LRD}=========== BISMARK LOG ============$N:\n\n$outDir/.bismark_log\n\n$LGN$bismark_log$N\n\n$LRD=========== BISMARK LOG ENDS ==========$N\nPlease check $LCY$outDir/.bismark_log$N for more info on why bismark errored$N\n\n");
 				make_bismark_index($seqFile, $bismark_folder, $bismarkOpt, $outLog);
 				system("bismark_genome_preparation --bowtie2 $bismark_folder") == 0 or die "Failed to run bismark genome preparation: $!\n";
 				LOG($outReadLog, "footLoop.pl,bismark,bismark_genome_preparation --bowtie2 $bismark_folder","NA");
