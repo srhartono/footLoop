@@ -57,7 +57,7 @@ $print .= "\nbedtools TEST:\n${LGN}>>" . $bedtoolstest . "<<$N\n";
 $print .= "\nsamtools TEST:\n${LGN}>>" . $samtoolstest . "<<$N\n";
 $print .= "\nbowtie2 TEST:\n${LGN}>>" . $bowtie2test . "<<$N\n";
 $print .= "\nbismark TEST:\n${LGN}>>" . $bismarktest . "<<$N\n";
-$print .= "\nR TEST:\n${LGN}>>" . $Rtest . "<<$N\n";
+#$print .= "\nR TEST:\n${LGN}>>" . $Rtest . "<<$N\n";
 
 print $print . "\n";
 die "\n" if $print =~ /not found/i;
@@ -106,7 +106,7 @@ my $bufferLen  = $bufferR - $bufferL;
 my $readName   = getFilename($readFile, "full");
 my $bismarkOpt = (defined $opt_Z) ? "--bowtie2 --rdg 2,1 --rfg 2,1 --score_min L,0,-0.8" : "--bowtie2 --rdg 5,3 --rfg 5,3 --score_min L,0,-0.3";
    $bismarkOpt = (defined $opt_z) ? "--bowtie2 --rdg 3,2 --rfg 3,2 --score_min L,0,-0.5" : $bismarkOpt;
-my $samFile	   = ($readFile =~ /.f(ast)?q(.gz)?$/) ? $outDir .  "/$readName\_bismark_bt2.bam" : $readFile;
+my $BAMFile	   = ($readFile =~ /.f(ast)?q(.gz)?$/) ? $outDir .  "/$readName\_bismark_bt2.bam" : $readFile;
 my $uuid       = getuuid();
 my $date       = getDate();
 my $origDir    = $outDir . "/.0_Orig";
@@ -184,30 +184,30 @@ LOGSTEP($outLog);
 make_bismark_index($seqFile, $bismark_folder, $bismarkOpt, $outLog);
 
 # Run Bismark
-($samFile) = run_bismark($readFile, $outDir, $samFile, $opt_F, $outReadLog, $outLog);
+($BAMFile) = run_bismark($readFile, $outDir, $BAMFile, $opt_F, $outReadLog, $outLog);
 
 LOGSTEP($outLog);
 
 ################################
-# 3. Fixing Sam File #
+# 3. Fixing BAM File #
 ################################
-($STEP) = LOGSTEP($outLog, "BEG", $STEP, 1, "Fix Sam File\n");#$N $bismarkOpt $bismark_folder $readFile\n");
+($STEP) = LOGSTEP($outLog, "BEG", $STEP, 1, "Fix BAM File\n");#$N $bismarkOpt $bismark_folder $readFile\n");
 
-# Do footLoop_2fixsam.pl
+# Do footLoop_2fixBAM.pl
 # - Determine strand of read based on # of conversion
 # - Determine bad regions in read (indels) which wont be used in peak calling
-($samFile, $origDir) = fix_samFile($samFile, $seqFile, $outReadLog, $outLog); #becomes .fixed
+($BAMFile, $origDir) = fix_BAMFile($BAMFile, $seqFile, $outReadLog, $outLog); #becomes .fixed
 LOG($outReadLog, "footLoop.pl,origDir,$origDir\n");
-my ($samFileName) = getFilename($samFile);
+my ($BAMFileName) = getFilename($BAMFile);
 
 LOGSTEP($outLog);
 
 ################################
-# 4. Parse and Filter Sam File #
+# 4. Parse and Filter BAM File #
 ################################
-($STEP) = LOGSTEP($outLog, "BEG", $STEP, 1, "Parse and Filter Sam File\n");#$N $bismarkOpt $bismark_folder $readFile\n");
+($STEP) = LOGSTEP($outLog, "BEG", $STEP, 1, "Parse and Filter BAM File\n");#$N $bismarkOpt $bismark_folder $readFile\n");
 
-parse_samFile($samFile, $seqFile, $outReadLog, $outLog);
+parse_BAMFile($BAMFile, $seqFile, $outReadLog, $outLog);
 
 LOGSTEP($outLog);
 
@@ -432,98 +432,98 @@ sub print_R_heatmap {
 	}
 }
 
-sub fix_samFile {
-	my ($samFile, $seqFile, $outReadLog, $outLog) = @_;
-	LOG($outLog, "\n\ta. Fixing sam file $CY$samFile$N with $footLoopScriptsFolder/lib/footLoop_2fixsam.pl\n");
-	my ($samMD5) = getMD5($samFile);
-	my $origDir = "$outDir/.0_orig_$samMD5/";
+sub fix_BAMFile {
+	my ($BAMFile, $seqFile, $outReadLog, $outLog) = @_;
+	LOG($outLog, "\n\ta. Fixing BAM file $CY$BAMFile$N with $footLoopScriptsFolder/lib/footLoop_2fixBAM.pl\n");
+	my ($BAMMD5) = getMD5($BAMFile);
+	my $origDir = "$outDir/.0_orig_$BAMMD5/";
 	check_if_result_exist(["$origDir/.GOOD"], $outLog);
 	makedir("$origDir") if not -d "$origDir";
-	my $checkSam = 1;
-	my ($samFileName) = getFilename($samFile, "full");
-	my $samFileGZ = "$origDir/$samFileName.fixed.gz";
-	$checkSam = 0 if not -e "$origDir/$samFileName.fixed" and not -e "$origDir/$samFileName.fixed.gz";
+	my $checkBAM = 1;
+	my ($BAMFileName) = getFilename($BAMFile, "full");
+	my $BAMFileGZ = "$origDir/$BAMFileName.fixed.gz";
+	$checkBAM = 0 if not -e "$origDir/$BAMFileName.fixed" and not -e "$origDir/$BAMFileName.fixed.gz";
 	makedir($origDir);
 	if (defined $opt_F) {
-		$checkSam = 0;
+		$checkBAM = 0;
 	}
 	else {
-		if (-e "$origDir/$samFileName.fixed.gz") {
-			my ($samLineCount2) = linecount("$origDir/$samFileName.fixed.gz");
-			my ($samLineCount1) = linecount($samFile);
-			$checkSam = $samLineCount1 - 10 > $samLineCount2 ? 0 : 2;
-			LOG($outLog, "\tfootLoop.pl subroutine fix_samFile:: fixed sam file $LCY$origDir/$samFileName.fixed.gz$N exists but total row is less than total samFile $samFile row ($samLineCount1 - 500 > samFile.fixed.gz: $samLineCount2)!\n") if $checkSam == 0;
-			LOG($outLog, "\tfootLoop.pl subroutine fix_samFile::$LGN SUCCESS!!$N fixed sam file $LCY$origDir/$samFileName.fixed.gz$N exists (MD5=$LGN$samMD5$N) and total row $LGN($samLineCount2)$N >= total samFile row $LGN($samLineCount1 - 500)$N ($LCY$samFile$N)!\n") if $checkSam == 2;
+		if (-e "$origDir/$BAMFileName.fixed.gz") {
+			my ($BAMLineCount2) = linecount("$origDir/$BAMFileName.fixed.gz");
+			my ($BAMLineCount1) = linecount($BAMFile);
+			$checkBAM = $BAMLineCount1 - 10 > $BAMLineCount2 ? 0 : 2;
+			LOG($outLog, "\tfootLoop.pl subroutine fix_BAMFile:: fixed BAM file $LCY$origDir/$BAMFileName.fixed.gz$N exists but total row is less than total BAMFile $BAMFile row ($BAMLineCount1 - 500 > BAMFile.fixed.gz: $BAMLineCount2)!\n") if $checkBAM == 0;
+			LOG($outLog, "\tfootLoop.pl subroutine fix_BAMFile::$LGN SUCCESS!!$N fixed BAM file $LCY$origDir/$BAMFileName.fixed.gz$N exists (MD5=$LGN$BAMMD5$N) and total row $LGN($BAMLineCount2)$N >= total BAMFile row $LGN($BAMLineCount1 - 500)$N ($LCY$BAMFile$N)!\n") if $checkBAM == 2;
 		}
-		if (-e "$origDir/$samFileName.fixed" and $checkSam == 0) {
-			my ($samLineCount2) = linecount("$origDir/$samFileName.fixed");
-			my ($samLineCount1) = linecount($samFile);
-			$checkSam = $samLineCount1 - 10 > $samLineCount2 ? 0 : 1;
-			LOG($outLog, "\tfootLoop.pl subroutine fix_samFile:: .gz does not exist and fixed sam file $LCY$origDir/$samFileName.fixed$N exists but total row is less than total samFile $samFile row ($samLineCount1 - 500 > samFile.fixed: $samLineCount2)!\n") if $checkSam == 0;
-			LOG($outLog, "\tfootLoop.pl subroutine fix_samFile::$LGN SUCCESS!!$N fixed sam file $LCY$origDir/$samFileName.fixed$N exists (MD5=$LGN$samMD5$N) and total row $LGN($samLineCount2)$N >= total samFile row $LGN($samLineCount1 - 500)$N ($LCY$samFile$N)!\n") if $checkSam == 1;
+		if (-e "$origDir/$BAMFileName.fixed" and $checkBAM == 0) {
+			my ($BAMLineCount2) = linecount("$origDir/$BAMFileName.fixed");
+			my ($BAMLineCount1) = linecount($BAMFile);
+			$checkBAM = $BAMLineCount1 - 10 > $BAMLineCount2 ? 0 : 1;
+			LOG($outLog, "\tfootLoop.pl subroutine fix_BAMFile:: .gz does not exist and fixed BAM file $LCY$origDir/$BAMFileName.fixed$N exists but total row is less than total BAMFile $BAMFile row ($BAMLineCount1 - 500 > BAMFile.fixed: $BAMLineCount2)!\n") if $checkBAM == 0;
+			LOG($outLog, "\tfootLoop.pl subroutine fix_BAMFile::$LGN SUCCESS!!$N fixed BAM file $LCY$origDir/$BAMFileName.fixed$N exists (MD5=$LGN$BAMMD5$N) and total row $LGN($BAMLineCount2)$N >= total BAMFile row $LGN($BAMLineCount1 - 500)$N ($LCY$BAMFile$N)!\n") if $checkBAM == 1;
 		}
 	}
 
-	if ($checkSam == 0) {
-		LOG($outLog, "\tfootLoop.pl subroutine fix_samFile:: fixed sam file $LCY$origDir/$samFileName.fixed$N or .gz does not exist!\n");
-		LOG($outLog, "\t${YW}$footLoopScriptsFolder/lib/footLoop_2fixsam.pl -n $outDir -s $seqFile -o $origDir$N\n");
-		system("$footLoopScriptsFolder/lib/footLoop_2fixsam.pl -n $outDir -o $origDir") == 0 or LOG($outLog, "Failed to run $footLoopScriptsFolder/lib/footLoop_2fixsam.pl -n $outDir -o $origDir: $!\n") and exit 1;
-		LOG($outReadLog, "footLoop.pl,fix_samFile,$footLoopScriptsFolder/lib/footLoop_2fixsam.pl -n $outDir -o $origDir\n","NA");
-		LOG($outLog, "\tgzip $origDir/$samFileName.fixed");
-		system("gzip -f $origDir/$samFileName.fixed") == 0 or LOG($outLog, "\tFailed to gzip $origDir/$samFileName.fixed: $!\n");
-		$checkSam = 1;
+	if ($checkBAM == 0) {
+		LOG($outLog, "\tfootLoop.pl subroutine fix_BAMFile:: fixed BAM file $LCY$origDir/$BAMFileName.fixed$N or .gz does not exist!\n");
+		LOG($outLog, "\t${YW}$footLoopScriptsFolder/lib/footLoop_2fixBAM.pl -n $outDir -s $seqFile -o $origDir$N\n");
+		system("$footLoopScriptsFolder/lib/footLoop_2fixBAM.pl -n $outDir -o $origDir") == 0 or LOG($outLog, "Failed to run $footLoopScriptsFolder/lib/footLoop_2fixBAM.pl -n $outDir -o $origDir: $!\n") and exit 1;
+		LOG($outReadLog, "footLoop.pl,fix_BAMFile,$footLoopScriptsFolder/lib/footLoop_2fixBAM.pl -n $outDir -o $origDir\n","NA");
+		LOG($outLog, "\tgzip $origDir/$BAMFileName.fixed");
+		system("gzip -f $origDir/$BAMFileName.fixed") == 0 or LOG($outLog, "\tFailed to gzip $origDir/$BAMFileName.fixed: $!\n");
+		$checkBAM = 1;
 	}
 	else {
-		LOG($outLog, "\t${LGN}WAS NOT RUN$N: ${YW}::: $footLoopScriptsFolder/lib/footLoop_2fixsam.pl -n $outDir -s $seqFile -o $origDir :::$N\n");
+		LOG($outLog, "\t${LGN}WAS NOT RUN$N: ${YW}::: $footLoopScriptsFolder/lib/footLoop_2fixBAM.pl -n $outDir -s $seqFile -o $origDir :::$N\n");
 		# rm old (bad) .gz if it exists
-		LOG($outLog, "\t/bin/rm $samFileGZ") if -e '$samFileGZ';
-		system("/bin/rm $samFileGZ") == 0 or LOG($outLog, 'Failed to rm $samFileGZ: $!\n') if -e '$samFileGZ';
+		LOG($outLog, "\t/bin/rm $BAMFileGZ") if -e '$BAMFileGZ';
+		system("/bin/rm $BAMFileGZ") == 0 or LOG($outLog, 'Failed to rm $BAMFileGZ: $!\n') if -e '$BAMFileGZ';
 		# gzip the new .fixed
-		LOG($outLog, "\tgzip $origDir/$samFileName.fixed");
-		system("gzip -f $origDir/$samFileName.fixed") == 0 or LOG($outLog, "\tFailed to gzip $origDir/$samFileName.fixed: $!\n");
+		LOG($outLog, "\tgzip $origDir/$BAMFileName.fixed");
+		system("gzip -f $origDir/$BAMFileName.fixed") == 0 or LOG($outLog, "\tFailed to gzip $origDir/$BAMFileName.fixed: $!\n");
 	}
 
-	# re-md5 samfile gz
-	LOG($outLog, "\t${YW}$md5script $samFileGZ > $origDir/.$samFileName.fixed.gz.md5$N\n");
+	# re-md5 BAMfile gz
+	LOG($outLog, "\t${YW}$md5script $BAMFileGZ > $origDir/.$BAMFileName.fixed.gz.md5$N\n");
 	if ($md5script eq "md5sum") {
-		system("$md5script $samFileGZ > $origDir/.$samFileName.fixed.gz.md5") == 0 or LOG($outLog, "Failed to $md5script $samFileGZ > $origDir/.$samFileName.fixed.gz.md5: $!\n") and exit 1;
+		system("$md5script $BAMFileGZ > $origDir/.$BAMFileName.fixed.gz.md5") == 0 or LOG($outLog, "Failed to $md5script $BAMFileGZ > $origDir/.$BAMFileName.fixed.gz.md5: $!\n") and exit 1;
 	}
 	if ($md5script eq "md5") {
-		my ($md5res) = `$md5script $samFileGZ` =~ /^.+\= (\w+)$/; die "Failed to $md5script $samFileGZ: $!\n" if not defined $md5res;
-		system("echo '$md5res $samFileGZ' > $origDir/.$samFileName.fixed.gz.md5") == 0 or LOG($outLog, "Failed to $md5script $samFileGZ > $origDir/.$samFileName.fixed.gz.md5: $!\n") and exit 1;
+		my ($md5res) = `$md5script $BAMFileGZ` =~ /^.+\= (\w+)$/; die "Failed to $md5script $BAMFileGZ: $!\n" if not defined $md5res;
+		system("echo '$md5res $BAMFileGZ' > $origDir/.$BAMFileName.fixed.gz.md5") == 0 or LOG($outLog, "Failed to $md5script $BAMFileGZ > $origDir/.$BAMFileName.fixed.gz.md5: $!\n") and exit 1;
 	}
-	LOG($outReadLog, "footLoop.pl,samFixedFile,$samFileGZ\n","NA");
-	LOG($outReadLog, "footLoop.pl,samFixedFileMD5,$samMD5\n","NA");
-	return($samFile, $origDir);
+	LOG($outReadLog, "footLoop.pl,BAMFixedFile,$BAMFileGZ\n","NA");
+	LOG($outReadLog, "footLoop.pl,BAMFixedFileMD5,$BAMMD5\n","NA");
+	return($BAMFile, $origDir);
 }
 
-sub parse_samFile {
-	my ($samFile, $seqFile, $outReadLog, $outLog) = @_;
-	my ($samFileName) = getFilename($samFile);
+sub parse_BAMFile {
+	my ($BAMFile, $seqFile, $outReadLog, $outLog) = @_;
+	my ($BAMFileName) = getFilename($BAMFile);
 
-	LOG($outLog, "\ta. Parsing sam file $CY$samFile$N and getting only high quality reads\n");
-	open(my $notused, ">", "$outDir/.$readFilename.notused") or LOG($outLog, "Cannot open $outDir/.$readFilename.notused: $!\n") and exit 1;
-	my $sam; 
-	open($sam, $samFile) or LOG($outLog, "$LRD!!!$N\tFATAL ERROR: Could not open $samFile: $!") and exit 1 if $samFile =~ /.sam$/;
-	open($sam, "samtools view $samFile|") or LOG($outLog, "$LRD!!!$N\tFATAL ERROR: Could not open $samFile: $!") and exit 1 if $samFile =~ /.bam$/;
+	LOG($outLog, "\ta. Parsing BAM file $CY$BAMFile$N and getting only high quality reads\n");
+	open(my $notused, ">", "$outDir/.$readFilename.notused") or (LOG($outLog, "Cannot open $outDir/.$readFilename.notused: $!\n") and exit 1);
+	my $BAM;
+	#open($BAM, $BAMFile) or (LOG($outLog, "$LRD!!!$N\tFATAL ERROR: Could not open $BAMFile: $!") and exit 1 if $BAMFile =~ /.sam$/);
+	open($BAM, "samtools view $BAMFile|") or (LOG($outLog, "$LRD!!!$N\tFATAL ERROR: Could not open $BAMFile: $!") and exit 1) if $BAMFile =~ /.bam$/;
 	
 	## Some stats
 	my $linecount   = 0;
-	my $samStats = makehash(['total','used','diffgene','lowq','badlength']);
+	my $BAMStats = makehash(['total','used','diffgene','lowq','badlength']);
 	
-	while(my $line = <$sam>) {
+	while(my $line = <$BAM>) {
 		$linecount ++;
 		chomp($line);
 		
 		#####################
-		# 1. Parse sam line #
+		# 1. Parse BAM line #
 		#####################
 		my @arr = split("\t", $line);
-		LOG($outLog, "\t$YW$samFile$N: Done $linecount\n") if $linecount % 5000 == 0;
+		LOG($outLog, "\t$YW$BAMFile$N: Done $linecount\n") if $linecount % 5000 == 0;
 	
-		# a. Total column must be 14 or skipped (e.g. sam header)
+		# a. Total column must be 14 or skipped (e.g. BAM header)
 		if (@arr < 14) {
-			LOG($outLog, "$LGN$linecount$N: SAM header detected (#column < 14). LINE:\n\t$line\n");
+			LOG($outLog, "$LGN$linecount$N: BAM header detected (#column < 14). LINE:\n\t$line\n");
 			next;
 		}
 		
@@ -531,11 +531,11 @@ sub parse_samFile {
 		my ($read, $readStrand, $gene, $readPos, $mapQ, $cigar, $junk1, $junk2, $junk3, $seqs, $qual, $tags, $junk4, $readMethCall) = @arr;
 		my $seqLen = length($seqs);
 		$gene = uc($gene);
-		check_sam_field($samFile, $outLog, @arr);
-		LOG($outLog, "\t$samFile: length of gene $gene undef\n") and exit 1 if not defined($SEQ->{$gene}{geneL});
+		check_BAM_field($BAMFile, $outLog, @arr);
+		LOG($outLog, "\t$BAMFile: length of gene $gene undef\n") and exit 1 if not defined($SEQ->{$gene}{geneL});
 
-		$samStats->{total} ++;
-		$samStats->{gene}{$gene} ++;
+		$BAMStats->{total} ++;
+		$BAMStats->{gene}{$gene} ++;
 	
 		# Filter out reads which gene isn't in genomeFile and indexFile
 		if (not defined $SEQ->{$gene}) {
@@ -545,21 +545,21 @@ sub parse_samFile {
 		
 		$SEQ->{$gene}{total} ++;
 		my ($readname) = length($read) >= 20 ? $read =~ /(.{20})$/ : $read; $readname = "..." . $readname  if length($read) >= 20; $readname = $read if not defined $readname;
-		LOG($outLog, "\tExample at read $samStats->{total}: name=$CY$readname$N\tstrand=$CY$readStrand$N\tchr/gene=$CY$gene$N\tpos=$CY$readPos$N\tmapQ=$CY$mapQ$N\n\n") if $samStats->{total} == 1;
-		LOG($outLog, "\tDone $GN$samStats->{total}$N\n") if $samStats->{total} % 2000 == 0;
+		LOG($outLog, "\tExample at read $BAMStats->{total}: name=$CY$readname$N\tstrand=$CY$readStrand$N\tchr/gene=$CY$gene$N\tpos=$CY$readPos$N\tmapQ=$CY$mapQ$N\n\n") if $BAMStats->{total} == 1;
+		LOG($outLog, "\tDone $GN$BAMStats->{total}$N\n") if $BAMStats->{total} % 2000 == 0;
 
 		# a. Filter out reads with mapping quality=$mapQ less than threshold quality=$opt_q
 		if($mapQ < $minMapQ)	{
-			($SEQ, $samStats) = filter_sam_read($SEQ, $samStats, $readname, $gene, 'lowq');
+			($SEQ, $BAMStats) = filter_BAM_read($SEQ, $BAMStats, $readname, $gene, 'lowq');
 			print $notused "\t$CY$read$N quality ($CY$mapQ$N) is less than $CY$opt_q$N\n";
-			$samStats->{lowq} ++;
+			$BAMStats->{lowq} ++;
 			$SEQ->{$gene}{lowq} ++;
 			next;
 		}
 		
 		# b. Filter out reads with read length=$seqLen
 		elsif (parse_cigar($cigar, "len") < $SEQ->{$gene}{minReadL}) {
-			($SEQ, $samStats) = filter_sam_read($SEQ, $samStats, $readname, $gene, 'badlength');
+			($SEQ, $BAMStats) = filter_BAM_read($SEQ, $BAMStats, $readname, $gene, 'badlength');
 			my $cigarLen = parse_cigar($cigar, "len");
 			print $notused "\t$CY$read$N length of seq (cigarLen = $LGN$cigarLen$N, seqLen = $CY$seqLen$N) is less than $SEQ->{$gene}{minReadL} bp (length of original sequence is ($CY" . $SEQ->{$gene}{geneL} . "$N)!\n";
 		}
@@ -574,24 +574,24 @@ sub parse_samFile {
 			print $notused "\t$CY$read$N isn't used for some reason\n";
 		}
 	}
-	LOG($outLog, "\n\tb.Logging sam file $CY$samFile$N\n");
-	log_samFile($SEQ, $samStats, $origDir, $outReadLog, $outLog);
+	LOG($outLog, "\n\tb.Logging BAM file $CY$BAMFile$N\n");
+	log_BAMFile($SEQ, $BAMStats, $origDir, $outReadLog, $outLog);
 }
 
-sub check_sam_field {
-	my ($samFile, $outLog, @arr) = @_;
+sub check_BAM_field {
+	my ($BAMFile, $outLog, @arr) = @_;
 	my $check = 0;
 	for (my $i = 0; $i < @arr; $i++) {
 		if ( not defined $arr[$i]) {
-			LOG($outLog, "\t$samFile: column $i undefined\n");
+			LOG($outLog, "\t$BAMFile: column $i undefined\n");
 			$check = 1;
 		}
 	}
 	exit 1 if $check != 0;
 }
 
-sub log_samFile {
-	my ($SEQ, $samStats, $origDir, $outReadLog, $outLog) = @_;
+sub log_BAMFile {
+	my ($SEQ, $BAMStats, $origDir, $outReadLog, $outLog) = @_;
 	foreach my $genez (sort keys %{$SEQ}) {
 		my $outTXTFilePos  = "$origDir/$genez\_Pos.orig";
 		my $outTXTFileNeg  = "$origDir/$genez\_Neg.orig";
@@ -602,13 +602,13 @@ sub log_samFile {
 	}
 	
 	my $skipped = 0; my ($passedFilterP, $passedFilterN) = (0,0);
-	open (my $inSamFix, "zcat < $origDir/$samFileName.fixed.gz|") or LOG($outLog, "Failed to open $origDir/$samFileName.fixed.gz: $!\n") and exit 1;
-	while (my $line = <$inSamFix>) {
+	open (my $inBAMFix, "zcat < $origDir/$BAMFileName.fixed.gz|") or LOG($outLog, "Failed to open $origDir/$BAMFileName.fixed.gz: $!\n") and exit 1;
+	while (my $line = <$inBAMFix>) {
 		chomp($line);
 		my ($read, $type, $oldStrand, $strand, $genez, $pos, $info) = split("\t", $line);
 		if (not defined $SEQ->{$genez} or not defined $info) {
-			LOG($outLog, "\tERROR in $LCY$origDir/$samFileName.fixed$N: gene=$genez but \$SEQ->{\$genez} is not defined!line=\n$line\n\n") if not defined $SEQ->{$genez};
-			DIELOG($outLog, "\tERROR in $LCY$origDir/$samFileName.fixed$N: gene=$genez and seq genez is $SEQ->{$genez} but info is not defined!line=\n$line\n\n") if defined $SEQ->{$genez} and not defined $info;
+			LOG($outLog, "\tERROR in $LCY$origDir/$BAMFileName.fixed$N: gene=$genez but \$SEQ->{\$genez} is not defined!line=\n$line\n\n") if not defined $SEQ->{$genez};
+			DIELOG($outLog, "\tERROR in $LCY$origDir/$BAMFileName.fixed$N: gene=$genez and seq genez is $SEQ->{$genez} but info is not defined!line=\n$line\n\n") if defined $SEQ->{$genez} and not defined $info;
 			$skipped ++;
 			next;
 		}
@@ -633,22 +633,22 @@ sub log_samFile {
 			$passedFilterP ++ if $strand == 0;
 			$passedFilterN ++ if $strand == 16;
 		}
-		$samStats->{used} ++;
+		$BAMStats->{used} ++;
 		$SEQ->{$genez}{used} ++;
 		$SEQ->{$genez}{posneg} ++ if $strand eq 16 and $oldStrand eq 0;
 		$SEQ->{$genez}{negpos} ++ if $strand eq 0 and $oldStrand eq 16;
 	}
-	close $inSamFix;
-	LOG($outLog, "\t$LCY$origDir/$samFileName.fixed$N: skipped = $LGN$skipped$N\n");
+	close $inBAMFix;
+	LOG($outLog, "\t$LCY$origDir/$BAMFileName.fixed$N: skipped = $LGN$skipped$N\n");
 
 	LOG($outReadLog, "footLoop.pl,read_passed_filter,header\ttotal\tpositive\tnegative\n");
-	LOG($outReadLog, "footLoop.pl,read_passed_filter,record\t$samStats->{total}\t$passedFilterP\t$passedFilterN\n");
+	LOG($outReadLog, "footLoop.pl,read_passed_filter,record\t$BAMStats->{total}\t$passedFilterP\t$passedFilterN\n");
 
 	print $outLog "
 Reads that passed filters:
 Positive: $passedFilterP
 Negative: $passedFilterN
-Total   : $samStats->{total};
+Total   : $BAMStats->{total};
 	
 Per Gene:
 	";
@@ -689,13 +689,13 @@ Low Quality = $SEQ->{$gene}{lowq}
 
 	LOG($outLog, "
 	(Genes that have <= 10 reads:) $LGN$zero$N
-	${GN}SUCCESS$N: Total=$samStats->{total}, used=$samStats->{used}, Low Map Quality=$samStats->{lowq}, Too short=$samStats->{badlength}
+	${GN}SUCCESS$N: Total=$BAMStats->{total}, used=$BAMStats->{used}, Low Map Quality=$BAMStats->{lowq}, Too short=$BAMStats->{badlength}
 	
 	Output: ${LGN}$origDir$N\n
 	");
 
 }
-sub filter_sam_read {
+sub filter_BAM_read {
 	my ($seq, $count, $readname, $gene, $reason) = @_;
 	$count->{$reason} ++;
 	$seq->{$gene}{$reason} ++;
@@ -739,7 +739,7 @@ sub make_bismark_index {
 	my ($check, $md5sum, $md5sum2) = (0);
 	my $bismark_folder_exist = (-d "$bismark_folder/Bisulfite_Genome/" and -e "$bismark_folder/Bisulfite_Genome/.MD5SUM") ? 1 : 0;
 	if ($bismark_folder_exist == 1) {
-		LOG($outLog, "\tOlder bismark folder $CY$bismark_folder/BIsulfite_Genome/$N exist! Checking MD5 if they're the same as current fasta file.\n");
+		LOG($outLog, "\tOlder bismark folder $CY$bismark_folder/BIsulfite_Genome/$N exist! Checking MD5 if they're the BAMe as current fasta file.\n");
 		($md5sum)  = `cat $bismark_folder/Bisulfite_Genome/.MD5SUM` =~ /^(\w+)[\t ]/;
 		($md5sum2) = getMD5($geneIndexFa);
 		$bismark_folder_exist = 0 if $md5sum ne $md5sum2;
@@ -764,6 +764,9 @@ sub run_bismark {
 	my $MAP = "";
 	LOG($outLog, "\n\tb. Running bismark\n");
 	$mybam =~ s/.fq.gz_bismark_bt2/_bismark_bt2/;
+	$mybam =~ s/.fastq.gz_bismark_bt2/_bismark_bt2/;
+	$mybam =~ s/.fq_bismark_bt2/_bismark_bt2/;
+	$mybam =~ s/.fastq_bismark_bt2/_bismark_bt2/;
 	my $bamFile = $mybam; 
 	my $ext = "bam";
 	
@@ -795,17 +798,17 @@ sub run_bismark {
 			my $result = system("run_script_in_paralel2.pl -v \"srun -p high --mem 8000 bismark --non_directional -o $outDir/.bismark_paralel/ $bismarkOpt $bismark_folder FILENAME >> FILENAME.bismark.log 2>&1\" $outFolder .part 20");
 			#LOG($outReadLog, "footLoop.pl,run_bismark,\"run_script_in_paralel2.pl -v \\\"srun -p high --mem 8000 bismark -o $outDir/.bismark_paralel/ $bismarkOpt $bismark_folder FILENAME >> FILENAME.bismark.log 2>&1\\\" $outFolder .part 20");
 			LOG($outReadLog, "footLoop.pl,run_bismark,\"run_script_in_paralel2.pl -v \\\"srun -p high --mem 8000 bismark --non_directional -o $outDir/.bismark_paralel/ $bismarkOpt $bismark_folder FILENAME >> FILENAME.bismark.log 2>&1\\\" $outFolder .part 20");
-			my @partSam = <$outFolder/*.part_bismark*.$ext>; my $totalPartSam = @partSam;
-			LOG($outLog, "\t  All part.$ext has been made (total = $totalPartSam). Now making $CY$mybam$N and then removing the part sam\n");
+			my @partBAM = <$outFolder/*.part_bismark*.$ext>; my $totalPartBAM = @partBAM;
+			LOG($outLog, "\t  All part.$ext has been made (total = $totalPartBAM). Now making $CY$mybam$N and then removing the part BAM\n");
 			my @HEADER; my @REPORT;
-			for (my $p = 0; $p < @partSam; $p++) {
-				my $partSam = $partSam[$p];
-				print "\t\tPutting $partSam into $mybam and removing it!\n";
-				system("cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >  $mybam") == 0 or die "Failed to cat $partSam: $!\n" if $p == 0;
-				system("cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >> $mybam") == 0 or die "Failed to cat $partSam: $!\n" if $p != 0;
-				LOG($outReadLog, "footLoop.pl,run_bismark,cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >  $mybam") if $p == 0;
-				LOG($outReadLog, "footLoop.pl,run_bismark,cat $partSam| awk '\$2 == 0 || \$2 == 16 {print}' >> $mybam") if $p != 0;
-				my ($bismark_report) = $partSam . "_SE_report.txt";
+			for (my $p = 0; $p < @partBAM; $p++) {
+				my $partBAM = $partBAM[$p];
+				print "\t\tPutting $partBAM into $mybam and removing it!\n";
+				system("cat $partBAM| awk '\$2 == 0 || \$2 == 16 {print}' >  $mybam") == 0 or die "Failed to cat $partBAM: $!\n" if $p == 0;
+				system("cat $partBAM| awk '\$2 == 0 || \$2 == 16 {print}' >> $mybam") == 0 or die "Failed to cat $partBAM: $!\n" if $p != 0;
+				LOG($outReadLog, "footLoop.pl,run_bismark,cat $partBAM| awk '\$2 == 0 || \$2 == 16 {print}' >  $mybam") if $p == 0;
+				LOG($outReadLog, "footLoop.pl,run_bismark,cat $partBAM| awk '\$2 == 0 || \$2 == 16 {print}' >> $mybam") if $p != 0;
+				my ($bismark_report) = $partBAM . "_SE_report.txt";
 				if (not -e $bismark_report) {
 					($bismark_report) =~ /^(.+).$ext/;
 					$bismark_report .= "_SE_report.txt";
@@ -863,7 +866,7 @@ sub run_bismark {
 	LOG($outLog, "${run_boolean}::: bismark $bismarkOpt $bismark_folder $readFile :::$N\n");
 
 	# print to $outReadLog
-	LOG($outReadLog, "footLoop.pl,samFile,$outDir/$mybamFilename\n","NA");
+	LOG($outReadLog, "footLoop.pl,BAMFile,$outDir/$mybamFilename\n","NA");
 	LOG($outReadLog, $MAP,"NA");
 
 	return("$outDir/$mybamFilename");
@@ -1188,7 +1191,7 @@ Run ID     : $uuid
 Run script : $optPrint
 	
 ${YW}Input Parameters$N
-1. -r ${CY}Read/SAM$N  :$readFile
+1. -r ${CY}Read/BAM$N  :$readFile
 2. -g ${CY}Genome$N    :$genomeFile
 3. -n ${CY}OutDir$N    :$outDir
 4. -i ${CY}Index$N     :$geneIndexFile
@@ -1239,7 +1242,7 @@ Usage: $YW$0$N [options..]
 \t$LGN-L$N [95p] minimum read length (percent: 95p)
 \t$YW-q$N [0] minimum map quality (use 0 since we're expecting a lot of conversions)
 \t$CY-Z$N toggle to use non-stringent mapping
-\t$LPR-F$N toggle to redo bismark mapping even if a .sam or .bam file is present in output_dir
+\t$LPR-F$N toggle to redo bismark mapping even if a .BAM or .bam file is present in output_dir
 
 Do $YW$0$N $LGN-h$N for longer explanation
 Do $YW$0$N $LGN-e$N for example run
