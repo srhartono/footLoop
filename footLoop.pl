@@ -16,6 +16,7 @@
 # By downloading or using this software, you agree to the terms and conditions of the license. 
 
 use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
+# use colorz;
 use vars   qw($opt_v $opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f $opt_l $opt_e $opt_z);
 my @opts = qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_l $opt_e $opt_z);
 getopts("vr:g:i:n:L:x:y:q:HhZFpl:ez");
@@ -25,11 +26,41 @@ BEGIN {
 	push(@INC, $libPath);
 	print "\n- Pushed $libPath into perl lib path INC\n";
    my $softwarePath = dirname(dirname abs_path $0) . '/footLoop/softwares/';
-   $ENV{PATH} = "$softwarePath/Bismark_v0.20.0/:$softwarePath/bedtools2/bin/:$softwarePath/bowtie2-2.2.6/:
-$softwarePath/samtools-0.1.19/:$softwarePath/R-3.6.1/bin/:$ENV{PATH}";
+   #$ENV{PATH} = "$softwarePath/Bismark_v0.20.0/:$softwarePath/bedtools2/bin/:$softwarePath/bowtie2-2.2.6/:$softwarePath/samtools-0.1.19/:$softwarePath/R-3.6.1/bin/:$ENV{PATH}";
+   #$ENV{PATH} = "$softwarePath/Bismark_v0.20.0/:$softwarePath/bedtools2/bin/:$softwarePath/samtools-0.1.19/:$softwarePath/R-3.6.1/bin/:$ENV{PATH}";
 }
 use myFootLib;
 use FAlite;
+
+my $bismarkloc = `which bismark`; chomp($bismarkloc); $bismarkloc = "N/A" if $bismarkloc eq "";
+my $bedtoolsloc = `which bedtools`; chomp($bedtoolsloc); $bedtoolsloc = "N/A" if $bedtoolsloc eq "";
+my $bowtie2loc = `which bowtie2`; chomp($bowtie2loc); $bowtie2loc = "N/A" if $bowtie2loc eq "";
+my $samtoolsloc = `which samtools`; chomp($samtoolsloc); $samtoolsloc = "N/A" if $samtoolsloc eq "";
+my $Rloc = `which R`; chomp($Rloc); $Rloc = "N/A" if $Rloc eq "";
+system("bismark --version > .bismarktest.txt 2>&1");
+system("bedtools --version > .bedtoolstest.txt 2>&1");
+system("bowtie2 --version > .bowtie2test.txt 2>&1");
+system("samtools > .samtoolstest.txt 2>&1");
+system("R --version > .Rtest.txt 2>&1");
+my $bismarktest = `cat .bismarktest.txt | head`; chomp($bismarktest);
+my $bedtoolstest = `cat .bedtoolstest.txt | head`; chomp($bedtoolstest);
+my $bowtie2test = `cat .bowtie2test.txt | head`; chomp($bowtie2test);
+my $samtoolstest = `cat .samtoolstest.txt | head`; chomp($samtoolstest);
+my $Rtest = `cat .Rtest.txt | head`; chomp($Rtest);
+my $print = "";
+$print .= "- bedtools = $LCY$bedtoolsloc$N\n";
+$print .= "- samtools = $LCY$samtoolsloc$N\n";
+$print .= "- bowtie2 = $LCY$bowtie2loc$N\n";
+$print .= "- bismark = $LCY$bismarkloc$N\n";
+$print .= "- R = $LCY$Rloc$N\n";
+$print .= "\nbedtools TEST:\n${LGN}>>" . $bedtoolstest . "<<$N\n";
+$print .= "\nsamtools TEST:\n${LGN}>>" . $samtoolstest . "<<$N\n";
+$print .= "\nbowtie2 TEST:\n${LGN}>>" . $bowtie2test . "<<$N\n";
+$print .= "\nbismark TEST:\n${LGN}>>" . $bismarktest . "<<$N\n";
+$print .= "\nR TEST:\n${LGN}>>" . $Rtest . "<<$N\n";
+
+print $print . "\n";
+die "\n" if $print =~ /not found/i;
 
 my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 my $homedir = $ENV{"HOME"};
@@ -818,6 +849,7 @@ sub run_bismark {
 			}
 			LOG($outLog, "\t${GN}SUCCESS$N: Output $mybam\n");
 			my ($bismark_report) = $mybam =~ /^(.+).$ext/; $bismark_report .= "_SE_report.txt";
+			($bismark_report) = <$outDir/*bt2_SE_report.txt> if not -e $bismark_report;
 			my ($header, $report, $MAPTEMP) = parse_bismark_report($bismark_report, $outLog);
 			$MAP = $MAPTEMP;
 		}

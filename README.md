@@ -60,40 +60,22 @@ Softwares (also in softwares/ folder):
 
 **These are also avaiable in softwares folder. Make sure to install, then put their folder location into $PATH after unzipping!**
 
+**It's recommended to create an environment using snakemake or conda**
 
-- [bedtools2 (v2.25.0)](https://github.com/arq5x/bedtools2/releases/download/v2.25.0/bedtools-2.25.0.tar.gz)
-- [bowtie2 (v2.2.6)](https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.2.6/bowtie2-2.2.6-source.zip/download)
-- [bismark2 (v0.20.0)](https://www.bioinformatics.babraham.ac.uk/projects/bismark/bismark_v0.20.0.tar.gz)
-- [R (v3.6.1)](https://cloud.r-project.org/src/base/R-3/R-3.6.1.tar.gz)
-- [samtools (v0.1.19-96b5f2294a)](https://sourceforge.net/projects/samtools/files/samtools/0.1.19/samtools-0.1.19.tar.bz2/download)
+`conda install -c bioconda bedtools=2.25.0` #[bedtools2 (v2.25.0)](https://github.com/arq5x/bedtools2/releases/download/v2.25.0/bedtools-2.25.0.tar.gz)
+`conda install -c bioconda bowtie2=2.2.6` #[bowtie2 (v2.2.6)](https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.2.6/bowtie2-2.2.6-source.zip/download)
+`conda install -c bioconda bismark=0.20.0` #[bismark2 (v0.20.0)](https://www.bioinformatics.babraham.ac.uk/projects/bismark/bismark_v0.20.0.tar.gz) 
+`conda install -c bioconda samtools=0.1.19` #[samtools (v0.1.19-96b5f2294a)](https://sourceforge.net/projects/samtools/files/samtools/0.1.19/samtools-0.1.19.tar.bz2/download) 
+`conda install -c r r-base=3.6.1` #[R (v3.6.1)](https://cloud.r-project.org/src/base/R-3/R-3.6.1.tar.gz) 
 
 R packages:
 
-- RColorBrewer v1.1-2 
-- gridExtra v2.3
-- labeling v0.3
-- reshape2 v1.4.3    
-- ggplot2 v3.1.0
-- GMD v0.3.3         
-
-To Install R packages, type these in an R session:
-
-```
-install.packages("RColorBrewer")
-install.packages("gridExtra")
-install.packages("labeling")
-install.packages("reshape2")
-install.packages("ggplot2")
-install.packages("gplots")
-```
-
-To install GMD:
-
-```
-cd footLoop/softwares
-tar zxvf GMD_0.3.1.1.tar.gz
-R CMD INSTALL GMD
-```
+`conda install -c r r-rcolorbrewer=1.1_2` #RColorBrewer v1.1-2
+`conda install -c r r-gridextra=2.3` #gridExtra v2.3
+`conda install -c r r-labeling=0.3` #labeling v0.3
+`conda install -c conda-forge r-reshape2=1.4.3` #reshape2 v1.4.3
+`conda install -c conda-forge r-ggplot2=3.1.0` #ggplot2 v3.1.0
+`conda install -c conda-forge r-gmd=0.3.1` #GMD v0.3.1
 
 ## 1b. Mapping (footLoop.pl)
 
