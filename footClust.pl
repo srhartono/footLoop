@@ -300,7 +300,7 @@ print(.libPaths())
 		library(grid)
 		library(gridExtra)
 		library(RColorBrewer)
-	library(Cairo)
+#	library(Cairo)
 	set.seed(420)
 	df.main = read.table(\"$tempFile1_Peak\",header=T,sep=\"\\t\",colClasses=c(\"factor\",\"integer\",\"integer\",\"integer\")) # changed df to df.main
 	df.main.total_peak = unique(df.main[,4])

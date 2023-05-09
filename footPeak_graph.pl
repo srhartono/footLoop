@@ -267,12 +267,13 @@ library(reshape2)
 library(grid)
 library(gridExtra)
 library(RColorBrewer)
-library(Cairo)
+#library(Cairo)
 ";
 			
 			my $totread = $totpeak + $totnopk;
 			if (not -e $currFile or (-e $currFile and linecount($currFile) <= 2)) { #5
-				$Rscript .= "png(type=\"cairo\",\"$pngout\",1000,1000)\nplot(NA,xlim=c(1,100),ylim=c(1,100),xlab=NA,ylab=NA,bty=\"n\")\ntext(50,50,cex=3,labels=c(\"$currFilename\n\nPEAK = $totpeak / $totread\"))\ndev.off()\n";
+		#		$Rscript .= "png(type=\"cairo\",\"$pngout\",1000,1000)\nplot(NA,xlim=c(1,100),ylim=c(1,100),xlab=NA,ylab=NA,bty=\"n\")\ntext(50,50,cex=3,labels=c(\"$currFilename\n\nPEAK = $totpeak / $totread\"))\ndev.off()\n";
+				$Rscript .= "png(\"$pngout\",1000,1000)\nplot(NA,xlim=c(1,100),ylim=c(1,100),xlab=NA,ylab=NA,bty=\"n\")\ntext(50,50,cex=3,labels=c(\"$currFilename\n\nPEAK = $totpeak / $totread\"))\ndev.off()\n";
 				$RscriptPNG = $Rscript;
 				$RscriptPDF = $Rscript;
 				$RscriptPNG_nopk_ALL = $Rscript;
@@ -1364,7 +1365,8 @@ totalratio_nopk_last  = c(totalread_nopk/(totalread_nopk+31.25+26.5625), 31.25 /
 	$R->{PNG} = "
 
 # PNG
-png(type=\"cairo\",\"$pngout\",width=totalwidth,height=totalheight)
+#png(type=\"cairo\",\"$pngout\",width=totalwidth,height=totalheight)
+png(\"$pngout\",width=totalwidth,height=totalheight)
 if (mynrow == 3) {
 	grid.arrange(p.png,p2.png,p3.png,ncol=1,nrow=mynrow,heights=totalratio)
 } else {
@@ -1375,13 +1377,15 @@ dev.off()
 # PNG HEATMAP ONLY
 totalheight = dim(df)[1] * myscale
 pngout_heatmap_only = \"$pngoutFolder/ALL/$pngoutFilename.ALL.heatmap.png\"
-png(type=\"cairo\",pngout_heatmap_only,width=totalwidth,height=totalheight)
+#png(type=\"cairo\",pngout_heatmap_only,width=totalwidth,height=totalheight)
+png(pngout_heatmap_only,width=totalwidth,height=totalheight)
 print(p.heatmaponly)
 dev.off()
 
 # PNG all Conv
 pngout_peak_all_c_conv = \"$pngoutFolder/ALL/$pngoutFilename.ALL.c_conv.png\"
-png(type=\"cairo\",pngout_peak_all_c_conv,width=totalwidth,height=31.25*myscale)
+#png(type=\"cairo\",pngout_peak_all_c_conv,width=totalwidth,height=31.25*myscale)
+png(pngout_peak_all_c_conv,width=totalwidth,height=31.25*myscale)
 grid.arrange(p2.png)
 dev.off()
 
@@ -1391,20 +1395,23 @@ dev.off()
 
 # PNG
 totalheight = (dim(df.rand.1000)[1] + 31.25) * myscale
-png(type=\"cairo\",\"$pngout\",width=totalwidth,height=totalheight)
+png(\"$pngout\",width=totalwidth,height=totalheight)
+#png(type=\"cairo\",\"$pngout\",width=totalwidth,height=totalheight)
 grid.arrange(p.rand.1000.png,p2.rand.1000.png,ncol=1,nrow=mynrow,heights=totalratio)
 dev.off()
 
 # PNG HEATMAP ONLY
 totalheight = dim(df.rand.1000)[1] * myscale
 pngout_heatmap_only = \"$pngoutFolder/ALL/$pngoutFilename.ALL.heatmap.png\"
-png(type=\"cairo\",pngout_heatmap_only,width=totalwidth,height=totalheight)
+#png(type=\"cairo\",pngout_heatmap_only,width=totalwidth,height=totalheight)
+png(pngout_heatmap_only,width=totalwidth,height=totalheight)
 print(p.heatmaponly.rand.1000)
 dev.off()
 
 # PNG all Conv
 pngout_nopk_all_c_conv = \"$pngoutFolder/ALL/$pngoutFilename.ALL.c_conv.png\"
-png(type=\"cairo\",pngout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
+png(pngout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
+#png(type=\"cairo\",pngout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
 grid.arrange(p2.png)
 dev.off()
 
@@ -1415,20 +1422,23 @@ dev.off()
 pngout_nopk_rand_100 = \"$pngoutFolder/ALL/$pngoutFilename.RAND.100.png\"
 # PNG
 totalheight = (dim(df.rand.100)[1] + 31.25) * myscale
-png(type=\"cairo\",pngout_nopk_rand_100,width=totalwidth,height=totalheight)
+#png(type=\"cairo\",pngout_nopk_rand_100,width=totalwidth,height=totalheight)
+png(pngout_nopk_rand_100,width=totalwidth,height=totalheight)
 grid.arrange(p.rand.100.png,p2.rand.100.png,ncol=1,nrow=mynrow,heights=totalratio)
 dev.off()
 
 # PNG HEATMAP ONLY
 totalheight = dim(df.rand.100)[1] * myscale
 pngout_heatmap_only = \"$pngoutFolder/ALL/$pngoutFilename.RAND.100.heatmap.png\"
-png(type=\"cairo\",pngout_heatmap_only,width=totalwidth,height=totalheight)
+#png(type=\"cairo\",pngout_heatmap_only,width=totalwidth,height=totalheight)
+png(pngout_heatmap_only,width=totalwidth,height=totalheight)
 print(p.heatmaponly.rand.100)
 dev.off()
 
 # PNG all Conv
 pngout_nopk_all_c_conv = \"$pngoutFolder/ALL/$pngoutFilename.RAND.100.c_conv.png\"
-png(type=\"cairo\",pngout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
+#png(type=\"cairo\",pngout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
+png(pngout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
 grid.arrange(p2.rand.100.png)
 dev.off()
 
@@ -1444,13 +1454,15 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 		currtotalheight = totalheight_nopk_last
 		currtotalratio = totalratio_nopk_last
 		print(paste(i,currtotalheight,currtotalratio))
-		png(type=\"cairo\",pngout_nopk,width=totalwidth,height=currtotalheight)
+#		png(type=\"cairo\",pngout_nopk,width=totalwidth,height=currtotalheight)
+		png(pngout_nopk,width=totalwidth,height=currtotalheight)
 		grid.arrange(plot_list[[i]],p2,ncol=1,nrow=mynrow,heights=currtotalratio)
 		dev.off()
 	} else {
 		currtotalheight = totalheight_nopk
 		print(paste(i,currtotalheight))
-		png(type=\"cairo\",pngout_nopk,width=totalwidth,height=currtotalheight)
+	#	png(type=\"cairo\",pngout_nopk,width=totalwidth,height=currtotalheight)
+		png(pngout_nopk,width=totalwidth,height=currtotalheight)
 		grid.arrange(plot_list[[i]],ncol=1)
 		dev.off()
 	}

@@ -17,9 +17,9 @@
 
 use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
 # use colorz;
-use vars   qw($opt_v $opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f $opt_l $opt_e $opt_z);
-my @opts = qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_l $opt_e $opt_z);
-getopts("vr:g:i:n:L:x:y:q:HhZFpl:ez");
+use vars   qw($opt_v $opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f $opt_l $opt_e $opt_z $opt_9);
+my @opts = qw($opt_r $opt_g $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_l $opt_e $opt_z $opt_9);
+getopts("vr:g:i:n:L:x:y:q:HhZFpl:ez9");
 
 BEGIN {
 	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -191,6 +191,10 @@ LOGSTEP($outLog);
 ################################
 # 3. Fixing BAM File #
 ################################
+
+if (defined $opt_9) {
+	die "-9 Defined so stopping here!\n";
+}
 ($STEP) = LOGSTEP($outLog, "BEG", $STEP, 1, "Fix BAM File\n");#$N $bismarkOpt $bismark_folder $readFile\n");
 
 # Do footLoop_2fixBAM.pl

@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 use strict; use warnings; use Getopt::Std; use File::Basename qw(dirname); use Cwd qw(abs_path);
-use vars qw($opt_v $opt_b $opt_i $opt_d $opt_x $opt_2 $opt_w $opt_0);
-getopts("vb:i:d:x:2:w:0");
+use vars qw($opt_v $opt_b $opt_i $opt_d $opt_x $opt_2 $opt_w $opt_0 $opt_o);
+getopts("vb:i:d:x:2:w:0o:");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -18,7 +18,7 @@ use myFootLib; use FAlite; use footPeakAddon;
 
 my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 my $homedir = $ENV{"HOME"};
-my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
+my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/../footLoop";
 my @version = `$footLoopScriptsFolder/check_software.pl | tail -n 12`;
 my $version = join("", @version);
 if (defined $opt_v) {
@@ -71,13 +71,19 @@ if (defined $opt_0 and not defined $opt_i) {
 }
 
 my ($inputName) = getFilename($input1);
+if (defined $opt_o) {
+	$inputName = $opt_o;
+	$inputName =~ s/^\.+\/+//;
+}
 
+print "inputName=$YW$inputName$N\n";
 die "Please supply with .fa.fai file since input1 is a bam/sam file!\n" if $input1 =~ /(.sam$|.bam$)/ and not defined $opt_x;
 die "Please supply with .fa.fai file since input1 is a bam/sam file!\n" if $input1 =~ /(.sam$|.bam$)/ and defined $opt_x and not -e $opt_x;
 print "-x: indexFile $opt_x\n" if defined $opt_x;
 my $dbfolder = "$inputName\_barcode$barcodeFileName\_debarcode_result";
 $dbfolder =~ s/\./_/g;
 mkdir $dbfolder if not -d $dbfolder;
+print "dbFolder=$YW$dbfolder$N\n";
 my $outlogFile = "$inputName\_barcode$barcodeFileName\_logfile"; $outlogFile =~ s/\./_/g; $outlogFile = "$dbfolder/$outlogFile.txt";
 my $outExtraFile = "$inputName\_barcode$barcodeFileName\_ExtraBC"; $outExtraFile =~ s/\./_/g; $outExtraFile = "$dbfolder/$outExtraFile.txt";
 print "outlog File  : $LGN$outlogFile$N\n";
@@ -91,6 +97,7 @@ print "\nOutput:\n";
 foreach my $line (@line[0..@line-1]) {
 	chomp($line);
 	$linecount ++;
+	next if $line =~ /^#/;
 	next if $line =~ /^\n$/;
 	next if $line !~ /[a-zA-Z0-9]+/;
 	next if $line =~ /^(\#|No)/i or $line =~ /\ttarget/i;
@@ -103,7 +110,7 @@ foreach my $line (@line[0..@line-1]) {
 	}
 	else {
 		($no, $target, $size, $conc, $vol, $bc, $bcseq, $desc, $plasmid) = @arr;#split(",", $line)  if $line !~ /\t/;
-	   ($no, $target, $size, $conc, $vol, $bc, $bcseq, $desc, $plasmid) = @arr;#osplit("\t", $line) if $line =~ /\t/;
+#	   ($no, $target, $size, $conc, $vol, $bc, $bcseq, $desc, $plasmid) = @arr;#osplit("\t", $line) if $line =~ /\t/;
 		$desc =~ s/[ ]+//g;
 		$plasmid =~ s/[ ]+//g;
 	}
@@ -111,7 +118,7 @@ foreach my $line (@line[0..@line-1]) {
 	$plasmid = "NA" if not defined $plasmid;
 	$target = $bc if not defined $target;
 	$desc =~ s/(^[ \s]+|[ \s]+$|[\_\-\=\+\/\.\,\<\>\?\'\;\"\:\]\[\}\{\`\~\!\@\#\$\%\^\&\*\(\)\\]+)//g;
-	$bcseq =~ s/(^[ \s]+|[ \s]+$|[\_\-\=\+\/\.\,\<\>\?\'\;\"\:\]\[\}\{\`\~\!\@\#\$\%\^\&\*\(\)\\]+)//g;
+	#$bcseq =~ s/(^[ \s]+|[ \s]+$|[\_\-\=\+\/\.\,\<\>\?\'\;\"\:\]\[\}\{\`\~\!\@\#\$\%\^\&\*\(\)\\]+)//g;
 	$bc =~ s/(^[ \s]+|[ \s]+$|[\_\-\=\+\/\.\,\<\>\?\'\;\"\:\]\[\}\{\`\~\!\@\#\$\%\^\&\*\(\)\\]+)//g;
 	$plasmid =~ s/(^[ \s]+|[ \s]+$|[\_\-\=\+\/\.\,\<\>\?\'\;\"\:\]\[\}\{\`\~\!\@\#\$\%\^\&\*\(\)\\]+)//g;
 	$target =~ s/(^[ \s]+|[ \s]+$|[\_\-\=\+\/\.\,\<\>\?\'\;\"\:\]\[\}\{\`\~\!\@\#\$\%\^\&\*\(\)\\]+)//g;
@@ -127,8 +134,8 @@ foreach my $line (@line[0..@line-1]) {
 		$bc0->{uc($bcseq)}{total} = 0;
 		$bc0->{uc($bcseq)}{line} = $linecount;
 		$bc0->{uc($bcseq)}{bc} = $bc;
-		LOG($outlog, "\t$linecount\t$dbfolder/$inputName\_$bc.fastq\tbc=$bcbefore,plasmid=$plasmid,desc=$desc\n","NA");
-		print STDERR "\t$LGN$linecount\t$dbfolder/$inputName\_$bc.fastq$N\tbc=$LPR$bcbefore$N, plasmid=$LCY$plasmid$N, desc=$YW$desc$N\n";
+		LOG($outlog, "\t$linecount\t$dbfolder/$inputName\_$bc.fastq\tbc=$bcbefore,plasmid=$plasmid,desc=$desc, bcseq=$LCY$bcseq$N\n","NA");
+		print STDERR "\t$LGN$linecount\t$dbfolder/$inputName\_$bc.fastq$N\tbc=$LPR$bcbefore$N, plasmid=$LCY$plasmid$N, desc=$YW$desc$N, bcseq=$LCY$bcseq$N\n";
 	}
 	else {
 		$bc0->{uc($bcseq)}{plasmid} = $plasmid;
@@ -136,12 +143,12 @@ foreach my $line (@line[0..@line-1]) {
 		$bc0->{uc($bcseq)}{bc} = $bc;
 		$bc0->{uc($bcseq)}{total} = 0;
 		$bc0->{uc($bcseq)}{line} = $linecount;
-		LOG($outlog, "\t$linecount\t$dbfolder/$inputName\_$bc.fastq\tbc=$bcbefore,plasmid=$plasmid,desc=$desc\n","NA");
-		print STDERR "\t$LGN$linecount\t$dbfolder/$inputName\_$bc.fastq$N\tbc=$LPR$bcbefore$N, plasmid=$LCY$plasmid$N, desc=$YW$desc$N\n";
+		LOG($outlog, "\t$linecount\t$dbfolder/$inputName\_$bc.fastq\tbc=$bcbefore,plasmid=$plasmid,desc=$desc, bcseq=$LCY$bcseq$N\n","NA");
+		print STDERR "\t$LGN$linecount\t$dbfolder/$inputName\_$bc.fastq$N\tbc=$LPR$bcbefore$N, plasmid=$LCY$plasmid$N, desc=$YW$desc$N, bcseq=$LCY$bcseq$N\n";
 	}
 	#open ($out{$outBCFile}, ">", "$dbfolder/$inputName\_$bc.fastq") or die "Cannot write to $dbfolder/$inputName\_$bc.fastq: $!\n";
 }
-print $LGN . "\t" . (1+scalar(@line)) . "\t$dbfolder/UNKNOWN.fastq$N (no barcode)\n\n";
+print $LGN . "\t" . (scalar(@line)) . "\t$dbfolder/UNKNOWN.fastq$N (no barcode)\n\n";
 
 if (defined $opt_2) {
 	my @line2 = `cat $barcodeFile2`; $linecount = -1;
@@ -343,7 +350,7 @@ sub get_second_barcode {
 			my $length = length($bcseq2chunk);
 			my $bcseq2chunkrev = $bcseq2chunk;
 			$bcseq2chunkrev =~ tr/ACGT/TGCA/;
-			$bcseq2chunkrev = reverse($bcseq2chunkrev);
+			$bcseq2chunkrev = rev2($bcseq2chunkrev);
 			if ($seq =~ /($bcseq2chunk|$bcseq2chunkrev)/) {
 				my $target2 = $bc2->{$bcseq2}{target};
 				my $pos = 0 if $seq =~ /^($bcseq2chunk|$bcseq2chunkrev)/;
@@ -395,6 +402,22 @@ sub get_second_barcode {
 	return ($barcode, $barcode2, $barcode3, $bad, $bc1, $data, $seq1, $seq1chunk, $bc02);
 }
 =cut
+sub rev2 {
+	my ($seq) = @_;
+	my $seq0 = $seq;
+	if ($seq =~ /\.\{\d+,?\d*\}/) {
+		my ($seq1, $re, $seq2) = $seq =~ /^(.*)(\.\{\d+,?\d*\})(.*)$/;
+		$seq1 = "" if not defined $seq1;
+		$seq2 = "" if not defined $seq2;
+		$seq1 = reverse($seq1);
+		$seq2 = reverse($seq2);
+		return($seq2 . $re . $seq1);
+	}
+	else {
+		die "seq0=\n$seq0\n$seq\n\n" if $seq !~ /^[NACTG]+$/;
+		return(reverse($seq));
+	}
+}
 
 sub infer_barcode {
 	my ($bc1, $seq, $qua, $name, $data, $bc02) = @_;
@@ -417,7 +440,7 @@ sub infer_barcode {
 
 		my $bcseqrev = $bcseq; 
 		$bcseqrev =~ tr/ACTG/TGAC/;
-		$bcseqrev = reverse($bcseqrev);
+		$bcseqrev = rev2($bcseqrev);
 
 		if ($seq =~ /($bcseq|$bcseqrev)/) {
 			($pos) = $seq =~ /^(.*)($bcseq|$bcseqrev)/;
@@ -441,12 +464,12 @@ sub infer_barcode {
 	
 			my $bcseqrev = $bcseq; 
 			$bcseqrev =~ tr/ACTG/TGAC/;
-			$bcseqrev = reverse($bcseqrev);
+			$bcseqrev = rev2($bcseqrev);
 			print $outlog "\n${YW}1. TEST FORWARD $bcseq$N\n";
 			my $muscleinput = ">$bc\n$bcseq\n>$nameshort\n$seq";
 			my @res = muscle($muscleinput);
-			#print "RES:\n$LGN" . join("", @res) . "\n$N\n";
-			#print "$muscleinput\n";
+			print "RES:\n$LGN" . join("", @res) . "\n$N\n";
+			print "muscleinput:$LPR$muscleinput$N\n";
 			($matchperc, $pos) = parse_muscle(\@res, $bcseq, $seq);
 			my $rez2 = "";
 			for (my $r = 0; $r < @res; $r++) {
@@ -563,6 +586,8 @@ sub parse_muscle {
 	my ($name, $seq);
 	my @name; my @seq;
 	for (my $i = 0; $i < @res; $i++) {
+#DEBUGDIE 
+#die "res=$res[$i]\n";
 		my $line = $res[$i];
 		chomp($line);
 		if ($line =~ /^>/) {
@@ -586,6 +611,14 @@ sub parse_muscle {
 	my $name2 = $name[1];
 	my $seq1 = $seq[0];
 	my $seq2 = $seq[1];
+#	die "
+#inputseq1=$LCY$inputseq1$N
+#inputseq2=$LCY$inputseq2$N
+#name1=$LCY$name1$N
+#name2=$LCY$name2$N
+#seq1=$LCY$seq1$N
+#seq2=$LCY$seq2$N
+#";
 	my ($seq1beg) = $seq1 =~ /^([\-]+)[A-Za-z0-9]/; $seq1beg = "" if not defined $seq1beg;
 	my ($seq2beg) = $seq2 =~ /^([\-]+)[A-Za-z0-9]/; $seq2beg = "" if not defined $seq2beg;
 	my ($seq1end) = $seq1 =~ /[A-Za-z0-9]([\-]+)$/; $seq1end = "" if not defined $seq1end;
@@ -631,8 +664,8 @@ sub parse_muscle {
 	my $beg = 0;
 	my $match = 0; my $total = 0;
 	for (my $i = 0; $i < @seq1; $i++) {
-		$match ++ if $seq1[$i] eq $seq2[$i] and $seq1[$i] ne "-";
-		$total ++;
+		$match ++ if $seq1[$i] eq $seq2[$i] and $seq1[$i] ne "-" and $seq1[$i] ne "N";
+		$total ++ if $seq1[$i] ne "N";
 	}
 	my $matchperc = $total == 0 ? 0 : int($match / $total * 1000+0.5)/10;
 	print "match = $match/$total ($matchperc %%)\n";
@@ -673,7 +706,7 @@ sub muscle {
 			my $length = length($bcseqchunk);
 			my $bcseqchunkrev = $bcseqchunk;
 			$bcseqchunkrev =~ tr/ACGT/TGCA/;
-			$bcseqchunkrev = reverse($bcseqchunkrev);
+			$bcseqchunkrev = rev2($bcseqchunkrev);
 			#if (($seq =~ /^(.){0,10}($bcseqchunk|$bcseqchunkrev)/ or $seq =~ /($bcseqchunk|$bcseqchunkrev).{0,10}$/)) {
 			if ($seq =~ /($bcseqchunk|$bcseqchunkrev)/) {# or $seq =~ /($bcseqchunk|$bcseqchunkrev)/)) {
 				if (defined $bc1->{$bcseq}{bc2}) {
@@ -712,7 +745,7 @@ sub muscle {
 			my $bcseqchunk    = $seq1chunk;
 			my $bcseqchunkrev = $seq1chunk;
 			$bcseqchunkrev =~ tr/ACGT/TGCA/;
-			$bcseqchunkrev = reverse($bcseqchunkrev);
+			$bcseqchunkrev = rev2($bcseqchunkrev);
 			#my ($bad1, $good1) = $seq =~ /^(.{0,14}$bcseqchunk|.{0,14}$bcseqchunkrev)(.+)$/ if $seq =~ /^(.{0,14}$bcseqchunk|.{0,14}$bcseqchunkrev)/;
 			#my ($good2, $bad2) = $seq =~ /^(.+)($bcseqchunk.{0,14}|$bcseqchunkrev.{0,14})$/ if $seq =~ /^(.+)($bcseqchunk.{0,14}|$bcseqchunkrev.{0,14})$/;
 			#my ($bad1, $good1, $good2, $bad2);
