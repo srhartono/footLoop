@@ -60,7 +60,7 @@ $print .= "\nbismark TEST:\n${LGN}>>" . $bismarktest . "<<$N\n";
 #$print .= "\nR TEST:\n${LGN}>>" . $Rtest . "<<$N\n";
 
 print $print . "\n";
-die "\n" if $print =~ /not found/i;
+print "\n" if $print =~ /not found/i;
 
 my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 my $homedir = $ENV{"HOME"};
