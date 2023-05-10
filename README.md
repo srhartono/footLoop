@@ -268,7 +268,7 @@ For each gene replicate, we quantified distribution of reads in each cluster. Th
 
 # 3. LICENSE
 
->footLoop pipeline Version 1.2 
+>footLoop pipeline Version 2.8
 >
 >Copyright (C) 2019 Stella Regina Hartono
 >
