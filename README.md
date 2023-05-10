@@ -1,6 +1,12 @@
-# footLoop Pipeline v1.6
+# footLoop Pipeline v2.8
 
 # 0. SYNOPSIS
+```
+footLoop.pl -r <read.fq.gz> -n <desired footLoop output directory> -i <index.bed6> -g <genome fasta> -l <label in PCB[N] where N is number, e.g. PCB1000 or PCB200> 
+footPeak.pl -n <footLoop output directory> -o <desired footPeak output directory>
+footClust.pl -n <footPeak output directory>
+footPeak_graph.pl -n <footPeak_output directory>
+```
 
 ```
 # 1. Install:
@@ -54,49 +60,92 @@ cd footLoop
 
 ### Other required packages/softwares (and versions used for this pipeline)
 
-Softwares (also in softwares/ folder):
+**NEWER/OLDER VERSIONS of these softwares MIGHT NOT WORK due to output file differences. If you get errors it's very likely due to this. ESPECIALLY fastaFromBed (bedtools).**
 
-**NEWER VERSIONS of these softwares MIGHT NOT WORK due to output file differences. If you get errors it's very likely due to this.**
-
-**These are also avaiable in softwares folder. Make sure to install, then put their folder location into $PATH after unzipping!**
+**Some of these are also avaiable in softwares folder. Make sure to install properly, then put their folder location into your `$PATH`**
 
 **It's recommended to create an environment using snakemake or conda**
 
-`conda install -c bioconda bedtools=2.25.0` #[bedtools2 (v2.25.0)](https://github.com/arq5x/bedtools2/releases/download/v2.25.0/bedtools-2.25.0.tar.gz)
+- [bedtools2 (v2.25.0)](https://github.com/arq5x/bedtools2/releases/download/v2.25.0/bedtools-2.25.0.tar.gz)
+- [bowtie2 (v2.2.6)](https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.2.6/bowtie2-2.2.6-source.zip/download)
+- [bismark2 (v0.20.0)](https://www.bioinformatics.babraham.ac.uk/projects/bismark/bismark_v0.20.0.tar.gz) 
+- [samtools (v0.1.19-96b5f2294a)](https://sourceforge.net/projects/samtools/files/samtools/0.1.19/samtools-0.1.19.tar.bz2/download) 
+- [R (v3.6.1)](https://cloud.r-project.org/src/base/R-3/R-3.6.1.tar.gz) or [R (v4.2.0)](https://cloud.r-project.org/src/base/R-4/R-4.2.0.tar.gz) 
 
-`conda install -c bioconda bowtie2=2.2.6` #[bowtie2 (v2.2.6)](https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.2.6/bowtie2-2.2.6-source.zip/download)
+**footLoop.yaml for snakemake:**
 
-`conda install -c bioconda bismark=0.20.0` #[bismark2 (v0.20.0)](https://www.bioinformatics.babraham.ac.uk/projects/bismark/bismark_v0.20.0.tar.gz) 
+```name: footLoop
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - bedtools=2.25.0
+  - bowtie2=2.2.6
+  - bismark=0.20.0
+  - samtools=0.1.19
+  - r-base=4.2.0
+  - r-rcolorbrewer=1.1_3
+  - r-gridextra=2.3
+  - r-labeling=0.4.2
+  - r-reshape2=1.4.4
+  - r-ggplot2=3.4.0
+```
 
-`conda install -c bioconda samtools=0.1.19` #[samtools (v0.1.19-96b5f2294a)](https://sourceforge.net/projects/samtools/files/samtools/0.1.19/samtools-0.1.19.tar.bz2/download) 
+**Conda install:**
 
-`conda install -c r r-base=3.6.1` #[R (v3.6.1)](https://cloud.r-project.org/src/base/R-3/R-3.6.1.tar.gz) 
+```
+#bedtools 2.25.0
+conda install -c bioconda bedtools=2.25.0
+#bowtie 2.2.6
+conda install -c bioconda bowtie2=2.2.6
+#bismark 0.20.0
+conda install -c bioconda bismark=0.20.0
+#samtools 0.1.19
+conda install -c bioconda samtools=0.1.19
+```
 
-R packages:
+R: tested on versions [R (v3.6.1)](https://cloud.r-project.org/src/base/R-3/R-3.6.1.tar.gz) or [R (v4.2.0)](https://cloud.r-project.org/src/base/R-4/R-4.2.0.tar.gz) 
+```
+#R version 4.2.0:
+conda install -c r r-base=4.2.0
 
-`conda install -c r r-rcolorbrewer=1.1_2` #RColorBrewer v1.1-2
+#R packages for version 4.2.0:
+conda install -c r r-rcolorbrewer=1.1_3 #RColorBrewer v1.1-3
+conda install -c r r-gridextra=2.3 #gridExtra v2.3
+conda install -c r r-labeling=0.4.2 #labeling v0.4.2
+conda install -c conda-forge r-reshape2=1.4.4 #reshape2 v1.4.4
+conda install -c conda-forge r-ggplot2=3.4.0 #ggplot2 v3.4.0
+```
 
-`conda install -c r r-gridextra=2.3` #gridExtra v2.3
+```
+#R version 3.6.1:
+conda install -c r r-base=3.6.1
 
-`conda install -c r r-labeling=0.3` #labeling v0.3
+#R packages for version 3.6.1:
+conda install -c r r-rcolorbrewer=1.1_2 #RColorBrewer v1.1-2
+conda install -c r r-gridextra=2.3 #gridExtra v2.3
+conda install -c r r-labeling=0.3 #labeling v0.3
+conda install -c conda-forge r-reshape2=1.4.3 #reshape2 v1.4.3
+conda install -c conda-forge r-ggplot2=3.1.0 #ggplot2 v3.1.0
+```
 
-`conda install -c conda-forge r-reshape2=1.4.3` #reshape2 v1.4.3
-
-`conda install -c conda-forge r-ggplot2=3.1.0` #ggplot2 v3.1.0
-
-`conda install -c conda-forge r-gmd=0.3.1` #GMD v0.3.1
+If something broke, check if `fastaFromBed` is version `2.25.0`. Type `fastaFromBed` in the terminal, press ENTER, and the first 2 lines shows this below:
+```
+Tool:    bedtools getfasta (aka fastaFromBed)
+Version: v2.25.0
+```
 
 ## 1b. Mapping (footLoop.pl)
 
 ```
-footLoop.pl -r <read.fastq> -n <output directory> -l <label> -i <index.bed6> -g <genome fasta>
+footLoop.pl -r <read.fq.gz> -n <desired footLoop output directory> -l <label in PCB[N] where N is number, e.g. PCB1000 or PCB200> -i <index.bed6> -g <genome fasta>
 
 Options (default are in [ ] brackets)
 -x: add x bp on the start of amplicon (strand specific). E.g. add 100bp upstream of start site: -x -100. [-x 0]
 -y: [0] Same as –x, but add x bp to the end of amplicon. [-y 0]
 -x and -y are useful as sometimes read start/end exceed amplicon start/end by 10-100 basepairs, and Bismark will not map these reads even though the rest of the read maps perfectly to the amplicon.
 
--l: alphanumeric label
+-l: label in this format: PCBN, where N is number, e.g. PCB1000 or PCB200
 -L: minimum read length (e.g. 500bp: –L 500). Add “p” to make it based on amplicon length (e.g.85%: -L 85p). [-L 85p]
 -q: minimum map quality. [-q 0]
 -Z: toggle to use non-stringent mapping (-H for more explanation). [off]
@@ -104,8 +153,7 @@ Options (default are in [ ] brackets)
 ```
 
 ## 1c. Peak calling (footPeak.pl)
-
-
+   
 ```
 footPeak.pl -n <footLoop output directory> -o <output directory>
 
