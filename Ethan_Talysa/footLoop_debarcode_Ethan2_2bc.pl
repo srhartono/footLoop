@@ -84,11 +84,11 @@ my $dbfolder = "$inputName\_barcode$barcodeFileName\_debarcode_result";
 $dbfolder =~ s/\./_/g;
 mkdir $dbfolder if not -d $dbfolder;
 print "dbFolder=$YW$dbfolder$N\n";
-my $outlogFile = "$inputName\_barcode$barcodeFileName\_logfile"; $outlogFile =~ s/\./_/g; $outlogFile = "$dbfolder/$outlogFile.txt";
+my $outLogFile = "$inputName\_barcode$barcodeFileName\_logfile"; $outLogFile =~ s/\./_/g; $outLogFile = "$dbfolder/$outLogFile.txt";
 my $outExtraFile = "$inputName\_barcode$barcodeFileName\_ExtraBC"; $outExtraFile =~ s/\./_/g; $outExtraFile = "$dbfolder/$outExtraFile.txt";
-print "outlog File  : $LGN$outlogFile$N\n";
+print "outlog File  : $LGN$outLogFile$N\n";
 print "outExtra File: $LGN$outExtraFile$N\n";
-open (my $outlog, ">", $outlogFile) or die "Cannot write to $LCY$outlogFile$N: $!\n";
+open (my $outLog, ">", $outLogFile) or die "Cannot write to $LCY$outLogFile$N: $!\n";
 open (my $outExtra, ">", $outExtraFile) or die "Cannot write to $LCY$outExtraFile$N: $!\n";
 # parse barcode
 my ($bc0, %out, %outcheck);
@@ -148,7 +148,7 @@ foreach my $line (@line[0..@line-1]) {
 		#	$bc2->{uc($bcseq2)}{bc} = $bc;
 		#	$bc0->{uc($bcseq)}{bc2} = $bc2;
 		#}
-		LOG($outlog, "\t$linecount\t$dbfolder/$inputName\_$bc.fastq\tbc=$bcbefore,plasmid=$plasmid,desc=$desc, bcseq=$LCY$bcseq$N\n","NA");
+		LOG($outLog, "\t$linecount\t$dbfolder/$inputName\_$bc.fastq\tbc=$bcbefore,plasmid=$plasmid,desc=$desc, bcseq=$LCY$bcseq$N\n","NA");
 		print STDERR "\t$LGN$linecount\t$dbfolder/$inputName\_$bc.fastq$N\tbc=$LPR$bcbefore$N, plasmid=$LCY$plasmid$N, desc=$YW$desc$N, bcseq=$LCY$bcseq$N\n";
 	}
 	else {
@@ -157,7 +157,7 @@ foreach my $line (@line[0..@line-1]) {
 		$bc0->{uc($bcseq)}{bc} = $bc;
 		$bc0->{uc($bcseq)}{total} = 0;
 		$bc0->{uc($bcseq)}{line} = $linecount;
-		LOG($outlog, "\t$linecount\t$dbfolder/$inputName\_$bc.fastq\tbc=$bcbefore,plasmid=$plasmid,desc=$desc, bcseq=$LCY$bcseq$N\n","NA");
+		LOG($outLog, "\t$linecount\t$dbfolder/$inputName\_$bc.fastq\tbc=$bcbefore,plasmid=$plasmid,desc=$desc, bcseq=$LCY$bcseq$N\n","NA");
 		print STDERR "\t$LGN$linecount\t$dbfolder/$inputName\_$bc.fastq$N\tbc=$LPR$bcbefore$N, plasmid=$LCY$plasmid$N, desc=$YW$desc$N, bcseq=$LCY$bcseq$N\n";
 		#if (defined $bcseq2) {
 		#	my $bc2;
@@ -167,11 +167,11 @@ foreach my $line (@line[0..@line-1]) {
 		#	$bc2->{uc($bcseq2)}{line} = $linecount;
 		#	$bc2->{uc($bcseq2)}{bc} = $bc;
 		#	$bc0->{uc($bcseq)}{bc2} = $bc2;
-		#	LOG($outlog, "\t$linecount\t$dbfolder/$inputName\_$bc.fastq\tbc=$bcbefore,plasmid=$plasmid,desc=$desc, bcseq=$LCY$bcseq$N, bcseq2=$bcseq2\n","NA");
+		#	LOG($outLog, "\t$linecount\t$dbfolder/$inputName\_$bc.fastq\tbc=$bcbefore,plasmid=$plasmid,desc=$desc, bcseq=$LCY$bcseq$N, bcseq2=$bcseq2\n","NA");
 		#	print STDERR "\t$LGN$linecount\t$dbfolder/$inputName\_$bc.fastq$N\tbc=$LPR$bcbefore$N, plasmid=$LCY$plasmid$N, desc=$YW$desc$N, bcseq=$LCY$bcseq$N\n";
 		#}
 		#else {
-		#	LOG($outlog, "\t$linecount\t$dbfolder/$inputName\_$bc.fastq\tbc=$bcbefore,plasmid=$plasmid,desc=$desc, bcseq=$LCY$bcseq$N\n","NA");
+		#	LOG($outLog, "\t$linecount\t$dbfolder/$inputName\_$bc.fastq\tbc=$bcbefore,plasmid=$plasmid,desc=$desc, bcseq=$LCY$bcseq$N\n","NA");
 		#	print STDERR "\t$LGN$linecount\t$dbfolder/$inputName\_$bc.fastq$N\tbc=$LPR$bcbefore$N, plasmid=$LCY$plasmid$N, desc=$YW$desc$N, bcseq=$LCY$bcseq$N\n";
 		#}
 	}
@@ -252,9 +252,9 @@ if ($input1 =~ /(.fq.gz$|.fq$|.fastq$|.fastq.gz$)/) {
 	#return ($barcode, $barcode2, $seq, $qua, $barcode3, $goodtype);
 		$bc3 = "UNKNOWN" if not defined $bc3;
 		$bc = "UNKNOWN" if not defined $bc;
-		print $outlog "$readCount: $LGN$readName$N, bc=$bc, bc3=$bc3\n";
+		print $outLog "$readCount: $LGN$readName$N, bc=$bc, bc3=$bc3\n";
 		print $outnobc "$readName\n$seq\n\+\n$qua\n" if not defined $seq2;
-		print $outlog "\nPrev Seq:\n$seq\n$qua\n" if $readName eq $debugname;
+		print $outLog "\nPrev Seq:\n$seq\n$qua\n" if $readName eq $debugname;
 		print $outExtra "$readName\t$bc\t$bc3\t$goodtype\n";
 		my $outBC = "$inputName\_$bc"; $outBC =~ s/\./_/g; 
 		my $outBCFile = "$dbfolder/$outBC.fq.gz";
@@ -268,7 +268,7 @@ if ($input1 =~ /(.fq.gz$|.fq$|.fastq$|.fastq.gz$)/) {
 		print {$out{$outBCFile}} "$readName\n$seq2\n\+\n$qua2\n";# if defined $seq2;
 
 		print date() . "\t$YW$input1$N: Done $LGN$readCount$N\n" if $readCount % 500 == 0;
-		#last if $readCount > 6;
+		last if $readCount > 6;
 	}
 	close $in1;
 }
@@ -301,15 +301,15 @@ elsif ($input1 =~ /(.sam$|.bam$)/) {
 
 		$count{$outBC}{total} ++;
 
-		print $outlog "$readCount: $LGN$readName$N, BC=$outBC, bc=$bc\n";
+		print $outLog "$readCount: $LGN$readName$N, BC=$outBC, bc=$bc\n";
 		print $outnobc "$readName\n$seq\n\+\n$qua\n" if not defined $seq2;
-		print $outlog "\nPrev Seq:\n$seq\n$qua\n" if $readName eq $debugname;
+		print $outLog "\nPrev Seq:\n$seq\n$qua\n" if $readName eq $debugname;
 		print $outExtra "$readName\t$outBC\t$bc\t$goodtype\n";
 
 		my $outBCFile = "$dbfolder/$outBC.fq";
 		if (not defined $outcheck{$outBCFile}) {
 			$outcheck{$outBCFile} = 1;
-			LOG($outlog, "OUTBCFILE=$LCY$outBCFile$N\n");
+			LOG($outLog, "OUTBCFILE=$LCY$outBCFile$N\n");
 			open ($out{$outBCFile}, "> $outBCFile") or die "Cannot write to $LCY$outBCFile$N: $!\n";
 			#open ($out{$outBCFile}, "| samtools view -bS -t $indexFile - > $outBCFile") or die "Cannot write to $LCY$outBCFile$N: $!\n";
 		}
@@ -340,7 +340,7 @@ Double bc : $double_bc
 No bc     : $seq_nobc
 
 ";
-print $outlog "
+print $outLog "
 
 Total seq : $seq_totbc
 Has bc    : $seq_goodbc ($seq_goodbcPerc \%)
@@ -350,87 +350,20 @@ No bc     : $seq_nobc
 ";
 
 foreach my $outBC (sort {$count{$b} <=> $count{$a}} keys %count) {
-	print $outlog "\t$outBC\t$count{$outBC}{total}\n";
+	print $outLog "\t$outBC\t$count{$outBC}{total}\n";
 	print STDERR "\t$outBC\t$count{$outBC}{total}\n";
 }
 #foreach my $bcseq (sort {$bc0->{$a}{line} <=> $bc0->{$b}{line}} keys %{$bc0}) {
-#	print $outlog "\t$bc0->{$bcseq}{bc}\t$bcseq\t$bc0->{$bcseq}{total}\n";
+#	print $outLog "\t$bc0->{$bcseq}{bc}\t$bcseq\t$bc0->{$bcseq}{total}\n";
 #	print STDERR "\t$bc0->{$bcseq}{bc}\t$bcseq\t$bc0->{$bcseq}{total}\n";
 #}
-
-=comment
-sub get_second_barcode {
-	my ($seq, $bc1, $bcseq, $name, $bad, $data, $bc02) = @_;
-	my $bc2;
-	if (not defined $bcseq) {
-		$bc2 = $bc02;
-	}
-	else {
-		$bc2 = $bc1->{$bcseq}{bc2};
-	}
-	my $barcode; my $barcode2; my $barcode3; my $type;
-	my $seq1; my $seq2;
-	my $seq1chunk; my $seq2chunk;
-	my $seq_length = length($seq);
-	my ($beg, $end) = 0;
-	for (my $l = 0; $l < 2; $l++) {
-		foreach my $bcseq2 (sort keys %{$bc2}) {
-			my $bcseq2chunk = substr($bcseq2, $l, length($bcseq2)-$l+1);
-			my $length = length($bcseq2chunk);
-			my $bcseq2chunkrev = $bcseq2chunk;
-			$bcseq2chunkrev =~ tr/ACGT/TGCA/;
-			$bcseq2chunkrev = rev2($bcseq2chunkrev);
-			if ($seq =~ /($bcseq2chunk|$bcseq2chunkrev)/) {
-				my $target2 = $bc2->{$bcseq2}{target};
-				my $pos = 0 if $seq =~ /^($bcseq2chunk|$bcseq2chunkrev)/;
-				   $pos = $seq_length if $seq =~ /($bcseq2chunk|$bcseq2chunkrev)$/;
-				my ($pos1, $pos2) = $seq =~ /^(.+)($bcseq2chunk|$bcseq2chunkrev)(.+)$/ if not defined $pos and $seq =~ /($bcseq2chunk|$bcseq2chunkrev)/;
-					$pos = defined $pos ? $pos : length($pos1) <= 10 ? length($pos1) : length($pos2);
-				my $type = $pos < 0.5 * $seq_length ? 1 : 2;
-				die "$name: barcode=$barcode, bcseq=$bcseq2 ($bcseq2chunk), pos1=$pos1 pos2=$pos2\n" if not defined $pos;
-				$barcode2 = $seq =~ /$bcseq2chunk/ ? "$type,$bcseq2chunk" : "$type,$bcseq2chunkrev";
-				if (defined $barcode) {
-					$bad->{$name} = 1;
-					$seq2 = $bcseq2;
-					$seq2chunk = $bcseq2chunk;
-					print $outlog "l=$l, $LCY$name\tDBL\t$pos/$seq_length\tprev=$barcode\tcurr=$bc1->{$bcseq}{bc2}{$bcseq2}{target}\tprev=$seq1 (chunk=$seq1chunk)\tcurr=$seq2 (chunk=$seq2chunk)$N\n$seq\n";
-				}
-				else {
-					if (not defined $bcseq) {
-						$barcode = $bc2->{$bcseq2}{target};
-					}
-					else {
-						$barcode = $bc1->{$bcseq}{bc};
-						$bc1->{$bcseq}{total} ++;
-						$data->{$name} = $barcode;
-					}
-					$barcode3 = $bc2->{$bcseq2}{target};
-#					$barcode3 = $barcode . "_" . $bc2->{$bcseq2}{target};
-					$seq1 = $bcseq2;
-					$seq1chunk = $bcseq2chunk;
-					print $outlog "l=$l, $LGN$name\tGOOD\t$pos/$seq_length\t$barcode$N\n";
-				}
-			}
-		}
-		return ($barcode, $barcode2, $barcode3, $bad, $bc1, $data, $seq1, $seq1chunk, $bc02) if defined $barcode;
-	}
-	if (not defined $barcode) {
-		($barcode) = $seq =~ /TAGCGG(\w{1,10})AGCACTAA/;
-		$barcode .= "_FW" if defined $barcode;
-		$barcode2 = "POS,$barcode" if defined $barcode;
-	}
-	if (not defined $barcode) {
-		($barcode) = $seq =~ /TTAGTGCT(\w{1,10})CCGCTA/;
-		$barcode .= "_RV" if defined $barcode;
-		$barcode2 = "NEG,$barcode" if defined $barcode;
-	}
-	$barcode3 = $barcode;
-	$seq1 = $barcode;
-	$seq1chunk = $barcode;
-
-	return ($barcode, $barcode2, $barcode3, $bad, $bc1, $data, $seq1, $seq1chunk, $bc02);
+sub myrevcomp {
+	my ($seq) = @_;
+	$seq =~ tr/ACGT/TGCA/;
+	$seq = rev2($seq);
+	return($seq);
 }
-=cut
+
 sub rev2 {
 	my ($seq) = @_;
 	my $seq0 = $seq;
@@ -456,76 +389,18 @@ sub rev2 {
 	}
 }
 
-sub infer_barcode {
-	my ($bc1, $seq, $qua, $name, $data, $bc02) = @_;
-	print $outlog "\n---------------------------------------\n${YW}$name$N\n";
-	#print "\n---------------------------------------\n${YW}$name$N\n";
-	my $barcode; my $barcode2; my $barcode3; my $type;
-	my $seq1; my $seq2;
-	my $seq1chunk; my $seq2chunk;
-	my $seq_length = length($seq);
-	my ($beg, $end) = 0;
-	my %good;
-	$good{highest} = 0;
-	my $pos = -1;
-	my $matchperc = 0;
-	my $goodtype = "BAD";
-	$barcode3 = "$LRD$matchperc$N\t$LPR$pos$N";
-	foreach my $bcseq (sort {$bc1->{$a}{bc} cmp $bc1->{$b}{bc}} keys %{$bc1}) {
-		my $bc = $bc1->{$bcseq}{bc};
-		my $nameshort = $name; $nameshort =~ s/^\@//;
-
-		my $bcseqrev = $bcseq; 
-		$bcseqrev =~ tr/ACTG/TGAC/;
-		$bcseqrev = rev2($bcseqrev);
-
-		if ($seq =~ /($bcseq|$bcseqrev)/) {
-			($pos) = $seq =~ /^(.*)($bcseq|$bcseqrev)/;
-			$pos = defined $pos ? length($pos) : -1;
-			$matchperc = 100;
-			$goodtype = "${LGN}PERFECT_FW_$bcseq$N" if $matchperc == 100 and $seq =~ /$bcseq/;
-			$goodtype = "${LGN}PERFECT_RV_$bcseqrev$N" if $matchperc == 100 and $seq =~ /$bcseqrev/;
-			$barcode3 = "$LGN$matchperc$N\t$LPR$pos$N";
-			$good{highest} = $matchperc;
-			undef $good{bc};
-			$good{bc}{$bc} = $bcseq;
-			last;
-		}
-	}
-	if ($matchperc < 100) {
-		$goodtype = "BAD";
-
-		foreach my $bcseqorig (sort {$bc1->{$a}{bc} cmp $bc1->{$b}{bc}} keys %{$bc1}) {
-
-			my $bc = $bc1->{$bcseqorig}{bc};
-			my $nameshort = $name; $nameshort =~ s/^\@//;
-
-			my ($matchperc, $pos, $rez2, $bcseq, $bcseqrev);
-
-			if ($bcseq !~ /,/) {
-				my ($matchperc, $pos, $rez2, $bcseq, $bcseqrev) = testbc($bcseqorig, $seq);
-			}
-			else {
-				my $seq1 = $seq if length($seq) <= 100;
-				my ($seq1) = $seq =~ /^(.{100})/ if length($seq) > 100;
-				my ($matchperc, $pos, $rez2, $bcseq, $bcseqrev) = testbc($bcseqorig, $seq1);
-				my $seq1 = $seq if length($seq) <= 100;
-				my ($seq1) = $seq =~ /^(.{100})/ if length($seq) > 100;
-				my ($matchperc, $pos, $rez2, $bcseq, $bcseqrev) = testbc($bcseqorig, $seq1);
-			}
-
 sub testbc {
-	my ($bcseq, $seq) = @_;
+	my ($bc, $bcseq, $nameshort, $seq) = @_;
 	my $bcseqrev = $bcseq; 
 	$bcseqrev =~ tr/ACTG/TGAC/;
 	$bcseqrev = rev2($bcseqrev);
 				
-	print $outlog "\n${YW}1. TEST FORWARD $bcseq$N\n";
+	print $outLog "\n${YW}1. TEST FORWARD $bcseq$N\n";
 	my $muscleinput = ">$bc\n$bcseq\n>$nameshort\n$seq";
 	my @res = muscle($muscleinput);
-	print "RES:\n$LGN" . join("", @res) . "\n$N\n";
-	print "muscleinput:$LPR$muscleinput$N\n";
-	($matchperc, $pos) = parse_muscle(\@res, $bcseq, $seq);
+	#print "RES:\n$LGN" . join("", @res) . "\n$N\n";
+	#print "muscleinput:$LPR$muscleinput$N\n";
+	my ($matchperc, $pos) = parse_muscle(\@res, $bcseq, $seq);
 	my $rez2 = "";
 	for (my $r = 0; $r < @res; $r++) {
 		chomp($res[$r]);
@@ -537,49 +412,230 @@ sub testbc {
 	$rez2 =~ s/>/\n/g;
 	$rez2 =~ s/^\n$//g;
 	$rez2 =~ s/MUHSPACE/\n/g;
-	return($matchperc, $pos, $resz2, $bcseq, $bcseqrev);
+	return($matchperc, $pos, $rez2);
+}
+
+sub testbc2 {
+	my ($testbc, $testbcseq, $nameshort, $seq) = @_;
+				
+	#print $outLog "\n${YW}1. TEST FORWARD $testbcseq$N\n";
+	#print "\n${YW}1. TEST FORWARD $testbcseq$N\n";
+	my $muscleinput = ">$testbc\n$testbcseq\n>$nameshort\n$seq";
+	my @res = muscle($muscleinput);
+	#print $outLog "RES:\n$LGN" . join("", @res) . "\n$N\n";
+	#print $outLog "muscleinput:$LPR$muscleinput$N\n";
+	#print "RES:\n$LGN" . join("", @res) . "\n$N\n";
+	#print "muscleinput:$LPR$muscleinput$N\n";
+	my ($matchperc, $pos) = parse_muscle(\@res, $testbcseq, $seq);
+	my $rez2 = "";
+	for (my $r = 0; $r < @res; $r++) {
+		chomp($res[$r]);
+		if ($res[$r] =~ /^>/) {
+			$res[$r] .= "MUHSPACE";
+		}
+		$rez2 .= $res[$r];
+	}
+	$rez2 =~ s/>/\n/g;
+	$rez2 =~ s/^\n$//g;
+	$rez2 =~ s/MUHSPACE/\n/g;
+	return($matchperc, $pos, $rez2, $testbcseq);
+}
+
+sub parse_bcseq {
+	my ($bcseqs) = @_;
+	my %bc;
+	my @bcseqs = split(",", $bcseqs);
+	for (my $i = 0; $i < @bcseqs; $i++) {
+		my $bcseq = $bcseqs[$i];
+		if ($bcseq =~ /^(BEG|END)/) {
+			my ($bctype, $number, $seq) = $bcseq =~ /^(BEG|MID|END)(\d+)=(.+)$/;
+			$bctype = $bctype eq "BEG" ? "1BEG" : $bctype eq "MID" ? "2MID" : $bctype eq "END" ? "3END" : die "bctype ($bctype) has to be BEG/MID/END!\n";
+			$bc{sep}{$bctype}{$number} = $seq;
+		}
+	}
+	foreach my $bctype (sort keys %{$bc{sep}}) {
+		foreach my $number (sort {$a <=> $b} keys %{$bc{sep}{$bctype}}) {
+			$bc{all}{$bctype} .= $bc{sep}{$bctype}{$number};
+		}
+	}
+	#foreach my $bctype (sort keys %{$bc{all}}) {
+	#	print "$bctype = $bc{all}{$bctype}\n";
+	#}
+	return \%bc;
 }
 
 
-			#else {
-			#	($bctest1, $bctest2) = split(",", $bcseqorig);
-			#	$bcseq = $bctest1;
-			#}
-			#my @res2 = split("\n", $rez2);
-			#($pos) = $res2[3] =~ /^(.*)($bcseq|$bcseqrev)/;
-			#$pos = defined $pos ? length($pos) : -1;
-			
-			print $outlog "$rez2\n";
-			#print join("", @res) . "\n\n";
-			if ($matchperc > $good{highest}) {
-				$barcode3 = "$LGN$matchperc$N\t$LPR$pos$N";
-				$barcode3 = "$LRD$matchperc$N\t$LPR$pos$N" if $matchperc < 50;
-				$barcode3 = "$YW$matchperc$N\t$LPR$pos$N" if $matchperc >= 50 and $matchperc < 86;
-				$good{highest} = $matchperc;
-				undef $good{bc};
-				$goodtype = "${LRD}FW_$bcseq$N";
-				$good{bc}{$bc} = $bcseq;
-				last if $matchperc >= 99;
-			}
-	
-			print $outlog "\n${YW}2. TEST REVERSE $bcseqrev$N\n";
-			$muscleinput = ">$bc\n$bcseqrev\n>$nameshort\n$seq";
-			@res = muscle($muscleinput);
-			#print "RES:\n$LGN" . join("", @res) . "\n$N\n";
-			#print "$muscleinput\n";
-			($matchperc, $pos) = parse_muscle(\@res, $bcseq, $seq);
-			$rez2 = "";
-			for (my $r = 0; $r < @res; $r++) {
-				chomp($res[$r]);
-				if ($res[$r] =~ /^>/) {
-					$res[$r] .= "MUHSPACE";
+
+sub infer_barcode {
+	my ($bc1, $seq, $qua, $name, $data, $bc02) = @_;
+	LOG($outLog, "\n---------------------------------------\n${YW}$name$N\n","NA");
+	my $barcode; my $barcode2; my $barcode3; my $type;
+	my $seq1; my $seq2;
+	my $seq1chunk; my $seq2chunk;
+	my $seq_length = length($seq);
+	my ($beg, $end) = 0;
+	my %good;
+	$good{highest} = 0;
+	my $pos = -1;
+	my $matchperc = 0;
+	my $goodtype = "BAD";
+	$barcode3 = "$LRD$matchperc$N\t$LPR$pos$N";
+
+	foreach my $bcseqorig (sort {$bc1->{$a}{bc} cmp $bc1->{$b}{bc}} keys %{$bc1}) {
+		my $bcseq = $bcseqorig;
+		my $bc = $bc1->{$bcseq}{bc};
+		my $nameshort = $name; $nameshort =~ s/^\@//;
+
+		if ($bcseq =~ /[\=,]/) {
+			my $bad = 0;
+			my $bclong = parse_bcseq($bcseq);
+			die "bc=$bc: at infer_bc, undef bclong from bcseq=$LGN$bcseq$N\n" if not defined $bclong;
+			my %bclong = %{$bclong};
+			my $bcfwall = "";
+			my $bcrvall = "";
+			my $bcstrand = "FW";
+			foreach my $bctype (sort keys %{$bclong{all}}) {
+				my $bcfw = $bclong{all}{$bctype};
+				my $bcrv = myrevcomp($bcfw);
+				if ($bctype eq "1BEG") {
+					#print " 1BEG: test\n$LGN^$bcfw$N\n$LCY$bcrv\$$N\n";
+					$bad ++ if $seq !~ /(^$bcfw|$bcrv$)/;
+					my $bcstrand2 = $seq =~ /($bcrv$)/ ? "RV" : "FW";
+					$bcstrand = $bcstrand2 if not defined $bcstrand;
+					$bad ++ if defined $bcstrand and $bcstrand ne $bcstrand2;
 				}
-				$rez2 .= $res[$r];
+				elsif ($bctype eq "2MID") {
+					$bad ++ if $seq !~ /($bcfw|$bcrv)/;
+					my $bcstrand2 = $seq =~ /($bcrv)/ ? "RV" : "FW";
+					$bcstrand = $bcstrand2 if not defined $bcstrand;
+					$bad ++ if defined $bcstrand and $bcstrand ne $bcstrand2;
+				}
+				elsif ($bctype eq "3END") {
+					#print " 3END: test\n$LGN^$bcfw$N\n$LCY$bcrv\$$N\n";
+					$bad ++ if $seq !~ /($bcfw$|^$bcrv)/;
+					my $bcstrand2 = $seq =~ /(^$bcrv)/ ? "RV" : "FW";
+					$bcstrand = $bcstrand2 if not defined $bcstrand;
+					$bad ++ if defined $bcstrand and $bcstrand ne $bcstrand2;
+				}
+				$bcfwall .= $bcfwall eq "" ? "$bcfw" : ",$bcfw";
+				$bcrvall .= $bcrvall eq "" ? "$bcrv" : ",$bcrv";
 			}
-			$rez2 =~ s/>/\n/g;
-			$rez2 =~ s/^\n$//g;
-			$rez2 =~ s/MUHSPACE/\n/g;
-			print $outlog "$rez2\n";
+			if ($bad == 0) {
+				$pos = 0;
+				$matchperc = 100;
+				$goodtype = "${LGN}PERFECT_FW_$bcfwall$N" if $matchperc == 100 and $bcstrand eq "FW";
+				$goodtype = "${LGN}PERFECT_RV_$bcrvall$N" if $matchperc == 100 and $bcstrand eq "RV";
+				$barcode3 = "$LGN$matchperc$N\t$LPR$pos$N";
+				$good{highest} = $matchperc;
+				undef $good{bc};
+				$good{bc}{$bc} = $bcseq;
+				#print "$goodtype\n";
+				last;
+			}
+			else {
+				my @split = split("[,\=]", $bcseq);
+				
+				#print "bad bc $LCY$bcseq$N\n";
+				#print join("\n", @split) . "\n\n";
+			}
+		}
+		else {
+			my $bcseqrev = $bcseq; 
+			$bcseqrev =~ tr/ACTG/TGAC/;
+			$bcseqrev = rev2($bcseqrev);
+			
+			if ($seq =~ /($bcseq|$bcseqrev)/) {
+				($pos) = $seq =~ /^(.*)($bcseq|$bcseqrev)/;
+				$pos = defined $pos ? length($pos) : -1;
+				$matchperc = 100;
+				$goodtype = "${LGN}PERFECT_FW_$bcseq$N" if $matchperc == 100 and $seq =~ /$bcseq/;
+				$goodtype = "${LGN}PERFECT_RV_$bcseqrev$N" if $matchperc == 100 and $seq =~ /$bcseqrev/;
+				$barcode3 = "$LGN$matchperc$N\t$LPR$pos$N";
+				$good{highest} = $matchperc;
+				undef $good{bc};
+				$good{bc}{$bc} = $bcseq;
+				last;
+			}
+		}
+	}
+
+	#print "matchperc=$matchperc\n";
+	if ($matchperc < 100) {
+		$goodtype = "BAD";
+
+		foreach my $bcseqorig (sort {$bc1->{$a}{bc} cmp $bc1->{$b}{bc}} keys %{$bc1}) {
+
+			my $bc = $bc1->{$bcseqorig}{bc};
+			my $nameshort = $name; $nameshort =~ s/^\@//;
+			my $muscleinput;
+			my @res;
+			my ($matchperc, $pos, $rez2, $bcseq, $bcseqrev, $beststrand);
+
+			if ($bcseqorig =~ /[\=,]/) {
+				my $bad = 0;
+				my $bclong = parse_bcseq($bcseqorig);
+				die "bc=$bc: at infer_bc, undef bclong from bcseq=$LGN$bcseqorig$N\n" if not defined $bclong;
+				my %bclong = %{$bclong};
+				my $bcfwall = "";
+				my $bcrvall = "";
+				my $bcstrand = "FW";
+				my $matchpercfw0 = 0;
+				my $matchpercrv0 = 0;
+				my $totalmatch = 0;
+				my $posfw0 = -1;
+				my $posrv0 = -1;
+				my $rez2fw0 = "";
+				my $rez2rv0 = "";
+				my $bcseqfw0 = "";
+				my $bcseqrv0 = "";
+				#test FW
+				foreach my $bctype (sort keys %{$bclong{all}}) {
+					my $bcfw = $bclong{all}{$bctype};
+					my $bcrv = myrevcomp($bcfw);
+					my ($matchpercfw, $posfw, $rez2fw, $bcseqfw) = testbc2($bc, $bcfw, $nameshort, $seq);
+					my ($matchpercrv, $posrv, $rez2rv, $bcseqrv) = testbc2($bc, $bcrv, $nameshort, $seq);
+					LOG($outLog, "- bc=$YW$bc$N, $bctype:$LPR FW$N: $LGN$matchpercfw$N % match at $LGN$posfw$N/$LCY$seq_length$N,$LPR RV$N: $LGN$matchpercrv$N % match at $LGN$posrv$N/$LCY$seq_length$N\n","NA");
+					$posfw0 = $posfw if ($posfw0 eq -1 or ($posfw0 ne -1 and $posfw0 < $posfw));
+					$posrv0 = $posrv if ($posrv0 eq -1 or ($posrv0 ne -1 and $posrv0 < $posrv));
+					$matchpercfw0 += $matchpercfw;
+					$matchpercrv0 += $matchpercrv;
+					$rez2fw0 .= $rez2fw0 eq "" ? $rez2fw : "\n$rez2fw";
+					$rez2rv0 .= $rez2rv0 eq "" ? $rez2rv : "\n$rez2rv";
+					$bcseqfw0 .= $bcseqfw0 eq "" ? $bcseqfw : ".+$bcseqfw";
+					$bcseqrv0 .= $bcseqrv0 eq "" ? $bcseqrv : ".+$bcseqrv";
+					$totalmatch ++;
+					$bcfwall .= $bcfwall eq "" ? "$bcfw" : ",$bcfw";
+					$bcrvall .= $bcrvall eq "" ? "$bcrv" : ",$bcrv";
+				}
+				
+				$matchpercfw0 = $totalmatch eq 0 ? 0 : int(10*$matchpercfw0 / $totalmatch+0.5)/10;
+				$matchpercrv0 = $totalmatch eq 0 ? 0 : int(10*$matchpercrv0 / $totalmatch+0.5)/10;
+				if ($matchpercrv0 <= $matchpercfw0) {
+					$matchperc = $matchpercfw0;
+					$pos = $posfw0;
+					$rez2 = $rez2fw0;
+					$bcseq = $bcseqfw0;
+					$bcseqrev = $bcseqrv0;
+					$beststrand = "FW";
+				}
+				else {
+					$matchperc = $matchpercrv0;
+					$pos = $posrv0;
+					$rez2 = $rez2rv0;
+					$bcseq = $bcseqfw0;
+					$bcseqrev = $bcseqrv0;
+					$beststrand = "RV";
+				}
+				LOG($outLog, "$name: matchperc=$YW$matchperc$N pos=$LPR$pos$N bcseq=$LGN$bcseq $LCY$bcseqrev$N\n\n","NA");
+			}
+			else {
+				my ($matchpercfw, $posfw, $rez2fw) = testbc($bc, $bcseqorig, $nameshort, $seq);
+				my ($matchpercrv, $posrv, $rez2rv) = testbc($bc, myrevcomp($bcseqorig), $nameshort, $seq);
+				($matchperc, $pos, $rez2) = $matchpercfw >= $matchpercrv ? ($matchperc, $posfw, $rez2fw) : ($matchpercrv, $posrv, $rez2rv);
+				($bcseq, $bcseqrev) = ($bcseqorig, myrevcomp($bcseqorig));
+			}
+				
+			LOG($outLog, "$rez2\n","NA");
 			#print join("", @res) . "\n\n";
 			if ($matchperc > $good{highest}) {
 				$barcode3 = "$LGN$matchperc$N\t$LPR$pos$N";
@@ -587,8 +643,8 @@ sub testbc {
 				$barcode3 = "$YW$matchperc$N\t$LPR$pos$N" if $matchperc >= 50 and $matchperc < 86;
 				$good{highest} = $matchperc;
 				undef $good{bc};
+				$goodtype = $beststrand eq "FW" ? "${LRD}FW_$bcseq$N" : "${LRD}RV_$bcseqrev$N";
 				$good{bc}{$bc} = $bcseq;
-				$goodtype = "${LCY}RV_$bcseqrev$N";
 				last if $matchperc >= 99;
 			}
 		}
@@ -597,12 +653,12 @@ sub testbc {
 	#$good2{highest} = 0;
 	foreach my $bc (sort keys %{$good{bc}}) {
 		my $bcseq = $good{bc}{$bc};
-		#print $outlog "  BC=$YW$bc$N\t${LGN}GOOD$N=$good{bc}{$bc}$N highest=$LGN$good{highest}$N\n" if (keys %{$good{bc}}) == 1;
-		#print $outlog "  BC=$YW$bc$N\t${LCY}DOUBLE BC$N=$good{bc}{$bc}$N highest=$LGN$good{highest}$N\n" if (keys %{$good{bc}}) > 1;
-		print $outlog "\n\n  BC=$YW$bc$N\t${LGN}GOOD$N=$good{bc}{$bc}$N ($barcode3,$goodtype) highest=$LGN$good{highest}$N\n" if (keys %{$good{bc}}) == 1;
-		print $outlog "\n\n  BC=$YW$bc$N\t${LCY}DOUBLE BC$N=$good{bc}{$bc}$N ($barcode3,$goodtype) highest=$LGN$good{highest}$N\n" if (keys %{$good{bc}}) > 1;
-		print "\n\n  BC=$YW$bc$N\t${LGN}GOOD$N=$good{bc}{$bc}$N ($barcode3,$goodtype) highest=$LGN$good{highest}$N\n" if (keys %{$good{bc}}) == 1;
-		print "\n\n  BC=$YW$bc$N\t${LCY}DOUBLE BC$N=$good{bc}{$bc}$N ($barcode3,$goodtype) highest=$LGN$good{highest}$N\n" if (keys %{$good{bc}}) > 1;
+		#print $outLog "  BC=$YW$bc$N\t${LGN}GOOD$N=$good{bc}{$bc}$N highest=$LGN$good{highest}$N\n" if (keys %{$good{bc}}) == 1;
+		#print $outLog "  BC=$YW$bc$N\t${LCY}DOUBLE BC$N=$good{bc}{$bc}$N highest=$LGN$good{highest}$N\n" if (keys %{$good{bc}}) > 1;
+		LOG($outLog, "\n\n  BC=$YW$bc$N\t${LGN}GOOD$N=$good{bc}{$bc}$N ($barcode3,$goodtype) highest=$LGN$good{highest}$N\n") if (keys %{$good{bc}}) == 1;
+		LOG($outLog, "\n\n  BC=$YW$bc$N\t${LCY}DOUBLE BC$N=$good{bc}{$bc}$N ($barcode3,$goodtype) highest=$LGN$good{highest}$N\n") if (keys %{$good{bc}}) > 1;
+		#print "\n\n  BC=$YW$bc$N\t${LGN}GOOD$N=$good{bc}{$bc}$N ($barcode3,$goodtype) highest=$LGN$good{highest}$N\n" if (keys %{$good{bc}}) == 1;
+		#print "\n\n  BC=$YW$bc$N\t${LCY}DOUBLE BC$N=$good{bc}{$bc}$N ($barcode3,$goodtype) highest=$LGN$good{highest}$N\n" if (keys %{$good{bc}}) > 1;
 	}
 	if ($good{highest} == 100 and (keys %{$good{bc}}) == 1) {
 		foreach my $bc (keys %{$good{bc}}) {
@@ -629,7 +685,7 @@ sub testbc {
 		}
 	}
 #foreach my $bcseq (sort {$bc0->{$a}{line} <=> $bc0->{$b}{line}} keys %{$bc0}) {
-#	print $outlog "\t$bc0->{$bcseq}{bc}\t$bcseq\t$bc0->{$bcseq}{total}\n";
+#	print $outLog "\t$bc0->{$bcseq}{bc}\t$bcseq\t$bc0->{$bcseq}{total}\n";
 #	print STDERR "\t$bc0->{$bcseq}{bc}\t$bcseq\t$bc0->{$bcseq}{total}\n";
 #}
 	elsif ($good{highest} < 86) {
@@ -639,6 +695,7 @@ sub testbc {
 		$seq_nobc ++;
 	}
 #	return ($barcode, $barcode2, $seq, $qua, $barcode3);
+	#print "\n\nbarcode=$barcode\nbarcode2=$barcode2\nbarcode3=$barcode3\ngoodtype=$goodtype\n";
 	return ($barcode, $barcode2, $seq, $qua, $barcode3, $goodtype);
 #	($bc, $bcs, $seq2, $qua2, $data, $bc3) = infer_barcode($bc0, $seq, $qua, $readName, $data, $bc02);
 }
@@ -691,13 +748,17 @@ sub parse_muscle {
 	my $seq1endlen = length($seq1end);
 	my $seq2endlen = length($seq2end);
 	my $pos = 0;
-	print "\n\n$LGN$name1$N\n$seq1\n$LCY$name2$N\n$seq2\n";
+#PRINT HERE
+	#print "\n\n$LGN$name1$N\n$seq1\n$LCY$name2$N\n$seq2\n";
+#PRINT HERE
 	if (length($seq1beg) > 0) {
 		my ($seq2a, $seq2b) = $seq2 =~ /^(.{$seq1beglen})(.+)$/;
 		($pos) = $seq2a =~ tr/ACTGN/ACTGN/;
 		$seq1 =~ s/^.{$seq1beglen}(.+)$/$1/;
 		$seq2 =~ s/^.{$seq1beglen}(.+)$/$1/;	
-		print "\n${LCY}!POS=$N$LCY$pos$N\n$seq2a\n$seq2b\n";
+#PRINT HERE
+	#	print "\n${LCY}!POS=$N$LCY$pos$N\n$seq2a\n$seq2b\n";
+#PRINT HERE
 	}
 	if (length($seq1end) > 0) {
 		$seq1 =~ s/^(.+).{$seq1endlen}$/$1/;
@@ -731,8 +792,10 @@ sub parse_muscle {
 		$total ++ if $seq1[$i] ne "N";
 	}
 	my $matchperc = $total == 0 ? 0 : int($match / $total * 1000+0.5)/10;
-	print "match = $match/$total ($matchperc %%)\n";
-	print "\n\n$LGN$name1$N\n$seq1\n$LCY$name2$N\n$seq2\n";
+#PRINT HERE
+	#print "match = $match/$total ($matchperc %%)\n";
+	#print "\n\n$LGN$name1$N\n$seq1\n$LCY$name2$N\n$seq2\n";
+#PRINT HERE
 	#die if length($seq1beg) > 0;
 	return ($matchperc, $pos);
 }
@@ -787,7 +850,7 @@ sub muscle {
 						$bad->{$name} = 1;
 						$seq2 = $bcseq;
 						$seq2chunk = $bcseqchunk;
-						print $outlog "$LCY$name\tDBL\t$pos/$seq_length\tprev=$barcode\tcurr=$bc1->{$bcseq}{bc}\tprev=$seq1\tcurr=$seq2$N\n";
+						print $outLog "$LCY$name\tDBL\t$pos/$seq_length\tprev=$barcode\tcurr=$bc1->{$bcseq}{bc}\tprev=$seq1\tcurr=$seq2$N\n";
 					}
 					else {
 						$barcode = $bc1->{$bcseq}{bc};
@@ -795,7 +858,7 @@ sub muscle {
 						$seq1chunk = $bcseqchunk;
 						$data->{$name} = $barcode;
 						$bc1->{$bcseq}{total} ++;
-						print $outlog "$LGN$name\tGOOD\t$pos/$seq_length\t$barcode$N\n";
+						print $outLog "$LGN$name\tGOOD\t$pos/$seq_length\t$barcode$N\n";
 					}
 				}
 			}
@@ -839,7 +902,7 @@ sub muscle {
 			undef $barcode;
 		}
 	}
-	print $outlog "$LRD$name\tNO BARCODE!$N\n" if not defined $barcode;
+	print $outLog "$LRD$name\tNO BARCODE!$N\n" if not defined $barcode;
 	$seq_nobc ++ if not defined($barcode);
 	return ($barcode, $barcode2, $bc1, $seq, $qua, $data, $barcode3, $bc02);
 }
@@ -853,7 +916,7 @@ __END__
 				$bcseqrev =~ tr/ACTG/TGAC/;
 				$bcseqrev = rev2($bcseqrev);
 				
-				print $outlog "\n${YW}1. TEST FORWARD $bcseq$N\n";
+				print $outLog "\n${YW}1. TEST FORWARD $bcseq$N\n";
 				my $muscleinput = ">$bc\n$bcseq\n>$nameshort\n$seq";
 				my @res = muscle($muscleinput);
 				print "RES:\n$LGN" . join("", @res) . "\n$N\n";
@@ -872,3 +935,24 @@ __END__
 				$rez2 =~ s/MUHSPACE/\n/g;
 
 
+
+
+#			if ($bcseq !~ /,/) {
+#				my ($matchperc, $pos, $rez2, $bcseq, $bcseqrev) = testbc($bc, $bcseqorig, $nameshort, $seq);
+#			}
+#			else {
+#				my $seq1 = $seq if length($seq) <= 100;
+#				($seq1) = $seq =~ /^(.{100})/ if length($seq) > 100;
+#				my ($matchperc, $pos, $rez2, $bcseq, $bcseqrev) = testbc($bc, $bcseqorig, $nameshort, $seq);
+#				$seq1 = $seq if length($seq) <= 100;
+#				($seq1) = $seq =~ /^(.{100})/ if length($seq) > 100;
+#				($matchperc, $pos, $rez2, $bcseq, $bcseqrev) = testbc($bc, $bcseqorig, $nameshort, $seq);
+#			}
+
+			#else {
+			#	($bctest1, $bctest2) = split(",", $bcseqorig);
+			#	$bcseq = $bctest1;
+			#}
+			#my @res2 = split("\n", $rez2);
+			#($pos) = $res2[3] =~ /^(.*)($bcseq|$bcseqrev)/;
+			#$pos = defined $pos ? length($pos) : -1;
