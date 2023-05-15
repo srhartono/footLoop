@@ -799,6 +799,31 @@ sub fold {
 	return(int(($shuf+5)/($orig+5)*1000+0.5)/1000);
 }
 
+sub parse_cigar2 {
+   my ($cigar) = @_;
+   my @num = split("[A-Z]+", $cigar);
+   my @alp = split("[0-9]+", $cigar);
+   shift(@alp);
+#  print "cigar=$cigar, num=@num, alp=@alp\n";
+   my $length = 0;
+   for (my $i = 0; $i < @num; $i++) {
+   #  if ($alp[$i] eq "S") {next}
+      if ($alp[$i] !~ /^[IDMNXS]+$/) {
+         for (my $j = 0; $j <= @num; $j++) {
+   #        print "i=$j, num=$num[$j], alp=$alp[$j]\n";
+            if ($j == $i) {
+   #           print "i=$j, alp[i] is not S/X/I/D/M/N!\n";
+            }
+         }
+         die "Died alp $i isn't S/X/I/D/M/N (alp[i]=$alp[$i]) at cigar:\n$cigar\n";
+      }
+      $length += $num[$i] if $alp[$i] ne "I" and $alp[$i] ne "S";
+   }
+   return(\@num, \@alp, $length);
+}
+
+
+
 sub parse_cigar {
    my ($cigar, $type) = @_;
    my @num = split("[A-Z]+", $cigar);
@@ -806,7 +831,7 @@ sub parse_cigar {
    shift(@alp);
    my $length = 0;
    for (my $i = 0; $i < @num; $i++) {
-      die "Died alp $i isn't I/D/M/N ($alp[$i]) at cigar:\n$cigar\n" if $alp[$i] !~ /^[IDMN]+$/;
+      die "Died alp $i isn't I/D/M/N (alp=>$alp[$i]< num=>$num[$i]<) at cigar:\n$cigar\n" if $alp[$i] !~ /^[IDMN]+$/;
       $length += $num[$i] if $alp[$i] ne "I";
    }
 	return $length if defined $type and $type =~ /len/i;

@@ -568,6 +568,14 @@ sub parse_BAMFile {
 			print $notused "\t$CY$read$N length of seq (cigarLen = $LGN$cigarLen$N, seqLen = $CY$seqLen$N) is less than $SEQ->{$gene}{minReadL} bp (length of original sequence is ($CY" . $SEQ->{$gene}{geneL} . "$N)!\n";
 		}
 
+		# c. Filter out reads with more than 5% indel
+		elsif (count_indel($cigar) > 5) {
+			($SEQ, $BAMStats) = filter_BAM_read($SEQ, $BAMStats, $readname, $gene, 'indel');
+			my ($indelperc) = count_indel($cigar);
+			
+			print $notused "\t$CY$read$N has high indel ($indelperc)!\n";
+		}
+
 		# c. If read strand is 0 or 16 store it
 		elsif ($readStrand == 0 || $readStrand == 16)	{
 			$SEQ->{$gene}{read}{$read} = $readStrand;
@@ -580,6 +588,51 @@ sub parse_BAMFile {
 	}
 	LOG($outLog, "\n\tb.Logging BAM file $CY$BAMFile$N\n");
 	log_BAMFile($SEQ, $BAMStats, $origDir, $outReadLog, $outLog);
+}
+
+=comment
+sub parse_cigar {
+   my ($cigar) = @_;
+   my @num = split("[A-Z]+", $cigar);
+   my @alp = split("[0-9]+", $cigar);
+   shift(@alp);
+#  print "cigar=$cigar, num=@num, alp=@alp\n";
+   my $length = 0;
+   for (my $i = 0; $i < @num; $i++) {
+   #  if ($alp[$i] eq "S") {next}
+      if ($alp[$i] !~ /^[IDMNXS]+$/) {
+         for (my $j = 0; $j <= @num; $j++) {
+   #        print "i=$j, num=$num[$j], alp=$alp[$j]\n";
+            if ($j == $i) {
+   #           print "i=$j, alp[i] is not S/X/I/D/M/N!\n";
+            }
+         }
+         die "Died alp $i isn't S/X/I/D/M/N (alp[i]=$alp[$i]) at cigar:\n$cigar\n";
+      }
+      $length += $num[$i] if $alp[$i] ne "I" and $alp[$i] ne "S";
+   }
+   return(\@num, \@alp, $length);
+}
+=cut
+
+sub count_indel {
+	my ($cigar) = @_;
+	my ($nums, $alps, $lenz) = parse_cigar($cigar);
+	my ($ins, $del, $mat, $oth, $tot) = (0,0,0,0,0);
+	for (my $i = 0; $i < @{$nums}; $i++) {
+		my $alp = $alps->[$i];
+		my $num = $nums->[$i];
+		$mat += $num if $alp eq "M";
+		$ins += $num if $alp eq "I";
+		$del += $num if $alp eq "D";
+		$oth += $num if $alp !~ /^(M|I|D)$/;
+		$tot += $num;
+	}
+	my $matperc = $tot == 0 ? 0 : int($mat/$tot*1000+0.5)/10;
+	my $insperc = $tot == 0 ? 0 : int($ins/$tot*1000+0.5)/10;
+	my $delperc = $tot == 0 ? 0 : int($del/$tot*1000+0.5)/10;
+	my $othperc = $tot == 0 ? 0 : int($oth/$tot*1000+0.5)/10;
+	return $insperc+$delperc;
 }
 
 sub check_BAM_field {
@@ -681,6 +734,7 @@ UnkNeg      = $SEQ->{$gene}{unkneg}
 Used        = $SEQ->{$gene}{used}
 Total       = $SEQ->{$gene}{total}
 Too Short   = $SEQ->{$gene}{badlength}
+High Indel  = $SEQ->{$gene}{indel}
 Low Quality = $SEQ->{$gene}{lowq}
 ";
 	LOG($outLog, $text);
