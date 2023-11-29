@@ -242,7 +242,7 @@ sub parse_peak {
 	my ($ARG, $bad, $minDis, $minLen, $outLog) = @_;
 	my ($name, $isPeak, $mygene, $rconvType, $readStrand, @val) = split("\t", $ARG);
 	my %bad = %{$bad} if defined $bad;
-	my $name_want = "AIRN_PFC66_FORWARD.16024";#CALM3.m160130_030742_42145_c100934342550000001823210305251633_s1_p0/16024/ccs";
+	my $name_want = "PFC9.m64069_230413_005848/106890704/ccs";#AIRN_PFC66_FORWARD.16024";#CALM3.m160130_030742_42145_c100934342550000001823210305251633_s1_p0/16024/ccs";
 	shift(@val) if $val[0] eq "";
 	my $peaks;
 	my %peak; $peak{curr} = 0; 

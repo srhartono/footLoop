@@ -44,6 +44,7 @@ DIELOG($outLog, date() . " ERROR: $footLoopFolder footloop folder doesn't exist!
 
 # get sam file
 my ($bamFile) = $opts->{footLoop}{samFile};
+die "bamFile undefined!\n" if not defined $bamFile;
 my (%samData) = %{parse_bamFile($bamFile, $outLog)};
 foreach my $gene (sort keys %samData) {
 	my @key = qw(Pos Neg);
@@ -89,6 +90,8 @@ foreach my $gene (sort keys %samFixedData) {
 	$print0{gene}{uc($gene)} = join("\t", @print0curr);
 	
 }
+
+
 sub parse_bamFile {
 	my ($bamFile, $outLog) = @_;
 	my %data;
@@ -288,6 +291,7 @@ sub parseTXT {
 			}
 			DIELOG($outLog, "\n");
 		}
+		die;
 #		print "\n$line\n";
 		my $conv = $arr[3];
 		for (my $i = 0; $i < @arr; $i++) {
@@ -298,88 +302,89 @@ sub parseTXT {
 	close $in1;
 	return($data);
 }
-sub footStats_parse_footPeak_logFile {
-        my ($footPeakFolder, $footPeak_logFile, $outLog) = @_;
-        my %opts; my $debugprint = "\n\n$YW<--------- 0. PARSING LOGFILES ----------$N\n\n"; my $optprint = "";
-        open (my $footPeak_logFileIn, "<", $footPeak_logFile) or DIELOG($outLog, "Cannot read from $footPeak_logFile: $!\n");
-        while (my $line = <$footPeak_logFileIn>) {
-                chomp($line);
-                my $check = 0;
-                if ($line =~ />Run Params$/) {
-                        $check ++;
-                        die "0: ${LRD}ERROR!$N footPeak.pl logfile $LCY$footPeak_logFile$N is corrupted or different version than 2.95!\n" unless $check == 1;
-                        while ($line !~ />Options:$/) {
-                                my ($param, $value) = $line =~ /^([\w ]+[a-zA-Z]+)[ \t]+:[ \t]+(.+)$/;
-                                $line =~ />Run Params$/ ? $debugprint .= "\n$LCY 0.$N footPeak $line:\n" : (defined $param and $param !~ /^Run script/) ? $debugprint .= "\t- $LCY$param$N=$value\n" : $debugprint .= "";
-                                $opts{footPeak}{$param} = $value if (defined $param and defined $value and $param !~ /^Run script/);
-                                if (defined $param and $param eq "Run script short") {
-                                        my @values = split(" -", $value); shift(@values);
-                                        foreach my $values (@values) {
-                                                my ($param2, $value2) = $values =~ /^(\w) (.+)$/;
-                                                $debugprint .= "footLoopFolder = $LCY$value2$N\n" if $values =~ /^n /;
-                                                $opts{footLoop2}{n} = $value2 if $values =~ /^n /;
-                                                $opts{footPeak}{$param2} = $value2;
-                                        }
-                                }
-                                $line = <$footPeak_logFileIn>; chomp($line);
-                        }
-                        $optprint .= ">footPeak\n";
-                        foreach my $param (sort keys %{$opts{footPeak}}) {
-                                $optprint .= "$param=$opts{footPeak}{$param}\n";
-                        }
-                }
-                if ($line =~ /^>Options/) {
-                        $check ++;
-                        die "1: ${LRD}ERROR!$N footPeak.pl logfile $LCY$footPeak_logFile$N is corrupted or different version than 2.95!\n" unless $check == 2;
-                        while ($line !~ />Run Params from footLoop.pl/) {
-                                my ($param, $desc, $value) = $line =~ /^\-(\w)\s*(\w+)\s*:\s*([a-zA-Z0-9]+)$/;
-                                   ($param, $value) = $line =~ /^\-(\w)\s*:\s*([a-zA-Z0-9]+)$/ if not defined $param;
-                                $line =~ />Options/ ? $debugprint .= "\n$LGN 1.$N footPeak $line: " : defined $param ? $debugprint .= "$LCY$param$N=$value;" : $debugprint .= "";
-                                $opts{footPeak2}{$param} = $value if (defined $param and defined $value);
-                                $line = <$footPeak_logFileIn>; chomp($line);
-                        }
-                        foreach my $param (sort keys %{$opts{footPeak2}}) {
-                                $optprint .= "$param=$opts{footPeak2}{$param}\n";
-                        }
-                }
-                if ($line =~ />Run Params from footLoop.pl/) {
-                        $check ++; my $debugprint2;
-                        die "2: ${LRD}ERROR!$N footPeak.pl logfile $LCY$footPeak_logFile$N is corrupted or different version than 2.95!\n" unless $check == 3;
-                        while ($line !~ /^>Options from footLoop.pl/) {
-                                my ($param, $value) = $line =~ /^footLoop\s*(\w+)\s*:[ \t]+(.+)$/;
-                                if ($line =~ /from footLoop.pl logfile/) {($param, $value) = $line =~ /(logfile)=\.?\/?(.+)$/; $value = $opts{footLoop2}{n} . $value; $debugprint2 .= "\t- $LCY$param$N=$value\n";}
-                                $line =~ />Run Params/ ? $debugprint .= "\n$LCY 2.$N footLoop $line:\n$debugprint2" : defined $param ? $debugprint .= "\t- $LCY$param$N=$value\n" : $debugprint .= "";
-                                $opts{footLoop}{$param} = $value if (defined $param and defined $value and $param ne "origDir");
-                                $line = <$footPeak_logFileIn>; chomp($line);
-                        }
-                        $optprint .= ">footLoop\n";
-                        foreach my $param (sort keys %{$opts{footLoop}}) {
-                                $optprint .= "$param=$opts{footLoop}{$param}\n";
-                        }
 
-                }
-                if ($line =~ /^>Options from footLoop.pl/) {
-                        $check ++;
-                        die "3: ${LRD}ERROR!$N footPeak.pl logfile $LCY$footPeak_logFile$N is corrupted or different version than 2.95!\n" unless $check == 4;
-                        while ($line !~ /^.+[\-]+\>/) {
-                                my ($param, $value) = $line =~ /^\-(\w)\s*:\s+(.+)$/;
-                                $opts{footLoop2}{$param} = $value if (defined $param and defined $value);
-                                $line =~ />Options from footLoop/ ? $debugprint .= "\n$YW 3.$N footLoop $line:\n" : defined $param ? $debugprint .= "\t- $LCY$param$N=$value\n" : $debugprint .= "";
-                                $line = <$footPeak_logFileIn>; chomp($line);
-                        }
-                        foreach my $param (sort keys %{$opts{footLoop2}}) {
-                                $optprint .= "$param=$opts{footLoop2}{$param}\n";
-                        }
-                }
-        #       my ($chr, $beg, $end, $gene, $zero, $strand) = split("\t", $bedLine);
-        }
-        $debugprint .= "\n\n$YW------------------------------------->$N\n\n\n";
-        makedir("$footPeakFolder/99_FOOTSTATS");
-        open (my $out, ">", "$footPeakFolder/99_FOOTSTATS/.PARAMS") or DIELOG($outLog, "Failed to write to $footPeakFolder/99_FOOTSTATS/.PARAMS: $!\n");
-        print $out "$optprint\n";
-        close $out;
-        LOG($outLog, $debugprint);
-        return \%opts;
+sub footStats_parse_footPeak_logFile {
+	my ($footPeakFolder, $footPeak_logFile, $outLog) = @_;
+	my %opts; my $debugprint = "\n\n$YW<--------- 0. PARSING LOGFILES ----------$N\n\n"; my $optprint = "";
+	open (my $footPeak_logFileIn, "<", $footPeak_logFile) or DIELOG($outLog, "Cannot read from $footPeak_logFile: $!\n");
+	while (my $line = <$footPeak_logFileIn>) {
+		chomp($line);
+		my $check = 0;
+		if ($line =~ />Run Params$/) {
+				$check ++;
+				die "0: ${LRD}ERROR!$N footPeak.pl logfile $LCY$footPeak_logFile$N is corrupted or different version than 2.95!\n" unless $check == 1;
+				while ($line !~ />Options:$/) {
+						my ($param, $value) = $line =~ /^([\w ]+[a-zA-Z]+)[ \t]+:[ \t]+(.+)$/;
+						$line =~ />Run Params$/ ? $debugprint .= "\n$LCY 0.$N footPeak $line:\n" : (defined $param and $param !~ /^Run script/) ? $debugprint .= "\t- $LCY$param$N=$value\n" : $debugprint .= "";
+						$opts{footPeak}{$param} = $value if (defined $param and defined $value and $param !~ /^Run script/);
+						if (defined $param and $param eq "Run script short") {
+								my @values = split(" -", $value); shift(@values);
+								foreach my $values (@values) {
+										my ($param2, $value2) = $values =~ /^(\w) (.+)$/;
+										$debugprint .= "footLoopFolder = $LCY$value2$N\n" if $values =~ /^n /;
+										$opts{footLoop2}{n} = $value2 if $values =~ /^n /;
+										$opts{footPeak}{$param2} = $value2;
+								}
+						}
+						$line = <$footPeak_logFileIn>; chomp($line);
+				}
+				$optprint .= ">footPeak\n";
+				foreach my $param (sort keys %{$opts{footPeak}}) {
+						$optprint .= "$param=$opts{footPeak}{$param}\n";
+				}
+		}
+		if ($line =~ /^>Options/) {
+				$check ++;
+				die "1: ${LRD}ERROR!$N footPeak.pl logfile $LCY$footPeak_logFile$N is corrupted or different version than 2.95!\n" unless $check == 2;
+				while ($line !~ />Run Params from footLoop.pl/) {
+						my ($param, $desc, $value) = $line =~ /^\-(\w)\s*(\w+)\s*:\s*([a-zA-Z0-9]+)$/;
+						   ($param, $value) = $line =~ /^\-(\w)\s*:\s*([a-zA-Z0-9]+)$/ if not defined $param;
+						$line =~ />Options/ ? $debugprint .= "\n$LGN 1.$N footPeak $line: " : defined $param ? $debugprint .= "$LCY$param$N=$value;" : $debugprint .= "";
+						$opts{footPeak2}{$param} = $value if (defined $param and defined $value);
+						$line = <$footPeak_logFileIn>; chomp($line);
+				}
+				foreach my $param (sort keys %{$opts{footPeak2}}) {
+						$optprint .= "$param=$opts{footPeak2}{$param}\n";
+				}
+		}
+		if ($line =~ />Run Params from footLoop.pl/) {
+				$check ++; my $debugprint2;
+				die "2: ${LRD}ERROR!$N footPeak.pl logfile $LCY$footPeak_logFile$N is corrupted or different version than 2.95!\n" unless $check == 3;
+				while ($line !~ /^>Options from footLoop.pl/) {
+						my ($param, $value) = $line =~ /^footLoop\s*(\w+)\s*:[ \t]+(.+)$/;
+						if ($line =~ /from footLoop.pl logfile/) {($param, $value) = $line =~ /(logfile)=\.?\/?(.+)$/; $value = $opts{footLoop2}{n} . $value; $debugprint2 .= "\t- $LCY$param$N=$value\n";}
+						$line =~ />Run Params/ ? $debugprint .= "\n$LCY 2.$N footLoop $line:\n$debugprint2" : defined $param ? $debugprint .= "\t- $LCY$param$N=$value\n" : $debugprint .= "";
+						$opts{footLoop}{$param} = $value if (defined $param and defined $value and $param ne "origDir");
+						$line = <$footPeak_logFileIn>; chomp($line);
+				}
+				$optprint .= ">footLoop\n";
+				foreach my $param (sort keys %{$opts{footLoop}}) {
+						$optprint .= "$param=$opts{footLoop}{$param}\n";
+				}
+
+		}
+		if ($line =~ /^>Options from footLoop.pl/) {
+				$check ++;
+				die "3: ${LRD}ERROR!$N footPeak.pl logfile $LCY$footPeak_logFile$N is corrupted or different version than 2.95!\n" unless $check == 4;
+				while ($line !~ /^.+[\-]+\>/) {
+						my ($param, $value) = $line =~ /^\-(\w)\s*:\s+(.+)$/;
+						$opts{footLoop2}{$param} = $value if (defined $param and defined $value);
+						$line =~ />Options from footLoop/ ? $debugprint .= "\n$YW 3.$N footLoop $line:\n" : defined $param ? $debugprint .= "\t- $LCY$param$N=$value\n" : $debugprint .= "";
+						$line = <$footPeak_logFileIn>; chomp($line);
+				}
+				foreach my $param (sort keys %{$opts{footLoop2}}) {
+						$optprint .= "$param=$opts{footLoop2}{$param}\n";
+				}
+		}
+	#	   my ($chr, $beg, $end, $gene, $zero, $strand) = split("\t", $bedLine);
+	}
+	$debugprint .= "\n\n$YW------------------------------------->$N\n\n\n";
+	makedir("$footPeakFolder/99_FOOTSTATS");
+	open (my $out, ">", "$footPeakFolder/99_FOOTSTATS/.PARAMS") or DIELOG($outLog, "Failed to write to $footPeakFolder/99_FOOTSTATS/.PARAMS: $!\n");
+	print $out "$optprint\n";
+	close $out;
+	LOG($outLog, $debugprint);
+	return \%opts;
 }
 sub parse_geneIndexFile {
    my ($geneIndexFile, $outLog) = @_;
@@ -388,14 +393,14 @@ sub parse_geneIndexFile {
    die "geneindexFile does not exist!\n" if not defined $geneIndexFile;
    open (my $in, "<", $geneIndexFile) or DIELOG($outLog, "Failed to read from $geneIndexFile: $!\n");
    while (my $line = <$in>) {
-      chomp($line);
-      my ($chr, $beg, $end, $gene, $zero, $strand) = split("\t", $line);
-      $gene = uc($gene);
-      $coor{uc($gene)}{chr} = $chr;
-      $coor{uc($gene)}{beg} = $beg;
-      $coor{uc($gene)}{end} = $end;
-      $coor{uc($gene)}{strand} = $strand;
-      #print "chr=$chr:$beg-$end gene=$gene, strand=$strand\n";
+	  chomp($line);
+	  my ($chr, $beg, $end, $gene, $zero, $strand) = split("\t", $line);
+	  $gene = uc($gene);
+	  $coor{uc($gene)}{chr} = $chr;
+	  $coor{uc($gene)}{beg} = $beg;
+	  $coor{uc($gene)}{end} = $end;
+	  $coor{uc($gene)}{strand} = $strand;
+	  #print "chr=$chr:$beg-$end gene=$gene, strand=$strand\n";
    }
    close $in;
    return \%coor;
@@ -410,14 +415,14 @@ sub parse_geneIndexFile {
    die "geneindexFile does not exist!\n" if not defined $geneIndexFile;
    open (my $in, "<", $geneIndexFile) or DIELOG($outLog, "Failed to read from $geneIndexFile: $!\n");
    while (my $line = <$in>) {
-      chomp($line);
-      my ($chr, $beg, $end, $gene, $zero, $strand) = split("\t", $line);
-      $gene = uc($gene);
-      $coor{uc($gene)}{chr} = $chr;
-      $coor{uc($gene)}{beg} = $beg;
-      $coor{uc($gene)}{end} = $end;
-      $coor{uc($gene)}{strand} = $strand;
-      #print "chr=$chr:$beg-$end gene=$gene, strand=$strand\n";
+	  chomp($line);
+	  my ($chr, $beg, $end, $gene, $zero, $strand) = split("\t", $line);
+	  $gene = uc($gene);
+	  $coor{uc($gene)}{chr} = $chr;
+	  $coor{uc($gene)}{beg} = $beg;
+	  $coor{uc($gene)}{end} = $end;
+	  $coor{uc($gene)}{strand} = $strand;
+	  #print "chr=$chr:$beg-$end gene=$gene, strand=$strand\n";
    }
    close $in;
    return \%coor;
@@ -430,4 +435,4 @@ my %data;
 open (my $out1, ">", "$fileName1.out") or die "Cannot write to $fileName1.out: $!\n";
 close $out1;
 
-170802_pcb05_RnaseHneg_ccs_3minFP.fastq.gz.rmdup.fq.gz_PEAK_20W35T      CALM3_Neg_20_0.35_GC.PEAK       CALM3   GC      160     3       1.9
+170802_pcb05_RnaseHneg_ccs_3minFP.fastq.gz.rmdup.fq.gz_PEAK_20W35T	  CALM3_Neg_20_0.35_GC.PEAK	   CALM3   GC	  160	 3	   1.9

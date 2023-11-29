@@ -32,32 +32,40 @@ BEGIN {
 use myFootLib;
 use FAlite;
 
-my $bismarkloc = `which bismark`; chomp($bismarkloc); $bismarkloc = "N/A" if $bismarkloc eq "";
+my $bismarkloc  = `which bismark` ; chomp($bismarkloc) ; $bismarkloc  = "N/A" if $bismarkloc eq "";
 my $bedtoolsloc = `which bedtools`; chomp($bedtoolsloc); $bedtoolsloc = "N/A" if $bedtoolsloc eq "";
-my $bowtie2loc = `which bowtie2`; chomp($bowtie2loc); $bowtie2loc = "N/A" if $bowtie2loc eq "";
+my $bowtie2loc  = `which bowtie2` ; chomp($bowtie2loc) ; $bowtie2loc  = "N/A" if $bowtie2loc eq "";
 my $samtoolsloc = `which samtools`; chomp($samtoolsloc); $samtoolsloc = "N/A" if $samtoolsloc eq "";
-my $Rloc = `which R`; chomp($Rloc); $Rloc = "N/A" if $Rloc eq "";
-system("bismark --version > .bismarktest.txt 2>&1");
-system("bedtools --version > .bedtoolstest.txt 2>&1");
-system("bowtie2 --version > .bowtie2test.txt 2>&1");
-system("samtools > .samtoolstest.txt 2>&1");
-system("R --version > .Rtest.txt 2>&1");
-my $bismarktest = `cat .bismarktest.txt | head`; chomp($bismarktest);
-my $bedtoolstest = `cat .bedtoolstest.txt | head`; chomp($bedtoolstest);
-my $bowtie2test = `cat .bowtie2test.txt | head`; chomp($bowtie2test);
-my $samtoolstest = `cat .samtoolstest.txt | head`; chomp($samtoolstest);
-my $Rtest = `cat .Rtest.txt | head`; chomp($Rtest);
-my $print = "";
-$print .= "- bedtools = $LCY$bedtoolsloc$N\n";
-$print .= "- samtools = $LCY$samtoolsloc$N\n";
-$print .= "- bowtie2 = $LCY$bowtie2loc$N\n";
-$print .= "- bismark = $LCY$bismarkloc$N\n";
-$print .= "- R = $LCY$Rloc$N\n";
-$print .= "\nbedtools TEST:\n${LGN}>>" . $bedtoolstest . "<<$N\n";
-$print .= "\nsamtools TEST:\n${LGN}>>" . $samtoolstest . "<<$N\n";
-$print .= "\nbowtie2 TEST:\n${LGN}>>" . $bowtie2test . "<<$N\n";
-$print .= "\nbismark TEST:\n${LGN}>>" . $bismarktest . "<<$N\n";
-#$print .= "\nR TEST:\n${LGN}>>" . $Rtest . "<<$N\n";
+my $Rscriptloc  = `which Rscript` ; chomp($Rscriptloc) ; $Rscriptloc  = "N/A" if $Rscriptloc eq "";
+my $bismarktest  = `bismark  --version 2>&1 | head`; chomp($bismarktest);
+my $bedtoolstest = `bedtools --version 2>&1 | head`; chomp($bedtoolstest);
+my $bowtie2test  = `bowtie2  --version 2>&1 | head`; chomp($bowtie2test);
+my $samtoolstest = `samtools --version 2>&1 | head`; chomp($samtoolstest);
+my $Rscripttest  = `Rscript  --version 2>&1 | head`; chomp($Rscripttest);
+my $print = "
+
+# Locations:
+- bedtools = $LCY$bedtoolsloc$N
+- samtools = $LCY$samtoolsloc$N
+- bowtie2 = $LCY$bowtie2loc$N
+- bismark = $LCY$bismarkloc$N
+- R = $LCY$Rscriptloc$N
+
+# Versions:
+bedtools --version:
+${LGN}>>$bedtoolstest<<$N
+
+samtools --version:
+${LGN}>>$samtoolstest<<$N
+
+bowtie2 --version:
+${LGN}>>$bowtie2test<<$N
+
+bismark --version:
+${LGN}>>$bismarktest<<$N
+
+Rscript --version:
+${LGN}>>$Rscripttest<<$N
 
 print $print . "\n";
 print "\n" if $print =~ /not found/i;
@@ -220,6 +228,25 @@ LOGSTEP($outLog);
 ###############
 # SUBROUTINES #
 ###############
+
+sub create_backup {
+	my ($file, $type) =  @_;
+	$type = "mv" if not defined $type;
+	if (not -e $file) {
+		return("\n${LCY}Trying to create_backup file=$LCY$N but file doesnt exist!\n\n");
+	}
+	else {
+		my $indice = 1;
+		my $currfile = $file;
+		while (-e $currfile) {
+			$indice ++;
+			$currfile = $file . ".$indice.backup";
+		}
+		my $cmd2 = "$type $file $currfile" if $type eq "mv";
+		system($cmd2) == 0 or die "\nFailed to $LCY$cmd2$N: $!\n\n";
+		return("\t{YW}$type $LCY$file$N to backup file $LCY$currfile$N:\n\t$LCY$cmd2$N\n\n");
+	}
+}
 
 sub LOGSTEP {
 	my ($outLog, $type, $STEP, $STEPCOUNT, $log2) = @_;
@@ -450,21 +477,41 @@ sub fix_BAMFile {
 	makedir($origDir);
 	if (defined $opt_F) {
 		$checkBAM = 0;
+		if (-e "$origDir/$BAMFileName.fixed.gz") {
+			my ($backup_log) = create_backup("$origDir/$BAMFileName.fixed.gz", "mv");
+			LOG($outLog, $backup_log);
+		}
+		if (-e "$origDir/$BAMFileName.fixed" and $checkBAM == 0) {
+			my ($backup_log) = create_backup("$origDir/$BAMFileName.fixed", "mv");
+			LOG($outLog, $backup_log);
+		}
 	}
 	else {
 		if (-e "$origDir/$BAMFileName.fixed.gz") {
 			my ($BAMLineCount2) = linecount("$origDir/$BAMFileName.fixed.gz");
 			my ($BAMLineCount1) = linecount($BAMFile);
 			$checkBAM = $BAMLineCount1 - 10 > $BAMLineCount2 ? 0 : 2;
-			LOG($outLog, "\tfootLoop.pl subroutine fix_BAMFile:: fixed BAM file $LCY$origDir/$BAMFileName.fixed.gz$N exists but total row is less than total BAMFile $BAMFile row ($BAMLineCount1 - 500 > BAMFile.fixed.gz: $BAMLineCount2)!\n") if $checkBAM == 0;
-			LOG($outLog, "\tfootLoop.pl subroutine fix_BAMFile::$LGN SUCCESS!!$N fixed BAM file $LCY$origDir/$BAMFileName.fixed.gz$N exists (MD5=$LGN$BAMMD5$N) and total row $LGN($BAMLineCount2)$N >= total BAMFile row $LGN($BAMLineCount1 - 500)$N ($LCY$BAMFile$N)!\n") if $checkBAM == 2;
+			if ($checkBAM eq 0) {
+				my ($backup_log) = create_backup("$origDir/$BAMFileName.fixed.gz", "mv");
+				LOG($outLog, $backup_log);
+				LOG($outLog, "\tfootLoop.pl subroutine fix_BAMFile:: fixed BAM file $LCY$origDir/$BAMFileName.fixed.gz$N exists but total row is less than total BAMFile $BAMFile row ($BAMLineCount1 - 500 > BAMFile.fixed.gz: $BAMLineCount2)!\n");
+			}
+			else {
+				LOG($outLog, "\tfootLoop.pl subroutine fix_BAMFile::$LGN SUCCESS!!$N fixed BAM file $LCY$origDir/$BAMFileName.fixed.gz$N exists (MD5=$LGN$BAMMD5$N) and total row $LGN($BAMLineCount2)$N >= total BAMFile row $LGN($BAMLineCount1 - 500)$N ($LCY$BAMFile$N)!\n") if $checkBAM == 2;
+			}
 		}
 		if (-e "$origDir/$BAMFileName.fixed" and $checkBAM == 0) {
 			my ($BAMLineCount2) = linecount("$origDir/$BAMFileName.fixed");
 			my ($BAMLineCount1) = linecount($BAMFile);
 			$checkBAM = $BAMLineCount1 - 10 > $BAMLineCount2 ? 0 : 1;
-			LOG($outLog, "\tfootLoop.pl subroutine fix_BAMFile:: .gz does not exist and fixed BAM file $LCY$origDir/$BAMFileName.fixed$N exists but total row is less than total BAMFile $BAMFile row ($BAMLineCount1 - 500 > BAMFile.fixed: $BAMLineCount2)!\n") if $checkBAM == 0;
-			LOG($outLog, "\tfootLoop.pl subroutine fix_BAMFile::$LGN SUCCESS!!$N fixed BAM file $LCY$origDir/$BAMFileName.fixed$N exists (MD5=$LGN$BAMMD5$N) and total row $LGN($BAMLineCount2)$N >= total BAMFile row $LGN($BAMLineCount1 - 500)$N ($LCY$BAMFile$N)!\n") if $checkBAM == 1;
+			if ($checkBAM eq 0) {
+				my ($backup_log) = create_backup("$origDir/$BAMFileName.fixed", "mv");
+				LOG($outLog, $backup_log);
+				LOG($outLog, "\tfootLoop.pl subroutine fix_BAMFile:: .gz does not exist and fixed BAM file $LCY$origDir/$BAMFileName.fixed$N exists but total row is less than total BAMFile $BAMFile row ($BAMLineCount1 - 500 > BAMFile.fixed: $BAMLineCount2)!\n");
+			}
+			else {
+				LOG($outLog, "\tfootLoop.pl subroutine fix_BAMFile::$LGN SUCCESS!!$N fixed BAM file $LCY$origDir/$BAMFileName.fixed$N exists (MD5=$LGN$BAMMD5$N) and total row $LGN($BAMLineCount2)$N >= total BAMFile row $LGN($BAMLineCount1 - 500)$N ($LCY$BAMFile$N)!\n");
+			}
 		}
 	}
 
@@ -473,18 +520,35 @@ sub fix_BAMFile {
 		LOG($outLog, "\t${YW}$footLoopScriptsFolder/lib/footLoop_2fixBAM.pl -n $outDir -s $seqFile -o $origDir$N\n");
 		system("$footLoopScriptsFolder/lib/footLoop_2fixBAM.pl -n $outDir -o $origDir") == 0 or LOG($outLog, "Failed to run $footLoopScriptsFolder/lib/footLoop_2fixBAM.pl -n $outDir -o $origDir: $!\n") and exit 1;
 		LOG($outReadLog, "footLoop.pl,fix_BAMFile,$footLoopScriptsFolder/lib/footLoop_2fixBAM.pl -n $outDir -o $origDir\n","NA");
-		LOG($outLog, "\tgzip $origDir/$BAMFileName.fixed");
-		system("gzip -f $origDir/$BAMFileName.fixed") == 0 or LOG($outLog, "\tFailed to gzip $origDir/$BAMFileName.fixed: $!\n");
+		if (not -e "$origDir/$BAMFileName.fixed.gz") {
+			LOG($outLog, "\tgzip $origDir/$BAMFileName.fixed");
+			system("gzip $origDir/$BAMFileName.fixed") == 0 or LOG($outLog, "\tFailed to gzip $origDir/$BAMFileName.fixed: $!\n");
+		}
+		else {
+			LOG($outLog, "\tgzip $origDir/$BAMFileName.fixed\n\t${LGN}Already exist! So not overwriting!\n");
+		}
 		$checkBAM = 1;
 	}
 	else {
 		LOG($outLog, "\t${LGN}WAS NOT RUN$N: ${YW}::: $footLoopScriptsFolder/lib/footLoop_2fixBAM.pl -n $outDir -s $seqFile -o $origDir :::$N\n");
+		LOG($outLog, "\tgzip $origDir/$BAMFileName.fixed\n\t${LGN}Already exist! So not overwriting!\n");
 		# rm old (bad) .gz if it exists
-		LOG($outLog, "\t/bin/rm $BAMFileGZ") if -e '$BAMFileGZ';
-		system("/bin/rm $BAMFileGZ") == 0 or LOG($outLog, 'Failed to rm $BAMFileGZ: $!\n') if -e '$BAMFileGZ';
+		#if (-e $BAMFileGZ) {
+		#	my $indice = 1;
+		#	my $currbamfilegz = $BAMFileGZ;
+		#	while (-e $currbamfilegz) {
+		#		$indice ++;
+		#		my $currbamfilegz = $BAMFileGZ . ".$indice.gz";
+		#	}
+		#	my $cmd2 = "mv $BAMFileGZ $currbamfilegz";
+		#	system($cmd2) == 0 or die "\nFailed to $LCY$cmd2$N: $!\n\n";
+		#	LOG($outLog, "\t{YW}Moving curr fixed.gz to backup!\n\t$LCY$cmd2$N\n");
+		#	#LOG($outLog, "\t/bin/rm $BAMFileGZ") if -e '$BAMFileGZ';
+		#}
+		#system("/bin/rm $BAMFileGZ") == 0 or LOG($outLog, 'Failed to rm $BAMFileGZ: $!\n') if -e '$BAMFileGZ';
 		# gzip the new .fixed
-		LOG($outLog, "\tgzip $origDir/$BAMFileName.fixed");
-		system("gzip -f $origDir/$BAMFileName.fixed") == 0 or LOG($outLog, "\tFailed to gzip $origDir/$BAMFileName.fixed: $!\n");
+		#LOG($outLog, "\tgzip $origDir/$BAMFileName.fixed");
+		#system("gzip -f $origDir/$BAMFileName.fixed") == 0 or LOG($outLog, "\tFailed to gzip $origDir/$BAMFileName.fixed: $!\n");
 	}
 
 	# re-md5 BAMfile gz

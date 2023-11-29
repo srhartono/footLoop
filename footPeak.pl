@@ -16,8 +16,8 @@
 # By downloading or using this software, you agree to the terms and conditions of the license. 
 
 use strict; use warnings; use Getopt::Std; use Time::HiRes; use Benchmark qw(:all); use Benchmark ':hireswallclock'; use Carp; use Thread; use Thread::Queue; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_g $opt_p $opt_d $opt_s $opt_k $opt_K $opt_n $opt_h $opt_t $opt_w $opt_L $opt_l $opt_o $opt_A $opt_G);
-getopts("vg:p:d:s:k:K:n:ht:w:l:A:o:G:L:");
+use vars qw($opt_v $opt_g $opt_p $opt_d $opt_s $opt_k $opt_K $opt_n $opt_h $opt_t $opt_w $opt_L $opt_l $opt_o $opt_A $opt_G $opt_Z);
+getopts("vg:p:d:s:k:K:n:ht:w:l:A:o:G:L:Z");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -508,10 +508,13 @@ sub isPeak {
 	my $GCtot = $con->{GC}{tot} +$con->{GH}{tot};
 	my $GHcon = $con->{GH}{con};
 	my $GHtot = $con->{GH}{tot};
-	my $peakCG = ($CGtot >= 5 and ($CGcon / $CGtot) > $threshold) ? 1 : 0;
-	my $peakCH = ($CHtot >= 5 and ($CHcon / $CHtot) > $threshold) ? 1 : 0;
-	my $peakGC = ($GCtot >= 5 and ($GCcon / $GCtot) > $threshold) ? 1 : 0;
-	my $peakGH = ($GHtot >= 5 and ($GHcon / $GHtot) > $threshold) ? 1 : 0;
+
+	my $Ctotmin = 2;
+	#instead of 5, becomes 2
+	my $peakCG = ($CGtot >= $Ctotmin and ($CGcon / $CGtot) > $threshold) ? 1 : 0;
+	my $peakCH = ($CHtot >= $Ctotmin and ($CHcon / $CHtot) > $threshold) ? 1 : 0;
+	my $peakGC = ($GCtot >= $Ctotmin and ($GCcon / $GCtot) > $threshold) ? 1 : 0;
+	my $peakGH = ($GHtot >= $Ctotmin and ($GHcon / $GHtot) > $threshold) ? 1 : 0;
 	if ($i < $totalseqpos - $window) {
 		my $temp;
 		my $min = $seq->{loc}{pos1}{$i};
@@ -626,11 +629,26 @@ footLoop Run script  : $other->{footLoop_runscript}
 footLoop md5         : $other->{md5}
 footLoop origDir     : $other->{origDir}
 footLoop seqFile     : $defOpts->{seqFile}
-footLoop samFile     : $defOpts->{samFile}
-footLoop samFixed    : $defOpts->{samFixed}
-footLoop samFixedMD5 : $defOpts->{samFixedMD5}
->Options from footLoop.pl logfile=$logFile\n";
-	 my $optcount = 0;
+";
+
+if (defined $defOpts->{samFile}) {
+	$param .= "
+footLoop samFile     : $defOpts->{BAMFile}
+footLoop samFixed    : $defOpts->{BAMFixed}
+footLoop samFixedMD5 : $defOpts->{BAMFixedMD5}
+";
+}
+
+if (defined $defOpts->{BAMFile}) {
+	$param .= "
+footLoop BAMFile     : $defOpts->{BAMFile}
+footLoop BAMFixed    : $defOpts->{BAMFixed}
+footLoop BAMFixedMD5 : $defOpts->{BAMFixedMD5}
+";
+}
+
+	$param .= ">Options from footLoop.pl logfile=$logFile\n";
+	my $optcount = 0;
 	foreach my $opt (sort keys %{$defOpts}) {
 		next if $opt !~ /^.$/;
 		next if defined $usrOpts2->{$opt};
@@ -664,11 +682,20 @@ sub parse_footLoop_logFile {
 		if ($parline =~ /footLoop.pl,samFile,/) {
 			($defOpts->{samFile}) = $parline =~ /samFile,(.+)$/;
 		}
+		if ($parline =~ /footLoop.pl,BAMFile,/) {
+			($defOpts->{BAMFile}) = $parline =~ /BAMFile,(.+)$/;
+		}
 		if ($parline =~ /footLoop.pl,samFixedFile,/) {
 			($defOpts->{samFixed}) = $parline =~ /samFixedFile,(.+)$/;
 		}
+		if ($parline =~ /footLoop.pl,BAMFixedFile,/) {
+			($defOpts->{BAMFixed}) = $parline =~ /BAMFixedFile,(.+)$/;
+		}
 		if ($parline =~ /footLoop.pl,samFixedFileMD5,/) {
 			($defOpts->{samFixedMD5}) = $parline =~ /samFixedFileMD5,(.+)$/;
+		}
+		if ($parline =~ /footLoop.pl,BAMFixedFileMD5,/) {
+			($defOpts->{BAMFixedMD5}) = $parline =~ /BAMFixedFileMD5,(.+)$/;
 		}
 	}
 	# %others contain other parameters from footLoop that aren't options (e.g. uuid)
@@ -829,7 +856,7 @@ sub set_default_opts {
 		'l' => '100'     ,'n' => ''        ,'q' => '0'       ,'r' => ''        ,
 		's' => '200'     ,'t' => '55'      ,'w' => '20'      ,'x' => '0'       ,
 		'y' => '0'       ,'K' => '2'       ,'L' => ''       ,'A' => ''        ,
-		'o' => 'RESULTS' ,'G' => ''
+		'o' => 'RESULTS' ,'G' => ''        ,'Z' => ''
 	);
 
 
