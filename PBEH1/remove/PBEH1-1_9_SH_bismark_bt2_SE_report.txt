@@ -1,0 +1,42 @@
+Bismark report for: /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/reads/seperated/PBEH1-1/PBEH1-1_9_SH.fastq.gz (version: v0.20.0)
+Option '--directional' specified (default mode): alignments to complementary strands (CTOT, CTOB) were ignored (i.e. not performed)
+Bismark was run with Bowtie 2 against the bisulfite genome of /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH_T7_init_VR_14/.geneIndex/942d91072bdb04f3f1410b448a3c4e4a/ with the specified options: -q --score-min L,0,-0.8 --rdg 2,1 --rfg 2,1 --ignore-quals
+
+Final Alignment report
+======================
+Sequences analysed in total:	4
+Number of alignments with a unique best hit from the different alignments:	0
+Mapping efficiency:	0.0%
+Sequences with no alignments under any condition:	4
+Sequences did not map uniquely:	0
+Sequences which were discarded because genomic sequence could not be extracted:	0
+
+Number of sequences with unique best (first) alignment came from the bowtie output:
+CT/CT:	0	((converted) top strand)
+CT/GA:	0	((converted) bottom strand)
+GA/CT:	0	(complementary to (converted) top strand)
+GA/GA:	0	(complementary to (converted) bottom strand)
+
+Number of alignments to (merely theoretical) complementary strands being rejected in total:	0
+
+Final Cytosine Methylation Report
+=================================
+Total number of C's analysed:	0
+
+Total methylated C's in CpG context:	0
+Total methylated C's in CHG context:	0
+Total methylated C's in CHH context:	0
+Total methylated C's in Unknown context:	0
+
+Total unmethylated C's in CpG context:	0
+Total unmethylated C's in CHG context:	0
+Total unmethylated C's in CHH context:	0
+Total unmethylated C's in Unknown context:	0
+
+Can't determine percentage of methylated Cs in CpG context if value was 0
+Can't determine percentage of methylated Cs in CHG context if value was 0
+Can't determine percentage of methylated Cs in CHH context if value was 0
+Can't determine percentage of methylated Cs in Unknown context (CN or CHN) if value was 0
+
+
+Bismark completed in 0d 0h 0m 5s

@@ -1,0 +1,23 @@
+footLoop.pl,uuid,8841d65c-4592-45d4-bef3-59be221cf4a3
+footLoop.pl,date,25 Apr 2023 19:35:23
+footLoop.pl,-F,$FALSE
+footLoop.pl,-L,50p
+footLoop.pl,-Z,$TRUE
+footLoop.pl,-g,output/mapping/genome/aggregatedGenome.fa
+footLoop.pl,-i,output/mapping/genome/aggregatedGenome.bed
+footLoop.pl,-l,PCB11
+footLoop.pl,-n,output/mapping/PBEH1-1/9_SH/
+footLoop.pl,-p,$FALSE
+footLoop.pl,-r,output/reads/seperated/PBEH1-1/PBEH1-1_9_SH.fastq.gz
+footLoop.pl,geneIndexFile,/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/aggregatedGenome.bed_0_0_bp.bed
+footLoop.pl,-g,/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/genome/aggregatedGenome.fa
+footLoop.pl,seqFile,/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/e7f2f15891b0e08bed613546390a97b9/aggregatedGenome.bed_0_0_bp.bed.fa
+footLoop.pl,BAMFile,/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/PBEH1-1_9_SH_bismark_bt2.bam
+footLoop.pl,map,header	label	total_read	perc_mapped_read	cannot_extract_chr	total_C	perc_meth_CpG	perc_meth_CHG	perc_meth_CHH	footLoop_outDir	uuid
+footLoop.pl,map,record	PCB11	4	25.0	0	596	0.0	0.0	0.0	/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH	8841d65c-4592-45d4-bef3-59be221cf4a3
+footLoop.pl,fix_BAMFile,/group/flchedingrp/mitochi/githubs/footLoop/lib/footLoop_2fixBAM.pl -n /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH -o /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.0_orig_59b6ba79f400720e49b2ec09f16d6543/
+footLoop.pl,BAMFixedFile,/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.0_orig_59b6ba79f400720e49b2ec09f16d6543//PBEH1-1_9_SH_bismark_bt2.bam.fixed.gz
+footLoop.pl,BAMFixedFileMD5,59b6ba79f400720e49b2ec09f16d6543
+footLoop.pl,origDir,/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.0_orig_59b6ba79f400720e49b2ec09f16d6543/
+footLoop.pl,read_passed_filter,header	total	positive	negative
+footLoop.pl,read_passed_filter,record	1	0	0

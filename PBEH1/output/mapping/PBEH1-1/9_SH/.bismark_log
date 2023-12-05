@@ -1,0 +1,188 @@
+Path to Bowtie 2 specified as: bowtie2
+Bowtie seems to be working fine (tested command 'bowtie2 --version' [2.2.6])
+Output format is BAM (default)
+Alignments will be written out in BAM format. Samtools found here: '/home/mitochi/.conda/envs/footLoop/bin/samtools'
+Reference genome folder provided is /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/e7f2f15891b0e08bed613546390a97b9/	(absolute path is '/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/e7f2f15891b0e08bed613546390a97b9/)'
+FastQ format assumed (by default)
+
+Input files to be analysed (in current folder '/group/flchedingrp/mitochi/githubs/footLoop/PBEH1'):
+/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/reads/seperated/PBEH1-1/PBEH1-1_9_SH.fastq.gz
+Library was specified to be not strand-specific (non-directional), therefore alignments to all four possible bisulfite strands (OT, CTOT, OB and CTOB) will be reported
+Output will be written into the directory: /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/
+Setting parallelization to single-threaded (default)
+
+Current working directory is: /group/flchedingrp/mitochi/githubs/footLoop/PBEH1
+
+Now reading in and storing sequence information of the genome specified in: /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/e7f2f15891b0e08bed613546390a97b9/
+
+chr pFC53TVR_25_pair_0 (3544 bp)
+chr T7_init_VR_25 (3322 bp)
+chr pFC53TVR_4_pair_0 (3544 bp)
+chr pFC53TVR_24_pair_0 (3544 bp)
+chr pFC53TVR_5_pair_0 (3544 bp)
+chr pFC53TVR_27_pair_0 (3544 bp)
+chr pFC53TVR_6_pair_0 (3544 bp)
+chr T7_init_VR_24 (3322 bp)
+chr pFC53TVR_26_pair_0 (3544 bp)
+chr pFC53TVR_7_pair_0 (3544 bp)
+chr T7_init_VR_26 (3322 bp)
+chr pFC53TVR_21_pair_0 (3544 bp)
+chr pFC53TVR_1_pair_0 (3544 bp)
+chr T7_init_VR_9 (3322 bp)
+chr T7_init_VR_31 (3322 bp)
+chr pFC53TVR_20_pair_0 (3544 bp)
+chr T7_init_VR_30 (3322 bp)
+chr T7_init_VR_8 (3322 bp)
+chr pFC53TVR_2_pair_0 (3544 bp)
+chr pFC53TVR_23_pair_0 (3544 bp)
+chr pFC53TVR_3_pair_0 (3544 bp)
+chr pFC53TVR_22_pair_0 (3544 bp)
+chr T7_init_VR_27 (3322 bp)
+chr T7_init_VR_23 (3322 bp)
+chr T7_init_VR_22 (3322 bp)
+chr pFC53TVR_28_pair_0 (3544 bp)
+chr pFC53TVR_9_pair_0 (3544 bp)
+chr T7_init_VR_18 (3322 bp)
+chr pFC53TVR_29_pair_0 (3544 bp)
+chr T7_init_VR_20 (3322 bp)
+chr pFC53TVR_8_pair_0 (3544 bp)
+chr T7_init_VR_21 (3322 bp)
+chr pFC9 (3589 bp)
+chr T7_init_VR_19 (3322 bp)
+chr pFC53TVR_11_pair_0 (3544 bp)
+chr T7_init_VR_28 (3322 bp)
+chr T7_init_VR_10 (3322 bp)
+chr pFC53TVR_10_pair_0 (3544 bp)
+chr T7_init_VR_7 (3322 bp)
+chr pFC53TVR_13_pair_0 (3544 bp)
+chr T7_init_VR_6 (3322 bp)
+chr T7_init_VR_11 (3322 bp)
+chr pFC53TVR_12_pair_0 (3544 bp)
+chr T7_init_VR_29 (3322 bp)
+chr pFC53TVR_15_pair_0 (3544 bp)
+chr T7_init_VR_4 (3322 bp)
+chr pFC53TVR_14_pair_0 (3544 bp)
+chr T7_init_VR_13 (3322 bp)
+chr T7_init_VR_12 (3322 bp)
+chr T7_init_VR_5 (3322 bp)
+chr pFC53TVR_17_pair_0 (3544 bp)
+chr pFC53TVR_16_pair_0 (3544 bp)
+chr pFC53TVR_30_pair_0 (3544 bp)
+chr T7_init_VR_1 (3322 bp)
+chr T7_init_VR_16 (3322 bp)
+chr pFC53TVR_18_pair_0 (3544 bp)
+chr pFC53TVR_31_pair_0 (3544 bp)
+chr pFC53TVR_19_pair_0 (3544 bp)
+chr T7_init_VR_17 (3322 bp)
+chr T7_init_VR_15 (3322 bp)
+chr T7_init_VR_2 (3322 bp)
+chr T7_init_VR_3 (3322 bp)
+chr T7_init_VR_14 (3322 bp)
+
+Single-core mode: setting pid to 1
+
+Single-end alignments will be performed
+=======================================
+
+Input file is in FastQ format
+Writing a C -> T converted version of the input file PBEH1-1_9_SH.fastq.gz to PBEH1-1_9_SH.fastq.gz_C_to_T.fastq
+Writing a G -> A converted version of the input file PBEH1-1_9_SH.fastq.gz to PBEH1-1_9_SH.fastq.gz_G_to_A.fastq
+
+Created C -> T as well as G -> A converted versions of the FastQ file PBEH1-1_9_SH.fastq.gz (4 sequences in total)
+
+Input files are PBEH1-1_9_SH.fastq.gz_C_to_T.fastq and PBEH1-1_9_SH.fastq.gz_G_to_A.fastq (FastQ)
+
+Now running 4 individual instances of Bowtie 2 against the bisulfite genome of /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/e7f2f15891b0e08bed613546390a97b9/ with the specified options: -q --score-min L,0,-0.8 --rdg 2,1 --rfg 2,1 --ignore-quals
+
+Now starting the Bowtie 2 aligner for CTreadCTgenome (reading in sequences from PBEH1-1_9_SH.fastq.gz_C_to_T.fastq with options -q --score-min L,0,-0.8 --rdg 2,1 --rfg 2,1 --ignore-quals --norc)
+Using Bowtie 2 index: /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/e7f2f15891b0e08bed613546390a97b9/Bisulfite_Genome/CT_conversion/BS_CT
+
+Found first alignment:	m64069_230413_005848/24708594/ccs	4	*	0	0	*	*	0	0	TATTTGTGTATGTGGTGTATTTTTTTTGGTGAATTATTTATTTTAGTTTTTTGGTAATAATTAATAGATTGGATGGAGGTGGATAAAGTTGTAGGATTATTTTTGTGTTTGGTTTTTTTGGTTGGTTGGTTTATTGTTGATAAATTTGGAGTTGGTGAGTGTGGATTTTGTGGTATTATTGTAGTATTGGGGTTAGATGATAAGTTTTTTTGTATTGTAGTTATTTATATGATGGGGAGTTAGGTAATTATGAATGAATGAAATAGATAGATTGTTGAGATAGGTGTTTTATTGATTAAGTATTGGTAATTGTTAGATTAAGTTTATTTATATATATTTTAGATTGATTTAAAATTTTATTTTTAATTTAAAAGGATTTAGATGAAGATTTTTTTTGATAATTTTATGATTAAAATTTTTTAATGTGAATTTTTGTTTTATTGAGTGTTAGATTTTGTAGAAAAGATTAAAGGATTTTTTTGAGATTTTTTTTTTTTGTGTGTAATTTGTTGTTTGTAAATAAAAAAATTATTGTTATTAGTGGTGGTTTGTTTGTTGGATTAAGAGTTATTAATTTTTTTTTTGAAGGTAATTGGTTTTAGTAGAGTGTAGATATTAAATATTGTTTTTTTAGTGTAGTTGTAGTTAGGTTATTATTTTAAGAATTTTGTAGTATTGTTTATATATTTTGTTTTGTTAATTTTGTTATTAGTGGTTGTTGTTAGTGGTGATAAGTTGTGTTTTATTGGGTTGGATTTAAGATGATAGTTATTGGATAAGGTGTAGTGGTTGGGTTGAATGGGGGGTTTGTGTATATAGTTTAGTTTGGAGTGAATGATTTATATTGAATTGAGATATTTATAGTGTGAGTTATGAGAAAGTGTTATGTTTTTGAAGGAAGAAAGGTGGATAGGTATTTGGTAAGTGGTAGGGTTGGAATAGGAGAGTGTATGAGGGAATTTTTAGGGGGAAATGTTTGGTATTTTTATAGTTTTGTTGGGTTTTGTTATTTTTGATTTGAGTGTTGATTTTTGTGATGTTTGTTAGGGGGGTGGAGTTTATGGAAAAATGTTAGTAATGTGGTTTTTTTATGGTTTTTGGTTTTTTGTTGGTTTTTTGTTTATATGTTTTTTTTTGTGTTATTTTTTGATTTTGTGGATAATTGTATTATTGTTTTTGAGTGAGTTGATATTGTTTGTTGTAGTTGAATGATTGAGTGTAGTGAGTTAGTGAGTGAGGAAGTGGAAGAGTGTTTAATATGTAAATTGTTTTTTTTTGTGTGTTGGTTGATTTATTAATGTAGGTATGTTTTAGAATTAATTTTTATTAAAGGGAATAAAAGTTGGTATTGGGTTTTTTTTTGAGGTTGGATTTTATGTATTTTTGTAGTTTTTGTGGTAGTGTAGGTATTGTGTAGTTTTAATAAAAAAGTATTATTATTATAGTAGGTAAATTAGATGATTATTGTAGGTTATAGGAAAATTAAAGGTTGTGGATTGTGTTATTGTTTTTTTTGATGTTTTTTTTTTTATATAGTAATTATTTAGTGTTTTTTAGTTATTTTGGATAGTGATAGGTTTTGTGGTTGTTATGTTTATTGTTTTTATGTTATGTTTATTGTTGTTATGTTTATTGTTGTTAAAGTTTATTATTGTTATGTTTATTTGTTGTTAATGTTTATTGTTGTTAATATTTATTGTTGTTGTTTTTTTTTATTTTTTAGTTATTTTTTATGGATTTTTTTTGTGTTGTGATTATTAATATAATTTTTATTATTGTTATATTGATTTATTTTTTTGGTTTATTGTTATAGTTTTTTTGTTTTGGTTATTGTGATGAATTTGGTGTTAGTTTATAATTGTGTGTATTGTGTTGGTTTTGTGTTTTAATGTTGGTTTTTTGTTGGGATGGTTGAAGTTGTTTTGTTGTAAGTAGTTTGTATATTGATTTTTGAGATGAAAGTTTGGTTTTTTATATTTGTTAGGTGGGTTTTGATAAGAGGTTTGGTGTTTTTTTGTTATGTGGTGGTGTTATTGTGGGTTTGAGGGAGTGTTTGGGTATTGAGTTTTAATTTGTTTTAATAGTGAGTTGTATTATTGTAGGATTTTTGGTGTAATAGTGAAGAGGTTTGTATTGATTGTTTTTTTTAATAGTTGTGTAGTTTGAATGGTGAATGGGATGTGTTTTGTAGTGGTGTATTAAGTGTGGTGGGTGTGGTGGTTATGTGTAGTGTGATTGTTATATTTGTTAGTGTTTTAGTGTTTGTTTTTTTTGTTTTTTTTTTTTTTTTTTTTGATTATGTTTGTTGGTTTTTTTTATTAAGTTTTAAATTGGGGTTTTTTTTAGGGTTTTGATTTAGTGTTTTAATTGAGGTATGAATGGTGTGTTTGTT	~xm{nCqprypknZ~~r[bC~~~jF~|?~ngZw`~nYo~~n~p~~pVe|C~~W~su~rc~L}q~xun|o~^~~~P~~`~r[{DeU[vcd~p`~^~~`~~nn~oOim\o~kK~Q~~d~[zG~]iO~tkHye~~}\~qo~s~~g~~~ba]~~lI~[v~r~qrdmN~Uup~rVrB~w~~s~^~os~Slm`eJ~~~^~xqypkslZ~n2~~a>~~jxy_eq~ycv~~ionvqhos~s5~~~mZ~s~^~_[~l~~yKe~{eT~lrj~~~~gbl~T~~^^n~qoYm}~Be'SR~~r|P~syu~u~oqsd~Yz~d~gkm~qkT~b~t~nC~khm~s~~~~}aqnZv~~owKjj~[~~^~~~nu~pi6~~~|e~U~~I~~qI~}mfq~V|Xrg~f~~^~C~|{qo~~n~no~ZWps][~V~~~~+k\c~i~qr~sXZG~~~rpm~P~xnus~qrrmUhn[A~~lI~~qY~~wm~zSc~kF~~~]t~o\~r~no~[~;~~~~~~p~q]oDoyb~conU^YnrT{fVT~~X*zws~~i;zsF~rhx~Z~^>nS~oJmL~j\@{~gQ~H~q~a<SU~ojb[Y~b~n~\-`is[2~em~S~sS~QxL~ij~hTEf^d~oZiinoI^YMQ:`iCP_hhEcQakYjjbve{|dR~G_xaR~h@~<~^YuccT~l]dcLliy\i`[]aipA|`/{x}knn|Y~|ha_wN[^kwc~rW~kaM|f&[naxS~hrWksXVof`n3~ieiU_~a{Sdx__DGeqH~=uu`yI~UCb6MscNTeklp\M~u[~A~nWCvHsOeizdkS~{lAvtKqe\rh;~~ztuf~\V]ZjjH_c8Y>tti^K~dE~pWUddqWMyZ~y}f`X~eRti%`RXbgcT~yzlyehdrQdcZjzvQyJNivUkeY~{jehUn/~Ql~Q~U~bS~~Q~kS~Uem:z`^nH~T~zZSEkT~lx&~eVLByh_ak-reXxZkem{kd[B~~m~fT~Y~m>~~~~R|rLeZ~wS~rcrfR~~`bxMtE~wezR3sfJ?ojRX~zW~yjtRrTPue}bXVe_eg.~iv^ZkHTNWg,Rdnkx+~~~~~eJ~}aA~xpxS~B|yntge\~xbkc~jekS~W~P~~~~|jJu,}Lo\=~C}R~~d@gwU~Ko*aem_kyZvdJXaS~i\x~W~dekea~j^<ib^i]jaxhlekU~|tR~DwW]_T~cA}KX_Lu~b}asR`bieRofQV~]a_keSuePa:6~dc~Me]D~_{KcNH>>c]iJhOpbyf}cke}Q~LmakU~l~b{Njc?~~HZZtjekU~jDxbDxtHTN}yd_]cjNYuS~Y~eR_~ltJz><XcGYP~g]ledndq\b;h@qe~L~~zkyjoN~yI~~^~iP~{naiwP~bhT~1fqQ[=Bxmhzka^S~{kS~}c~Y~pMeiw9~~ivQ^za>~nfZ]jU~kyCndvgK~kQVldlekyJAw|yQ_jGxr~~i]hjJlgY~nh^qle]z|=~j^~~H~s?`mevD~zziePrR~ak{kx?~H~~ua~Q~~T~iwejD}QbvZV>jiadiWsElhWuOwe}te0]T|nhY|]jrrjcNc`XE~bWce~lzbkcl:VYUgyOt\rhtY~<~~kzakdxZxT~D~~tRkU~P~cW}xje8z{fOxehY~iv{xeM~vpgR~~vkc`dPYd~nB=:2TgW~a?~dDrB`k\qN{e6H^?ncW~yxfZ~y|O~~ShG\zhQdC\<wiiG~dY~eY~k~x|M~}ZNhYa^I[~dX~i~.~iin^FqwD~~tcWyyhZ~R~xo_QglEx_w2f~~WWQ[~dXc[C~uX~Bff\aaoR~~V~`eoUaibyKq^FPsdejxmzz<~~~P[,iUX~eMveY~t_d;E~eH~okeA~uk>~sj{]gYN8ukf<P-skDUj4?Wpc(tb\l=SV~dhdi`R`bxZ?>CqCdrQVhY[^8liTT|eaZ~T~jy`R~}Yzk=~~qrLrAYKRW]zSaXpA~Zjtez`~[akeT~B~^Z^fajehO~F~eV{M|xea~~eKu~T~NyhyX~vb32s=~<uxB~j:~]G~~ke~kklUi>[5Kh9nsM-u~<0ww[ge\KZpJ~lE~g\W~[FbZGE~gJP\en?~uVLXOFkz=RXJ=I[]n[[n:|\~a~^^H~y@)TRb\l\iPaG]m^-PVWl]Lg=~nlD~~e2[LTOHkmm_^^ISY]I~Hzk]oo]l^n_~_pT%PgrLLWnUf]Yy^B^\hFRHj^W}b>|JPUrd8}_?5B0]Dg|lW_k]^N~^^^lZhQ^Y\_]E~_C~rRYmOf\OuTx^^^^^^l[^^m^V%a]YLNYcY`~^7x`Y?A,il_gZ^JE~i\CgDrFXr^^[<dQ?[g@zjO~M~V~~]jZ5BEaRXZP~]KKyJ~\Bih3\fh-EV_~[?mZe4nXW^,pG`[nC~~Ox\QBk^^fN~Ji>V[e^k^J%D:>c2RXY+jT_]]M|[Py_[^]=pZLZr	YT:Z:UU
+Now starting the Bowtie 2 aligner for CTreadGAgenome (reading in sequences from PBEH1-1_9_SH.fastq.gz_C_to_T.fastq with options -q --score-min L,0,-0.8 --rdg 2,1 --rfg 2,1 --ignore-quals --nofw)
+Using Bowtie 2 index: /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/e7f2f15891b0e08bed613546390a97b9/Bisulfite_Genome/GA_conversion/BS_GA
+
+4 reads; of these:
+  4 (100.00%) were unpaired; of these:
+    1 (25.00%) aligned 0 times
+    0 (0.00%) aligned exactly 1 time
+    3 (75.00%) aligned >1 times
+75.00% overall alignment rate
+Found first alignment:	m64069_230413_005848/24708594/ccs	16	T7_init_VR_13_GA_converted	6	0	2M555I121M1D346M1D22M1D453M1D19M1D2M1I844M6I3M8I1M5I4M	*	0	0	AACAAACACACCATTCATACCTCAATTAAAACACTAAATCAAAACCCTAAAAAAAACCCCAATTTAAAACTTAATAAAAAAAACCAACAAACATAATCAAAAAAAAAAAAAAAAAAAACAAAAAAAACAAACACTAAAACACTAACAAATATAACAATCACACTACACATAACCACCACACCCACCACACTTAATACACCACTACAAAACACATCCCATTCACCATTCAAACTACACAACTATTAAAAAAAACAATCAATACAAACCTCTTCACTATTACACCAAAAATCCTACAATAATACAACTCACTATTAAAACAAATTAAAACTCAATACCCAAACACTCCCTCAAACCCACAATAACACCACCACATAACAAAAAAACACCAAACCTCTTATCAAAACCCACCTAACAAATATAAAAAACCAAACTTTCATCTCAAAAATCAATATACAAACTACTTACAACAAAACAACTTCAACCATCCCAACAAAAAACCAACATTAAAACACAAAACCAACACAATACACACAATTATAAACTAACACCAAATTCATCACAATAACCAAAACAAAAAAACTATAACAATAAACCAAAAAAATAAATCAATATAACAATAATAAAAATTATATTAATAATCACAACACAAAAAAAATCCATAAAAAATAACTAAAAAATAAAAAAAAACAACAACAATAAATATTAACAACAATAAACATTAACAACAAATAAACATAACAATAATAAACTTTAACAACAATAAACATAACAACAATAAACATAACATAAAAACAATAAACATAACAACCACAAAACCTATCACTATCCAAAATAACTAAAAAACACTAAATAATTACTATATAAAAAAAAAAACATCAAAAAAAACAATAACACAATCCACAACCTTTAATTTTCCTATAACCTACAATAATCATCTAATTTACCTACTATAATAATAATACTTTTTTATTAAAACTACACAATACCTACACTACCACAAAAACTACAAAAATACATAAAATCCAACCTCAAAAAAAAACCCAATACCAACTTTTATTCCCTTTAATAAAAATTAATTCTAAAACATACCTACATTAATAAATCAACCAACACACAAAAAAAAACAATTTACATATTAAACACTCTTCCACTTCCTCACTCACTAACTCACTACACTCAATCATTCAACTACAACAAACAATATCAACTCACTCAAAAACAATAATACAATTATCCACAAAATCAAAAAATAACACAAAAAAAAACATATAAACAAAAAACCAACAAAAAACCAAAAACCATAAAAAAACCACATTACTAACATTTTTCCATAAACTCCACCCCCCTAACAAACATCACAAAAATCAACACTCAAATCAAAAATAACAAAACCCAACAAAACTATAAAAATACCAAACATTTCCCCCTAAAAATTCCCTCATACACTCTCCTATTCCAACCCTACCACTTACCAAATACCTATCCACCTTTCTTCCTTCAAAAACATAACACTTTCTCATAACTCACACTATAAATATCTCAATTCAATATAAATCATTCACTCCAAACTAAACTATATACACAAACCCCCCATTCAACCCAACCACTACACCTTATCCAATAACTATCATCTTAAATCCAACCCAATAAAACACAACTTATCACCACTAACAACAACCACTAATAACAAAATTAACAAAACAAAATATATAAACAATACTACAAAATTCTTAAAATAATAACCTAACTACAACTACACTAAAAAAACAATATTTAATATCTACACTCTACTAAAACCAATTACCTTCAAAAAAAAAATTAATAACTCTTAATCCAACAAACAAACCACCACTAATAACAATAATTTTTTTATTTACAAACAACAAATTACACACAAAAAAAAAAAATCTCAAAAAAATCCTTTAATCTTTTCTACAAAATCTAACACTCAATAAAACAAAAATTCACATTAAAAAATTTTAATCATAAAATTATCAAAAAAAATCTTCATCTAAATCCTTTTAAATTAAAAATAAAATTTTAAATCAATCTAAAATATATATAAATAAACTTAATCTAACAATTACCAATACTTAATCAATAAAACACCTATCTCAACAATCTATCTATTTCATTCATTCATAATTACCTAACTCCCCATCATATAAATAACTACAATACAAAAAAACTTATCATCTAACCCCAATACTACAATAATACCACAAAATCCACACTCACCAACTCCAAATTTATCAACAATAAACCAACCAACCAAAAAAACCAAACACAAAAATAATCCTACAACTTTATCCACCTCCATCCAATCTATTAATTATTACCAAAAAACTAAAATAAATAATTCACCAAAAAAAATACACCACATACACAAATA	rZLZp=]^[_yP[|M]]_Tj+YXR2c>:D%J^k^e[V>iJ~Nf^^kBQ\xO~~Cn[`Gp,^WXn4eZm?[~_VE-hf\3hiB\~JyKK]~PZXRaEB5Zj]~~V~M~Ojz@g[?Qd<[^^rXFrDgC\i~EJ^Zg_li,A?Y`x7^~`YcYNLY]a%V^m^^[l^^^^^^xTuO\fOmYRr~C_~E]_\Y^QhZl^^^~N^]k_Wl|gD]0B5?_}8drUPJ|>b}W^jHRFh\^B^yY]fUnWLLrgP%Tp_~_n^l]oo]kzH~I]YSI^^_mmkHOTL[2e~~Dln~=gL]lWVP-^m]GaPi\l\bRT)@y~H^^~a~\|:n[[n][I=JXR=zkFOXLVu~?ne\PJg~EGZbF[~W\g~El~JpZK\eg[ww0<~u-Msn9hK5[>iUlkk~ek~~G]~:j~Bxu<~=s23bv~XyhyN~T~uKe~~aex|M{Ve~F~Ohejaf^Z^~B~Teka[~`zetjZ~ApXaSz]WRKYArLrq~~=kzY}~R`yj~T~Zae|TTil8^[YhVQrdCqC>?Zxb`R`idhd~VS=l\bt(cpW?4jUDks-P<fku8NYg]{js~>ku~Aeko~He~E;d_t~YevMe~XUi,[P~~~<zzmxjedsPF^qKybiaUoe`~V~~Roaa\ffB~Xu~C[cXd~[QWW~~f2w_xElgQ_ox~R~ZhyyWct~~DwqF^nii~.~i~Xd~[I^aYhNZ}~M|x~k~Ye~Yd~Giiw<\CdQhz\GhS~~O|y~Zfxy~Wcn?^H6e{Nq\k`BrDd~?a~WgT2:=Bn~dYPd`ckv~~Rgpv~Mex{vi~YhexOf{z8ejx}Wc~P~UkRt~~D~TxZxdkazk~~<~Ythr\tOygUYV:lckbzl~ecWb~EX`cNcjrrj]|Yhn|T]0et}ewOuWhlEsWidaij>VZvbQ}Djewi~T~~Q~au~~H~?xk{ka~RrPeizz~Dvem`?s~H~~^j~=|z]elq^hn~YglJjh]i~~rxGj_Qy|wAJykeldlVQk~KgvdnCyk~Uj]Zfn~>az^Qvi~~9wieMp~Y~c}~Sk{~S^akzhmxB=[Qqf1~Thb~Pwian{~Pi~^~~Iy~Nojykz~~L~eq@h;b\qdndel]g~PYGcX<>zJtl~_Re~Y~SuYNjc]_dy}NTHtxDbxDj~UkejtZZH~~?cjN{b~l~UkamL~Q}ekc}fybpOhJi]c>>HNcK{_~D]eM~cd~6:aPeuSek_a]~VQfoReib`Rsa}b~uL_XK}Ac~T_]WwD~Rt|~Ukelhxaj]i^bi<^j~aeked~W~x\i~SaXJdvZyk_mea*oK~Uwg@d~~R}C~=\oL},uJj|~~~~P~W~Skej~ckbx~\egtny|B~Sxpx~Aa}~Je~~~~~+xkndR,gWNTHkZ^vi~.ge_eVXb}euPTrRtjy~Wz~XRjo?Jfs3Rzew~EtMxb`~~Rfrcr~Sw~ZeLr|R~~~~>m~Y~Tf~m~~B[dk{mekZxXer-ka_hyBLVe~&xl~TkESZz~T~Hn^`z:meU~Sk~Q~~Sb~U~Q~lQ~/nUhej{~YekUviNJyQvzjZcdQrdheylzy~TcgbXR`%itRe~X`f}y~ZyMWqddUWp~Ed~K^itt>Y8c_HjjZ]V\~futz~~;hr\eqKtvAl{~SkdzieOsHvCWn~A~[u~M\plkeTNcsM6bCU~Iy`uu=~HqeGD__xdS{a~_Uiei~3n`foVXskWrh~Sxan[&f|Mak~Wr~cwk^[Nw_ah|~Y|nnk}x{/`|Apia][`i\yilLcd]l~TccuY^~<~@h~Rax_G~Rd|{evbjjYkaQcEhh_PCi`:QMY^IoniiZo~d^fETh~ji~LxQ~Ss~S~me~2[si`-\~n~b~Y[bjo~US<a~q~H~Qg~{@\j~LmJo~Sn>^~Z~xhr~Fsz;i~~swz*X~~TVf{TrnY^Unoc~byoDo]q~p~~~~~~;~[~on~r~\o~t]~~~Fk~cSz~mw~~Yq~~Il~~A[nhUmrrq~sunx~P~mpr~~~GZXs~rq~i~c\k+~~~~V~[]spWZ~on~n~~oq{|~C~^~~f~grX|V~qfm}~Iq~~I~~U~e|~~~6ip~un~~~^~~[~jjKwo~~vZnqa}~~~~s~mhk~Cn~t~b~Tkq~mkg~d~zY~dsqo~u~uys~P|r~~RS'eB~}mYoq~n^^~~T~lbg~~~~jrl~Te{~eKy~~l~[_~^~s~Zm~~~5s~sohqvnoi~~vcy~qe_yxj~~>a~~2n~Zlskpyqx~^~~~Je`mlS~so~^~s~~w~BrVr~puU~Nmdrq~r~v[~Il~~]ab~~~g~~s~oq~\}~~eyHkt~Oi]~Gz[~d~~Q~Kk~o\miOo~nn~~`~~^~`p~dcv[UeD{[r~`~~P~~~^~o|nux~q}L~cr~us~W~~C|eVp~~p~n~~oYn~`wZgn~?|~Fj~~~Cb[r~~ZnkpyrpqCn{mx~	AS:i:-666	XS:i:-666	XN:i:0	XM:i:11	XO:i:10	XG:i:580	NM:i:591	MD:Z:1T121^A346^A22^C292A82C11C59C5^A19^A444C46C128C15A36C34C145	YT:Z:UU
+Now starting the Bowtie 2 aligner for GAreadCTgenome (reading in sequences from PBEH1-1_9_SH.fastq.gz_G_to_A.fastq with options -q --score-min L,0,-0.8 --rdg 2,1 --rfg 2,1 --ignore-quals --nofw)
+Using Bowtie 2 index: /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/e7f2f15891b0e08bed613546390a97b9/Bisulfite_Genome/CT_conversion/BS_CT
+
+4 reads; of these:
+  4 (100.00%) were unpaired; of these:
+    3 (75.00%) aligned 0 times
+    0 (0.00%) aligned exactly 1 time
+    1 (25.00%) aligned >1 times
+25.00% overall alignment rate
+Found first alignment:	m64069_230413_005848/24708594/ccs	16	T7_init_VR_5_CT_converted	8	0	1M557I63M3D2M3I53M1D88M5D2I2M2I1M1I12M2D2M2I90M2D1M1I1M1I64M3D3I72M1D8M2D1M1I2M1I9M1D453M1D19M1D2M1I219M2D2I624M3D2M7I2M1D2M3I5M1I4M	*	0	0	GGTAAATGTGTTATTTGTGTTTTGGTTAGAGTATTAAATTGGAATTTTAAAGGGAGTTTTGATTTAGAGTTTGATGGGGAAAGTTGGTGAATGTGGTTGAGAAAGGAAGGGAAGAAAGTGAAAGGAGTGGGTGTTAGGGTGTTGGTAAGTGTAGTGGTTATGTTGTGTGTAATTATTATATTTGTTGTGTTTAATGTGTTGTTATAGGGTGTGTTTTATTTGTTATTTAGATTGTGTAATTATTGAAAAAGATAATTAGTATAAATTTTTTTGTTATTATGTTAGGGATTTTGTAGTAATATGATTTATTATTAGGGTGAATTGGAGTTTGGTATTTAAATATTTTTTTGGATTTATGATGGTGTTATTATGTAGTAGGAAAATATTAGATTTTTTGTTGAAATTTGTTTGGTGGGTGTGGAGAGTTGGGTTTTTATTTTAAAGGTTGATGTGTAGGTTATTTATAGTGGAATGATTTTAATTATTTTGATAAAGAGTTAATGTTGAAATATAAGATTAATATAATATATATGGTTATGGGTTAATATTGAATTTGTTGTAGTGATTGAGGTGAGGAGGTTATGGTAGTGGATTAGGGGGATGAGTTGGTGTGATAGTAGTGGAAATTATGTTGGTGGTTGTGGTGTGGGGAGAGTTTGTAGGAAGTGGTTGGGAGGTAGGGGAAGGTGGTGATAGTGGGTATTGGTGGTGGTGGGTATTGATAGTGGGTAGGTATGGTGGTGGTGGATTTTGGTGGTGGTAGATATAATGATGATGGGTATGGTATAGAAGTGGTGGGTATGGTGGTTGTGGGGTTTGTTGTTGTTTGGAGTGATTAAGGGATGTTGAATGATTGTTGTGTAGAGGAGGGGGTATTAGAAGAGATAGTAGTATAGTTTGTAGTTTTTAATTTTTTTGTGATTTGTGATGGTTATTTGGTTTGTTTATTATAGTGGTGGTGTTTTTTTATTAAAATTGTGTAATGTTTATATTGTTGTAGGGGTTGTAGAAATGTGTGGAATTTGATTTTGAGAGGAGGTTTGGTATTAGTTTTTGTTTTTTTTAGTGAGGGTTAATTTTAGAGTATGTTTGTATTAATGAATTGGTTAATGTGTGAGGAGAGGTGGTTTGTGTATTGGGTGTTTTTTTGTTTTTTTGTTTATTGATTTGTTGTGTTTGGTTGTTTGGTTGTGGTGAGTGGTATTAGTTTATTTAAAGGTGGTAATATGGTTATTTATAGAATTAGGGGATAATGTAGGAAAGAATATGTGAGTAAAAGGTTAGTAAAAGGTTAGGAATTGTAAAAAGGTTGTGTTGTTGGTGTTTTTTTATAGGTTTTGTTTTTTTGATGAGTATTATAAAAATTGATGTTTAAGTTAGAGGTGGTGAAATTTGATAGGATTATAAAGATATTAGGTGTTTTTTTTTGGAAGTTTTTTTGTGTGTTTTTTTGTTTTGATTTTGTTGTTTATTGGATATTTGTTTGTTTTTTTTTTTTTGGAAGTGTGGTGTTTTTTTATAGTTTATGTTGTAGGTATTTTAGTTTGGTGTAGGTTGTTTGTTTTAAATTGGGTTGTGTGTATGAATTTTTTGTTTAGTTTGATTGTTGTGTTTTATTTGGTAATTATTGTTTTGAGTTTAATTTGGTAAGATATGATTTATTGTTATTGGTAGTAGTTATTGGTAATAGGATTAGTAGAGTGAGGTATGTAGGTGGTGTTATAGAGTTTTTGAAGTGGTAATTTAATTATGGTTATATTAGAAGAATAGTATTTGGTATTTGTGTTTTGTTGAAGTTAGTTATTTTTGGAAAAAGAGTTGGTAGTTTTTGATTTGGTAAATAAATTATTGTTGGTAGTGGTGGTTTTTTTGTTTGTAAGTAGTAGATTATGTGTAGAAAAAAAGGATTTTAAGAAGATTTTTTGATTTTTTTTATGGGGTTTGATGTTTAGTGGAATGAAAATTTATGTTAAGGGATTTTGGTTATGAGATTATTAAAAAGGATTTTTATTTAGATTTTTTTAAATTAAAAATGAAGTTTTAAATTAATTTAAAGTATATATGAGTAAATTTGGTTTGATAGTTATTAATGTTTAATTAGTGAGGTATTTATTTTAGTGATTTGTTTATTTTGTTTATTTATAGTTGTTTGATTTTTTGTTGTGTAGATAATTATGATATGGGAGGGTTTATTATTTGGTTTTAGTGTTGTAATGATATTGTGAGATTTATGTTTATTGGTTTTAGATTTATTAGTAATAAATTAGTTAGTTGGAAGGGTTGAGTGTAGAAGTGGTTTTGTAATTTTATTTGTTTTTATTTAGTTTATTAATTGTTGTTGGGAAGTTAGAGTAAGTAGTTTGTTAAAGAGGGTGTATTATGTGTGTGAATG	rZLZp=]^[_yP[|M]]_Tj+YXR2c>:D%J^k^e[V>iJ~Nf^^kBQ\xO~~Cn[`Gp,^WXn4eZm?[~_VE-hf\3hiB\~JyKK]~PZXRaEB5Zj]~~V~M~Ojz@g[?Qd<[^^rXFrDgC\i~EJ^Zg_li,A?Y`x7^~`YcYNLY]a%V^m^^[l^^^^^^xTuO\fOmYRr~C_~E]_\Y^QhZl^^^~N^]k_Wl|gD]0B5?_}8drUPJ|>b}W^jHRFh\^B^yY]fUnWLLrgP%Tp_~_n^l]oo]kzH~I]YSI^^_mmkHOTL[2e~~Dln~=gL]lWVP-^m]GaPi\l\bRT)@y~H^^~a~\|:n[[n][I=JXR=zkFOXLVu~?ne\PJg~EGZbF[~W\g~El~JpZK\eg[ww0<~u-Msn9hK5[>iUlkk~ek~~G]~:j~Bxu<~=s23bv~XyhyN~T~uKe~~aex|M{Ve~F~Ohejaf^Z^~B~Teka[~`zetjZ~ApXaSz]WRKYArLrq~~=kzY}~R`yj~T~Zae|TTil8^[YhVQrdCqC>?Zxb`R`idhd~VS=l\bt(cpW?4jUDks-P<fku8NYg]{js~>ku~Aeko~He~E;d_t~YevMe~XUi,[P~~~<zzmxjedsPF^qKybiaUoe`~V~~Roaa\ffB~Xu~C[cXd~[QWW~~f2w_xElgQ_ox~R~ZhyyWct~~DwqF^nii~.~i~Xd~[I^aYhNZ}~M|x~k~Ye~Yd~Giiw<\CdQhz\GhS~~O|y~Zfxy~Wcn?^H6e{Nq\k`BrDd~?a~WgT2:=Bn~dYPd`ckv~~Rgpv~Mex{vi~YhexOf{z8ejx}Wc~P~UkRt~~D~TxZxdkazk~~<~Ythr\tOygUYV:lckbzl~ecWb~EX`cNcjrrj]|Yhn|T]0et}ewOuWhlEsWidaij>VZvbQ}Djewi~T~~Q~au~~H~?xk{ka~RrPeizz~Dvem`?s~H~~^j~=|z]elq^hn~YglJjh]i~~rxGj_Qy|wAJykeldlVQk~KgvdnCyk~Uj]Zfn~>az^Qvi~~9wieMp~Y~c}~Sk{~S^akzhmxB=[Qqf1~Thb~Pwian{~Pi~^~~Iy~Nojykz~~L~eq@h;b\qdndel]g~PYGcX<>zJtl~_Re~Y~SuYNjc]_dy}NTHtxDbxDj~UkejtZZH~~?cjN{b~l~UkamL~Q}ekc}fybpOhJi]c>>HNcK{_~D]eM~cd~6:aPeuSek_a]~VQfoReib`Rsa}b~uL_XK}Ac~T_]WwD~Rt|~Ukelhxaj]i^bi<^j~aeked~W~x\i~SaXJdvZyk_mea*oK~Uwg@d~~R}C~=\oL},uJj|~~~~P~W~Skej~ckbx~\egtny|B~Sxpx~Aa}~Je~~~~~+xkndR,gWNTHkZ^vi~.ge_eVXb}euPTrRtjy~Wz~XRjo?Jfs3Rzew~EtMxb`~~Rfrcr~Sw~ZeLr|R~~~~>m~Y~Tf~m~~B[dk{mekZxXer-ka_hyBLVe~&xl~TkESZz~T~Hn^`z:meU~Sk~Q~~Sb~U~Q~lQ~/nUhej{~YekUviNJyQvzjZcdQrdheylzy~TcgbXR`%itRe~X`f}y~ZyMWqddUWp~Ed~K^itt>Y8c_HjjZ]V\~futz~~;hr\eqKtvAl{~SkdzieOsHvCWn~A~[u~M\plkeTNcsM6bCU~Iy`uu=~HqeGD__xdS{a~_Uiei~3n`foVXskWrh~Sxan[&f|Mak~Wr~cwk^[Nw_ah|~Y|nnk}x{/`|Apia][`i\yilLcd]l~TccuY^~<~@h~Rax_G~Rd|{evbjjYkaQcEhh_PCi`:QMY^IoniiZo~d^fETh~ji~LxQ~Ss~S~me~2[si`-\~n~b~Y[bjo~US<a~q~H~Qg~{@\j~LmJo~Sn>^~Z~xhr~Fsz;i~~swz*X~~TVf{TrnY^Unoc~byoDo]q~p~~~~~~;~[~on~r~\o~t]~~~Fk~cSz~mw~~Yq~~Il~~A[nhUmrrq~sunx~P~mpr~~~GZXs~rq~i~c\k+~~~~V~[]spWZ~on~n~~oq{|~C~^~~f~grX|V~qfm}~Iq~~I~~U~e|~~~6ip~un~~~^~~[~jjKwo~~vZnqa}~~~~s~mhk~Cn~t~b~Tkq~mkg~d~zY~dsqo~u~uys~P|r~~RS'eB~}mYoq~n^^~~T~lbg~~~~jrl~Te{~eKy~~l~[_~^~s~Zm~~~5s~sohqvnoi~~vcy~qe_yxj~~>a~~2n~Zlskpyqx~^~~~Je`mlS~so~^~s~~w~BrVr~puU~Nmdrq~r~v[~Il~~]ab~~~g~~s~oq~\}~~eyHkt~Oi]~Gz[~d~~Q~Kk~o\miOo~nn~~`~~^~`p~dcv[UeD{[r~`~~P~~~^~o|nux~q}L~cr~us~W~~C|eVp~~p~n~~oYn~`wZgn~?|~Fj~~~Cb[r~~ZnkpyrpqCn{mx~	AS:i:-736	XS:i:-736	XN:i:0	XM:i:10	XO:i:30	XG:i:616	NM:i:626	MD:Z:0T60G2^GGG4G50^G42G41G3^GGTGG15^GG92^GG66^GTG72^A8^GG12^T70G221G160^G19^A48G172^GG23G389G210^GTT4^G11	YT:Z:UU
+Now starting the Bowtie 2 aligner for GAreadGAgenome (reading in sequences from PBEH1-1_9_SH.fastq.gz_G_to_A.fastq with options -q --score-min L,0,-0.8 --rdg 2,1 --rfg 2,1 --ignore-quals --norc)
+Using Bowtie 2 index: /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/e7f2f15891b0e08bed613546390a97b9/Bisulfite_Genome/GA_conversion/BS_GA
+
+4 reads; of these:
+  4 (100.00%) were unpaired; of these:
+    3 (75.00%) aligned 0 times
+    0 (0.00%) aligned exactly 1 time
+    1 (25.00%) aligned >1 times
+25.00% overall alignment rate
+Found first alignment:	m64069_230413_005848/24708594/ccs	4	*	0	0	*	*	0	0	CATTCACACACATAATACACCCTCTTTAACAAACTACTTACTCTAACTTCCCAACAACAATTAATAAACTAAATAAAAACAAATAAAATTACAAAACCACTTCTACACTCAACCCTTCCAACTAACTAATTTATTACTAATAAATCTAAAACCAATAAACATAAATCTCACAATATCATTACAACACTAAAACCAAATAATAAACCCTCCCATATCATAATTATCTACACAACAAAAAATCAAACAACTATAAATAAACAAAATAAACAAATCACTAAAATAAATACCTCACTAATTAAACATTAATAACTATCAAACCAAATTTACTCATATATACTTTAAATTAATTTAAAACTTCATTTTTAATTTAAAAAAATCTAAATAAAAATCCTTTTTAATAATCTCATAACCAAAATCCCTTAACATAAATTTTCATTCCACTAAACATCAAACCCCATAAAAAAAATCAAAAAATCTTCTTAAAATCCTTTTTTTCTACACATAATCTACTACTTACAAACAAAAAAACCACCACTACCAACAATAATTTATTTACCAAATCAAAAACTACCAACTCTTTTTCCAAAAATAACTAACTTCAACAAAACACAAATACCAAATACTATTCTTCTAATATAACCATAATTAAATTACCACTTCAAAAACTCTATAACACCACCTACATACCTCACTCTACTAATCCTATTACCAATAACTACTACCAATAACAATAAATCATATCTTACCAAATTAAACTCAAAACAATAATTACCAAATAAAACACAACAATCAAACTAAACAAAAAATTCATACACACAACCCAATTTAAAACAAACAACCTACACCAAACTAAAATACCTACAACATAAACTATAAAAAAACACCACACTTCCAAAAAAAAAAAAACAAACAAATATCCAATAAACAACAAAATCAAAACAAAAAAACACACAAAAAAACTTCCAAAAAAAAACACCTAATATCTTTATAATCCTATCAAATTTCACCACCTCTAACTTAAACATCAATTTTTATAATACTCATCAAAAAAACAAAACCTATAAAAAAACACCAACAACACAACCTTTTTACAATTCCTAACCTTTTACTAACCTTTTACTCACATATTCTTTCCTACATTATCCCCTAATTCTATAAATAACCATATTACCACCTTTAAATAAACTAATACCACTCACCACAACCAAACAACCAAACACAACAAATCAATAAACAAAAAAACAAAAAAACACCCAATACACAAACCACCTCTCCTCACACATTAACCAATTCATTAATACAAACATACTCTAAAATTAACCCTCACTAAAAAAAACAAAAACTAATACCAAACCTCCTCTCAAAATCAAATTCCACACATTTCTACAACCCCTACAACAATATAAACATTACACAATTTTAATAAAAAAACACCACCACTATAATAAACAAACCAAATAACCATCACAAATCACAAAAAAATTAAAAACTACAAACTATACTACTATCTCTTCTAATACCCCCTCCTCTACACAACAATCATTCAACATCCCTTAATCACTCCAAACAACAACAAACCCCACAACCACCATACCCACCACTTCTATACCATACCCATCATCATTATATCTACCACCACCAAAATCCACCACCACCATACCTACCCACTATCAATACCCACCACCACCAATACCCACTATCACCACCTTCCCCTACCTCCCAACCACTTCCTACAAACTCTCCCCACACCACAACCACCAACATAATTTCCACTACTATCACACCAACTCATCCCCCTAATCCACTACCATAACCTCCTCACCTCAATCACTACAACAAATTCAATATTAACCCATAACCATATATATTATATTAATCTTATATTTCAACATTAACTCTTTATCAAAATAATTAAAATCATTCCACTATAAATAACCTACACATCAACCTTTAAAATAAAAACCCAACTCTCCACACCCACCAAACAAATTTCAACAAAAAATCTAATATTTTCCTACTACATAATAACACCATCATAAATCCAAAAAAATATTTAAATACCAAACTCCAATTCACCCTAATAATAAATCATATTACTACAAAATCCCTAACATAATAACAAAAAAATTTATACTAATTATCTTTTTCAATAATTACACAATCTAAATAACAAATAAAACACACCCTATAACAACACATTAAACACAACAAATATAATAATTACACACAACATAACCACTACACTTACCAACACCCTAACACCCACTCCTTTCACTTTCTTCCCTTCCTTTCTCAACCACATTCACCAACTTTCCCCATCAAACTCTAAATCAAAACTCCCTTTAAAATTCCAATTTAATACTCTAACCAAAACACAAATAACACATTTACC	~xm{nCqprypknZ~~r[bC~~~jF~|?~ngZw`~nYo~~n~p~~pVe|C~~W~su~rc~L}q~xun|o~^~~~P~~`~r[{DeU[vcd~p`~^~~`~~nn~oOim\o~kK~Q~~d~[zG~]iO~tkHye~~}\~qo~s~~g~~~ba]~~lI~[v~r~qrdmN~Uup~rVrB~w~~s~^~os~Slm`eJ~~~^~xqypkslZ~n2~~a>~~jxy_eq~ycv~~ionvqhos~s5~~~mZ~s~^~_[~l~~yKe~{eT~lrj~~~~gbl~T~~^^n~qoYm}~Be'SR~~r|P~syu~u~oqsd~Yz~d~gkm~qkT~b~t~nC~khm~s~~~~}aqnZv~~owKjj~[~~^~~~nu~pi6~~~|e~U~~I~~qI~}mfq~V|Xrg~f~~^~C~|{qo~~n~no~ZWps][~V~~~~+k\c~i~qr~sXZG~~~rpm~P~xnus~qrrmUhn[A~~lI~~qY~~wm~zSc~kF~~~]t~o\~r~no~[~;~~~~~~p~q]oDoyb~conU^YnrT{fVT~~X*zws~~i;zsF~rhx~Z~^>nS~oJmL~j\@{~gQ~H~q~a<SU~ojb[Y~b~n~\-`is[2~em~S~sS~QxL~ij~hTEf^d~oZiinoI^YMQ:`iCP_hhEcQakYjjbve{|dR~G_xaR~h@~<~^YuccT~l]dcLliy\i`[]aipA|`/{x}knn|Y~|ha_wN[^kwc~rW~kaM|f&[naxS~hrWksXVof`n3~ieiU_~a{Sdx__DGeqH~=uu`yI~UCb6MscNTeklp\M~u[~A~nWCvHsOeizdkS~{lAvtKqe\rh;~~ztuf~\V]ZjjH_c8Y>tti^K~dE~pWUddqWMyZ~y}f`X~eRti%`RXbgcT~yzlyehdrQdcZjzvQyJNivUkeY~{jehUn/~Ql~Q~U~bS~~Q~kS~Uem:z`^nH~T~zZSEkT~lx&~eVLByh_ak-reXxZkem{kd[B~~m~fT~Y~m>~~~~R|rLeZ~wS~rcrfR~~`bxMtE~wezR3sfJ?ojRX~zW~yjtRrTPue}bXVe_eg.~iv^ZkHTNWg,Rdnkx+~~~~~eJ~}aA~xpxS~B|yntge\~xbkc~jekS~W~P~~~~|jJu,}Lo\=~C}R~~d@gwU~Ko*aem_kyZvdJXaS~i\x~W~dekea~j^<ib^i]jaxhlekU~|tR~DwW]_T~cA}KX_Lu~b}asR`bieRofQV~]a_keSuePa:6~dc~Me]D~_{KcNH>>c]iJhOpbyf}cke}Q~LmakU~l~b{Njc?~~HZZtjekU~jDxbDxtHTN}yd_]cjNYuS~Y~eR_~ltJz><XcGYP~g]ledndq\b;h@qe~L~~zkyjoN~yI~~^~iP~{naiwP~bhT~1fqQ[=Bxmhzka^S~{kS~}c~Y~pMeiw9~~ivQ^za>~nfZ]jU~kyCndvgK~kQVldlekyJAw|yQ_jGxr~~i]hjJlgY~nh^qle]z|=~j^~~H~s?`mevD~zziePrR~ak{kx?~H~~ua~Q~~T~iwejD}QbvZV>jiadiWsElhWuOwe}te0]T|nhY|]jrrjcNc`XE~bWce~lzbkcl:VYUgyOt\rhtY~<~~kzakdxZxT~D~~tRkU~P~cW}xje8z{fOxehY~iv{xeM~vpgR~~vkc`dPYd~nB=:2TgW~a?~dDrB`k\qN{e6H^?ncW~yxfZ~y|O~~ShG\zhQdC\<wiiG~dY~eY~k~x|M~}ZNhYa^I[~dX~i~.~iin^FqwD~~tcWyyhZ~R~xo_QglEx_w2f~~WWQ[~dXc[C~uX~Bff\aaoR~~V~`eoUaibyKq^FPsdejxmzz<~~~P[,iUX~eMveY~t_d;E~eH~okeA~uk>~sj{]gYN8ukf<P-skDUj4?Wpc(tb\l=SV~dhdi`R`bxZ?>CqCdrQVhY[^8liTT|eaZ~T~jy`R~}Yzk=~~qrLrAYKRW]zSaXpA~Zjtez`~[akeT~B~^Z^fajehO~F~eV{M|xea~~eKu~T~NyhyX~vb32s=~<uxB~j:~]G~~ke~kklUi>[5Kh9nsM-u~<0ww[ge\KZpJ~lE~g\W~[FbZGE~gJP\en?~uVLXOFkz=RXJ=I[]n[[n:|\~a~^^H~y@)TRb\l\iPaG]m^-PVWl]Lg=~nlD~~e2[LTOHkmm_^^ISY]I~Hzk]oo]l^n_~_pT%PgrLLWnUf]Yy^B^\hFRHj^W}b>|JPUrd8}_?5B0]Dg|lW_k]^N~^^^lZhQ^Y\_]E~_C~rRYmOf\OuTx^^^^^^l[^^m^V%a]YLNYcY`~^7x`Y?A,il_gZ^JE~i\CgDrFXr^^[<dQ?[g@zjO~M~V~~]jZ5BEaRXZP~]KKyJ~\Bih3\fh-EV_~[?mZe4nXW^,pG`[nC~~Ox\QBk^^fN~Ji>V[e^k^J%D:>c2RXY+jT_]]M|[Py_[^]=pZLZr	YT:Z:UU
+
+>>> Writing bisulfite mapping results to /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/PBEH1-1_9_SH_bismark_bt2.bam <<<
+
+4 reads; of these:
+  4 (100.00%) were unpaired; of these:
+    3 (75.00%) aligned 0 times
+    0 (0.00%) aligned exactly 1 time
+    1 (25.00%) aligned >1 times
+25.00% overall alignment rate
+
+Reading in the sequence file /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/reads/seperated/PBEH1-1/PBEH1-1_9_SH.fastq.gz
+Processed 4 sequences in total
+
+
+Successfully deleted the temporary files PBEH1-1_9_SH.fastq.gz_C_to_T.fastq and PBEH1-1_9_SH.fastq.gz_G_to_A.fastq
+
+Final Alignment report
+======================
+Sequences analysed in total:	4
+Number of alignments with a unique best hit from the different alignments:	1
+Mapping efficiency:	25.0%
+
+Sequences with no alignments under any condition:	0
+Sequences did not map uniquely:	3
+Sequences which were discarded because genomic sequence could not be extracted:	0
+
+Number of sequences with unique best (first) alignment came from the bowtie output:
+CT/CT:	1	((converted) top strand)
+CT/GA:	0	((converted) bottom strand)
+GA/CT:	0	(complementary to (converted) top strand)
+GA/GA:	0	(complementary to (converted) bottom strand)
+
+Final Cytosine Methylation Report
+=================================
+Total number of C's analysed:	596
+
+Total methylated C's in CpG context:	0
+Total methylated C's in CHG context:	0
+Total methylated C's in CHH context:	0
+Total methylated C's in Unknown context:	0
+
+Total unmethylated C's in CpG context:	139
+Total unmethylated C's in CHG context:	126
+Total unmethylated C's in CHH context:	331
+Total unmethylated C's in Unknown context:	0
+
+C methylated in CpG context:	0.0%
+C methylated in CHG context:	0.0%
+C methylated in CHH context:	0.0%
+Can't determine percentage of methylated Cs in Unknown context (CN or CHN) if value was 0
+
+
+Bismark completed in 0d 0h 0m 6s
+
+====================
+Bismark run complete
+====================
+

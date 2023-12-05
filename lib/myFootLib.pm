@@ -580,6 +580,9 @@ sub linecount {
 }
 sub makedir {
    my ($folder, $isFile) = @_;
+	my $log = `mkdir -p $folder`;
+	return($log);
+=comment
 	my $log = "";
    #$folder = getFullpath($folder);
    my @folders = split("/", $folder);
@@ -598,6 +601,7 @@ sub makedir {
    }
    $log .= "FOLDER $LGN$curr_folder$N is made!\n" if -e $curr_folder;
    return ($log);
+=cut
 }
 
 sub ex { # 0 means it's not exists (bad)
@@ -977,10 +981,13 @@ sub colorconv {
    my @seq1 = $seq1 =~ /ARRAY/ ? @{$seq1} : split("", $seq1);
    my @seq2 = $seq2 =~ /ARRAY/ ? @{$seq2} : split("", $seq2);
    my ($res1, $res2);
-   for (my $i = 0; $i < @seq1; $i++) {
-      my $dinuc = $seq1[$i] . $seq2[$i];
-      $res1 .= $dinuc eq "CT" ? "${LRD}C$N" : $dinuc eq "GA" ? "${LRD}G$N" : ($seq1[$i] =~ /^(C|G)$/ and $seq1[$i] ne $seq2[$i]) ? "${YW}$seq1[$i]$N" : colorCG($seq1[$i]);
-      $res2 .= $dinuc eq "CT" ? "${LPR}T$N" : $dinuc eq "GA" ? "${LPR}A$N" : ($seq2[$i] =~ /^(C|G)$/ and $seq2[$i] ne $seq1[$i]) ? "${YW}$seq2[$i]$N" : colorCG($seq2[$i]);
+	my $length = @seq1 > @seq2 ? @seq1 : @seq2;
+   for (my $i = 0; $i < $length; $i++) {
+		my $seq1temp = $seq1[$i]; $seq1temp = "-" if not defined $seq1[$i];
+		my $seq2temp = $seq2[$i]; $seq2temp = "-" if not defined $seq2[$i];
+      my $dinuc = $seq1temp . $seq2temp;
+      $res1 .= $dinuc eq "CT" ? "${LRD}C$N" : $dinuc eq "GA" ? "${LRD}G$N" : ($seq1temp =~ /^(C|G)$/ and $seq1temp ne $seq2temp) ? "${YW}$seq1temp$N" : colorCG($seq1temp);
+      $res2 .= $dinuc eq "CT" ? "${LPR}T$N" : $dinuc eq "GA" ? "${LPR}A$N" : ($seq2temp =~ /^(C|G)$/ and $seq2temp ne $seq1temp) ? "${YW}$seq2temp$N" : colorCG($seq2temp);
    }
    return($res1, $res2);
 }

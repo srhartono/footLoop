@@ -91,8 +91,12 @@ open (my $outdebug, ">", "$debugFile") or die "Cannot write to $debugFile: $!\n"
 my ($total_read) = `awk '\$2 == 0|| \$2 == 16 {print}' $BAMFile | wc -l` =~ /^\s*(\d+)$/;
 $linecount = 0;
 my $in1;
-open ($in1, "samtools view $BAMFile|") or die "Cannot read from $BAMFile: $!\n" if $BAMFile =~ /.bam$/;
-#open ($in1, "<", $BAMFile) or die "Cannot read from $BAMFile: $!\n" if $BAMFile =~ /.BAM$/;
+if ($BAMFile =~ /.bam$/) {
+	open ($in1, "samtools view $BAMFile|") or die "Cannot read from $BAMFile: $!\n" if $BAMFile =~ /.bam$/;
+}
+else {
+	open ($in1, "<", $BAMFile) or die "Cannot read from $BAMFile: $!\n";
+}
 while (my $line = <$in1>) {
 	chomp($line);
 	my @arr = split("\t", $line);

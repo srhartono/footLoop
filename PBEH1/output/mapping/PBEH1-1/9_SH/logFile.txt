@@ -1,0 +1,289 @@
+
+[1;33mInitializing...[0m
+
+Version    : 
+--------------------
+[1;33m footLoop Version vUNKNOWN[0m
+--------------------
+
+commit e2808d07f653ca31122c2e7ec211233ea2199875
+Author: srhartono <srhartono@ucdavis.edu>
+Date:   Tue Apr 25 18:20:16 2023 -0700
+V2.3
+
+---------------
+
+
+Date       : 25 Apr 2023 19:35:23
+Run ID     : 8841d65c-4592-45d4-bef3-59be221cf4a3
+Run script : ../footLoop.pl -L 50p -Z -g output/mapping/genome/aggregatedGenome.fa -i output/mapping/genome/aggregatedGenome.bed -l PCB11 -n output/mapping/PBEH1-1/9_SH/ -r output/reads/seperated/PBEH1-1/PBEH1-1_9_SH.fastq.gz
+	
+[1;33mInput Parameters[0m
+1. -r [0;36mRead/BAM[0m  :/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/reads/seperated/PBEH1-1/PBEH1-1_9_SH.fastq.gz
+2. -g [0;36mGenome[0m    :/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/genome/aggregatedGenome.fa
+3. -n [0;36mOutDir[0m    :/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH
+4. -i [0;36mIndex[0m     :/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/genome/aggregatedGenome.bed
+5. -L [0;36mMinRdLen[0m  :50
+6. -q [0;36mMinMapQ[0m   :0
+7. -Z [0;36mBismark[0m   :--bowtie2 --rdg 2,1 --rfg 2,1 --score_min L,0,-0.8
+
+[1;33m==========>[0m
+STEP 1
+Preprocessing gene index file and getting sequences
+
+	a. Transforming [1;36m /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/genome/aggregatedGenome.bed[0m into[1;36m /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/aggregatedGenome.bed_0_0_bp.bed[0m
+[1;33m	::: /bin/cp /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/genome/aggregatedGenome.bed /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/aggregatedGenome.bed_0_0_bp.bed :::[0m
+	[0;32mSUCCESS[0m: Created index file [1;32m/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/aggregatedGenome.bed_0_0_bp.bed[0m from [1;36m/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/genome/aggregatedGenome.bed[0m
+		[0;37mFrom geneIndexFile:[0m
+		[0;37m1: gene=[1;32mPFC53TVR_25_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m2: gene=[1;32mT7_INIT_VR_25[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m3: gene=[1;32mPFC53TVR_4_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m4: gene=[1;32mPFC53TVR_24_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m5: gene=[1;32mPFC53TVR_5_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m6: gene=[1;32mPFC53TVR_27_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m7: gene=[1;32mPFC53TVR_6_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m8: gene=[1;32mT7_INIT_VR_24[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m9: gene=[1;32mPFC53TVR_26_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m10: gene=[1;32mPFC53TVR_7_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m11: gene=[1;32mT7_INIT_VR_26[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m12: gene=[1;32mPFC53TVR_21_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m13: gene=[1;32mPFC53TVR_1_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m14: gene=[1;32mT7_INIT_VR_9[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m15: gene=[1;32mT7_INIT_VR_31[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m16: gene=[1;32mPFC53TVR_20_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m17: gene=[1;32mT7_INIT_VR_30[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m18: gene=[1;32mT7_INIT_VR_8[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m19: gene=[1;32mPFC53TVR_2_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m20: gene=[1;32mPFC53TVR_23_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m21: gene=[1;32mPFC53TVR_3_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m22: gene=[1;32mPFC53TVR_22_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m23: gene=[1;32mT7_INIT_VR_27[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m24: gene=[1;32mT7_INIT_VR_23[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m25: gene=[1;32mT7_INIT_VR_22[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m26: gene=[1;32mPFC53TVR_28_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m27: gene=[1;32mPFC53TVR_9_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m28: gene=[1;32mT7_INIT_VR_18[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m29: gene=[1;32mPFC53TVR_29_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m30: gene=[1;32mT7_INIT_VR_20[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m31: gene=[1;32mPFC53TVR_8_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m32: gene=[1;32mT7_INIT_VR_21[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m33: gene=[1;32mPFC9[0m,beg=[1;32m0[0m,end=[1;32m3589[0m,bufferLen=[1;32m0[0m,length=[1;32m3589[0m
+		[0;37m34: gene=[1;32mT7_INIT_VR_19[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m35: gene=[1;32mPFC53TVR_11_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m36: gene=[1;32mT7_INIT_VR_28[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m37: gene=[1;32mT7_INIT_VR_10[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m38: gene=[1;32mPFC53TVR_10_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m39: gene=[1;32mT7_INIT_VR_7[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m40: gene=[1;32mPFC53TVR_13_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m41: gene=[1;32mT7_INIT_VR_6[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m42: gene=[1;32mT7_INIT_VR_11[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m43: gene=[1;32mPFC53TVR_12_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m44: gene=[1;32mT7_INIT_VR_29[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m45: gene=[1;32mPFC53TVR_15_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m46: gene=[1;32mT7_INIT_VR_4[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m47: gene=[1;32mPFC53TVR_14_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m48: gene=[1;32mT7_INIT_VR_13[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m49: gene=[1;32mT7_INIT_VR_12[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m50: gene=[1;32mT7_INIT_VR_5[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m51: gene=[1;32mPFC53TVR_17_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m52: gene=[1;32mPFC53TVR_16_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m53: gene=[1;32mPFC53TVR_30_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m54: gene=[1;32mT7_INIT_VR_1[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m55: gene=[1;32mT7_INIT_VR_16[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m56: gene=[1;32mPFC53TVR_18_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m57: gene=[1;32mPFC53TVR_31_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m58: gene=[1;32mPFC53TVR_19_PAIR_0[0m,beg=[1;32m0[0m,end=[1;32m3544[0m,bufferLen=[1;32m0[0m,length=[1;32m3544[0m
+		[0;37m59: gene=[1;32mT7_INIT_VR_17[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m60: gene=[1;32mT7_INIT_VR_15[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m61: gene=[1;32mT7_INIT_VR_2[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m62: gene=[1;32mT7_INIT_VR_3[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+		[0;37m63: gene=[1;32mT7_INIT_VR_14[0m,beg=[1;32m0[0m,end=[1;32m3322[0m,bufferLen=[1;32m0[0m,length=[1;32m3322[0m
+	[0;32mSUCCESS[0m: Parsed gene coordinates from index file [1;32m/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/aggregatedGenome.bed_0_0_bp.bed[0m
+
+	b. Getting fasta sequence from bed file[1;36m /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/aggregatedGenome.bed_0_0_bp.bed[0m genome file[1;36m /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/genome/aggregatedGenome.fa[0m
+[1;33m	::: fastaFromBed -fi /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/genome/aggregatedGenome.fa -bed /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/aggregatedGenome.bed_0_0_bp.bed -fo /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/aggregatedGenome.bed_0_0_bp.bed.fa -name :::[0m
+	[0;32mSUCCESS[0m: Output: geneIndexFaTemp=[0;36m/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/aggregatedGenome.bed_0_0_bp.bed.fa[0m
+
+	c. Parsing in gene sequence and infos from seqFile=[0;36m/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/e7f2f15891b0e08bed613546390a97b9/aggregatedGenome.bed_0_0_bp.bed.fa[0m
+		[0;37mFrom fasta file:[0m
+		[0;37m1:gene=PFC53TVR_25_PAIR_0,length=3544[0m
+		[0;37m2:gene=T7_INIT_VR_25,length=3322[0m
+		[0;37m3:gene=PFC53TVR_4_PAIR_0,length=3544[0m
+		[0;37m4:gene=PFC53TVR_24_PAIR_0,length=3544[0m
+		[0;37m5:gene=PFC53TVR_5_PAIR_0,length=3544[0m
+		[0;37m6:gene=PFC53TVR_27_PAIR_0,length=3544[0m
+		[0;37m7:gene=PFC53TVR_6_PAIR_0,length=3544[0m
+		[0;37m8:gene=T7_INIT_VR_24,length=3322[0m
+		[0;37m9:gene=PFC53TVR_26_PAIR_0,length=3544[0m
+		[0;37m10:gene=PFC53TVR_7_PAIR_0,length=3544[0m
+		[0;37m11:gene=T7_INIT_VR_26,length=3322[0m
+		[0;37m12:gene=PFC53TVR_21_PAIR_0,length=3544[0m
+		[0;37m13:gene=PFC53TVR_1_PAIR_0,length=3544[0m
+		[0;37m14:gene=T7_INIT_VR_9,length=3322[0m
+		[0;37m15:gene=T7_INIT_VR_31,length=3322[0m
+		[0;37m16:gene=PFC53TVR_20_PAIR_0,length=3544[0m
+		[0;37m17:gene=T7_INIT_VR_30,length=3322[0m
+		[0;37m18:gene=T7_INIT_VR_8,length=3322[0m
+		[0;37m19:gene=PFC53TVR_2_PAIR_0,length=3544[0m
+		[0;37m20:gene=PFC53TVR_23_PAIR_0,length=3544[0m
+		[0;37m21:gene=PFC53TVR_3_PAIR_0,length=3544[0m
+		[0;37m22:gene=PFC53TVR_22_PAIR_0,length=3544[0m
+		[0;37m23:gene=T7_INIT_VR_27,length=3322[0m
+		[0;37m24:gene=T7_INIT_VR_23,length=3322[0m
+		[0;37m25:gene=T7_INIT_VR_22,length=3322[0m
+		[0;37m26:gene=PFC53TVR_28_PAIR_0,length=3544[0m
+		[0;37m27:gene=PFC53TVR_9_PAIR_0,length=3544[0m
+		[0;37m28:gene=T7_INIT_VR_18,length=3322[0m
+		[0;37m29:gene=PFC53TVR_29_PAIR_0,length=3544[0m
+		[0;37m30:gene=T7_INIT_VR_20,length=3322[0m
+		[0;37m31:gene=PFC53TVR_8_PAIR_0,length=3544[0m
+		[0;37m32:gene=T7_INIT_VR_21,length=3322[0m
+		[0;37m33:gene=PFC9,length=3589[0m
+		[0;37m34:gene=T7_INIT_VR_19,length=3322[0m
+		[0;37m35:gene=PFC53TVR_11_PAIR_0,length=3544[0m
+		[0;37m36:gene=T7_INIT_VR_28,length=3322[0m
+		[0;37m37:gene=T7_INIT_VR_10,length=3322[0m
+		[0;37m38:gene=PFC53TVR_10_PAIR_0,length=3544[0m
+		[0;37m39:gene=T7_INIT_VR_7,length=3322[0m
+		[0;37m40:gene=PFC53TVR_13_PAIR_0,length=3544[0m
+		[0;37m41:gene=T7_INIT_VR_6,length=3322[0m
+		[0;37m42:gene=T7_INIT_VR_11,length=3322[0m
+		[0;37m43:gene=PFC53TVR_12_PAIR_0,length=3544[0m
+		[0;37m44:gene=T7_INIT_VR_29,length=3322[0m
+		[0;37m45:gene=PFC53TVR_15_PAIR_0,length=3544[0m
+		[0;37m46:gene=T7_INIT_VR_4,length=3322[0m
+		[0;37m47:gene=PFC53TVR_14_PAIR_0,length=3544[0m
+		[0;37m48:gene=T7_INIT_VR_13,length=3322[0m
+		[0;37m49:gene=T7_INIT_VR_12,length=3322[0m
+		[0;37m50:gene=T7_INIT_VR_5,length=3322[0m
+		[0;37m51:gene=PFC53TVR_17_PAIR_0,length=3544[0m
+		[0;37m52:gene=PFC53TVR_16_PAIR_0,length=3544[0m
+		[0;37m53:gene=PFC53TVR_30_PAIR_0,length=3544[0m
+		[0;37m54:gene=T7_INIT_VR_1,length=3322[0m
+		[0;37m55:gene=T7_INIT_VR_16,length=3322[0m
+		[0;37m56:gene=PFC53TVR_18_PAIR_0,length=3544[0m
+		[0;37m57:gene=PFC53TVR_31_PAIR_0,length=3544[0m
+		[0;37m58:gene=PFC53TVR_19_PAIR_0,length=3544[0m
+		[0;37m59:gene=T7_INIT_VR_17,length=3322[0m
+		[0;37m60:gene=T7_INIT_VR_15,length=3322[0m
+		[0;37m61:gene=T7_INIT_VR_2,length=3322[0m
+		[0;37m62:gene=T7_INIT_VR_3,length=3322[0m
+		[0;37m63:gene=T7_INIT_VR_14,length=3322[0m
+	[0;32mSUCCESS[0m: Sequence has been parsed from fasta file [0;36m/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/e7f2f15891b0e08bed613546390a97b9/aggregatedGenome.bed_0_0_bp.bed.fa[0m
+[1;33m<==========[0m
+
+[1;33m==========>[0m
+STEP 2
+Creating bismark index and running bismark
+
+	a. Running bismark_genome_preparation[0m --bowtie2 /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/e7f2f15891b0e08bed613546390a97b9/[0m
+ [1;33m ::: bismark_genome_preparation --bowtie2 /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/e7f2f15891b0e08bed613546390a97b9/ > /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/e7f2f15891b0e08bed613546390a97b9//LOG.txt 2>&1 && md5sum /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/e7f2f15891b0e08bed613546390a97b9/aggregatedGenome.bed_0_0_bp.bed.fa > /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/e7f2f15891b0e08bed613546390a97b9//Bisulfite_Genome/.md5sum :::[0m
+
+	b. Running bismark
+	[0;32mSUCCESS[0m: Output already exist: [0;36m/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/PBEH1-1_9_SH_bismark_bt2.bam[0m
+
+	[1;32mWAS NOT RUN[0m:[1;33m ::: bismark --bowtie2 --rdg 2,1 --rfg 2,1 --score_min L,0,-0.8 /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/e7f2f15891b0e08bed613546390a97b9/ /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/reads/seperated/PBEH1-1/PBEH1-1_9_SH.fastq.gz :::[0m
+[1;33m<==========[0m
+
+[1;33m==========>[0m
+STEP 3
+Fix BAM File
+
+	a. Fixing BAM file [0;36m/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/PBEH1-1_9_SH_bismark_bt2.bam[0m with /group/flchedingrp/mitochi/githubs/footLoop/lib/footLoop_2fixBAM.pl
+	footLoop.pl subroutine fix_BAMFile:: fixed BAM file [1;36m/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.0_orig_59b6ba79f400720e49b2ec09f16d6543//PBEH1-1_9_SH_bismark_bt2.bam.fixed[0m or .gz does not exist!
+	[1;33m/group/flchedingrp/mitochi/githubs/footLoop/lib/footLoop_2fixBAM.pl -n /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH -s /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.geneIndex/e7f2f15891b0e08bed613546390a97b9/aggregatedGenome.bed_0_0_bp.bed.fa -o /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.0_orig_59b6ba79f400720e49b2ec09f16d6543/[0m
+Failed to run /group/flchedingrp/mitochi/githubs/footLoop/lib/footLoop_2fixBAM.pl -n /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH -o /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.0_orig_59b6ba79f400720e49b2ec09f16d6543/: No such file or directory
+	gzip /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.0_orig_59b6ba79f400720e49b2ec09f16d6543//PBEH1-1_9_SH_bismark_bt2.bam.fixed	Failed to gzip /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.0_orig_59b6ba79f400720e49b2ec09f16d6543//PBEH1-1_9_SH_bismark_bt2.bam.fixed: No such file or directory
+	[1;33mmd5sum /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.0_orig_59b6ba79f400720e49b2ec09f16d6543//PBEH1-1_9_SH_bismark_bt2.bam.fixed.gz > /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.0_orig_59b6ba79f400720e49b2ec09f16d6543//.PBEH1-1_9_SH_bismark_bt2.bam.fixed.gz.md5[0m
+Failed to md5sum /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.0_orig_59b6ba79f400720e49b2ec09f16d6543//PBEH1-1_9_SH_bismark_bt2.bam.fixed.gz > /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.0_orig_59b6ba79f400720e49b2ec09f16d6543//.PBEH1-1_9_SH_bismark_bt2.bam.fixed.gz.md5: No such file or directory
+[1;33m<==========[0m
+
+[1;33m==========>[0m
+STEP 4
+Parse and Filter BAM File
+	a. Parsing BAM file [0;36m/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/PBEH1-1_9_SH_bismark_bt2.bam[0m and getting only high quality reads
+	Example at read 1: name=[0;36m...3_005848/9999998/ccs[0m	strand=[0;36m0[0m	chr/gene=[0;36mPFC53TVR_25_PAIR_0[0m	pos=[0;36m181[0m	mapQ=[0;36m6[0m
+
+
+	b.Logging BAM file [0;36m/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/PBEH1-1_9_SH_bismark_bt2.bam[0m
+	[1;36m/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.0_orig_59b6ba79f400720e49b2ec09f16d6543//PBEH1-1_9_SH_bismark_bt2.bam.fixed[0m: skipped = [1;32m0[0m
+
+Reads that passed filters:
+Positive: 0
+Negative: 0
+Total   : 1;
+	
+Per Gene:
+	
+	(Genes that have <= 10 reads:) [1;32m
+PFC53TVR_25_PAIR_0 (1)
+T7_INIT_VR_17 (0)
+T7_INIT_VR_11 (0)
+T7_INIT_VR_7 (0)
+PFC53TVR_21_PAIR_0 (0)
+PFC53TVR_31_PAIR_0 (0)
+PFC53TVR_11_PAIR_0 (0)
+T7_INIT_VR_30 (0)
+T7_INIT_VR_21 (0)
+T7_INIT_VR_9 (0)
+T7_INIT_VR_27 (0)
+T7_INIT_VR_15 (0)
+PFC53TVR_5_PAIR_0 (0)
+PFC53TVR_24_PAIR_0 (0)
+PFC53TVR_17_PAIR_0 (0)
+T7_INIT_VR_26 (0)
+T7_INIT_VR_8 (0)
+T7_INIT_VR_13 (0)
+T7_INIT_VR_3 (0)
+PFC53TVR_27_PAIR_0 (0)
+T7_INIT_VR_23 (0)
+PFC53TVR_14_PAIR_0 (0)
+PFC53TVR_4_PAIR_0 (0)
+PFC53TVR_7_PAIR_0 (0)
+PFC53TVR_8_PAIR_0 (0)
+T7_INIT_VR_16 (0)
+T7_INIT_VR_25 (0)
+PFC53TVR_18_PAIR_0 (0)
+PFC53TVR_29_PAIR_0 (0)
+T7_INIT_VR_31 (0)
+T7_INIT_VR_29 (0)
+PFC53TVR_12_PAIR_0 (0)
+T7_INIT_VR_20 (0)
+PFC9 (0)
+PFC53TVR_6_PAIR_0 (0)
+T7_INIT_VR_10 (0)
+PFC53TVR_19_PAIR_0 (0)
+T7_INIT_VR_19 (0)
+PFC53TVR_28_PAIR_0 (0)
+PFC53TVR_22_PAIR_0 (0)
+T7_INIT_VR_6 (0)
+PFC53TVR_30_PAIR_0 (0)
+T7_INIT_VR_5 (0)
+PFC53TVR_23_PAIR_0 (0)
+T7_INIT_VR_18 (0)
+PFC53TVR_26_PAIR_0 (0)
+T7_INIT_VR_12 (0)
+PFC53TVR_15_PAIR_0 (0)
+PFC53TVR_20_PAIR_0 (0)
+T7_INIT_VR_14 (0)
+T7_INIT_VR_2 (0)
+PFC53TVR_1_PAIR_0 (0)
+T7_INIT_VR_4 (0)
+PFC53TVR_13_PAIR_0 (0)
+T7_INIT_VR_1 (0)
+T7_INIT_VR_24 (0)
+PFC53TVR_16_PAIR_0 (0)
+T7_INIT_VR_22 (0)
+PFC53TVR_3_PAIR_0 (0)
+PFC53TVR_2_PAIR_0 (0)
+T7_INIT_VR_28 (0)
+PFC53TVR_9_PAIR_0 (0)
+PFC53TVR_10_PAIR_0 (0)
+
+[0m
+	[0;32mSUCCESS[0m: Total=1, used=0, Low Map Quality=0, Too short=0
+	
+	Output: [1;32m/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH/.0_orig_59b6ba79f400720e49b2ec09f16d6543/[0m
+
+	[1;33m<==========[0m
+

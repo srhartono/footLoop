@@ -1,0 +1,3 @@
+Path to Bowtie 2 specified as: bowtie2
+Failed to execute Bowtie porperly (return code of 'bowtie2 --version' was 32512). Please install Bowtie (1/2) first and make sure it is in the PATH, or specify the path to the Bowtie (1/2) using --path_to_bowtie /path/to/bowtie
+

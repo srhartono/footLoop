@@ -1,0 +1,22 @@
+footLoop.pl,uuid,49e18a50-7794-41a6-92c1-a59d21c330ce
+footLoop.pl,date,25 Apr 2023 19:31:12
+footLoop.pl,-F,$FALSE
+footLoop.pl,-L,50p
+footLoop.pl,-Z,$TRUE
+footLoop.pl,-g,output/mapping/genome/T7_init_VR_14.fa
+footLoop.pl,-i,output/mapping/genome/T7_init_VR_14.bed
+footLoop.pl,-l,PCB11
+footLoop.pl,-n,output/mapping/PBEH1-1/9_SH_T7_init_VR_14/
+footLoop.pl,-p,$FALSE
+footLoop.pl,-r,output/reads/seperated/PBEH1-1/PBEH1-1_9_SH.fastq.gz
+footLoop.pl,geneIndexFile,/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH_T7_init_VR_14/T7_init_VR_14.bed_0_0_bp.bed
+footLoop.pl,-g,/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/genome/T7_init_VR_14.fa
+footLoop.pl,seqFile,/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH_T7_init_VR_14/.geneIndex/942d91072bdb04f3f1410b448a3c4e4a/T7_init_VR_14.bed_0_0_bp.bed.fa
+footLoop.pl,BAMFile,/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH_T7_init_VR_14/PBEH1-1_9_SH_bismark_bt2.bam
+footLoop.pl,map,header	label	total_read	perc_mapped_read	cannot_extract_chr	total_C	perc_meth_CpG	perc_meth_CHG	perc_meth_CHH	footLoop_outDir	uuid
+footLoop.pl,map,record	PCB11	4	100.0	1	1583	31.0	32.7	34.0	/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH_T7_init_VR_14	49e18a50-7794-41a6-92c1-a59d21c330ce
+footLoop.pl,BAMFixedFile,/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH_T7_init_VR_14/.0_orig_c3b330601459df4f960c10e00176e8ea//PBEH1-1_9_SH_bismark_bt2.bam.fixed.gz
+footLoop.pl,BAMFixedFileMD5,c3b330601459df4f960c10e00176e8ea
+footLoop.pl,origDir,/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH_T7_init_VR_14/.0_orig_c3b330601459df4f960c10e00176e8ea/
+footLoop.pl,read_passed_filter,header	total	positive	negative
+footLoop.pl,read_passed_filter,record	3	3	0
