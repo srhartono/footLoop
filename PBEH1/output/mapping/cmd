@@ -1,2 +1,0 @@
-submodules/footLoop/footLoop.pl -Z -g output/mapping/genome/aggregatedGenome.fa  -i output/mapping/genome/aggregatedGenome.bed -l PCB11 -n output/mapping/PBEH1-1/9 -r output/reads/seperated/PBEH1-1/PBEH1-1_9.fastq.gz
-

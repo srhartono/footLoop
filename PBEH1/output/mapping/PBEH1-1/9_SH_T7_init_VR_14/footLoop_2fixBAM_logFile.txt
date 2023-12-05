@@ -1,8 +1,0 @@
-[[1;33m25 Apr 2023 19:28:51[0m]: Logfile = [1;31m/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH_T7_init_VR_14/logFile.txt[0m
-[[1;33m25 Apr 2023 19:28:51[0m]: 		LOGFILE=/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH_T7_init_VR_14/.PARAMS
-[[1;33m25 Apr 2023 19:28:51[0m]: 		footLoop_2fixBAM.pl: gene T7_INIT_VR_14 = 3322 bp
-[[1;33m25 Apr 2023 19:28:51[0m]: Checking BAM File =[1;36m/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH_T7_init_VR_14/PBEH1-1_9_SH_bismark_bt2.bam[0m=
-samtools view /group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH_T7_init_VR_14/PBEH1-1_9_SH_bismark_bt2.bam| wc -l = 3
-[[1;33m25 Apr 2023 19:28:51[0m]: Checking seq File =[1;36m/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH_T7_init_VR_14/.geneIndex/942d91072bdb04f3f1410b448a3c4e4a/T7_init_VR_14.bed_0_0_bp.bed.fa[0m=
-linecount = 1 check=0 line = >T7_init_VR_14
-264linecount=1 check=0 file=/group/flchedingrp/mitochi/githubs/footLoop/PBEH1/output/mapping/PBEH1-1/9_SH_T7_init_VR_14/.geneIndex/942d91072bdb04f3f1410b448a3c4e4a/T7_init_VR_14.bed_0_0_bp.bed.fa type=seq
