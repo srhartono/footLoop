@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_s $opt_i $opt_g $opt_n $opt_S $opt_c $opt_C $opt_o $opt_v $opt_n $opt_b);
-getopts("s:i:g:f:S:cCo:vn:b:");
+use vars qw($opt_v $opt_s $opt_i $opt_g $opt_n $opt_S $opt_c $opt_C $opt_o $opt_v $opt_n $opt_b $opt_0);
+getopts("s:i:g:f:S:cCo:vn:b:0");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/lib';
@@ -24,7 +24,7 @@ if (defined $opt_v) {
    print "$version\n";
 	 exit;
 }
-#my ($version_small) = "vUNKNOWN";
+#my ($version_small) = "vUNKN/CGCGAATGWN";
 #foreach my $versionz (@version[0..@version-1]) {
 #   ($version_small) = $versionz =~ /^(v?\d+\.\d+\w*)$/ if $versionz =~ /^v?\d+\.\d+\w*$/;
 #}
@@ -42,18 +42,18 @@ Usage: $YW$0$N -n $CY<folder of -n footLop.pl>$N -o $LGN<output dir>$N
 
 ";
 
-(print "\nfootLoop_2_splitBAMFile.pl: $usage\n" and exit 1) unless ex([$opt_b,$opt_i,$opt_g]) == 1 or ex($opt_n) == 1;
+(print "\nfootLoop_2_filterBAMFile.pl: $usage\n" and exit 1) unless ex([$opt_b,$opt_i,$opt_g]) == 1 or ex($opt_n) == 1;
 #ex([$opt_s,$opt_S,$opt_i,$opt_g]) == 1 or ex($opt_n) == 1;
-(print "\nfootLoop_2_splitBAMFile.pl: please define output (-o)\n" and exit 1) if not defined $opt_o;
+(print "\nfootLoop_2_filterBAMFile.pl: please define output (-o)\n" and exit 1) if not defined $opt_o;
 
-my ($footLoop_2_splitBAMFile_outDir) = $opt_o;
-makedir($footLoop_2_splitBAMFile_outDir);
-my $footLoop_2_splitBAMFile_logFile = "$footLoop_2_splitBAMFile_outDir/footLoop_2_splitBAMFile_logFile.txt";
-open (my $outLog, ">", $footLoop_2_splitBAMFile_logFile) or die "Failed to write to footLoop_2_splitBAMFile_logFile: $!\n";
+my ($footLoop_2_filterBAMFile_outDir) = $opt_o;
+makedir($footLoop_2_filterBAMFile_outDir);
+my $footLoop_2_filterBAMFile_logFile = "$footLoop_2_filterBAMFile_outDir/footLoop_2_filterBAMFile_logFile.txt";
+open (my $outLog, ">", $footLoop_2_filterBAMFile_logFile) or die "Failed to write to footLoop_2_filterBAMFile_logFile: $!\n";
 
 my ($BAMFile, $seqFile, $genez);
 if (defined $opt_n) {
-	#my ($footLoop_2_splitBAMFile_outDir, $outLog) = @_;
+	#my ($footLoop_2_filterBAMFile_outDir, $outLog) = @_;
 	($BAMFile, $seqFile, $genez) = parse_footLoop_logFile($opt_n, $outLog);
 }
 else {
@@ -89,9 +89,9 @@ my %out;
 my %data; my $cons; my %strand;
 my $linecount = 0;
 my ($BAMFolder, $BAMName) = getFilename($BAMFile, "folderfull");
-my $debugFile = "$footLoop_2_splitBAMFile_outDir/debug.txt";
-my $outBAMfile = "$footLoop_2_splitBAMFile_outDir/$BAMName.fixed";
-open (my $outBAM, ">", "$outBAMfile") or die "Cannot write to $outBAMfile: $!\n";
+my $debugFile = "$footLoop_2_filterBAMFile_outDir/debug.txt";
+my $outFixedfile = "$footLoop_2_filterBAMFile_outDir/$BAMName.fixed.gz";
+open (my $outFixed, "| gzip > $outFixedfile") or die "Cannot write to $outFixedfile: $!\n";
 open (my $outdebug, ">", "$debugFile") or die "Cannot write to $debugFile: $!\n";
 my ($total_read) = `awk '\$2 == 0|| \$2 == 16 {print}' $BAMFile | wc -l` =~ /^\s*(\d+)$/;
 $linecount = 0;
@@ -103,14 +103,17 @@ else {
 	open ($in1, "<", $BAMFile) or die "Cannot read from $BAMFile: $!\n";
 }
 my $printed = 0;
+my %allcount;
 LOG($outLog, "\n\n" . date() . "Parsing BAMFile ($LCY$BAMFile$N)\n\n");
+my ($maxinsperc, $maxinspercread, $maxdelperc, $maxdelpercread) = (0,"",0,"");
+my ($meaninsperc, $meandelperc, $totalread) = (0,0,0);
 while (my $line = <$in1>) {
 	chomp($line);
 	my @arr = split("\t", $line);
 	next if @arr < 6;
 	$linecount ++;
-
-	DIELOG($outLog, "DEBUG Exit at linecount == 5\n") if $linecount == 5;
+	#last if $linecount == 500;
+	DIELOG($outLog, "DEBUG (-0): Exit at linecount == 5\n") if defined $opt_0 and $linecount == 5;
 
 	LOG($outLog, date() . "\t$0: Parsed $LGN$linecount$N / $LCY$total_read$N\n","NA") if $linecount % 50 == 0;
 	my ($read, $strand, $chr, $pos, $mapq, $cigar, $junk1, $junk2, $junk3, $seqs, $qual, $junk4, $junk5, $converted, @others) = @arr;
@@ -125,9 +128,28 @@ while (my $line = <$in1>) {
 	my ($ref2, $seq2, $poz, $seqborder0, $seqborder1) = parse_BAMline($line, \@ref1, $outLog);
 	
 	my %poz = %{$poz};
-	my %bad = %{get_bad_region($ref2, $seq2, $seqborder0, $seqborder1)};
+	my %bad = %{mask_indel_region($ref2, $seq2, $seqborder0, $seqborder1)};
+	# mask indel region:
+	# GGTAGAG
+	# GGT-AGG (G->A)
+	# mask this coz the alignment could be GGTAG-G which means there's no G->A anymore
+	# instead of being biased we just mask this
 	my ($ref3, $seq3, $bad3);
+	my $ins = 0;
+	my $del = 0;
+	my $total;
+	my %count;
 	for (my $i = 0; $i < @{$ref2}; $i++) {
+		if ($i >= $seqborder0 and $i < $seqborder1) {
+			$ins ++ if $ref2->[$i] eq "-";
+			$del ++ if $seq2->[$i] eq "-";
+			#if ($ref2->[$i] ne "-" and $seq2->[$i] ne "-") {
+			my $ref2nuc = $ref2->[$i];
+			my $seq2nuc = $seq2->[$i];
+			$count{$ref2nuc}{$seq2nuc} ++;
+			#}
+			$total ++; # if $ref2->[$i] ne "-";
+		}
 		my $bad2 = ($i < $seqborder0 or $i >= $seqborder1) ? " " : defined $bad{$i} ? $LRD . "!" . $N : " ";
 		if ($ref2->[$i] ne "-") {
 			push(@{$ref3}, $ref2->[$i]);
@@ -135,41 +157,67 @@ while (my $line = <$in1>) {
 			push(@{$bad3}, $bad2);
 		}
 	}
-
-
-	if ($printed != 1) {
-		my @ref1print = @ref1 < 100000 ? @ref1 : @ref1[0..10000];
-		my @seq1print = @seq1 < 100000 ? @seq1 : @seq1[0..10000];
+	
+	my $insperc = $total == 0 ? 0 : int($ins/$total*10000)/100;
+	my $delperc = $total == 0 ? 0 : int($del/$total*10000)/100;
+	foreach my $ref2nuc (sort keys %count) {
+		foreach my $seq2nuc (sort keys %{$count{$ref2nuc}}) {
+			my $nuc = $count{$ref2nuc}{$seq2nuc};
+			my $perc = $total == 0 ? 0 : int($nuc/$total*10000)/100;
+			$allcount{$ref2nuc}{$seq2nuc}{perc} += $perc;
+			if (not defined $allcount{$ref2nuc}{$seq2nuc}{maxperc}) {
+				$allcount{$ref2nuc}{$seq2nuc}{maxperc} = $perc;
+				$allcount{$ref2nuc}{$seq2nuc}{maxread} = $read;
+			}
+			elsif ($allcount{$ref2nuc}{$seq2nuc}{maxperc} < $perc) {
+				$allcount{$ref2nuc}{$seq2nuc}{maxperc} = $perc;
+				$allcount{$ref2nuc}{$seq2nuc}{maxread} = $read;
+			}
+		}
+	}
+	$meaninsperc += $insperc;
+	$meandelperc += $delperc;
+	$totalread ++;
+	if ($maxinsperc < $insperc) {
+		$maxinsperc = $insperc;
+		$maxinspercread = $read;
+	}
+	if ($maxdelperc < $delperc) {
+		$maxdelperc = $delperc;
+		$maxdelpercread = $read;
+	}
+	if ($printed < 3) {
+		my @ref1print = @ref1 < 10000 ? @ref1 : @ref1[0..10000];
+		my @seq1print = @seq1 < 10000 ? @seq1 : @seq1[0..10000];
 		my $ref1print = join("", @ref1print);
 		my $seq1print = join("", @seq1print);
 		#my ($ref1print, $seq1print) = colorconv(\@ref1print, \@seq1print);
 		
-		LOG($outLog, "Example: $LGN$read$N ($LCY$chr $LGN$pos$N)\n\n");
-		LOG($outLog, "ref1: $ref1print\n");
-		LOG($outLog, "seq1: $seq1print\n\n");
+		LOG($outLog, "Example: $LGN$read$N ($LCY$chr $LGN$pos$N) (ins=$LGN$ins/$total$N ($LGN$insperc$N %), del=$LGN$del/$total$N ($LGN$delperc$N %)\n\n");
+		LOG($outLog, "Original:\n");
+		LOG($outLog, "ref: $ref1print\n");
+		LOG($outLog, "seq: $seq1print\n\n");
 
-		my @ref2print = @{$ref2} < 100000 ? @{$ref2} : @{$ref2}[0..100000];
-		my @seq2print = @{$seq2} < 100000 ? @{$seq2} : @{$seq2}[0..100000];
+		my @ref2print = @{$ref2} < 10000 ? @{$ref2} : @{$ref2}[0..10000];
+		my @seq2print = @{$seq2} < 10000 ? @{$seq2} : @{$seq2}[0..10000];
 		my ($ref2print, $seq2print) = colorconv(\@ref2print, \@seq2print);
-		
-		LOG($outLog, "ref2: $ref2print\n");
-		LOG($outLog, "seq2: $seq2print\n\n");
+		LOG($outLog, "After CIGAR:\n");
+		LOG($outLog, "ref: $ref2print\n");
+		LOG($outLog, "seq: $seq2print\n\n");
 
-		my @ref3print = @{$ref3} < 100000 ? @{$ref3} : @{$ref3}[0..100000];
-		my @seq3print = @{$seq3} < 100000 ? @{$seq3} : @{$seq3}[0..100000];
-		my @bad3print = @{$bad3} < 100000 ? @{$bad3} : @{$bad3}[0..100000];
+		my @ref3print = @{$ref3} < 10000 ? @{$ref3} : @{$ref3}[0..10000];
+		my @seq3print = @{$seq3} < 10000 ? @{$seq3} : @{$seq3}[0..10000];
+		my @bad3print = @{$bad3} < 10000 ? @{$bad3} : @{$bad3}[0..10000];
 		my ($ref3print, $seq3print) = colorconv(\@ref3print, \@seq3print);
 		my $bad3print = join("", @bad3print);
 		
+		LOG($outLog, "After masking those in bad regions:\n");
 		LOG($outLog, "ref3: $ref3print\n");
 		LOG($outLog, "seq3: $seq3print\n");
 		LOG($outLog, "bad3: $bad3print\n\n");
-		$printed = 1;
-		DIELOG($outLog, "DEBUG Exit parse_BAMline\n");
+		$printed ++ ;
 	}
-
-
-
+	
 	my	($CTcons, $CC0, $GG0, $CC1, $GG1, $CT0, $GA0, $CT1, $GA1) = det_C_type($ref3, $seq3, $bad3, $seqborder0, $seqborder1);
 	my ($refPrint, $seqPrint) = colorconv($ref3, $seq3);
 	my $CTPrint = join("", @{$CTcons});
@@ -210,7 +258,7 @@ while (my $line = <$in1>) {
 		$type = "99_UNK";
 	}
 
-	print $outBAM "$read\t$type\t$strand\t$newstrand\t$chr\t$CTPrint\t$CT0,$CC0,$GA0,$GG0,$CT1,$CC1,$GA1,$GG1\n";
+	print $outFixed "$read\t$type\t$strand\t$newstrand\t$chr\t$CTPrint\t$CT0,$CC0,$GA0,$GG0,$CT1,$CC1,$GA1,$GG1\n";
 	LOG($outLog, date() . "file=$LCY$BAMFile$N, linecount=$linecount, read=$read, die coz no info\n") if not defined $GG1;
 
 	## 3f. Below is for debug printing
@@ -228,8 +276,31 @@ while (my $line = <$in1>) {
 	#print $outdebug "CON: " . join("", @{$CTcons}) . "\n";
 }
 
-close $outBAM;
+close $outFixed;
 
+LOG($outLog, "maxinsperc\t$maxinsperc\t$maxinspercread\n");
+LOG($outLog, "maxdelperc\t$maxdelperc\t$maxdelpercread\n");
+foreach my $ref2nuc (sort keys %allcount) {
+	foreach my $seq2nuc (sort keys %{$allcount{$ref2nuc}}) {
+		my $maxperc = $allcount{$ref2nuc}{$seq2nuc}{maxperc};
+		my $maxread = $allcount{$ref2nuc}{$seq2nuc}{maxread};
+		LOG($outLog, "max\t$ref2nuc>$seq2nuc\t$maxperc\t$maxread\n");
+	}
+}
+
+$meaninsperc = $totalread == 0 ? 0 : int($meaninsperc/$totalread*100)/100;
+$meandelperc = $totalread == 0 ? 0 : int($meandelperc/$totalread*100)/100;
+LOG($outLog, "meaninsperc\t$meaninsperc\n");
+LOG($outLog, "meandelperc\t$meandelperc\n");
+foreach my $ref2nuc (sort keys %allcount) {
+	foreach my $seq2nuc (sort keys %{$allcount{$ref2nuc}}) {
+		my $perc = $allcount{$ref2nuc}{$seq2nuc}{perc};
+		$perc = $totalread == 0 ? 0 : int($perc/$totalread * 100)/100;
+		LOG($outLog, "mean\t$ref2nuc>$seq2nuc\t$perc\n");
+	}
+}
+
+#DIELOG($outLog, "DEBUG Exit before printing\n");
 foreach my $strand (sort keys %strand) {
 	my @types = ("BAMe","diff");
 	print $outdebug "$strand: ";
@@ -292,8 +363,8 @@ sub check_software {
 
 sub check_file {
 	my ($file, $type, $outLog) = @_;
-	DIELOG($outLog, "footLoop_2_splitBAMFile.pl: $type file $file does not exist!\n") if ex($file) == 0;
-	DIELOG($outLog, "footLoop_2_splitBAMFile.pl: $type file $file is empty!\n")       if -s $file  == 0;
+	DIELOG($outLog, "footLoop_2_filterBAMFile.pl: $type file $file does not exist!\n") if ex($file) == 0;
+	DIELOG($outLog, "footLoop_2_filterBAMFile.pl: $type file $file is empty!\n")       if -s $file  == 0;
 
 	my $filetype = `file -b --mime-type $file`; chomp($filetype);
 	my $cmd = ($file =~ /\.(rmdup|bam)$/ or $filetype =~ /(gzip|binary)/) ? "samtools view $file|" : "$file";
@@ -305,15 +376,15 @@ sub check_file {
 	if ($file =~ /\.(rmdup|bam)$/) {
 		($total_line) = `samtools view $file| wc -l` =~ /^\s*(\d+)/;
 		LOG($outLog, "samtools view $file| wc -l = $total_line\n","NA");
-		open ($checkfileIn, "samtools view $file|") or DIELOG($outLog, "footLoop_2_splitBAMFile.pl: Failed to read from filetype=$filetype, file=$LCY$file$N: $!\n");
+		open ($checkfileIn, "samtools view $file|") or DIELOG($outLog, "footLoop_2_filterBAMFile.pl: Failed to read from filetype=$filetype, file=$LCY$file$N: $!\n");
 	}
 	elsif ($file =~ /\.gz$/ or ($filetype =~ /(gzip|binary)/ and $file !~ /\.(rmdup|bam)$/)) {
 		($total_line) = `zcat < $file| wc -l` =~ /^\s*(\d+)/;
-		open ($checkfileIn, "zcat < $file|") or DIELOG($outLog, "footLoop_2_splitBAMFile.pl: Failed to read from filetype=$filetype, file=$LCY$file$N: $!\n");
+		open ($checkfileIn, "zcat < $file|") or DIELOG($outLog, "footLoop_2_filterBAMFile.pl: Failed to read from filetype=$filetype, file=$LCY$file$N: $!\n");
 	}
 	else {
 		($total_line) = `wc -l $file` =~ /^\s*(\d+)/;
-		open ($checkfileIn, "<", $file) or DIELOG($outLog, "footLoop_2_splitBAMFile.pl: Failed to read from filetype=$filetype, file=$LCY$file$N: $!\n") 
+		open ($checkfileIn, "<", $file) or DIELOG($outLog, "footLoop_2_filterBAMFile.pl: Failed to read from filetype=$filetype, file=$LCY$file$N: $!\n") 
 	}
 	
 	while (my $line = <$checkfileIn>) {
@@ -339,20 +410,20 @@ sub check_file {
 				LOG($outLog, __LINE__ . "before: linecount=$linecount check=$check file=$file type=$type\n","NA");
 				$check = $check == 0 ? 0 : $check + 1;
 				LOG($outLog, __LINE__ . "after: linecount=$linecount check=$check\n","NA");
-				DIELOG($outLog, __LINE__ .  "footLoop_2_splitBAMFile.pl: linecount=$linecount file=$file type=$type, check=$check, check_file failed (does not seem to be a seq file\n\t-> fasta file start with non-header!\n\n") if $check == 0;
-				DIELOG($outLog, __LINE__ .  "footLoop_2_splitBAMFile.pl: linecount=$linecount file=$file type=$type check=$check line=$line corruped fasta file!\n\t-> multiple headers in a row\n\n") if $check % 2 != 0;
+				DIELOG($outLog, __LINE__ .  "footLoop_2_filterBAMFile.pl: linecount=$linecount file=$file type=$type, check=$check, check_file failed (does not seem to be a seq file\n\t-> fasta file start with non-header!\n\n") if $check == 0;
+				DIELOG($outLog, __LINE__ .  "footLoop_2_filterBAMFile.pl: linecount=$linecount file=$file type=$type check=$check line=$line corruped fasta file!\n\t-> multiple headers in a row\n\n") if $check % 2 != 0;
 				undef $currseq;
 			}
 			if ($linecount < $total_line and defined $line and $line =~ /^>/) {
 				LOG($outLog, __LINE__ . "linecount=$linecount check=$check file=$file type=$type\n","NA");
 				$check ++;
 				# line will always be parsed header (1,3,5,etc) then seq (2,4,6,etc) so if header is even number then corrupted fasta file
-				DIELOG($outLog, __LINE__ .  "footLoop_2_splitBAMFile.pl: linecount=$linecount file=$file type=$type check=$check line=$line corruped fasta file!\n") if $check % 2 == 0;
+				DIELOG($outLog, __LINE__ .  "footLoop_2_filterBAMFile.pl: linecount=$linecount file=$file type=$type check=$check line=$line corruped fasta file!\n") if $check % 2 == 0;
 			}
 		}
 		last if $check >= 20 or $linecount >= $total_line;
 	}
-	DIELOG($outLog, __LINE__ .  "footLoop_2_splitBAMFile.pl: linecount=$linecount file=$file type=$type, check=$check, check_file failed (does not seem to be a BAM file\n\t-> there's no read with more than 10 collumns!\n") if $check == 0;
+	DIELOG($outLog, __LINE__ .  "footLoop_2_filterBAMFile.pl: linecount=$linecount file=$file type=$type, check=$check, check_file failed (does not seem to be a BAM file\n\t-> there's no read with more than 10 collumns!\n") if $check == 0;
 }
 
 sub parse_seqFile {
@@ -380,8 +451,8 @@ sub parse_footLoop_logFile {
 #my $tempLog = "./.$footLoop_folder_forLog\_TEMPOUTLOG.txt";
 #system("touch $tempLog") == 0 or print "Failed to write to $tempLog!\n";
 #open (my $tempLogOut, ">", $tempLog) or print "Failed to write to $tempLog: $!\n";
-#DIELOG($tempLogOut, "\nTEMPLOG:\n$tempLog\n$footLoop_folder: footLoop_2_splitBAMFile.pl: $usage") unless ex([$opt_s,$opt_S,$opt_i,$opt_g]) == 1 or ex($opt_n) == 1 and -e $tempLog;
-#DIELOG($tempLogOut, "\nTEMPLOG:\n$tempLog\n$footLoop_folder: footLoop_2_splitBAMFile.pl: please define output (-o)\n") if not defined $opt_o and -e $tempLog;
+#DIELOG($tempLogOut, "\nTEMPLOG:\n$tempLog\n$footLoop_folder: footLoop_2_filterBAMFile.pl: $usage") unless ex([$opt_s,$opt_S,$opt_i,$opt_g]) == 1 or ex($opt_n) == 1 and -e $tempLog;
+#DIELOG($tempLogOut, "\nTEMPLOG:\n$tempLog\n$footLoop_folder: footLoop_2_filterBAMFile.pl: please define output (-o)\n") if not defined $opt_o and -e $tempLog;
 
 
 ###########
@@ -394,7 +465,7 @@ my $footLoop_logFile = "$footLoop_folder/logFile.txt";
 
 # parse footLoop logfile
 
-	DIELOG($outLog, "footLoop_2_splitBAMFile.pl: \n\nCan't find $footLoop_logFile! Please run footLoop.pl first before running this!\n\n") if not -e $footLoop_logFile;
+	DIELOG($outLog, "footLoop_2_filterBAMFile.pl: \n\nCan't find $footLoop_logFile! Please run footLoop.pl first before running this!\n\n") if not -e $footLoop_logFile;
 #ADD
 	$footLoop_logFile = "$footLoop_folder/.PARAMS";
 	LOG($outLog, date() . "\t$YW$0$N: LOGFILE=$footLoop_logFile\n");
@@ -434,7 +505,7 @@ my $footLoop_logFile = "$footLoop_folder/logFile.txt";
 #				$genez->{$gene} = $length;
 #				print "gene $gene = $length bp\n";
 #			}
-#			last if $line =~ /footLoop_2_splitBAMFile.pl/;
+#			last if $line =~ /footLoop_2_filterBAMFile.pl/;
 		}
 	}
 	return($BAMFile, $seqFile, $genez);
@@ -458,7 +529,13 @@ sub parse_bedFile {
 	return($genez);
 }
 
-sub get_bad_region {
+
+sub mask_indel_region {
+
+	#CCAGA
+	#CC-GA
+	#make C-GA position as "bad"
+	# because the deletion might mess with the alignment
 	my ($ref2, $seq2, $seqborder0, $seqborder1) = @_;
 	my %bad;
 	my @bad; my $prints;
@@ -467,9 +544,9 @@ sub get_bad_region {
 		my $reftemp = "";
 		my $seqtemp = "";
 		for (my $j = $i; $j < $seqborder1; $j++) {
-			DIELOG($outLog, "footLoop_2_splitBAMFile.pl: Undefined ref2 at j=$j\n") if not defined $ref2->[$j];
+			DIELOG($outLog, "footLoop_2_filterBAMFile.pl: Undefined ref2 at j=$j\n") if not defined $ref2->[$j];
 			$reftemp .= $ref2->[$j];
-			DIELOG($outLog, "footLoop_2_splitBAMFile.pl: Undefined seq2 at j=$j\n") if not defined $seq2->[$j];
+			DIELOG($outLog, "footLoop_2_filterBAMFile.pl: Undefined seq2 at j=$j\n") if not defined $seq2->[$j];
 			$seqtemp .= $seq2->[$j];
 			if ($ref2->[$j] eq "-" or $seq2->[$j] eq "-") {
 				$badcount ++;
@@ -620,7 +697,7 @@ sub getConv {
 	my ($z) = $converted =~ tr/z/z/;
 	my ($dot) = $converted =~ tr/\./\./;
 	my $length = ($X+$H+$Z+$U+$x+$h+$z+$u+$dot);
-	DIELOG($outLog, "footLoop_2_splitBAMFile.pl: X=$X, H=$H, Z=$Z, U=$u, x=$x, h=$h, z=$z, u=$u, dot=$dot, length=$length, length2=$length2\n\n") if $length ne $length2;
+	DIELOG($outLog, "footLoop_2_filterBAMFile.pl: X=$X, H=$H, Z=$Z, U=$u, x=$x, h=$h, z=$z, u=$u, dot=$dot, length=$length, length2=$length2\n\n") if $length ne $length2;
 	$data{stat} = "X=$X, H=$H, Z=$Z, U=$u, x=$x, h=$h, z=$z, u=$u, dot=$dot, lengthsum=$length, lengthcol14=$length2";
 	my $conv = $x + $h + $z + $u;
 	my $notc = $X + $H + $Z + $U;
@@ -640,7 +717,7 @@ sub check_chr_in_BAM {
 		$linecount ++;
 		my ($strand, $chr) = @arr; $chr = uc($chr);
 		next if $strand eq 4;
-		DIELOG($outLog, "footLoop_2_splitBAMFile.pl: Can't find gene $chr in $seqFile!\n") if not defined $refs{$chr};
+		DIELOG($outLog, "footLoop_2_filterBAMFile.pl: Can't find gene $chr in $seqFile!\n") if not defined $refs{$chr};
 		next;
 	}
 }
