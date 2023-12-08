@@ -2,7 +2,7 @@
 
 use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
 use vars qw($opt_v $opt_s $opt_i $opt_g $opt_n $opt_S $opt_c $opt_C $opt_o $opt_v $opt_n $opt_b $opt_0);
-getopts("s:i:g:f:S:cCo:vn:b:0");
+getopts("s:i:g:f:S:cCo:vn:b:0:");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/lib';
@@ -46,6 +46,8 @@ Usage: $YW$0$N -n $CY<folder of -n footLop.pl>$N -o $LGN<output dir>$N
 #ex([$opt_s,$opt_S,$opt_i,$opt_g]) == 1 or ex($opt_n) == 1;
 (print "\nfootLoop_2_filterBAMFile.pl: please define output (-o)\n" and exit 1) if not defined $opt_o;
 
+my $debug_max_linecount = $opt_0;
+
 my ($footLoop_2_filterBAMFile_outDir) = $opt_o;
 makedir($footLoop_2_filterBAMFile_outDir);
 my $footLoop_2_filterBAMFile_logFile = "$footLoop_2_filterBAMFile_outDir/footLoop_2_filterBAMFile_logFile.txt";
@@ -69,7 +71,7 @@ else {
 # check BAM file
 LOG($outLog, "\n" . date() . "$YW$0$N Checking files:\n");
 LOG($outLog, date() . "Checking BAMFile ($LCY$BAMFile$N)\n");
-check_file($BAMFile, "BAM", $outLog); 
+#check_file($BAMFile, "BAM", $outLog); 
 
 # check seq file
 LOG($outLog, date() . "Checking genomeFile ($LCY$seqFile$N)\n");
@@ -91,7 +93,11 @@ my $linecount = 0;
 my ($BAMFolder, $BAMName) = getFilename($BAMFile, "folderfull");
 my $debugFile = "$footLoop_2_filterBAMFile_outDir/debug.txt";
 my $outFixedfile = "$footLoop_2_filterBAMFile_outDir/$BAMName.fixed.gz";
+my $outBadfile = "$footLoop_2_filterBAMFile_outDir/$BAMName.bad.gz";
+my $outWrongMapfile = "$footLoop_2_filterBAMFile_outDir/$BAMName.wrongmap.gz";
 open (my $outFixed, "| gzip > $outFixedfile") or die "Cannot write to $outFixedfile: $!\n";
+open (my $outBad, "| gzip > $outBadfile") or die "Cannot write to $outBadfile: $!\n";
+open (my $outWrongMap, "| gzip > $outWrongMapfile") or die "Cannot write to $outWrongMapfile: $!\n";
 open (my $outdebug, ">", "$debugFile") or die "Cannot write to $debugFile: $!\n";
 my ($total_read) = `awk '\$2 == 0|| \$2 == 16 {print}' $BAMFile | wc -l` =~ /^\s*(\d+)$/;
 $linecount = 0;
@@ -107,13 +113,18 @@ my %allcount;
 LOG($outLog, "\n\n" . date() . "Parsing BAMFile ($LCY$BAMFile$N)\n\n");
 my ($maxinsperc, $maxinspercread, $maxdelperc, $maxdelpercread) = (0,"",0,"");
 my ($meaninsperc, $meandelperc, $totalread) = (0,0,0);
+my %total;
+#($total{Read}, $total{Fixed}, $total{Bad}, $total{WrongMap}) = (0,0,0,0);
+
 while (my $line = <$in1>) {
 	chomp($line);
 	my @arr = split("\t", $line);
 	next if @arr < 6;
+	LOG($outLog, date() . "Done $linecount\n") if $linecount % 100 == 0;
 	$linecount ++;
 	#last if $linecount == 500;
-	DIELOG($outLog, "DEBUG (-0): Exit at linecount 20\n") if defined $opt_0 and $linecount > 1000;
+	#DIELOG($outLog, "DEBUG (-0): Exit at linecount 20\n") 
+	last if (defined $opt_0 and $linecount > $debug_max_linecount);
 
 	LOG($outLog, date() . "\t$0: Parsed $LGN$linecount$N / $LCY$total_read$N\n","NA") if $linecount % 50 == 0;
 	my ($read, $strand, $chr, $pos, $mapq, $cigar, $junk1, $junk2, $junk3, $seqs, $qual, $junk4, $junk5, $converted, @others) = @arr;
@@ -139,10 +150,55 @@ while (my $line = <$in1>) {
 	my $del = 0;
 	my $total;
 	my %count;
+	my %bigindel;
+	my ($indelbeg, $indelend) = (0,0);
+	my $isIndel = 0;
+	
+	my $isBad = 0;
+	my $isBadPos = 0;
+	my $isWrongMap = 0;
+	my $isWrongMapPos = 0;
+	my @CT;
 	for (my $i = 0; $i < @{$ref2}; $i++) {
+		if ($ref2->[$i] ne "-") {
+			my $CTtemp;
+			if ($seq2->[$i] eq "-") {
+				$CTtemp = 0;
+			}
+			elsif (($ref2->[$i] eq "C" and $seq2->[$i] eq "T") or ($ref2->[$i] eq "G" and $seq2->[$i] eq "A")) {
+				$CTtemp = $seq2->[$i];
+			}
+			elsif ($ref2->[$i] eq "C" or $ref2->[$i] eq "G") {# and $seq2->[$i] eq "T") or ($ref2->[$i] eq "G" and $seq2->[$i] eq "A")) {
+					$CTtemp = $ref2->[$i] eq $seq2->[$i] ? $seq2->[$i] : 1;
+			}
+			else {
+				$CTtemp = 1;
+			}
+			push(@CT, $CTtemp);
+		}
 		if ($i >= $seqborder0 and $i < $seqborder1) {
 			$ins ++ if $ref2->[$i] eq "-";
 			$del ++ if $seq2->[$i] eq "-";
+			
+			# indels
+			if ($ref2->[$i] eq "-") {
+				if ($isIndel eq 0) {
+					$indelbeg = $i;
+					$indelend = $i;
+					$isIndel = 1;
+				}
+				else {
+					$indelend = $i;
+				}
+			}
+			else {
+				if ($isIndel eq 1) {
+					$bigindel{$indelbeg} = $indelend;
+					$isIndel = 0;
+				}
+				else {} #do nothing
+			}
+			
 			#if ($ref2->[$i] ne "-" and $seq2->[$i] ne "-") {
 			my $ref2nuc = $ref2->[$i];
 			my $seq2nuc = $seq2->[$i];
@@ -158,12 +214,30 @@ while (my $line = <$in1>) {
 		}
 	}
 	
+	foreach my $tempbeg (sort {$a <=> $b} keys %bigindel) {
+		my $tempend = $bigindel{$tempbeg};
+		my $templength = $tempend - $tempbeg + 1;
+		($isBadPos, $isBad) = ($tempbeg, $templength) if $tempbeg < 400 and $templength > 20;
+		($isWrongMapPos, $isWrongMap) = ($tempbeg, $templength) if $tempbeg >= 400 and $templength > 20;
+		#print "$read\tins$templength\t$chr:$tempbeg-$tempend\n";
+	}
+	#my $isBadprint = $isBad ne 0 ? " PromoterBad: pos=$LGN$isBadPos$N len=$LGN${isBad}$N" : " PromoterBad pos=${LGN}0$N len=${LGN}0$N";
+	my $isBadprint = " ${LCY}PromoterBad_$LGN$isBadPos$N\_$LGN${isBad}$N";
+	my $isWrongMapprint = " ${LPR}WrongMap_$LGN$isWrongMapPos$N\_$LGN${isWrongMap}$N";
+#	my $isWrongMapprint = $isWrongMap ne 0 ? " WrongMap_$isWrongMapPos\_${isWrongMap}bp" : "";
 	my $insperc = $total == 0 ? 0 : int($ins/$total*10000)/100;
 	my $delperc = $total == 0 ? 0 : int($del/$total*10000)/100;
-	foreach my $ref2nuc (sort keys %count) {
-		foreach my $seq2nuc (sort keys %{$count{$ref2nuc}}) {
-			my $nuc = $count{$ref2nuc}{$seq2nuc};
+	my $snpperc = "";
+	my $indelperc = "";
+	my @nuc = qw(- A C G T);
+	foreach my $ref2nuc (sort @nuc) {#keys %count) {
+		foreach my $seq2nuc (sort @nuc) {#keys %{$count{$ref2nuc}}) {
+			my $nuc = $count{$ref2nuc}{$seq2nuc}; $nuc = 0 if not defined $nuc;
 			my $perc = $total == 0 ? 0 : int($nuc/$total*10000)/100;
+			my $ref2nucprint = $ref2nuc eq "-" ? "del" : $ref2nuc;
+			my $seq2nucprint = $seq2nuc eq "-" ? "ins" : $seq2nuc;
+			$indelperc .= " $LCY$ref2nucprint$N\_$LPR$seq2nucprint$N=$LGN$perc$N" if $ref2nuc eq "-" or $seq2nuc eq "-";
+			$snpperc .= " $LCY$ref2nucprint$N\_$LPR$seq2nucprint$N=$LGN$perc$N" if $ref2nuc ne "-" and $seq2nuc ne "-";
 			$allcount{$ref2nuc}{$seq2nuc}{perc} += $perc;
 			if (not defined $allcount{$ref2nuc}{$seq2nuc}{maxperc}) {
 				$allcount{$ref2nuc}{$seq2nuc}{maxperc} = $perc;
@@ -186,14 +260,14 @@ while (my $line = <$in1>) {
 		$maxdelperc = $delperc;
 		$maxdelpercread = $read;
 	}
-	if ($printed < 1000) {
+	if ($printed < 10) {
 		my @ref1print = @ref1 < 10000 ? @ref1 : @ref1[0..10000];
 		my @seq1print = @seq1 < 10000 ? @seq1 : @seq1[0..10000];
 		my $ref1print = join("", @ref1print);
 		my $seq1print = join("", @seq1print);
 		#my ($ref1print, $seq1print) = colorconv(\@ref1print, \@seq1print);
 		
-		LOG($outLog, "Example: $LGN$read$N ($LCY$chr $LGN$pos$N) (ins=$LGN$ins/$total$N ($LGN$insperc$N %), del=$LGN$del/$total$N ($LGN$delperc$N %)\n\n");
+		LOG($outLog, "Example: $LGN$read$N ($LCY$chr $LGN$pos$N) (ins=$LGN$ins/$total$N ($LGN$insperc$N %), del=$LGN$del/$total$N ($LGN$delperc$N %) $indelperc$snpperc$isBadprint$isWrongMapprint\n\n");
 		LOG($outLog, "Original:\n");
 		LOG($outLog, "ref: $ref1print\n");
 		LOG($outLog, "seq: $seq1print\n\n");
@@ -258,7 +332,27 @@ while (my $line = <$in1>) {
 		$type = "99_UNK";
 	}
 
-	print $outFixed "$read\t$type\t$strand\t$newstrand\t$chr\t$CTPrint\t$CT0,$CC0,$GA0,$GG0,$CT1,$CC1,$GA1,$GG1\n";
+	$total{$chr}{Read} = 0 if not defined $total{$chr}{Read};
+	$total{$chr}{WrongMapBad} = 0 if not defined $total{$chr}{WrongMapBad};
+	$total{$chr}{Bad} = 0 if not defined $total{$chr}{Bad};
+	$total{$chr}{WrongMap} = 0 if not defined $total{$chr}{WrongMap};
+	$total{$chr}{Fixed} = 0 if not defined $total{$chr}{Fixed};
+
+	$total{$chr}{WrongMapBad} ++ if $isBad > 0 and $isWrongMap > 0;
+
+	if ($isBad > 0) {
+		$total{$chr}{Bad} ++ if $isWrongMap eq 0;
+		print $outBad "$read\t$type\t$strand\t$newstrand\t$chr\t$CTPrint\t$CT0,$CC0,$GA0,$GG0,$CT1,$CC1,$GA1,$GG1\t" . join("", @CT) . "\n";
+	}
+	elsif ($isWrongMap > 0) {
+		$total{$chr}{WrongMap} ++ if $isBad eq 0;
+		print $outWrongMap "$read\t$type\t$strand\t$newstrand\t$chr\t$CTPrint\t$CT0,$CC0,$GA0,$GG0,$CT1,$CC1,$GA1,$GG1\t" . join("", @CT) . "\n";
+	}
+	else {
+		$total{$chr}{Fixed} ++;
+		print $outFixed "$read\t$type\t$strand\t$newstrand\t$chr\t$CTPrint\t$CT0,$CC0,$GA0,$GG0,$CT1,$CC1,$GA1,$GG1\t" . join("", @CT) . "\n";
+	}
+	$total{$chr}{Read} ++;
 	LOG($outLog, date() . "file=$LCY$BAMFile$N, linecount=$linecount, read=$read, die coz no info\n") if not defined $GG1;
 
 	## 3f. Below is for debug printing
@@ -275,8 +369,28 @@ while (my $line = <$in1>) {
 	#print $outdebug "SEQ: $seqPrint\n";
 	#print $outdebug "CON: " . join("", @{$CTcons}) . "\n";
 }
-
+close $outBad;
+close $outWrongMap;
 close $outFixed;
+LOG($outLog, "\n");
+LOG($outLog, "\n");
+foreach my $chr (sort keys %total) {
+	LOG($outLog, "chr");
+	foreach my $temptype (sort keys %{$total{$chr}}) {
+		LOG($outLog, "\t$temptype");
+	}
+	LOG($outLog, "\n"); last;
+}
+foreach my $chr (sort keys %total) {
+	LOG($outLog, "$chr");
+	foreach my $temptype (sort keys %{$total{$chr}}) {
+		LOG($outLog, "\t$total{$chr}{$temptype}");
+	}
+	LOG($outLog, "\n");
+}
+LOG($outLog, "\n");
+LOG($outLog, "\n");
+
 
 LOG($outLog, "maxinsperc\t$maxinsperc\t$maxinspercread\n");
 LOG($outLog, "maxdelperc\t$maxdelperc\t$maxdelpercread\n");
