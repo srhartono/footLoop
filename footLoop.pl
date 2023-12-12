@@ -1001,95 +1001,9 @@ sub run_bismark {
 			}
 			LOG($outLog, "==================================================\n");			
 
-
-			# TODO: ADD MERGE ALL .fixed.gz and all .filtered files!
-=comment			
-			#bismark methylation extractor
-			my $bme_cmd = "
-	mkdir -p FILENAME\_bismark_methylation_extractor && \\
-	bismark_methylation_extractor --version && \\
-	bismark_methylation_extractor --gzip --merge_non_CpG --bedGraph --split_by_chromosome \\
-	--output FILENAME\_bismark_methylation_extractor FILENAME > FILENAME\_bismark_methylation_extractor/DONE.DONE
-			";
-			
-			LOG($outLog, "\n\n" . date() . "\n\n\tc. Running bismark_methylation_extractor\n");
-			LOG($outLog, "$LCY$bme_cmd$N\n\n");
-			
-#			DIELOG($outLog, "DEBUG GOOD\n");
-			#my @partBAM = <$outFolder/*_bismark/*.$ext>;
-			my @partBG = <$outFolder/*_bismark/*bismark_methylation_extractor/*bedGraph.gz>;
-			my @partCG = (<$outFolder/*_bismark/*bismark_methylation_extractor/CpG_O*_*txt.gz>,
-							  <$outFolder/*_bismark/*bismark_methylation_extractor/CpG_CTO*_*txt.gz>);
-			my @partCH = (<$outFolder/*_bismark/*bismark_methylation_extractor/Non_CpG_O*_*txt.gz>,
-			              <$outFolder/*_bismark/*bismark_methylation_extractor/Non_CpG_CTO*_*txt.gz>);
-
-			my $totalBG = @partBG;
-			my $totalCG = @partCG;
-			my $totalCH = @partCH;
-			LOG($outLog, "\t#Found $LGN$totalBG$N/$LGN$totalBAM$N bedGraph files, should have 4 CpG & 4 NonCpG each: $LGN$totalCG$N CpG_CT/O* files, and $LGN$totalCH$N Non_CpG_CT/O*files\n");
-			if (defined $force{2} or defined $force{5} or $totalBG < $totalBAM) {
-				#DIELOG($outLog, "DEBUG exit before bismark_methylation_extractor\n");
-				sbatch_these($bme_cmd, "bismark_methylation_extractor", "DONE", \@partBAM, $max_slurm_job, $outLog, 1);
-				@partBG = <$outFolder/*_bismark/*bismark_methylation_extractor/*bedGraph.gz>;
-				@partCG = (<$outFolder/*_bismark/*bismark_methylation_extractor/CpG_O*_*txt.gz>,
-							  <$outFolder/*_bismark/*bismark_methylation_extractor/CpG_CTO*_*txt.gz>);
-				@partCH = (<$outFolder/*_bismark/*bismark_methylation_extractor/Non_CpG_O*_*txt.gz>,
-				           <$outFolder/*_bismark/*bismark_methylation_extractor/Non_CpG_CTO*_*txt.gz>);
-				$totalBG = @partBG;
-				$totalCG = @partCG;
-				$totalCH = @partCH;
-				LOG($outLog, "\n" . date() . " ${GN}SUCCESS$N: Ran bismark_methylation_extractor: $LGN$totalBG$N bedGraph Files, $LGN$totalCG$N CpG files, and $LGN$totalCH$N non-CpG files in $LCY$outFolder/*_bismark/*bismark_methylation_extractor/(CpG|Non_CpG)*txt.gz$N\n\n");
-			}
-			else {
-				LOG($outLog, "\n" . date() . " ${GN}SUCCESS$N: Using previously ran bismark_methylation_extractor: $LGN$totalBG$N bedGraph Files, $LGN$totalCG$N CpG files, and $LGN$totalCH$N non-CpG files in $LCY$outFolder/*_bismark/*bismark_methylation_extractor/(CpG|Non_CpG)*txt.gz$N\n\n");
-			}
-=cut
-
-=comment
-
-sub parse_bismark_me {
-	my ($file, $outLog) = @_;
-	my ($filename) = getFilename($file);
-	my $version;
-	my $linecount = 0;
-	my $in1;
-	my ($CGtype, $strand) = $filename =~ /^([A-Za-z0-9]+)_([A-Za-z0-9]+)_/;
-	$strand = $strand eq "OT" ? "+" : $strand eq "OB" ? "-" : $strand;
-	DIELOG($outLog, "Undefined CGtype or strand filename=$LCY$filename$N\n") if not defined $CGtype;
-	if ($file =~ /.gz$/) {
-		open ($in1, "zcat $file|") or DIELOG($outLog, "\nFailed to read from $file: $!\n\n");
-	}
-	else {
-		open ($in1, "<", $file) or DIELOG($outLog, "\nFailed to read from $file: $!\n\n");
-	}
-	my $lastread = -1;
-	open (my $out1, "| gzip > $file.fixed.gz") or DIELOG($outLog, "\nFailed to write to $file.fixed.gz: $!\n\n");
-	while (my $line = <$in1>) {
-		chomp($line);
-		$linecount ++;
-		if ($linecount == 1) {
-			($version) = $line;
-			next;
-		}
-		my ($read, $not_conv, $gene, $pos, $convType) = split("\t", @arr);
-		if ($lastread ne $read and $lastread ne -1) {
-			print $out1 "\n";
-			print $out1 "$read\t$CGtype\t+\t$strand\t$gene\t$pos\t0,0,0,0,0,0,0,0";
-		}
-		else {
-			print $out1 "\t";
-		}
-#		my ($read, $type, $oldStrand, $strand, $genez, $pos, $info) = split("\t", $line);
-#		my ($CT0, $CC0, $GA0, $GG0, $CT1, $CC1, $GA1, $GG1) = split(",", $info);
-	}
-	close $in1;
-}
-=cut
-			#@partBAM = <$outFolder/*_bismark/*.$ext>; 
-			#run_bismark_methylation_extractor(\@partBAM, $outLog);
 		}
 	}
-	LOG($outLog, "${run_boolean}$N\n");#::: bismark $bowtieOpt $bismark_geneIndexDir $readFile :::$N\n");
+	#LOG($outLog, "${run_boolean}$N\n");#::: bismark $bowtieOpt $bismark_geneIndexDir $readFile :::$N\n");
 
 	# print to $outReadLog
 	LOG($outReadLog, "footLoop.pl,BAMFile,$outDir/$BAMFilename\n","NA");
