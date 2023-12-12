@@ -114,7 +114,7 @@ LOG($outLog, "\n\n" . date() . "Parsing BAMFile ($LCY$BAMFile$N)\n\n");
 my ($maxinsperc, $maxinspercread, $maxdelperc, $maxdelpercread) = (0,"",0,"");
 my ($meaninsperc, $meandelperc, $totalread) = (0,0,0);
 my %total;
-#($total{Read}, $total{Fixed}, $total{Bad}, $total{WrongMap}) = (0,0,0,0);
+#($total{Read}, $total{Fixed}, $total{T7Dup}, $total{WrongMap}) = (0,0,0,0);
 
 while (my $line = <$in1>) {
 	chomp($line);
@@ -153,14 +153,51 @@ while (my $line = <$in1>) {
 	my %bigindel;
 	my ($indelbeg, $indelend) = (0,0);
 	my $isIndel = 0;
-	
-	my $isBad = 0;
-	my $isBadPos = 0;
-	my $isWrongMap = 0;
-	my $isWrongMapPos = 0;
+	my $isWrongMapFWBC = 0;
+	my $isWrongMapFWBCPos = 0;
+	my $isWrongMapRVBC = 0;
+	my $isWrongMapRVBCPos = 0;
+	my $isT7Dup = 0;
+	my $isT7DupPos = 0;
+	my $isWrongMapVR = 0;
+	my $isWrongMapVRPos = 0;
 	my @CT;
+	my $reftemp;
+	my $seqtemp;
+	my ($refbcfw, $seqbcfw, $refbcrv, $seqbcrv);
 	for (my $i = 0; $i < @{$ref2}; $i++) {
 		if ($ref2->[$i] ne "-") {
+			$reftemp .= $ref2->[$i];
+			$seqtemp .= $seq2->[$i];
+			if ($reftemp =~ /GGCAAACGCGCCATTCGTGT.{8}$/) {
+				($refbcfw) = $reftemp =~ /(.{8})$/;
+				($seqbcfw) = $seqtemp =~ /(.{8})$/;
+				my @refbc = split("", $refbcfw);
+				my @seqbc = split("", $seqbcfw);
+				my $diff = 0;
+				for (my $j = 0; $j < @refbc; $j++) {
+					$diff ++ if $refbc[$j] ne $seqbc[$j];
+				}
+				if ($diff > 1) {
+					$isWrongMapFWBC = $diff;
+					$isWrongMapFWBCPos = $i;
+				}
+			}
+			if ($reftemp =~ /.{8}TGCACCACGTGCGCGAATGT$/) {
+				($refbcrv) = $reftemp =~ /(.{8})TGCACCACGTGCGCGAATGT$/;
+				my $templen = length("TGCACCACGTGCGCGAATGT");
+				($seqbcrv) = $seqtemp =~ /(.{8}).{$templen}$/;
+				my @refbc = split("", $refbcrv);
+				my @seqbc = split("", $seqbcrv);
+				my $diff = 0;
+				for (my $j = 0; $j < @refbc; $j++) {
+					$diff ++ if $refbc[$j] ne $seqbc[$j];
+				}
+				if ($diff > 1) {
+					$isWrongMapRVBC = $diff;
+					$isWrongMapRVBCPos = $i;
+				}
+			}
 			my $CTtemp;
 			if ($seq2->[$i] eq "-") {
 				$CTtemp = 0;
@@ -217,13 +254,15 @@ while (my $line = <$in1>) {
 	foreach my $tempbeg (sort {$a <=> $b} keys %bigindel) {
 		my $tempend = $bigindel{$tempbeg};
 		my $templength = $tempend - $tempbeg + 1;
-		($isBadPos, $isBad) = ($tempbeg, $templength) if $tempbeg < 400 and $templength > 20;
-		($isWrongMapPos, $isWrongMap) = ($tempbeg, $templength) if $tempbeg >= 400 and $templength > 20;
+		($isT7DupPos, $isT7Dup) = ($tempbeg, $templength) if $tempbeg < 700 and $templength > 20;
+		($isWrongMapVRPos, $isWrongMapVR) = ($tempbeg, $templength) if $tempbeg >= 700 and $templength > 20;
 		#print "$read\tins$templength\t$chr:$tempbeg-$tempend\n";
 	}
-	#my $isBadprint = $isBad ne 0 ? " PromoterBad: pos=$LGN$isBadPos$N len=$LGN${isBad}$N" : " PromoterBad pos=${LGN}0$N len=${LGN}0$N";
-	my $isBadprint = " ${LCY}PromoterBad_$LGN$isBadPos$N\_$LGN${isBad}$N";
-	my $isWrongMapprint = " ${LPR}WrongMap_$LGN$isWrongMapPos$N\_$LGN${isWrongMap}$N";
+	#my $isT7Dupprint = $isT7Dup ne 0 ? " PromoterBad: pos=$LGN$isT7DupPos$N len=$LGN${isT7Dup}$N" : " PromoterBad pos=${LGN}0$N len=${LGN}0$N";
+	my $isT7Dupprint = " ${LCY}PromoterBad_$LGN$isT7DupPos$N\_$LGN${isT7Dup}$N";
+	my $isWrongMapVRprint = " ${LPR}WrongMapVR_$LGN$isWrongMapVRPos$N\_$LGN${isWrongMapVR}$N";
+	my $isWrongMapFWBCprint = " ${LPR}WrongMapFWBC_$LGN$isWrongMapFWBCPos$N\_$LGN${isWrongMapFWBC}$N\_$LCY$refbcfw$N\_$LPR$seqbcfw$N";
+	my $isWrongMapRVBCprint = " ${LPR}WrongMapRVBC_$LGN$isWrongMapRVBCPos$N\_$LGN${isWrongMapRVBC}$N\_$LCY$refbcrv$N\_$LPR$seqbcrv$N";
 #	my $isWrongMapprint = $isWrongMap ne 0 ? " WrongMap_$isWrongMapPos\_${isWrongMap}bp" : "";
 	my $insperc = $total == 0 ? 0 : int($ins/$total*10000)/100;
 	my $delperc = $total == 0 ? 0 : int($del/$total*10000)/100;
@@ -260,14 +299,14 @@ while (my $line = <$in1>) {
 		$maxdelperc = $delperc;
 		$maxdelpercread = $read;
 	}
-	if ($printed < 10) {
+	if ($printed < 100000) {
 		my @ref1print = @ref1 < 10000 ? @ref1 : @ref1[0..10000];
 		my @seq1print = @seq1 < 10000 ? @seq1 : @seq1[0..10000];
 		my $ref1print = join("", @ref1print);
 		my $seq1print = join("", @seq1print);
 		#my ($ref1print, $seq1print) = colorconv(\@ref1print, \@seq1print);
-		
-		LOG($outLog, "Example: $LGN$read$N ($LCY$chr $LGN$pos$N) (ins=$LGN$ins/$total$N ($LGN$insperc$N %), del=$LGN$del/$total$N ($LGN$delperc$N %) $indelperc$snpperc$isBadprint$isWrongMapprint\n\n");
+
+		LOG($outLog, "Example: $LGN$read$N $strand ($LCY$chr $LGN$pos$N) (ins=$LGN$ins/$total$N ($LGN$insperc$N %), del=$LGN$del/$total$N ($LGN$delperc$N %) $indelperc$snpperc$isT7Dupprint$isWrongMapVRprint$isWrongMapFWBCprint$isWrongMapRVBCprint\n\n");
 		LOG($outLog, "Original:\n");
 		LOG($outLog, "ref: $ref1print\n");
 		LOG($outLog, "seq: $seq1print\n\n");
@@ -334,18 +373,28 @@ while (my $line = <$in1>) {
 
 	$total{$chr}{Read} = 0 if not defined $total{$chr}{Read};
 	$total{$chr}{WrongMapBad} = 0 if not defined $total{$chr}{WrongMapBad};
-	$total{$chr}{Bad} = 0 if not defined $total{$chr}{Bad};
+	$total{$chr}{T7Dup} = 0 if not defined $total{$chr}{T7Dup};
 	$total{$chr}{WrongMap} = 0 if not defined $total{$chr}{WrongMap};
+	$total{$chr}{WrongMapFWBC} = 0 if not defined $total{$chr}{WrongMapFWBC};
+	$total{$chr}{WrongMapRVBC} = 0 if not defined $total{$chr}{WrongMapRVBC};
 	$total{$chr}{Fixed} = 0 if not defined $total{$chr}{Fixed};
 
-	$total{$chr}{WrongMapBad} ++ if $isBad > 0 and $isWrongMap > 0;
+	$total{$chr}{WrongMapBad} ++ if $isT7Dup > 0 and $isWrongMapVR > 0;
 
-	if ($isBad > 0) {
-		$total{$chr}{Bad} ++ if $isWrongMap eq 0;
+	if ($isT7Dup > 0) {
+		$total{$chr}{T7Dup} ++;
 		print $outBad "$read\t$type\t$strand\t$newstrand\t$chr\t$CTPrint\t$CT0,$CC0,$GA0,$GG0,$CT1,$CC1,$GA1,$GG1\t" . join("", @CT) . "\n";
 	}
-	elsif ($isWrongMap > 0) {
-		$total{$chr}{WrongMap} ++ if $isBad eq 0;
+	if ($isWrongMapFWBC > 0) {
+		$total{$chr}{WrongMapFWBC} ++;
+		print $outWrongMap "$read\t$type\t$strand\t$newstrand\t$chr\t$CTPrint\t$CT0,$CC0,$GA0,$GG0,$CT1,$CC1,$GA1,$GG1\t" . join("", @CT) . "\n";
+	}
+	elsif ($isWrongMapRVBC > 0) {
+		$total{$chr}{WrongMapRVBC} ++;
+		print $outWrongMap "$read\t$type\t$strand\t$newstrand\t$chr\t$CTPrint\t$CT0,$CC0,$GA0,$GG0,$CT1,$CC1,$GA1,$GG1\t" . join("", @CT) . "\n";
+	}
+	elsif ($isWrongMapVR > 0) {
+		$total{$chr}{WrongMap} ++;
 		print $outWrongMap "$read\t$type\t$strand\t$newstrand\t$chr\t$CTPrint\t$CT0,$CC0,$GA0,$GG0,$CT1,$CC1,$GA1,$GG1\t" . join("", @CT) . "\n";
 	}
 	else {

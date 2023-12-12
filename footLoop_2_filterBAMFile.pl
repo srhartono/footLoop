@@ -49,6 +49,7 @@ Usage: $YW$0$N -n $CY<folder of -n footLop.pl>$N -o $LGN<output dir>$N
 my ($footLoop_2_filterBAMFile_outDir) = $opt_o;
 makedir($footLoop_2_filterBAMFile_outDir);
 my $footLoop_2_filterBAMFile_logFile = "$footLoop_2_filterBAMFile_outDir/footLoop_2_filterBAMFile_logFile.txt";
+$footLoop_2_filterBAMFile_logFile = "$footLoop_2_filterBAMFile_outDir/footLoop_2_filterBAMFile_logFile_debug.txt" if defined $opt_0;
 open (my $outLog, ">", $footLoop_2_filterBAMFile_logFile) or die "Failed to write to footLoop_2_filterBAMFile_logFile: $!\n";
 
 my ($BAMFile, $seqFile, $genez);
@@ -91,8 +92,12 @@ my $linecount = 0;
 my ($BAMFolder, $BAMName) = getFilename($BAMFile, "folderfull");
 my $debugFile = "$footLoop_2_filterBAMFile_outDir/debug.txt";
 my $outFixedfile = "$footLoop_2_filterBAMFile_outDir/$BAMName.fixed.gz";
-open (my $outFixed, "| gzip > $outFixedfile") or die "Cannot write to $outFixedfile: $!\n";
-open (my $outdebug, ">", "$debugFile") or die "Cannot write to $debugFile: $!\n";
+my $outFixed;
+my $outdebug;
+if (not defined $opt_0) {
+	open ($outFixed, "| gzip > $outFixedfile") or die "Cannot write to $outFixedfile: $!\n";
+	open ($outdebug, ">", "$debugFile") or die "Cannot write to $debugFile: $!\n";
+}
 my ($total_read) = `awk '\$2 == 0|| \$2 == 16 {print}' $BAMFile | wc -l` =~ /^\s*(\d+)$/;
 $linecount = 0;
 my $in1;
@@ -186,7 +191,7 @@ while (my $line = <$in1>) {
 		$maxdelperc = $delperc;
 		$maxdelpercread = $read;
 	}
-	if ($printed < 1000) {
+	if ($printed < 100) {
 		my @ref1print = @ref1 < 10000 ? @ref1 : @ref1[0..10000];
 		my @seq1print = @seq1 < 10000 ? @seq1 : @seq1[0..10000];
 		my $ref1print = join("", @ref1print);
@@ -258,7 +263,9 @@ while (my $line = <$in1>) {
 		$type = "99_UNK";
 	}
 
-	print $outFixed "$read\t$type\t$strand\t$newstrand\t$chr\t$CTPrint\t$CT0,$CC0,$GA0,$GG0,$CT1,$CC1,$GA1,$GG1\n";
+	if (not defined $opt_0) {
+		print $outFixed "$read\t$type\t$strand\t$newstrand\t$chr\t$CTPrint\t$CT0,$CC0,$GA0,$GG0,$CT1,$CC1,$GA1,$GG1\n";
+	}
 	LOG($outLog, date() . "file=$LCY$BAMFile$N, linecount=$linecount, read=$read, die coz no info\n") if not defined $GG1;
 
 	## 3f. Below is for debug printing
@@ -275,8 +282,9 @@ while (my $line = <$in1>) {
 	#print $outdebug "SEQ: $seqPrint\n";
 	#print $outdebug "CON: " . join("", @{$CTcons}) . "\n";
 }
-
-close $outFixed;
+if (not defined $opt_0) {
+	close $outFixed;
+}
 
 LOG($outLog, "maxinsperc\t$maxinsperc\t$maxinspercread\n");
 LOG($outLog, "maxdelperc\t$maxdelperc\t$maxdelpercread\n");
@@ -303,10 +311,14 @@ foreach my $ref2nuc (sort keys %allcount) {
 #DIELOG($outLog, "DEBUG Exit before printing\n");
 foreach my $strand (sort keys %strand) {
 	my @types = ("BAMe","diff");
-	print $outdebug "$strand: ";
+	if (not defined $opt_0) {
+		print $outdebug "$strand: ";
+	}
 	foreach my $type (@types[0..1]) {
 		my $total = $strand{$strand}{$type}; $total = 0 if not defined $total;
-		print $outdebug "$type=$total,";
+		if (not defined $opt_0) {
+			print $outdebug "$type=$total,";
+		}
 		my $CT = $strand{$strand}{CT}{$type};
 		my ($mean, $meanse, $tmm, $tmmse) = (0,0,0,0);
 		if (defined $CT) {
@@ -315,7 +327,9 @@ foreach my $strand (sort keys %strand) {
 			$tmmse  = int(1000*tmmse(@{$CT})+0.5)/1000;
 			$meanse = int(1000*se(@{$CT})+0.5)/1000;
 		}
-		print $outdebug "CT=tmm=$tmm +/- $tmmse;mean=$mean +/- $meanse, ";
+		if (not defined $opt_0) {
+			print $outdebug "CT=tmm=$tmm +/- $tmmse;mean=$mean +/- $meanse, ";
+		}
 		my $tot = $strand{$strand}{tot}{$type}; 
 		($mean, $meanse, $tmm, $tmmse) = (0,0,0,0);
 		if (defined $tot) {
@@ -324,7 +338,9 @@ foreach my $strand (sort keys %strand) {
 			$tmmse  = int(1000*tmmse(@{$tot})+0.5)/1000;
 			$meanse = int(1000*se(@{$tot})+0.5)/1000;
 		}
-		print $outdebug "tot=tmm=$tmm +/- $tmmse;mean=$mean +/- $meanse\n";
+		if (not defined $opt_0) {
+			print $outdebug "tot=tmm=$tmm +/- $tmmse;mean=$mean +/- $meanse\n";
+		}
 	}
 }
 exit 0;
