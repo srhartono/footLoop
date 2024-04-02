@@ -13,19 +13,18 @@ my $bufferL    = (not defined($opt_x)) ? 0  : $opt_x;
 my $bufferR    = (not defined($opt_y)) ? 0  : $opt_y;
 my $bufferLen  = $bufferR - $bufferL;
 
+
 makedir($outDir) if not -d $outDir;
 
 my ($folder1, $fileName1) = getFilename($BAMFile, "folderfull");
 open (my $outLog, ">", "$outDir/$fileName1.log.txt") or die "Failed to write to $BAMFile.log.txt: $!\n";
+LOG($outLog, "\n\n");
 my $SEQ = parse_fasta($seqFile, $outLog, $minReadL);
 #my $filteredDir = $BAMFile . "_splitBAM";
 parse_BAMFile($BAMFile, $seqFile, $filteredDir, $outLog);
-die "good debug\n";
 
 LOG($outLog, "outDir=$outDir\n");
 close $outLog;
-
-system("echo DONE > $outDir/$fileName1.logBAMFile.done");
 
 sub parse_fasta {
    my ($seqFile, $outLog, $minReadL) = @_;
@@ -75,7 +74,7 @@ sub parse_BAMFile {
 	my $BAMStats = makehash(['total','used','diffgene','lowq','badlength']);
 
 	while(my $line = <$BAM>) {
-		if ($linecount == 5) {last;}#DIELOG($outLog, "DEBUG GOOD\n");}
+		#if ($linecount == 5) {last;}#DIELOG($outLog, "DEBUG GOOD\n");}
 		$linecount ++;
 		chomp($line);
 
@@ -83,7 +82,7 @@ sub parse_BAMFile {
 		# 1. Parse BAM line #
 		#####################
 		my @arr = split("\t", $line);
-		LOG($outLog, "\t$YW$BAMFile$N: Done $linecount\n") if $linecount % 5000 == 0;
+		LOG($outLog, "\t$YW$BAMFile$N: Done $linecount\n") if $linecount eq 1 or $linecount % 5000 == 0;
 
 		# a. Total column must be 14 or skipped (e.g. BAM header)
 		if (@arr < 14) {
@@ -147,7 +146,25 @@ sub parse_BAMFile {
 			print $notused "\t$CY$read$N isn't used for some reason\n";
 		}
 	}
+	LOG($outLog, "\n" . date() . "${LPR}parsing BAM$N: Parsed $LGN$linecount$N lines from bam file\n");
 	LOG($outLog, "\n\tb.Logging BAM file $CY$BAMFile$N\n");
+	foreach my $genez (sort keys %{$SEQ}) {
+		my $outTXTFilePos  = "$filteredDir/$genez\_Pos.filtered.gz";
+		my $outTXTFileNeg  = "$filteredDir/$genez\_Neg.filtered.gz";
+		open (my $tempoutpos, ">", $outTXTFilePos) or die "Failed to write to \$outTXTFilePos $LCY$outTXTFilePos$N: $!\n";
+		close $tempoutpos;
+		open (my $tempoutneg, ">", $outTXTFileNeg) or die "Failed to write to \$outTXTFileNeg $LCY$outTXTFileNeg$N: $!\n";
+		close $tempoutneg;
+		#open ($SEQ->{$genez}{outTXTPos}, ">", $outTXTFilePos) or die "Failed to write to \$outTXTFilePos $LCY$outTXTFilePos$N: $!\n";
+		#open ($SEQ->{$genez}{outTXTNeg}, ">", $outTXTFileNeg) or die "Failed to write to \$outTXTFileNeg $LCY$outTXTFileNeg$N: $!\n";
+		
+		#my $outTXTFilePos  = "$filteredDir/$genez\_Pos.filtered.gz";
+		#my $outTXTFileNeg  = "$filteredDir/$genez\_Neg.filtered.gz";
+		#my $outTXTFileUnk  = "$filteredDir/$genez\_Unk.filtered.gz";
+		#open ($SEQ->{$genez}{outTXTPos}, "| gzip -f > $outTXTFilePos");
+		#open ($SEQ->{$genez}{outTXTNeg}, "| gzip -f > $outTXTFileNeg");
+		#open ($SEQ->{$genez}{outTXTUnk}, "| gzip -f > $outTXTFileUnk");
+	}
 	log_BAMFile($SEQ, $BAMFile, $BAMStats, $filteredDir, $outLog);
 }
 
@@ -186,20 +203,15 @@ sub count_indel {
 
 sub log_BAMFile {
 	my ($SEQ, $BAMFile, $BAMStats, $filteredDir, $outLog) = @_;
-	foreach my $genez (sort keys %{$SEQ}) {
-		my $outTXTFilePos  = "$filteredDir/$genez\_Pos.filtered.gz";
-		my $outTXTFileNeg  = "$filteredDir/$genez\_Neg.filtered.gz";
-		#my $outTXTFileUnk  = "$filteredDir/$genez\_Unk.filtered.gz";
-		open ($SEQ->{$genez}{outTXTPos}, "| gzip -f > $outTXTFilePos");
-		open ($SEQ->{$genez}{outTXTNeg}, "| gzip -f > $outTXTFileNeg");
-		#open ($SEQ->{$genez}{outTXTUnk}, "| gzip -f > $outTXTFileUnk");
-	}
 	my ($BAMFileName) = getFilename($BAMFile);
 
 	my $skipped = 0; my ($passedFilterP, $passedFilterN) = (0,0);
 	open (my $inBAMFix, "zcat $filteredDir/$BAMFileName.fixed.gz|") or LOG($outLog, "Failed to open $filteredDir/$BAMFileName.fixed.gz: $!\n") and exit 1;
+	my $linecount = 0;
 	while (my $line = <$inBAMFix>) {
 		chomp($line);
+		LOG($outLog, date() . "${LPR}log_BamFile$N: Done $LGN$linecount$N\n") if $linecount % 100 == 0;
+		$linecount ++;
 		my ($read, $type, $oldStrand, $strand, $genez, $pos, $info) = split("\t", $line);
 		if (not defined $SEQ->{$genez} or not defined $info) {
 			LOG($outLog, "\tfootLoop.pl: ERROR in $LCY$filteredDir/$BAMFileName.fixed.gz$N: gene=$genez but \$SEQ->{\$genez} is not defined!line=\n$line\n\n") if not defined $SEQ->{$genez};
@@ -220,19 +232,53 @@ sub log_BAMFile {
 		#	$passedFilterN ++ if $strand == 16;
 		#}
 		#else {
-			print {$SEQ->{$genez}{outTXTNeg}} "$read\tFN\t$pos\n" if $strand eq 16;
-			print {$SEQ->{$genez}{outTXTPos}} "$read\tFP\t$pos\n" if $strand eq 0;
-			$SEQ->{$genez}{pos} ++ if $strand == 0;
-			$SEQ->{$genez}{neg} ++ if $strand == 16;
-			$passedFilterP ++ if $strand == 0;
-			$passedFilterN ++ if $strand == 16;
+		if ($strand eq 16) {
+			my $outTXTFileNeg  = "$filteredDir/$genez\_Neg.filtered.gz";
+			#open (my $outTXT, ">>", $outTXTFileNeg);
+			open (my $outTXT, "| gzip -f >> $outTXTFileNeg");
+			print $outTXT "$read\tFN\t$pos\n";
+			close $outTXT;
+			$SEQ->{$genez}{neg} ++;
+			$passedFilterN ++;
+			$SEQ->{$genez}{posneg} ++ if $oldStrand eq 0;
+		}
+		if ($strand eq 0) {
+			my $outTXTFilePos  = "$filteredDir/$genez\_Pos.filtered.gz";
+			#open (my $outTXT, ">>", $outTXTFilePos);
+			open (my $outTXT, "| gzip -f >> $outTXTFilePos");
+			print $outTXT "$read\tFP\t$pos\n";
+			close $outTXT;
+			$SEQ->{$genez}{pos} ++;
+			$passedFilterP ++;
+			$SEQ->{$genez}{negpos} ++ if $oldStrand eq 16;
+		}
+			#print {$SEQ->{$genez}{outTXTNeg}} "$read\tFN\t$pos\n" if $strand eq 16;
+			#print {$SEQ->{$genez}{outTXTPos}} "$read\tFP\t$pos\n" if $strand eq 0;
 		#}
 		$BAMStats->{used} ++;
 		$SEQ->{$genez}{used} ++;
-		$SEQ->{$genez}{posneg} ++ if $strand eq 16 and $oldStrand eq 0;
-		$SEQ->{$genez}{negpos} ++ if $strand eq 0 and $oldStrand eq 16;
 	}
 	close $inBAMFix;
+
+	#foreach my $genez (sort keys %{$SEQ}) {
+		#my $outTXTFilePos  = "$filteredDir/$genez\_Pos.filtered";
+		#my $outTXTFileNeg  = "$filteredDir/$genez\_Neg.filtered";
+		#open (my $tempoutpos, ">", $outTXTFilePos) or die "Failed to write to \$outTXTFilePos $LCY$outTXTFilePos$N: $!\n";
+		#close $tempoutpos;
+		#open (my $tempoutneg, ">", $outTXTFileNeg) or die "Failed to write to \$outTXTFileNeg $LCY$outTXTFileNeg$N: $!\n";
+		#close $tempoutneg;
+		#open ($SEQ->{$genez}{outTXTPos}, ">", $outTXTFilePos) or die "Failed to write to \$outTXTFilePos $LCY$outTXTFilePos$N: $!\n";
+		#open ($SEQ->{$genez}{outTXTNeg}, ">", $outTXTFileNeg) or die "Failed to write to \$outTXTFileNeg $LCY$outTXTFileNeg$N: $!\n";
+		
+	#	my $outTXTFilePos  = "$filteredDir/$genez\_Pos.filtered";
+	#	my $outTXTFileNeg  = "$filteredDir/$genez\_Neg.filtered";
+		#my $outTXTFileUnk  = "$filteredDir/$genez\_Unk.filtered.gz";
+	#	close $SEQ->{$genez}{outTXTPos};
+	#	close $SEQ->{$genez}{outTXTNeg};
+	#	system("gzip -f $outTXTFilePos");
+	#	system("gzip -f $outTXTFileNeg");
+		#open ($SEQ->{$genez}{outTXTUnk}, "| gzip -f > $outTXTFileUnk");
+	#}
 	#LOG($outLog, "\t$LCY$filteredDir/$BAMFileName.fixed$N: skipped = $LGN$skipped$N\n");
 
 	#LOG($outReadLog, "footLoop.pl,read_passed_filter,header\ttotal\tpositive\tnegative\n");
@@ -298,6 +344,7 @@ Low Quality = $SEQ->{$gene}{lowq}
 	#LOG($outLog, "\n(Genes that have <= 10 reads:) $LGN$zero$N\n","NA");
 	LOG($outLog, date() . "\t${GN}SUCCESS$N: Total=$BAMStats->{total}, used=$BAMStats->{used}, Low Map Quality=$BAMStats->{lowq}, Too short=$BAMStats->{badlength}\n");
 	#LOG($outLog, "Output: ${LGN}$filteredDir$N\n\n");
+
 
 }
 

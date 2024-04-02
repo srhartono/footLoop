@@ -74,14 +74,25 @@ $max_slurm_job = 500 if $max_slurm_job < 0;
 #	<STDIN>;
 #}
 
+
 my %force;
 if (defined $opt_F) {
 	my @forces = split(",", $opt_F);
 	foreach my $force (@forces) {
 		$force{$force} = 1;
-		print "force{$force}\n";
+		#print "force{$force}\n";
 	}
+	if (defined $force{1}) {print "1: rerun all fasta preprocessin\n";}
+	if (defined $force{2}) {print "2: delete all part.gz\n";}
+	if (defined $force{3}) {print "3: split Fastq into part.gz\n";}
+	if (defined $force{4}) {print "4: bismark part.gz\n";}
+	if (defined $force{5}) {print "5: filter bam (footLoop_2_fixBAMFile.pl)\n";}
+	if (defined $force{6}) {print "6: log bam (footLoop_3_filterBAMFile.pl)\n";}
+	if (defined $force{7}) {print "7: merge fixed.gz\n";}
+	if (defined $force{8}) {print "8: merge filtered.gz\n";}
+	if (defined $force{9}) {print "9: merge bam\n";}
 }
+
 #my ($label)    = defined $opt_l ? $opt_l : $outDir;#rigDir;# =~ /PCB[\-_0]*\d+/i ? $filteredDir =~ /(PCB[\-_0]*\d+)/i : $outDir;
 #if (defined $opt_l) {
 #	$label = $opt_l;
@@ -158,7 +169,7 @@ if (defined $opt_9) {
 }
 ($STEP) = LOGSTEP($outLog, "START", $STEP, 1, "Fix BAM File\n");#$N $bowtieOpt $bismark_geneIndexDir $readFile\n");
 
-# Do footLoop_2_filterBAMFile.pl
+# Do footLoop_2_fixBAMFile.pl
 # - Determine strand of read based on # of conversion
 # - Determine bad regions in read (indels) which wont be used in peak calling
 ($BAMFile, $filteredDir) = split_BAMFile($BAMFile, $seqFile, $outReadLog, $outLog); #becomes .fixed
@@ -219,7 +230,7 @@ sub LOGSTEP {
 
 sub split_BAMFile {
 	my ($BAMFile, $seqFile, $outReadLog, $outLog) = @_;
-	LOG($outLog, "\n\ta. Fixing BAM file $CY$BAMFile$N with $footLoop_script_folder/lib/footLoop_2_filterBAMFile.pl\n");
+	LOG($outLog, "\n\ta. Fixing BAM file $CY$BAMFile$N with $footLoop_script_folder/lib/footLoop_2_fixBAMFile.pl\n");
 	my ($BAMMD5) = getMD5($BAMFile);
 	
 	my $filteredDir = "$outDir/.BAMFile_$BAMMD5/";
@@ -246,14 +257,14 @@ sub split_BAMFile {
 		}
 	}
 
-	my $filterBAMFile_cmd = "$footLoop_script_folder/footLoop_2_filterBAMFile.pl -n $outDir -o $filteredDir";
+	my $fixBAMFile_cmd = "$footLoop_script_folder/footLoop_2_fixBAMFile.pl -n $outDir -o $filteredDir";
 	if ($checkBAM == 0) {
 		LOG($outLog, "\tfootLoop.pl subroutine split_BAMFile:: fixed BAM file $LCY$filteredDir/$BAMFileName.fixed$N or .gz does not exist!\n");
-		LOG($outLog, "\n$LCY$filterBAMFile_cmd$N\n\n");
-		#DIELOG($outLog, "DEBUG Exited before running filterBAMFile_cmd\n");
-		system($filterBAMFile_cmd) == 0 or DIELOG($outLog, "\n\n" . date() . "Failed to run footLoop_2_filterBAMFile.pl: $LCY$!$N\n\n$LCY$filterBAMFile_cmd$N\n\n");
-		#system("$footLoop_script_folder/lib/footLoop_2_filterBAMFile.pl -n $outDir -o $filteredDir") == 0 or LOG($outLog, "Failed to run $footLoop_script_folder/lib/footLoop_2_filterBAMFile.pl -n $outDir -o $filteredDir: $!\n") and exit 1;
-		LOG($outReadLog, "footLoop.pl,split_BAMFile,$footLoop_script_folder/lib/footLoop_2_filterBAMFile.pl -n $outDir -o $filteredDir\n","NA");
+		LOG($outLog, "\n$LCY$fixBAMFile_cmd$N\n\n");
+		#DIELOG($outLog, "DEBUG Exited before running fixBAMFile_cmd\n");
+		system($fixBAMFile_cmd) == 0 or DIELOG($outLog, "\n\n" . date() . "Failed to run footLoop_2_fixBAMFile.pl: $LCY$!$N\n\n$LCY$fixBAMFile_cmd$N\n\n");
+		#system("$footLoop_script_folder/lib/footLoop_2_fixBAMFile.pl -n $outDir -o $filteredDir") == 0 or LOG($outLog, "Failed to run $footLoop_script_folder/lib/footLoop_2_fixBAMFile.pl -n $outDir -o $filteredDir: $!\n") and exit 1;
+		LOG($outReadLog, "footLoop.pl,split_BAMFile,$footLoop_script_folder/lib/footLoop_2_fixBAMFile.pl -n $outDir -o $filteredDir\n","NA");
 		if (not -e "$filteredDir/$BAMFileName.fixed.gz") {
 			LOG($outLog, "\tgzip $filteredDir/$BAMFileName.fixed");
 			system("gzip $filteredDir/$BAMFileName.fixed") == 0 or LOG($outLog, "\tFailed to gzip $filteredDir/$BAMFileName.fixed: $!\n");
@@ -264,7 +275,7 @@ sub split_BAMFile {
 		$checkBAM = 1;
 	}
 	else {
-		LOG($outLog, "\t${LGN}WAS NOT RUN$N: ${YW}::: $footLoop_script_folder/lib/footLoop_2_filterBAMFile.pl -n $outDir -s $seqFile -o $filteredDir :::$N\n");
+		LOG($outLog, "\t${LGN}WAS NOT RUN$N: ${YW}::: $footLoop_script_folder/lib/footLoop_2_fixBAMFile.pl -n $outDir -s $seqFile -o $filteredDir :::$N\n");
 		LOG($outLog, "\tgzip $filteredDir/$BAMFileName.fixed\n\t${LGN}Already exist! So not overwriting!\n");
 	}
 
@@ -584,7 +595,7 @@ sub bismark_genome_preparation {
 
 	my $bismark_genome_preparation_cmd = "bismark_genome_preparation --bowtie2 $bismark_geneIndexDir > $bismark_geneIndexDir/LOG.txt 2>&1";
 
-	LOG($outLog, "\n" . date() . "${LPR}bismark_genome_preparation .geneIndex/$N: Running bismark_genome_preparation\n");
+	LOG($outLog, "\n" . date() . "${LPR}bismark_genome_preparation .fa .geneIndex/$N: Running bismark_genome_preparation\n");
 	print_cmd($bismark_genome_preparation_cmd, $outLog);
 	#LOG($outLog, "$LCY\n\t$bismark_genome_preparation_cmd\n$N\n");
 	my ($geneIndexFaMD5, $temp, $geneIndexFaTempMD5File)  = getMD5($geneIndexFa);
@@ -616,10 +627,10 @@ sub bismark_genome_preparation {
 	  #    my ($md5res) = `$md5script $geneIndexFa` =~ /^.+\= (\w+)$/; die "Failed to $md5script $geneIndexFa: $!\n" if not defined $md5res;
 	  #    system("echo '$md5res $geneIndexFa' > $bismark_geneIndexDir/Bisulfite_Genome/.$md5script") == 0 or LOG($outLog, "Failed to $md5script $geneIndexFa: $!\n");
 	  # }
-		LOG($outLog, "\n" . date() . "${LPR}bismark_genome_preparation .geneIndex/$N: ${GN}SUCCESS$N: $CY$bismark_geneIndexDir\/Bisulfite_Genome$N made\n");
+		LOG($outLog, "\n" . date() . "${LPR}bismark_genome_preparation .fa .geneIndex/$N: ${GN}SUCCESS$N: $CY$bismark_geneIndexDir\/Bisulfite_Genome$N made\n");
 	}
 	else { 
-		LOG($outLog, "\n" . date() . "${LPR}bismark_genome_preparation .geneIndex/$N: ${GN}SUCCESS$N: $CY$bismark_geneIndexDir\/Bisulfite_Genome$N already exist (md5sum old = $CY$md5sum$N, new = $CY$md5sum2)$N\n");
+		LOG($outLog, "\n" . date() . "${LPR}bismark_genome_preparation .fa .geneIndex/$N: ${GN}SUCCESS$N: $CY$bismark_geneIndexDir\/Bisulfite_Genome$N already exist (md5sum old = $CY$md5sum$N, new = $CY$md5sum2)$N\n");
 	}
 	system("echo $geneIndexFaMD5 > $bismark_geneIndexDir/Bisulfite_Genome/MD5SUM") == 0 or die "Failed to generate $LCY$bismark_geneIndexDir/Bisulfite_Genome/MD5SUM/$N: $!\n";
 	#LOG($outLog, "${run_boolean}$YW ::: $bismark_genome_preparation_cmd :::$N\n");
@@ -641,12 +652,12 @@ sub run_bismark {
 	#}
 
 	if (not defined $force{2} and -e $BAMFile and not defined $opt_p) {
-		DIELOG($outLog, "bad debug\n");
+		#DIELOG($outLog, "bad debug\n") if defined $opt_0;
 		my ($BAMFilesize) = `/bin/ls -s $BAMFile` =~ /^(\d+)($|[ \t]+.+)$/;
 		$BAMFilesize = 0 if not defined $BAMFilesize;
 		my $approx_linecount = int($BAMFilesize / 4+0.5);
 		LOG($outLog, "\n" . date() . " ${GN}SUCCESS$N: Output already exist: $CY$BAMFile$N (size=$LGN$BAMFilesize$N, approx_linecount=$LGN$approx_linecount$N lines)\n");
-		my $run_bismark_cmd       = "bismark --non_directional -o $outDir --temp_dir $outDir --ambiguous --unmapped $bowtieOpt $bismark_geneIndexDir $readFile > $outDir/.bismark_log 2>&1";
+		my $run_bismark_cmd       = "bismark --non_directional -o $outDir --temp_dir $outDir --ambig_bam --ambiguous --unmapped $bowtieOpt $bismark_geneIndexDir $readFile > $outDir/.bismark_log 2>&1";
 		$run_boolean .= "${YW}::: $run_bismark_cmd :::$N";
 		my ($bismark_report) = "$BAMFile" =~ /^(.+).$ext/; $bismark_report .= "_SE_report.txt";
 		if (defined $bismark_report and -e $bismark_report) {
@@ -655,7 +666,7 @@ sub run_bismark {
 			LOG($outLog, "\t#MAP_RESULT\n$LGN$mapLog$N\n");
 		}
 		else {
-			($bismark_report) = $BAMFile =~ /^(.+).$ext/; $bismark_report .= "_footLoop_report.txt";
+			($bismark_report) = $BAMFile =~ /^(.+_bismark_bt2).$ext/; $bismark_report .= "_footLoop_report.txt";
 		   ($bismark_report) = <$outDir/*_footLoop_report.txt> if not -e $bismark_report;
 		}
 		if (not -e $bismark_report) {
@@ -669,15 +680,16 @@ sub run_bismark {
 		}
 		LOG($outLog, "\t#MAP_RESULT\n$LGN$mapLog$N\n");
 	}
-	else {#if (defined $opt_F or not -e $BAMFile) {
-		LOG($outLog, "\t#Rerunning bismark due to user request (-F 2)\n") if defined $force{2};
+	else {
+		#LOG($outLog, "\t#Rerunning bismark due to user request (-F 2)\n") if defined $force{2};
 		$run_boolean = "\n$YW\t ";
 
 		if (not defined $opt_p) { 		# not parallel
-			DIELOG($outLog, "bad debug\n");
+			DIELOG($outLog, "BAD DEBUG NOT PARALEL\n");
+			DIELOG($outLog, "bad debug\n") if defined $opt_0;
 			LOG($outLog, "\t#Not parallel\n");
-			my $run_bismark_cmd       = "bismark --non_directional -o $outDir --temp_dir $outDir --ambiguous --unmapped $bowtieOpt $bismark_geneIndexDir $readFile > $outDir/.bismark_log 2>&1";
-			my $run_bismark_cmd_print = "bismark --non_directional -o \$outDir --temp_dir \$outDir --ambiguous --unmapped \$outDir \$bowtieOpt \$bismark_geneIndexDir \$readFile > \$outDir/.bismark_log 2>&1";
+			my $run_bismark_cmd       = "bismark --non_directional -o $outDir --temp_dir $outDir --ambig_bam --ambiguous --unmapped $bowtieOpt $bismark_geneIndexDir $readFile > $outDir/.bismark_log 2>&1";
+			my $run_bismark_cmd_print = "bismark --non_directional -o \$outDir --temp_dir \$outDir --ambig_bam --ambiguous --unmapped \$outDir \$bowtieOpt \$bismark_geneIndexDir \$readFile > \$outDir/.bismark_log 2>&1";
 			#my $run_bismark_cmd       = "bismark --non_directional -o $outDir $bowtieOpt $bismark_geneIndexDir $readFile > $outDir/.bismark_log 2>&1";
 			#my $run_bismark_cmd_print = "bismark --non_directional -o \$outDir \$bowtieOpt \$bismark_geneIndexDir \$readFile > \$outDir/.bismark_log 2>&1";
 			$run_boolean .= " ::: $run_bismark_cmd :::";
@@ -694,7 +706,7 @@ sub run_bismark {
 				system($run_bismark_cmd) == 0 or die "$LRD!!!$N\tFailed to run bismark: $!\n";
 			}
 			LOG($outLog, "\n" . date() . " ${GN}SUCCESS$N: Output $BAMFile\n");
-			my ($bismark_report) = $BAMFile =~ /^(.+).$ext/; $bismark_report .= "_SE_report.txt";
+			my ($bismark_report) = $BAMFile =~ /^(.+_bismark_bt2).$ext/; $bismark_report .= "_SE_report.txt";
 			   ($bismark_report) = <$outDir/*bt2_SE_report.txt> if not -e $bismark_report;
 			if (not defined $bismark_report or (defined $bismark_report and not -e $bismark_report)) {
 				LOG($outLog, "footLoop.pl::run_bismark: can't find bismark_report _SE_report.txt $LCY$bismark_report$N!\n");
@@ -710,45 +722,50 @@ sub run_bismark {
 		}
 		else { #parallel
 
-			#LOG($outLog, "\n" . date() . " Parallel -P $LGN$parallel$N sequences each (default is 1000)\n");
+			############
+			#  PARALEL #
+			############
 
 			my $outFolder = $outDir . "/.run_bismark/";
-			if (-e "$outDir/.bismark_paralel/") {
-				system("/bin/mv $outDir/.bismark_paralel/ $outFolder");
-			}
-			if (defined $force{2} and -d $outFolder) {
-				my @files = <$outFolder/*>;
+			system("mkdir -p $outFolder") if not -d $outFolder;
+			
+
+			if (defined $force{11} and -d $outFolder) {
+				#die "ASDF\n";;
+				my @files = <$outFolder/*.part.gz>;
 				if (@files != 0) {
-					DIELOG($outLog, "DEBUG 1 BAD!\n");
-					system("/bin/rm $outFolder/*.part.gz");
+					if (not defined $opt_0) {
+						DIELOG($outLog, "DEBUG: Exited before removing *.part.gz in $LCY$outFolder/$N\n");
+						system("/bin/rm $outFolder/*.part.gz");
+					}
 				}
 			}
-			system("mkdir -p $outFolder") if not -d $outFolder;
 
 			##############################################
 			# SplitFastq by -P reads each (default 1000) #
 			##############################################
-			LOG($outLog, "\n" . date() . "${LPR}SplitFastq .part.gz$N: Running ${LCY}footLoop_SplitFastq.pl$N to split readFile into $LGN$parallel$N reads per file\n"); 
+			LOG($outLog, "\n" . date() . "${LPR}SplitFastq .fq.gz .part.gz$N: Running ${LCY}footLoop_SplitFastq.pl$N to split readFile into $LGN$parallel$N reads per file\n"); 
 			my $splitFastq_resultFile = "$outFolder/.footLoop_SplitFastq_result.txt";
-			my $splitFastq_cmd = "$footLoop_script_folder/footLoop_SplitFastq.pl -i $readFile -o $outFolder -n $parallel > $splitFastq_resultFile"; # && gzip $outFolder/*.part";
-			if ($parallel eq -1) {
-				$splitFastq_cmd = "/bin/ln -s $readFile $outFolder/$readFilename.0.part.gz > $splitFastq_resultFile"; # && gzip $outFolder/*.part";
-			}
+			my $splitFastq_cmd = $parallel ne -1 ? "$footLoop_script_folder/footLoop_SplitFastq.pl -i $readFile -o $outFolder -n $parallel > $splitFastq_resultFile" :
+																"/bin/ln -s $readFile $outFolder/$readFilename.0.part.gz > $splitFastq_resultFile";
 			print_cmd($splitFastq_cmd, $outLog);
 
 			LOG($outReadLog, "footLoop.pl,run_bismark,$splitFastq_cmd\n","NA");
 
-			my @partFastq = <$outFolder/*.part.gz>;
-			my $totalpartFastq = @partFastq;
-			if (defined $force{2} or not -e $splitFastq_resultFile or $totalpartFastq == 0) {
-				#DIELOG($outLog, "DEBUG: exit before running splitFastq\n");
-				system($splitFastq_cmd) == 0 or DIELOG($outLog, "footLoop.pl::run_bismark: Failed to run splitFastq_cmd: $LRD$!$N\n$LCY\n$splitFastq_cmd\n$N\n");
-				@partFastq = <$outFolder/*.part.gz>;
-				$totalpartFastq = @partFastq;
-				LOG($outLog, "\n" . date() . "${LPR}SplitFastq .part.gz$N: ${GN}SUCCESS$N: Fastq was split successfully into $LGN$totalpartFastq$N .part.gz files in folder $LCY$outFolder/*.part.gz$N\n");
+			my @fastqFiles = <$outFolder/*.part.gz>;
+			my $totalfastqFiles = @fastqFiles;
+			if (defined $force{3} or not -e $splitFastq_resultFile or $totalfastqFiles == 0) {
+				#die "ASDF\n";;
+				if (not defined $opt_0) {
+					#DIELOG($outLog, "BAD DEBUG\n");
+					system($splitFastq_cmd) == 0 or DIELOG($outLog, "footLoop.pl::run_bismark: Failed to run splitFastq_cmd: $LRD$!$N\n$LCY\n$splitFastq_cmd\n$N\n");
+				}
+				@fastqFiles = <$outFolder/*.part.gz>;
+				$totalfastqFiles = @fastqFiles;
+				LOG($outLog, "\n" . date() . "${LPR}SplitFastq .fq.gz .part.gz$N: ${GN}SUCCESS$N: Fastq was split successfully into $LGN$totalfastqFiles$N .part.gz files in folder $LCY$outFolder/*.part.gz$N\n");
 			}
 			else {
-				LOG($outLog, "\n" . date() . "${LPR}SplitFastq .part.gz$N: ${GN}SUCCESS$N: Using previously run footLoop_SplitFastq.pl $LGN$totalpartFastq$N .part.gz files in folder $LCY$outFolder/*.part.gz$N\n");
+				LOG($outLog, "\n" . date() . "${LPR}SplitFastq .fq.gz .part.gz$N: ${GN}SUCCESS$N: Using previously run footLoop_SplitFastq.pl $LGN$totalfastqFiles$N .part.gz files in folder $LCY$outFolder/*.part.gz$N\n");
 			}
 
 			if (-e $splitFastq_resultFile) {
@@ -756,7 +773,7 @@ sub run_bismark {
 				my $splitFastq_resultLog_tail = -e $splitFastq_resultFile ? `tail $splitFastq_resultFile` : "splitFastq_resultFile$N doesn't exist: $LCY$splitFastq_resultFile$N\n";
 				LOG($outLog, "\n$splitFastq_resultLog_tail$N\n","NA");
 			}
-			LOG($outLog, "==================================\n\n");			
+			LOG($outLog, "==================================================\n");			
 
 			##############################################
 			# BISMARK ON EACH SPLIT FASTQ
@@ -767,101 +784,101 @@ sub run_bismark {
 			#   e.g. sep.fastq.gz_C_to_T.fastq etc etc
 			##############################################
 
-			my $bismark_cmd = "bismark --non_directional -o FILENAME_bismark --temp_dir FILENAME_bismark --ambiguous --unmapped $bowtieOpt $bismark_geneIndexDir FILENAME > FILENAME_bismark/.bismark_log 2>&1";
+			my $bismark_cmd = "bismark --non_directional -o FILENAME_bismark --temp_dir FILENAME_bismark --ambig_bam --ambiguous --unmapped $bowtieOpt $bismark_geneIndexDir FILENAME > FILENAME_bismark/.bismark_log 2>&1";
 
-			LOG($outLog, "\n" . date() . "${LPR}bismark .bam$N: Running ${LCY}bismark$N in parallel\n");
+			LOG($outLog, "\n" . date() . "${LPR}bismark .part.gz .bam$N: Running ${LCY}bismark$N in parallel\n");
 			print_cmd("$bismark_cmd", $outLog);
-			#LOG($outLog, "\n\t\t$LCY$bismark_cmd$N\n");
 
-			my @partBAM = <$outFolder/*_bismark/*.$ext>;
-			my $totalBAM = @partBAM;
-			if (defined $force{2} or @partFastq > @partBAM or $totalBAM == 0) {# or not -e $BAMFile) {
-				LOG($outLog, "force{2} is TRUE\n") if defined $force{2};
-				LOG($outLog, "partFastq " . scalar(@partFastq) . " > partBam" . scalar(@partBAM) . "\n") if @partFastq > @partBAM;
-				LOG($outLog, "totalBAM == 0\n") if $totalBAM == 0;
-				LOG($outLog, "\t$LCY$bismark_cmd$N\n");
-				#DIELOG($outLog, "DEBUG: Exit before running bismark_cmd\n");
-				my @partgzfiles = <$outFolder/*.part.gz>;
-				sbatch_these($bismark_cmd, "bismark", "bam", \@partgzfiles, $max_slurm_job, $outLog);
-				@partBAM = <$outFolder/*_bismark/*.$ext>; 
-				$totalBAM = @partBAM;
-				bismark_check_fq_bam(\@partFastq, \@partBAM, $outLog);
-				LOG($outLog, "\n" . date() . "${LPR}bismark .bam$N: ${GN}SUCCESS$N: Created $LGN$totalBAM$N .bam files from bismark run in folders: $LCY$outFolder/*_bismark/$N\n");
+			my @bamFiles = <$outFolder/*_bismark/*bismark_bt2.bam>;#.$ext>; 
+			#my @bamFiles      = <$outFolder/*_bismark/*.$ext>;
+			my $totalbamFiles = @bamFiles;
+
+			if (defined $force{4} or $totalfastqFiles > $totalbamFiles or $totalbamFiles == 0) {# or not -e $BAMFile) {
+				#die "ASDF\n";;
+				sbatch_these($bismark_cmd, "bismark", "bam", \@fastqFiles, $max_slurm_job, $outLog);
+				#@bamFiles      = <$outFolder/*_bismark/*.$ext>;
+				@bamFiles = <$outFolder/*_bismark/*bismark_bt2.bam>;#.$ext>; 
+				$totalbamFiles = @bamFiles;
+				LOG($outLog, "\n" . date() . "${LPR}bismark .part.gz .bam$N: ${GN}SUCCESS$N: Created $LGN$totalbamFiles$N .bam files from bismark run in folders: $LCY$outFolder/*_bismark/$N\n");
 			}
 			else {
-				bismark_check_fq_bam(\@partFastq, \@partBAM, $outLog);
-				LOG($outLog, "\n" . date() . "${LPR}bismark .bam$N: ${GN}SUCCESS$N: Using previously run $LGN$totalBAM$N .bam files from bismark run in folders: $LCY$outFolder/*_bismark/$N\n");
+				LOG($outLog, "\n" . date() . "${LPR}bismark .part.gz .bam$N: ${GN}SUCCESS$N: Using previously run $LGN$totalbamFiles$N .bam files from bismark run in folders: $LCY$outFolder/*_bismark/$N\n");
 			}
-			LOG($outLog, "==================================\n\n");			
+			#bismark_check_fq_bam(\@fastqFiles, \@bamFiles, $outLog);
+			LOG($outLog, "==================================================\n");			
 
+
+			################
+			# FIX BAM FILE #
+			################
+			LOG($outLog, "\n" . date() . "${LPR}fixBAM .bam .fixed.gz$N: Running ${LCY}footLoop_2_fixBAMFile.pl$N in parallel\n");
+
+			my $fix_BAMFile_cmd = "footLoop_2_fixBAMFile.pl -b FILENAME -g $seqFile -i $geneIndexFile -o FOLDER";
+			print_cmd("$fix_BAMFile_cmd", $outLog);
+
+			my @fixedFiles = <$outFolder/*_bismark/*.$ext.fixed.gz>;
+			my $totalfixedFiles = @fixedFiles;
+
+			if (defined $force{5} or $totalfixedFiles < $totalbamFiles) {
+				#die "ASDF\n";;
+				sbatch_these($fix_BAMFile_cmd, "fixBAM", "fixed.gz", \@bamFiles, $max_slurm_job, $outLog);
+				@fixedFiles = <$outFolder/*_bismark/*.$ext.fixed.gz>;
+				$totalfixedFiles = @fixedFiles;
+				LOG($outLog, "\n" . date() . "${LPR}fixBAM .bam .fixed.gz$N: ${GN}SUCCESS$N: Created $LGN$totalfixedFiles$N .fixed.gz fixed Bam Files in $LCY$outFolder/*_bismark/*.$ext\_fixBAM$N\n");
+			}
+			else {
+				LOG($outLog, "\n" . date() . "${LPR}fixBAM .bam .fixed.gz$N: ${GN}SUCCESS$N: Using previously run $LGN$totalfixedFiles$N .fixed.gz fixed Bam Files in $LCY$outFolder/*_bismark/*.$ext\_fixBAM$N\n");
+			}
+			LOG($outLog, "==================================================\n");			
 
 			###################
 			# FILTER BAM FILE #
 			###################
-			my $filter_BAMFile_cmd = "footLoop_2_filterBAMFile.pl -b FILENAME -g $seqFile -i $geneIndexFile -o FILENAME_filterBAM/";
-			LOG($outLog, "\n" . date() . "${LPR}filterBAM .fixed.gz$N: Running ${LCY}footLoop_2_filterBAMFile.pl$N in parallel\n");
+			LOG($outLog, "\n" . date() . "${LPR}filterBAM .fixed.gz .filtered.gz$N: Running ${LCY}footLoop_3_filterBAMFile.pl$N in parallel\n");
+
+			my $filter_BAMFile_cmd = "footLoop_3_filterBAMFile.pl -r $opt_r -b FILENAME -g $seqFile -L $opt_L -O FOLDER -o FOLDER -i $geneIndexFile2";
+			   $filter_BAMFile_cmd .= " -q $opt_q" if defined $opt_q;
+			   $filter_BAMFile_cmd .= " -x $opt_x" if defined $opt_x;
+			   $filter_BAMFile_cmd .= " -y $opt_y" if defined $opt_y;
 			print_cmd("$filter_BAMFile_cmd", $outLog);
-			#LOG($outLog, "\n\t\t$LCY$filter_BAMFile_cmd$N\n");
 
-			my @fixedgz = <$outFolder/*_bismark/*.$ext\_filterBAM/*fixed.gz>;
-			my $totalfixedgz = @fixedgz;
-			if (defined $force{2} or @fixedgz < @partBAM) {
-				sbatch_these($filter_BAMFile_cmd, "filterBAM", "fixed.gz", \@partBAM, $max_slurm_job, $outLog);
-				@fixedgz = <$outFolder/*_bismark/*.$ext\_filterBAM/*fixed.gz>;
-				$totalfixedgz = @fixedgz;
-				LOG($outLog, "\n" . date() . "${LPR}filterBAM .fixed.gz$N: ${GN}SUCCESS$N: Created $LGN$totalfixedgz$N .fixed.gz filtered Bam Files in $LCY$outFolder/*_bismark/*.$ext\_filterBAM$N\n");
+			my @filterBAMFile = <$outFolder/*_bismark/*.log.txt>; #log.txt coz there could be massive number of .filtered files which will slow down the script
+			my $totalfilterBAMFile = @filterBAMFile;
+
+			if (defined $force{6} or @fixedFiles < @bamFiles or $totalfilterBAMFile == 0) {
+				#die "ASDF\n";;
+				sbatch_these($filter_BAMFile_cmd, "filterBAM", "log.txt", \@bamFiles, $max_slurm_job, $outLog);
+				@filterBAMFile = <$outFolder/*_bismark/*.log.txt>; #\_filterBAM/*.log.txt>;
+				$totalfilterBAMFile = @filterBAMFile;
+				LOG($outLog, "\n" . date() . "${LPR}filterBAM .fixed.gz .filtered.gz$N: ${GN}SUCCESS$N: Created $LGN$totalfilterBAMFile$N filterBAM/*.log.txt files in $LCY$outFolder/*_bismark/*.$ext\_fixBAM or filterBAM/$N\n");
 			}
 			else {
-				LOG($outLog, "\n" . date() . "${LPR}filterBAM .fixed.gz$N: ${GN}SUCCESS$N: Using previously run $LGN$totalfixedgz$N .fixed.gz filtered Bam Files in $LCY$outFolder/*_bismark/*.$ext\_filterBAM$N\n");
-			}
-			LOG($outLog, "==================================\n\n");			
-
-			################
-			# LOG BAM FILE #
-			################
-			my $log_BAMFile_cmd = "footLoop_3_logBAMFile.pl -r $opt_r -b FILENAME -g $seqFile -L $opt_L -O FILENAME_filterBAM -o FILENAME_logBAM -i $geneIndexFile2";
-			   $log_BAMFile_cmd .= " -q $opt_q" if defined $opt_q;
-			   $log_BAMFile_cmd .= " -x $opt_x" if defined $opt_x;
-			   $log_BAMFile_cmd .= " -y $opt_y" if defined $opt_y;
-			LOG($outLog, "\n" . date() . "${LPR}logBAM .filtered.gz$N: Running ${LCY}footLoop_3_logBAMFile.pl$N in parallel\n");
-			print_cmd("$log_BAMFile_cmd", $outLog);
-			#LOG($outLog, "\n\t\t$LCY$log_BAMFile_cmd$N\n");
-			my @logBAMFile = <$outFolder/*_bismark/*_logBAM/*.log.txt>;
-			my $totallogBAMFile = @logBAMFile;
-			my @filteredFiles = <$outFolder/*_bismark/*_filterBAM/*.filtered.gz>;
-			my $totalfilteredFiles = @filteredFiles;
-			if (defined $force{2} or @fixedgz < @partBAM or $totalfilteredFiles == 0 or $totallogBAMFile == 0) {
-				sbatch_these($log_BAMFile_cmd, "logBAM", "log.txt", \@partBAM, $max_slurm_job, $outLog);
-				@logBAMFile = <$outFolder/*_bismark/*.$ext\_logBAM/*.log.txt>;
-				$totallogBAMFile = @logBAMFile;
-				@filteredFiles = <$outFolder/*_bismark/*.$ext\_filterBAM/*filtered.gz>;
-				$totalfilteredFiles = @filteredFiles;
-				LOG($outLog, "\n" . date() . "${LPR}logBAM .filtered.gz$N: ${GN}SUCCESS$N: Created $LGN$totallogBAMFile$N logBAM/*.log.txt files and $LGN$totalfilteredFiles$N filterBAM/.filtered.gz files in $LCY$outFolder/*_bismark/*.$ext\_filterBAM or logBAM/$N\n");
-			}
-			else {
-				LOG($outLog, "\n" . date() . "${LPR}logBAM .filtered.gz$N: ${GN}SUCCESS$N: Using previously run $LGN$totallogBAMFile$N logBAM/*.log.txt files and $LGN$totalfilteredFiles$N filterBAM/.filtered.gz files in $LCY$outFolder/*_bismark/*.$ext\_filterBAM or logBAM/$N\n");
-				#LOG($outLog, "\n" . date() . " ${GN}SUCCESS$N: Using previously run .filtered Files *.filtered ($LGN$totalfilteredFiles$N filtered Files) in $LCY$outFolder/*_bismark/*.$ext\_filterBAM/$N\n");
+				LOG($outLog, "\n" . date() . "${LPR}filterBAM .fixed.gz .filtered.gz$N: ${GN}SUCCESS$N: Using previously run $LGN$totalfilterBAMFile$N filterBAM/*.log.txt files in $LCY$outFolder/*_bismark/*.$ext\_fixBAM or filterBAM/$N\n");
 			}
 			LOG($outLog, "==================================================\n");			
+			
+			##################
+			# MERGE FIXED.GZ #
+			##################
+			my $output_merge_fixedFiles = "$outDir/$BAMFilename.fixed.gz";
 
-			##################
-			# Merge fixed.gz #
-			##################
-			my $merged_filterBAMDir = "$outFolder/../$BAMFilename\_filterBAM/";
-			makedir($merged_filterBAMDir);
-			my $output_merge_fixedgz = "$merged_filterBAMDir/$BAMFilename.fixed.gz";
-			my $merge_fixedgz_cmd = "zcat -f $outFolder/*_bismark/*.$ext\_filterBAM/*fixed.gz | gzip > $output_merge_fixedgz";
-			LOG($outLog, "\n" . date() . "${LPR}Merge .fixed.gz$N: Merging $LGN$totalfixedgz$N .fixed.gz files into $LCY$output_merge_fixedgz$N\n");
-			print_cmd($merge_fixedgz_cmd, $outLog);
-			if (defined $force{2} or not -e $output_merge_fixedgz) {
-				#DIELOG($outLog, "Debug merge_fixedgz_cmd\n");
-				system($merge_fixedgz_cmd) == 0 or LOG($outLog, "\n" . date() . "#Failed to merge_filtered_cmd: $!\n$LCY$merge_fixedgz_cmd$N\n");
-				LOG($outLog, "\n" . date() . "${LPR}Merge .fixed.gz$N: ${GN}SUCCESS$N: Merging filterBam .fixed.gz: Created $LCY$output_merge_fixedgz$N\n");
+			LOG($outLog, "\n" . date() . "${LPR}Merge *part/.fixed.gz .fixed.gz$N: Merging $LGN$totalfixedFiles$N .fixed.gz files into $LCY$output_merge_fixedFiles$N\n");
+
+			my $merge_fixedFiles_cmd = "zcat -f $outFolder/*_bismark/*.$ext.fixed.gz | gzip > $output_merge_fixedFiles";
+			print_cmd($merge_fixedFiles_cmd, $outLog);
+
+			if (defined $force{7} or not -e $output_merge_fixedFiles) {
+				if (not defined $opt_0) {
+					#die "ASDF\n";;
+					#DIELOG($outLog, "BAD DEBUG\n");
+					system($merge_fixedFiles_cmd) == 0 or LOG($outLog, "\n" . date() . "${LPR}Merge *part/.fixed.gz .fixed.gz$N: Failed to merge_filtered_cmd: $!\n$LCY$merge_fixedFiles_cmd$N\n");
+				}
+				LOG($outLog, "\n" . date() . "${LPR}Merge *part/.fixed.gz .fixed.gz$N: ${GN}SUCCESS$N: Merged $LGN$totalfixedFiles$N .fixed.gz files into $LCY$output_merge_fixedFiles$N\n");
 			}
 			else {
-				LOG($outLog, "\n" . date() . "${LPR}Merge .fixed.gz$N: ${GN}SUCCESS$N: Using previously made merged fixedgz $LCY$output_merge_fixedgz$N\n");
+				LOG($outLog, "\n" . date() . "${LPR}Merge *part/.fixed.gz .fixed.gz$N: ${GN}SUCCESS$N: Using previously made merged .fixed.gz $LCY$output_merge_fixedFiles$N\n");
 			}
-			LOG($outLog, "==================================\n\n");			
+			LOG($outLog, "==================================================\n");			
 
 			##########################################
 			# Merge .filtered.gz into each gene file #
@@ -871,90 +888,98 @@ sub run_bismark {
 			my $runcount = 0;
 			my $merge_success_created   = 0;
 			my $merge_success_usingprev = 0;
-			LOG($outLog, "\n" . date() . "${LPR}Merge .filtered.gz$N: Merging $LGN$totalfilteredFiles$N .filtered.gz files into one file per gene\n");
-			my $merge_filtered_cmd_print = "zcat -f $outFolder/*_bismark/*.$ext\_filterBAM/FILENAME | gzip -f > $merged_filterBAMDir/FILENAME";
+
+			LOG($outLog, "\n" . date() . "${LPR}Merge *part/.filtered.gz .filtered.gz$N: Merging .filtered.gz files into one file per gene\n");
+
+			my $merge_filtered_cmd_print = "zcat -f $outFolder/*_bismark/FILENAME | gzip -f > $outDir/FILENAME";
 			print_cmd($merge_filtered_cmd_print, $outLog);
+
 			foreach my $gene (sort keys %{$SEQ}) {
 				foreach my $strands (sort @strands) {
+					LOG($outLog, "\n" . date() . "${LPR}Merge *part/.filtered.gz .filtered.gz$N: Done $LGN$runcount/$runtotal$N\n") if $runcount % 100 == 0;
 					$runcount ++;
 					my $filteredFilename = "$gene\_$strands.filtered.gz";
 					LOG($outLog, "$filteredFilename\n","NA");
-				#foreach my $filteredFilename (sort keys %tempfilteredFiles) {
-					my $merge_filtered_cmd = "zcat -f $outFolder/*_bismark/*.$ext\_filterBAM/$filteredFilename | gzip -f > $merged_filterBAMDir/$filteredFilename";
-					my $outputFile = "$merged_filterBAMDir/$filteredFilename";
-					LOG($outLog, "\n" . date() . "\t#Merging .filtered file into $LCY$outputFile$N\n\n$LCY$merge_filtered_cmd$N\n\n","NA"); 
-					if (defined $force{2} or not -e $outputFile) {
-						#DIELOG($outLog, "Debug merge_filtered_cmd\n");
-						my $merge_filtered_cmd_success = system($merge_filtered_cmd);
-						if ($merge_filtered_cmd_success != 0) {
-							LOG($outLog, "\n" . date() . "#Failed to merge_filtered_cmd: $!\n$LCY$merge_filtered_cmd$N\n");
-						}
-						else {
-							LOG($outLog, "\n" . date() . " ${GN}SUCCESS$N: $LPR$runcount/$runtotal$N: Created .filter: $LCY$gene $LPR$strands$N: Created merged filtered $LCY$output_merge_fixedgz$N\n","NA");
-							$merge_success_created ++;
+					my $merge_filtered_cmd = "zcat -f $outFolder/*_bismark/$filteredFilename | gzip -f > $outDir/$filteredFilename";
+					my $outputFile = "$outDir/$filteredFilename";
+					if ($runcount == 1) {
+						print_cmd($merge_filtered_cmd, $outLog);
+					}
+					LOG($outLog, "\n" . date() . "${LPR}Merge *part/.filtered.gz .filtered.gz$N: $LCY$gene $strands$N: Merging .filtered file into $LCY$outputFile$N\n\n$LCY$merge_filtered_cmd$N\n","NA"); 
+					if (defined $force{8} or not -e $outputFile) {
+						if (not defined $opt_0) {
+							#DIELOG($outLog, "BAD DEBUG\n");
+							my $merge_filtered_cmd_success = system($merge_filtered_cmd);
+							if ($merge_filtered_cmd_success != 0) {
+								LOG($outLog, "\n" . date() . "${LPR}Merge *part/.filtered.gz .filtered.gz$N: ${LRD}FAILED$N: Failed to merge_filtered_cmd: $!\n$LCY$merge_filtered_cmd$N\n");
+							}
+							else {
+								LOG($outLog, "\n" . date() . "${LPR}Merge *part/.filtered.gz .filtered.gz$N: ${GN}SUCCESS$N: $LPR$runcount/$runtotal$N: Created .filter: $LCY$gene $LPR$strands$N: Created merged filtered $LCY$output_merge_fixedFiles$N\n","NA");
+								$merge_success_created ++;
+							}
 						}
 					}
 					else {
-						LOG($outLog, "\n" . date() . " ${GN}SUCCESS$N: $LPR$runcount/$runtotal$N: Using prev merged .filter: $LCY$gene $LPR$strands$N: Using previously made merged filtered $LCY$output_merge_fixedgz$N\n","NA");
+						LOG($outLog, "\n" . date() . " ${GN}SUCCESS$N: $LPR$runcount/$runtotal$N: Using prev merged .filter: $LCY$gene $LPR$strands$N: Using previously made merged filtered $LCY$output_merge_fixedFiles$N\n","NA");
 						$merge_success_usingprev ++;
 					}
 				}
 			}
 			if ($merge_success_created + $merge_success_usingprev == $runcount) {
-				LOG($outLog, "\n" . date() . "${LPR}Merge .filtered.gz$N ${GN}SUCCESS$N: Created $LGN$merge_success_created$N and using previously made $LGN$merge_success_usingprev$N .filtered.gz files (total=$LGN$runcount$N) $LCY$output_merge_fixedgz$N\n");
+				LOG($outLog, "\n" . date() . "${LPR}Merge *part/.filtered.gz .filtered.gz$N ${GN}SUCCESS$N: Created $LGN$merge_success_created$N/$LGN$runtotal$N and using previously made $LGN$merge_success_usingprev$N/$LGN$runtotal$N .filtered.gz files (total=$LGN$runcount$N) $LCY$output_merge_fixedFiles$N\n");
 			}
 			else {
-				LOG($outLog, "\n" . date() . "${LPR}Merge .filtered.gz$N ${LRD}FAIL$N: Created $LGN$merge_success_created$N and using previously made $LGN$merge_success_usingprev$N .filtered.gz files (total=$LGN$runcount$N) $LCY$output_merge_fixedgz$N\n");
+				LOG($outLog, "\n" . date() . "${LPR}Merge *part/.filtered.gz .filtered.gz$N ${LRD}FAIL$N: Created $LGN$merge_success_created$N/$LGN$runtotal$N and using previously made $LGN$merge_success_usingprev$N/$LGN$runtotal$N .filtered.gz files (total=$LGN$runcount$N) $LCY$output_merge_fixedFiles$N\n");
 			}
-			LOG($outLog, "==================================\n\n");			
+			LOG($outLog, "==================================================\n");			
 			
-			##########################################
-			# Create .fofn file to merge partBAMFile #
-			##########################################
+			#########################################
+			# CREATE .fofn FILE FOR MERGE BAM FILES #
+			#########################################
 			my $fofnFile = "$outFolder/bamlist.fofn";
-			my $fofn_cmd = "/bin/ls $outFolder/*_bismark/*.$ext > $fofnFile";
-			LOG($outLog, "\n" . date() . "${LPR}Create .fofn$N: Creating .fofn file\n");
+			my $fofn_cmd = "/bin/ls $outFolder/*_bismark/*bismark_bt2.$ext > $fofnFile";
+			LOG($outLog, "\n" . date() . "${LPR}Create *part/.bam .fofn$N: Creating .fofn file\n");
 			print_cmd($fofn_cmd, $outLog);
 			system($fofn_cmd) == 0 or DIELOG($outLog, "Failed to write to $fofnFile: $!\n$LCY$fofn_cmd$N\n");
 			my ($fofnSize) = `wc -l $fofnFile` =~ /^(\d+)\s*/;
-			LOG($outLog, "\n" . date() . "${LPR}Create .fofn$N: ${GN}SUCCESS$N: Created fofn file of $LGN$fofnSize$N bam files ($LCY$fofnFile$N)!\n");
+			LOG($outLog, "\n" . date() . "${LPR}Create *part/.bam .fofn$N: ${GN}SUCCESS$N: Created fofn file of $LGN$fofnSize$N bam files ($LCY$fofnFile$N)!\n");
 			LOG($outLog, "==================================================\n");			
 
-			##########################################
-			# Merge bam file                         #
-			##########################################
+			###################
+			# MERGE BAM FILES #
+			###################
 			my @HEADER; my @REPORT;
 			my $merge_bam_cmd = "samtools merge -f --reference $genomeFile $BAMFile -b $fofnFile";
 			my $merge_bam_cmd_print = $merge_bam_cmd;
-			LOG($outLog, "\n" . date() . "${LPR}Merge .bam$N: Merging $LGN$totalBAM$N .bam files using samtools\n");
+			LOG($outLog, "\n" . date() . "${LPR}Merge *part/.bam .bam$N: Merging $LGN$totalbamFiles$N .bam files using samtools\n");
 			print_cmd($merge_bam_cmd, $outLog);
-			#LOG($outLog, "\n" . date() . "\t#Merging BAM Files\n\n$LCY\t$merge_bam_cmd\n$N\n");
 
-			if (defined $force{2} or not -e $BAMFile) {
-				#DIELOG($outLog, "DEBUG: Exit before merging bams\n");
-				system($merge_bam_cmd) == 0 or DIELOG($outLog, "\tfootLoop.pl::run_bismark: Failed to merge cmd: $!\n$merge_bam_cmd\n");
-				LOG($outLog, "\n" . date() . "${LPR}Merge .bam$N: ${GN}SUCCESS$N: Merged $LGN$totalBAM$N .bam files into main .bam file $LCY$BAMFile$N\n");
-				#$run_boolean .= "${LGN}RAN$N: ${YW} ::: $splitFastq_cmd && $bismark_cmd && $merge_bam_cmd_print :::$N\n";
+			if (defined $force{9} or not -e $BAMFile) {
+				if (not defined $opt_0) {
+					#die "ASDF\n";;
+					#DIELOG($outLog, "BAD DEBUG\n");
+					system($merge_bam_cmd) == 0 or DIELOG($outLog, "\n" . date() . "${LPR}Merge *part/.bam .bam$N: ${LRD}FAILED$N: Failed to merge cmd: $!\nCMD=$LCY$merge_bam_cmd$N\n\n");
+				}
+				LOG($outLog, "\n" . date() . "${LPR}Merge *part/.bam .bam$N: ${GN}SUCCESS$N: Merged $LGN$totalbamFiles$N .bam files into main .bam file $LCY$BAMFile$N\n");
 			}
 			else {
-				LOG($outLog, "\n" . date() . "${LPR}Merge .bam$N: ${GN}SUCCESS$N: Using previously merged $LGN$totalBAM$N .bam files into main .bam file $LCY$BAMFile$N\n");
-				#$run_boolean .= "${LGN}WAS NOT RUN$N: ${YW} ::: $splitFastq_cmd && $bismark_cmd && $merge_bam_cmd_print :::$N\n";
+				LOG($outLog, "\n" . date() . "${LPR}Merge *part/.bam .bam$N: ${GN}SUCCESS$N: Using previously merged $LGN$totalbamFiles$N .bam files into main .bam file $LCY$BAMFile$N\n");
 			}
 			LOG($outLog, "==================================================\n");			
 
-			##########################################
-			# merge bismark report                  #
-			##########################################
-			LOG($outLog, "\n" . date() . "${LPR}Merge _footLoop_report.txt$N: Merging reports in outFolder=$LCY$outFolder*/*_SE_report.txt$N\n");
+			#########################
+			# MERGE BISMARK REPORTS #
+			#########################
+			LOG($outLog, "\n" . date() . "${LPR}Merge _SE_report.txt _footLoop_report.txt$N: Merging reports in outFolder=$LCY$outFolder*/*_SE_report.txt$N\n");
 			print_cmd("#footLoop.pl::parse_bismark_report(\$part_bismark_report, \$outLog)", $outLog);
 			my $report_not_found = 0;
-			for (my $p = 0; $p < @partBAM; $p++) {
-				my $partBAM = $partBAM[$p];
-				my ($partFilename) = $partBAM =~ /^(.+).bam$/;
+			for (my $p = 0; $p < @bamFiles; $p++) {
+				my $bamFiles = $bamFiles[$p];
+				my ($partFilename) = $bamFiles =~ /^(.+).bam$/;
 				my $part_bismark_report = $partFilename . "_SE_report.txt";
 				if (not -e $part_bismark_report) {
 					$report_not_found ++;
-					LOG($outLog, "\nfootLoop.pl::run_bismark: $LGN$p/$totalBAM$N. can't find report file $LCY$part_bismark_report$N\n");
+					LOG($outLog, "\nfootLoop.pl::run_bismark: $LGN$p/$totalbamFiles$N. can't find report file $LCY$part_bismark_report$N\n");
 					next;
 				}
 				my ($header, $report) = parse_bismark_report($part_bismark_report, $outLog);
@@ -993,11 +1018,11 @@ sub run_bismark {
 
 			$mapLog  = "footLoop.pl,map," . "header\t" . join("\t", @HEADER) . "\tfootLoop_outDir\tuuid\n";
 		   $mapLog .= "footLoop.pl,map," . "record\t" . join("\t", @REPORT) . "\t$outDir\t$uuid\n";
-			if (defined $force{2} or $bismark_report_exist == 0) {
-				LOG($outLog, "\n" . date() . "${LPR}Merge _footLoop_report.txt$N: ${GN}SUCCESS$N: Merged $LGN$totalBAM$N bismark reports in $LCY$outFolder*/*_SE_report.txt$N, stats: $merged_report_to_log\n");
+			if ($bismark_report_exist == 0) {
+				LOG($outLog, "\n" . date() . "${LPR}Merge _SE_report.txt _footLoop_report.txt$N: ${GN}SUCCESS$N: Merged $LGN$totalbamFiles$N bismark reports in $LCY$outFolder*/*_SE_report.txt$N, stats: $merged_report_to_log\n");
 			}
 			else {
-				LOG($outLog, "\n" . date() . "${LPR}Merge _footLoop_report.txt$N: ${GN}SUCCESS$N: Using previously merged $LGN$totalBAM$N bismark reports in $LCY$outFolder*/*_SE_report.txt$N, stats: $merged_report_to_log\n");
+				LOG($outLog, "\n" . date() . "${LPR}Merge _SE_report.txt _footLoop_report.txt$N: ${GN}SUCCESS$N: Using previously merged $LGN$totalbamFiles$N bismark reports in $LCY$outFolder*/*_SE_report.txt$N, stats: $merged_report_to_log\n");
 			}
 			LOG($outLog, "==================================================\n");			
 
@@ -1044,115 +1069,142 @@ sub print_cmd {
 #}
 
 sub bismark_check_fq_bam {
-	my ($partFastqArr, $partBAMArr, $outLog) = @_;
-	if (not defined $partFastqArr or not defined $partBAMArr) {
-		my $totalFastq = 0 if not defined $partFastqArr;
-		my $totalBAM = 0 if not defined $partBAMArr;
+	my ($fastqFilesArr, $bamFilesArr, $outLog) = @_;
+	if (not defined $fastqFilesArr or not defined $bamFilesArr) {
+		my $totalFastq = 0 if not defined $fastqFilesArr;
+		my $totalbamFiles = 0 if not defined $bamFilesArr;
 		
-		LOG($outLog, "\n" . date() . "ERROR: fastq_not_in_BAM:${LRD}ALL$N, totalFastq=$LGN$totalFastq$N, totalBAM=$LGN$totalBAM$N\n");
+		LOG($outLog, "\n" . date() . "ERROR: fastq_not_in_BAM:${LRD}ALL$N, totalFastq=$LGN$totalFastq$N, totalBAM=$LGN$totalbamFiles$N\n");
 		return;
 	}
-	my @partFastq = @{$partFastqArr};
-	my @partBAM = @{$partBAMArr};
+	my @fastqFiles = @{$fastqFilesArr};
+	my @bamFiles = @{$bamFilesArr};
 	my %temp;
-	for (my $i = 0; $i < @partBAM; $i++) {
-		$temp{BAM}{$partBAM[$i]} = 1;
+	for (my $i = 0; $i < @bamFiles; $i++) {
+		$temp{BAM}{$bamFiles[$i]} = 1;
 	}
 	my $fastq_no_BAM = 0;
-	for (my $i = 0; $i < @partFastq; $i++) {
-		$temp{fastq}{$partFastq[$i]} = 1;
-		my ($partFastqName) = getFilename($partFastq[$i], "full");
-		my $partFastqBAMFile = $partFastq[$i] . "_bismark/$partFastqName\_bismark_bt2.bam";
-		$fastq_no_BAM ++ if not defined $temp{BAM}{$partFastqBAMFile};
+	for (my $i = 0; $i < @fastqFiles; $i++) {
+		$temp{fastq}{$fastqFiles[$i]} = 1;
+		my ($fastqFilesName) = getFilename($fastqFiles[$i], "full");
+		my $fastqFilesBAMFile = $fastqFiles[$i] . "_bismark/$fastqFilesName\_bismark_bt2.bam";
+		$fastq_no_BAM ++ if not defined $temp{BAM}{$fastqFilesBAMFile};
 	}
-	my $totalFastq = @partFastq;
-	my $totalBAM = @partBAM;
-	LOG($outLog, "\n" . date() . "footLoop.pl::bismark_check_fq_bam: Fastq_without_BAM=$LGN$fastq_no_BAM$N,totalFastq=$LGN$totalFastq$N,totalBAM=$LGN$totalBAM$N\n");
+	my $totalFastq = @fastqFiles;
+	my $totalbamFiles = @bamFiles;
+	LOG($outLog, "\n" . date() . "footLoop.pl::bismark_check_fq_bam: Fastq_without_BAM=$LGN$fastq_no_BAM$N,totalFastq=$LGN$totalFastq$N,totalBAM=$LGN$totalbamFiles$N\n");
 }
 
 sub sbatch_these {
-#sbatch_these($bismark_cmd, "bismark", "bam", \@partgzfiles, $max_slurm_job, $outLog);
 	my ($cmd, $suffix, $ext, $filesARRAY, $max_parallel_run, $outLog, $force_sbatch) = @_;
-	#suffix: $file\_$suffix.sbatch/sbout/folder
-	#ext: determine donefile (<$file\_$suffix/*.$ext>)
-	for (my $i = 0; $i < @{$filesARRAY}; $i++) {
 
-		my $file = $filesARRAY->[$i];
-		#print "$i $filesARRAY->[$i]\n";
-
-		my $sbatchfile = $file . "\_$suffix.sbatch";
-		my $sboutfile  = $file . "\_$suffix.sbout";
-		my $donefile   = $file . "\_$suffix.done";
-		system("mkdir -p $file\_$suffix") if not -e "$file\_$suffix";
-		my $currcmd = $cmd;
-			$currcmd =~ s/FILENAME/$file/g;	
-		if ($i == 0) {
-			print_cmd($currcmd, $outLog);
-		}
-
-		#$currcmd = "sleep 10"; #debug
-
-		my ($folder, $filename) = getFilename($file, "folderfull");
-		my $sbatchprint = "#!/bin/bash -l
-#SBATCH -n 2 -N 1 -p high --mem 4000 -t 999:99:99
-#SBATCH --job-name \"$filename\_$suffix\"
-#SBATCH --output \"$sboutfile\"
-
-echo \"conda activate footLoop2\"
-conda activate footLoop2
-echo \"which bismark\"
-which bismark
-
-echo \"currcmd:\"
-
-$currcmd && echo \"Done!\" > $donefile
-
-";
-
-		open (my $out, ">", $sbatchfile) or die "Can't write to $LCY$sbatchfile$N: $!\n";
-		print $out $sbatchprint;
-		close $out;
-		
-		#print "\n$LCY$sbatchfile$N\n\n$sbatchprint\n";
-		
-	}
+	# - suffix : $file\_$suffix.sbatch/sbout/folder
+	# - ext    : determine donefile (<$file\_$suffix/*.$ext>)
 
 	my $jobidhash;
 	my $totalfiles = scalar(@{$filesARRAY});
 	for (my $i = 0; $i < @{$filesARRAY}; $i++) {
-		LOG($outLog, "\n" . date() . "$LGN$i $YW$suffix$N: Doing $filesARRAY->[$i]\n");
+
 		my $file = $filesARRAY->[$i];
+		my ($folder, $filename) = getFilename($file, "folderfull");
+
 		my $sbatchfile = $file . "\_$suffix.sbatch";
 		my $sboutfile  = $file . "\_$suffix.sbout";
 		my $donefile   = $file . "\_$suffix.done";
-		my $currcmd = $cmd;
-			$currcmd =~ s/FILENAME/$file/g;	
-		#my ($doneFile) = <$file\_$suffix/*.$ext>;
-		my ($filename) = getFilename($file, "full");
-		if (not defined $force{2} and not defined $force_sbatch and defined $donefile) {
-			LOG($outLog, "\n" . date() . "  sbatch: $YW$i/$totalfiles$N. $LCY$filename$N ($LGN DONE$N)\n","NA");
+
+		#if ($suffix eq "fixBAM") {
+		#	#LOG($outLog, "$file.fixed.gz\n");
+		#	if (-e "$file\.fixed.gz") {#not -e "$file\_filterBAM.done" and not -e "$file\_fixBAM.done" and -e "$file\_logBAM.done") {
+		#		system("echo DONE > $file\_fixBAM.done");
+		#	#	if (-e "$file\_logBAM.done" and -e "$file\_logBAM.sbatch" and -e "$file\_logBAM.sbout") {
+		#			system("/bin/mv $file\_filterBAM.sbatch $file\_fixBAM.sbatch") if -e "$file\_filterBAM.sbatch" and not -e "$file\_fixBAM.sbatch";
+		#			system("/bin/mv $file\_filterBAM.sbout $file\_fixBAM.sbout") if -e "$file\_filterBAM.sbout" and not -e "$file\_fixBAM.sbout";
+		#			system("/bin/mv $file\_filterBAM.done $file\_fixBAM.done") if -e "$file\_filterBAM.done" and not -e "$file\_fixBAM.done";
+		#	#	}
+		#		#DIELOG($outLog, "GOOD DEBUG\n") if $i == 0;
+		#	}
+		#}
+			#if (-e "$file\_logBAM.done" and -e "$file\_logBAM.sbatch" and -e "$file\_logBAM.sbout") {
+			#	LOG($outLog, "${LGN}DOING$N /bin/mv $file\_filterBAM.sbatch $file\_fixBAM.sbatch\n");
+			#	#DIELOG($outLog, "GOOD EBUG\n");
+			#	system("/bin/mv $file\_filterBAM.sbatch $file\_fixBAM.sbatch") if -e "$file\_filterBAM.sbatch";
+			#	system("/bin/mv $file\_filterBAM.sbout $file\_fixBAM.sbout") if -e "$file\_filterBAM.sbout";
+			#	system("/bin/mv $file\_filterBAM.done $file\_fixBAM.done") if -e "$file\_filterBAM.done";
+			#	exit 0;
+			#}
+			#else {
+			#	LOG($outLog, "${LRD}NOT DOING$N /bin/mv $file\_filterBAM.sbatch $file\_fixBAM.sbatch\n");
+			#}
+			#DIELOG($outLog, "GOOD EBUG\n") if $i == 9;
+		#}
+		#if ($suffix eq "filterBAM" and -e "$file\_logBAM.done") {
+		#	#DIELOG($outLog, "GOOD EBUG\n");
+		#	if (-e "$file\.fixed.gz") {
+		#		#LOG($outLog, "${LGN}DOING$N /bin/mv $file\_logBAM.sbatch $file\_filterBAM.sbatch\n");
+		#		system("/bin/mv $file\_logBAM.sbatch $file\_filterBAM.sbatch") if -e "$file\_logBAM.sbatch";
+		#		system("/bin/mv $file\_logBAM.sbout $file\_filterBAM.sbout") if -e "$file\_logBAM.sbout";
+		#		system("/bin/mv $file\_logBAM.done $file\_filterBAM.done") if -e "$file\_logBAM.done";
+		#	}
+		#	#else {
+		#	#	#LOG($outLog, "${LRD}NOT DOING$N /bin/mv $file\_logBAM.sbatch $file\_filterBAM.sbatch\n");
+		#	#}
+		#	#DIELOG($outLog, "GOod debug\n");
+		#}
+		
+		my $cmdcopy = $cmd;
+			$cmdcopy =~ s/FILENAME/$file/g;	
+
+		if ($cmdcopy !~ /FOLDER/) {
+			system("mkdir -p $file\_$suffix") if not -e "$file\_$suffix";
+		}
+		else {
+			$cmdcopy =~ s/FOLDER/$folder/g;	
+		}
+		if ($i == 0) {
+			print_cmd($cmdcopy, $outLog);
+		}
+
+		my $sbatchprint = "";
+			$sbatchprint .= "#!/bin/bash -l\n";
+			$sbatchprint .= "#SBATCH -n 2 -N 1 -p high --mem 4000 -t 999:99:99\n";
+			$sbatchprint .= "#SBATCH --job-name \"$filename\_$suffix\"\n";
+			$sbatchprint .= "#SBATCH --output \"$sboutfile\"\n\n";
+			$sbatchprint .= "conda activate footLoop2\n";
+			$sbatchprint .= "$cmdcopy && echo \"Done!\" > $donefile\n\n";
+
+		open (my $out, ">", $sbatchfile) or die "Can't write to $LCY$sbatchfile$N: $!\n";
+		print $out $sbatchprint;
+		close $out;
+
+		if (not defined $force{0} and not defined $force_sbatch and -e $donefile) {
+			LOG($outLog, "\n" . date() . "${LPR}$i/$totalfiles sbatch_these $suffix$N: sbatch $LCY$sbatchfile$N # ${LGN}DONE$N\n");
 			next;
 		}
 		else {
-			LOG($outLog, "\n" . date() . "  sbatch: $YW$i/$totalfiles$N. $LCY$filename$N\n");
+			LOG($outLog, "\n" . date() . "${LPR}$i/$totalfiles sbatch_these $suffix$N: sbatch: $LCY$sbatchfile$N\n");
 		}
 		
+		if (defined $opt_0) { # Debug
+			next;
+		}
+
 		if ($i != 0) {
 			my $sleep = 0;
 			while (1) {
+				last if $i < $max_parallel_run;
 				my ($job_left) = squeue_check($jobidhash);
-				LOG($outLog, "\n" . date() . "$job_left jobs left!\n") if $sleep % 60 == 0;
+				LOG($outLog, "\n" . date() . "$job_left jobs left!\n") if $sleep % 12 == 0;
 				last if ($job_left < $max_parallel_run);
 				$sleep ++;
-				sleep 1;
+				sleep 5;
 			}
 		}
 		my ($jobid) = `sbatch $sbatchfile`;
 		chomp($jobid);
 		($jobid) = $jobid =~ /^Submi.+job (\d+)$/;
+		next if not defined $jobid;
 		$jobidhash->{$jobid} = 1;
 		LOG($outLog, "$YW$i$N $LCY$filename$N $LGN$jobid$N\n");
-		LOG($outLog, "\n");
 		#system("touch $file.done") == 0 or die "failed to touch $file.done: $!\n";
 	}
 	my $sleep = 0;
@@ -1166,10 +1218,10 @@ $currcmd && echo \"Done!\" > $donefile
 	#$sleep = 0;
 	while (1) {
 		my ($job_left) = squeue_check($jobidhash);
-		LOG($outLog, "\n" . date() . "$job_left jobs left!\n") if $sleep % 60 == 0;
+		LOG($outLog, "\n" . date() . "$job_left jobs left!\n") if $sleep % 12 == 0;
 		last if $job_left == 0;
 		$sleep ++;
-		sleep 1;
+		sleep 5;
 	}
 	LOG($outLog, "\n" . date() . "All have been run!\n\n");
 	return(0);
@@ -1184,7 +1236,7 @@ sub squeue_check {
 		my ($jobid) = $line =~ /^\s*(\d+)\s+/;
 		if (not defined $jobid) {
 			LOG($outLog, "Can't parse jobid from line=$LCY$line$N\n");
-			die "\n";
+			next; # just next so we don't kill the script...
 		}
 		next if not defined $jobidhash->{$jobid};
 		$squeuehash->{$jobid} = 1;
@@ -1277,22 +1329,22 @@ sub get_geneIndex_fasta {
 	my $geneIndexName = getFilename($geneIndexFile);
 	my $run_boolean = "\t${LGN}WAS NOT RUN$N:${YW} ";
 	my $geneIndexFileNew = "$outDir/$geneIndexName\_$bufferL\_$bufferR\_bp.bed";
-	LOG($outLog, "\n" . date() . "${LPR}bedtools_bed_change .bed$N: Copying or transforming start and end coordinates (startBuffer $LGN$bufferL$N and endBuffer $LGN$bufferR$N) of ${LCY}geneIndexFile$N $LCY$geneIndexFile$N\n");
+	LOG($outLog, "\n" . date() . "${LPR}bedtools_bed_change .bed _x_y.bed$N: Copying or transforming start and end coordinates (startBuffer $LGN$bufferL$N and endBuffer $LGN$bufferR$N) of ${LCY}geneIndexFile$N $LCY$geneIndexFile$N\n");
 	if ($bufferL eq 0 and $bufferR eq 0) {
 		#LOG($outLog, "$YW\t::: /bin/cp $geneIndexFile $geneIndexFileNew :::$N\n");
 		my $buffer_cmd = "/bin/cp $geneIndexFile $geneIndexFileNew";
 		print_cmd($buffer_cmd, $outLog);
 		system($buffer_cmd) == 0 or DIELOG($outLog, "\tbedtools_bed_change: Failed because of $LGN$!$N cmd=$LCY$buffer_cmd$N\n\n");
-		LOG($outLog, "\n" . date() . "${LPR}bedtools_bed_change .bed$N: ${GN}SUCCESS$N: Copied ${LCY}geneIndexFile$N $LCY$geneIndexFileNew$N\n");
+		LOG($outLog, "\n" . date() . "${LPR}bedtools_bed_change .bed _x_y.bed$N: ${GN}SUCCESS$N: Copied ${LCY}geneIndexFile$N $LCY$geneIndexFileNew$N\n");
 	}
 	else {
 		my $buffer_cmd = "$footLoop_script_folder/lib/bedtools_bed_change.pl -m -x $bufferL -y $bufferR -i $geneIndexFile -o $geneIndexFileNew >> $logFile 2>&1";
 		print_cmd($buffer_cmd, $outLog);
 		system($buffer_cmd) == 0 or DIELOG($outLog, "\tbedtools_bed_change: Failed because of $LGN$!$N cmd=$LCY$buffer_cmd$N\n\n");
 		#system($buffer_cmd) == 0 or DIELOG($outLog, "Failed to get (beg $bufferL, end $bufferR) bp of $geneIndexFile!\n");
-		LOG($outLog, "\n" . date() . "${LPR}bedtools_bed_change .bed$N: ${GN}SUCCESS$N: Created ${LCY}geneInexFile$N $LCY$geneIndexFileNew$N\n");
+		LOG($outLog, "\n" . date() . "${LPR}bedtools_bed_change _x_y.bed$N: ${GN}SUCCESS$N: Created ${LCY}geneInexFile$N $LCY$geneIndexFileNew$N\n");
 	}
-	LOG($outLog, "==================================\n\n");			
+	LOG($outLog, "==================================================\n");			
 
 	return($geneIndexFileNew);
 }
@@ -1328,7 +1380,7 @@ sub parse_geneIndexFile {
 	LOG($outReadLog, "footLoop.pl,geneIndexFile,$geneIndexFile\n","NA");
 	my $geneIndex; my $linecount = 0;
 	open (my $geneIndexIn, "<", $geneIndexFile) or die "Cannot read from $geneIndexFile: $!\n";
-	LOG($outLog, "\n" . date() . "${LPR}parse_geneIndexFile .bed$N: Parsing genes from ${LCY}geneIndexFile$N $LCY$geneIndexFile$N\n");
+	LOG($outLog, "\n" . date() . "${LPR}parse_geneIndexFile .bed .bed$N: Parsing genes from ${LCY}geneIndexFile$N $LCY$geneIndexFile$N\n");
 	print_cmd("#footLoop.pl::parse_geneIndexFile", $outLog);
 	while (my $line = <$geneIndexIn>) {
 		chomp($line); $linecount ++;
@@ -1338,8 +1390,8 @@ sub parse_geneIndexFile {
 		$geneIndex->{$gene} = $beg;
 	}
 	close $geneIndexIn;
-	LOG($outLog, "\n" . date() . "${LPR}parse_geneIndexFile .bed$N: ${GN}SUCCESS$N: Parsed $LGN$linecount$N gene coordinates from ${LCY}geneIndexFile$N $LCY$geneIndexFile$N\n");
-	LOG($outLog, "==================================\n\n");			
+	LOG($outLog, "\n" . date() . "${LPR}parse_geneIndexFile .bed .bed$N: ${GN}SUCCESS$N: Parsed $LGN$linecount$N gene coordinates from ${LCY}geneIndexFile$N $LCY$geneIndexFile$N\n");
+	LOG($outLog, "==================================================\n");			
 
 	my $geneIndexName = getFilename($geneIndexFile, "full");
 	my $geneIndexFaDir = $outDir . "/.geneIndex/";
@@ -1348,18 +1400,18 @@ sub parse_geneIndexFile {
 
 	#LOG($outLog, "\n\tb. Getting fasta sequence from bed file$LCY $geneIndexFile$N genome file$LCY $genomeFile$N\n");
 
-	LOG($outLog, "\n" . date() . "${LPR}fastaFromBed .fa$N: Getting fasta sequence using ${LCY}fastaFromBed$N\n");
+	LOG($outLog, "\n" . date() . "${LPR}fastaFromBed .bed .fa$N: Getting fasta sequence using ${LCY}fastaFromBed$N\n");
 	my $fastaFromBed_cmd = "fastaFromBed -fi $genomeFile -bed $geneIndexFile -fo $geneIndexFaTemp -nameOnly";
 	print_cmd($fastaFromBed_cmd, $outLog);
 	#LOG($outLog, "$YW\t::: $cmd :::$N\n");
 	my $fastaFromBed_cmd_success = system("$fastaFromBed_cmd");
 	if ($fastaFromBed_cmd_success == 0) {
-		LOG($outLog, "\n" . date() . "${LPR}fastaFromBed .fa$N: ${GN}SUCCESS$N: Created fasta file $LCY$geneIndexFaTemp$N\n");
+		LOG($outLog, "\n" . date() . "${LPR}fastaFromBed .bed .fa$N: ${GN}SUCCESS$N: Created fasta file $LCY$geneIndexFaTemp$N\n");
 	}
 	else {
-		LOG($outLog, "\n" . date() . "${LPR}fastaFromBed .fa$N: ${LRD}FAIL$N: Failed to create fasta file $LCY$geneIndexFaTemp$N: $LGN$!$N\n");
+		LOG($outLog, "\n" . date() . "${LPR}fastaFromBed .bed .fa$N: ${LRD}FAIL$N: Failed to create fasta file $LCY$geneIndexFaTemp$N: $LGN$!$N\n");
 	}
-	LOG($outLog, "==================================\n\n");			
+	LOG($outLog, "==================================================\n");			
 
 	#$geneIndexFaTemp = uppercaseFasta($geneIndexFaTemp, $outLog);
 	my ($geneIndexFaMD5, $temp, $geneIndexFaTempMD5File)  = getMD5($geneIndexFaTemp);
@@ -1383,7 +1435,7 @@ sub parse_geneIndexFile {
 
 sub parse_fasta {
 	my ($seqFile, $outLog, $minReadL) = @_;
-	LOG($outLog, "\n" . date() . "${LPR}footLoop.pl::parse_fasta$N: Parsing reference sequences and infos from ${LCY}seqFile$N: $LCY$seqFile$N\n");
+	LOG($outLog, "\n" . date() . "${LPR}footLoop.pl::parse_fasta .fa .fa$N: Parsing reference sequences and infos from ${LCY}seqFile$N: $LCY$seqFile$N\n");
 	open(my $SEQIN, "<", $seqFile) or DIELOG($outLog, "\n$LRD!!!$N\tFATAL ERROR: Could not open $CY$seqFile$N: $!\n");
 	my $fasta = new FAlite($SEQIN);
 	my $linecount = 0;
@@ -1410,8 +1462,8 @@ sub parse_fasta {
 		LOG($outLog, "\t\t$linecount:gene=$LGN$gene$N,length=$LGN$SEQ->{$gene}{geneL}$N\n","NA");
 	}
 	close $SEQIN;
-	LOG($outLog, "\n" . date() . "${LPR}footLoop.pl::parse_fasta$N: ${GN}SUCCESS$N: Parsed $LGN$linecount$N total sequences from fasta file\n");
-	LOG($outLog, "==================================\n\n");			
+	LOG($outLog, "\n" . date() . "${LPR}footLoop.pl::parse_fasta .fa .fa$N: ${GN}SUCCESS$N: Parsed $LGN$linecount$N total sequences from fasta file\n");
+	LOG($outLog, "==================================================\n");			
 
 	return($SEQ);
 }
@@ -1665,6 +1717,15 @@ Do $YW$0$N $LGN-e$N for example run
 ${LRD}IMPORTANT!!$N If you see a lot of 'Chromosomal sequence could not be extracted for..' try adding $YW-x -10 -y 10$N
 -> If you still see then try adding bigger buffer, e.g. $YW-x -50 -y 50$N
 
+-F:  (comma separated e.g. 2,3,4)
+2: delete all part.gz
+3: split Fastq into part.gz
+4: bismark part.gz
+5: filter bam (footLoop_2_fixBAMFile.pl)
+6: log bam (footLoop_3_filterBAMFile.pl)
+7: merge fixed.gz
+8: merge filtered.gz
+9: merge bam
 
 ";
 
@@ -2125,7 +2186,7 @@ sub print_R_heatmap {
 __END__
 #split_BAMFile {
 	my ($BAMFile, $seqFile, $outReadLog, $outLog) = @_;
-	LOG($outLog, "\n\ta. Fixing BAM file $CY$BAMFile$N with $footLoop_script_folder/lib/footLoop_2_filterBAMFile.pl\n");
+	LOG($outLog, "\n\ta. Fixing BAM file $CY$BAMFile$N with $footLoop_script_folder/lib/footLoop_2_fixBAMFile.pl\n");
 	my ($BAMMD5) = getMD5($BAMFile);
 	my $filteredDir = "$outDir/.BAMFile_$BAMMD5/";
 	check_if_result_exist(["$filteredDir/.GOOD"], $outLog);
@@ -2177,9 +2238,9 @@ __END__
 
 	if ($checkBAM == 0) {
 		LOG($outLog, "\tfootLoop.pl subroutine split_BAMFile:: fixed BAM file $LCY$filteredDir/$BAMFileName.fixed$N or .gz does not exist!\n");
-		LOG($outLog, "\t${YW}$footLoop_script_folder/lib/footLoop_2_filterBAMFile.pl -n $outDir -s $seqFile -o $filteredDir$N\n");
-		system("$footLoop_script_folder/lib/footLoop_2_filterBAMFile.pl -n $outDir -o $filteredDir") == 0 or LOG($outLog, "Failed to run $footLoop_script_folder/lib/footLoop_2_filterBAMFile.pl -n $outDir -o $filteredDir: $!\n") and exit 1;
-		LOG($outReadLog, "footLoop.pl,split_BAMFile,$footLoop_script_folder/lib/footLoop_2_filterBAMFile.pl -n $outDir -o $filteredDir\n","NA");
+		LOG($outLog, "\t${YW}$footLoop_script_folder/lib/footLoop_2_fixBAMFile.pl -n $outDir -s $seqFile -o $filteredDir$N\n");
+		system("$footLoop_script_folder/lib/footLoop_2_fixBAMFile.pl -n $outDir -o $filteredDir") == 0 or LOG($outLog, "Failed to run $footLoop_script_folder/lib/footLoop_2_fixBAMFile.pl -n $outDir -o $filteredDir: $!\n") and exit 1;
+		LOG($outReadLog, "footLoop.pl,split_BAMFile,$footLoop_script_folder/lib/footLoop_2_fixBAMFile.pl -n $outDir -o $filteredDir\n","NA");
 		if (not -e "$filteredDir/$BAMFileName.fixed.gz") {
 			LOG($outLog, "\tgzip $filteredDir/$BAMFileName.fixed");
 			system("gzip $filteredDir/$BAMFileName.fixed") == 0 or LOG($outLog, "\tFailed to gzip $filteredDir/$BAMFileName.fixed: $!\n");
@@ -2190,7 +2251,7 @@ __END__
 		$checkBAM = 1;
 	}
 	else {
-		LOG($outLog, "\t${LGN}WAS NOT RUN$N: ${YW}::: $footLoop_script_folder/lib/footLoop_2_filterBAMFile.pl -n $outDir -s $seqFile -o $filteredDir :::$N\n");
+		LOG($outLog, "\t${LGN}WAS NOT RUN$N: ${YW}::: $footLoop_script_folder/lib/footLoop_2_fixBAMFile.pl -n $outDir -s $seqFile -o $filteredDir :::$N\n");
 		LOG($outLog, "\tgzip $filteredDir/$BAMFileName.fixed\n\t${LGN}Already exist! So not overwriting!\n");
 		# rm old (bad) .gz if it exists
 		#if (-e $BAMFileGZ) {
