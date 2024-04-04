@@ -790,7 +790,7 @@ sub sbatch_these {
       $sboutfile =~ s/\/+/\//g;
       my $sbatchprint = "";
          $sbatchprint .= "#!/bin/bash -l\n";
-         $sbatchprint .= "#SBATCH -n 2 -N 1 -p high --mem 4000 -t 999:99:99\n";
+         $sbatchprint .= "#SBATCH -n 2 -N 1 -p high --mem 8000 -t 999:99:99\n";
          $sbatchprint .= "#SBATCH --job-name \"$filename\_$suffix\"\n";
          $sbatchprint .= "#SBATCH --output \"$sboutfile\"\n\n";
          $sbatchprint .= "conda activate footLoop2\n";

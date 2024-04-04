@@ -154,6 +154,7 @@ If R dies for any reason, make sure you have these required R libraries:
 				my $type = $types[$h2];
 				my $thres2 = $thres; $thres =~ s/0$//;
 				my $peakFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.PEAK";
+				#next if $peakFile !~ /PBEH2_BCBC4_PLASMIDPFC9NTBSPQI13_DESCTXLINEARBSAINTBSPQI13/;
 				$peakFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres2\_$type.PEAK" if not -e $peakFile;
 				die "Can't find peakFile $LCY$peakFile$N\n" if not -e $peakFile;
 				LOG($outLog, "label=$label, gene$mygene, strand=$strand, peak=$peakFile\n","NA");
@@ -170,11 +171,11 @@ If R dies for any reason, make sure you have these required R libraries:
 				elsif ($opt_r eq 2) {
 					push(@files, $peakFile);
 				}
-				last if @files > 5;
+				#last if @files > 5;
 			}
-			last if @files > 5;
+			#last if @files > 5;
 		}
-		last if @files > 5;
+		#last if @files > 5;
 	}
 	my %Rscripts; 
 	my $lastfile = -1; #debug

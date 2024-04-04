@@ -219,8 +219,12 @@ If R dies for any reason, make sure you have these required R libraries:
 		$bedFile       =~ s/.out.local.bed/.local.bed/;
 	#if (not -e $peakFile) {system("touch $peakFile");}
 	#if (not -e $nopkFile) {system("touch $nopkFile");}
-	my $totpeak = -e $peakFile ? -s $peakFile > 0 ? linecount($peakFile) : 0;
-	my $totnopk = -e $nopkFile ? -s $nopkFile > 0 ? linecount($nopkFile) : 0;
+	my $totpeak = (-e $peakFile and -s $peakFile > 0) ? linecount($peakFile) : 0;
+	my $totnopk = (-e $nopkFile and -s $nopkFile > 0) ? linecount($nopkFile) : 0;
+	my $mem = 4000;
+	if ($totpeak > 2000 or $totnopk > 2000) {
+		$mem = 32000;
+	}
 	#die "totpeak =$totpeak\n$peakFile\n" if $totpeak eq 0;
 	#next if $totpeak eq 0 and $totnopk eq 0;
 	my ($type) = $peakFile =~ /_(CH|CG|GH|GC)./;
@@ -431,7 +435,7 @@ library(RColorBrewer)
 	my $outsbatchDir = "$resDir/.footPeak_graph_sbatch_2/";
 	system("mkdir -p $outsbatchDir") if not -d $outsbatchDir;
 	#print "sbatch_these($sbatch_these_cmd, \"footPeak_graph_sbatch_2\", \@Rscript, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir)\n";
-	sbatch_these($sbatch_these_cmd, "footPeak_graph_sbatch_2", \@Rscript, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir);
+	sbatch_these($sbatch_these_cmd, "footPeak_graph_sbatch_2", \@Rscript, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir, $mem);
 }
 
 ###############
@@ -440,7 +444,7 @@ library(RColorBrewer)
 
 sub sbatch_these {
    #my ($cmd, $suffix, $ext, $filesARRAY, $max_parallel_run, $outLog, $force_sbatch, $folderwant) = @_;
-   my ($cmd, $suffix, $filesARRAY, $max_parallel_run, $outLog, $force_sbatch, $folderwant) = @_;
+   my ($cmd, $suffix, $filesARRAY, $max_parallel_run, $outLog, $force_sbatch, $folderwant, $mem) = @_;
 
    my %force;
 
@@ -478,7 +482,7 @@ sub sbatch_these {
       $sboutfile =~ s/\/+/\//g;
       my $sbatchprint = "";
          $sbatchprint .= "#!/bin/bash -l\n";
-         $sbatchprint .= "#SBATCH -n 2 -N 1 -p high --mem 4000 -t 999:99:99\n";
+         $sbatchprint .= "#SBATCH -n 2 -N 1 -p high --mem $mem -t 999:99:99\n";
          $sbatchprint .= "#SBATCH --job-name \"$filename\_$suffix\"\n";
          $sbatchprint .= "#SBATCH --output \"$sboutfile\"\n\n";
          $sbatchprint .= "conda activate footLoop2\n";
@@ -1711,85 +1715,3 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 
 	return $R;
 }
-
-
-__END__
-=comment
-	open (my $outR_notrelevantPNG, ">", "$resDir/footPeak_graph_Rscripts.PNG.sh") or DIELOG($outLog, date() . " Failed to write to $LCY$resDir/footPeak_graph_Rscripts.PNG.sh: $!\n");
-	open (my $outR_notrelevantPDF, ">", "$resDir/footPeak_graph_Rscripts.PDF.sh") or DIELOG($outLog, date() . " Failed to write to $LCY$resDir/footPeak_graph_Rscripts.PDF.sh: $!\n");
-	foreach my $outRscriptPNG (sort keys %Rscripts) {
-		my $summary = $Rscripts{$outRscriptPNG}{summary};
-		my $runR = $Rscripts{$outRscriptPNG}{runR};
-		my $runType = $Rscripts{$outRscriptPNG}{runType};
-		my $outRscriptPDF = $outRscriptPNG; 
-			$outRscriptPDF =~ s/PNG.R$/PDF.R/;
-			$outRscriptPDF =~ s/PNG_nopk_ALL.R$/PDF_nopk_ALL.R/;
-		LOG($outLog, date() . " $LCY Skipped $outRscriptPNG$N (requested gene is $LGN$opt_g$N\n") and next if defined $opt_g and $outRscriptPNG !~ /$opt_g/;
-		$fileCount ++;
-		my $RLOG = 0;
-		if (($opt_r == 2) or ($opt_r == 1 and $runR == 1)) {
-			LOG($outLog, "\n" . date() . "flag=$LPR$runType$N, $LGN$fileCount/$totalFile$N. Running$LGN PNG$N $LCY$outRscriptPNG$N: $summary\n");
-			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1\n","NA");
-			print $outR_notrelevantPNG "cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1 #$runType\n";
-			$RLOG = system("cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1");
-		}
-		else {
-			LOG($outLog, "\n" . date() . "flag=$LPR$runType$N, $LGN$fileCount/$totalFile$N.$LRD Not$N running$LGN PNG$N $LCY$outRscriptPNG$N: $summary\n","NA");
-			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1\n","NA");
-			print $outR_notrelevantPNG "cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1 #$runType\n";
-			$RLOG = 1;
-		}
-		my $prevRLOG = $RLOG;
-		if (($opt_r == 2) or ($opt_r == 1 and $runR == 1)) {
-			if ($RLOG ne 0) {
-				if (not -e "$outRscriptPNG.LOG") {
-					$RLOG = "\t$outRscriptPNG.LOG cannot be found!\n" if $runR == 1;
-				}
-				else {
-					my @RLOG = `tail -n 5 $outRscriptPNG.LOG`;
-					$RLOG = "\t" . join("\n\t", @RLOG);
-				}
-				LOG($outLog, date() . "\t--> ${LRD}Failed$N to R --vanilla --no-save < $outRscriptPNG: $prevRLOG, LOG:\n$RLOG\n") if $runR == 1;
-			}
-			else {
-				LOG($outLog, date() . "\t--> ${LGN}Success$N on running R --vanilla --no-save < $LCY$outRscriptPNG$N\n");
-			}
-		}
-
-		$RLOG = 0;
-		if (($opt_R == 2) or ($opt_R == 1 and $runR == 1)) {
-			LOG($outLog, "\n" . date() . "flag=$LPR$runType$N, $LGN$fileCount/$totalFile$N. Running$LGN PDF: $LCY$outRscriptPDF$N: $summary\n");
-			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1\n","NA");
-			print $outR_notrelevantPDF "cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1 #$runType\n";
-			$RLOG = system("cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1");
-		}
-		else {
-			LOG($outLog, "\n" . date() . "flag=$LPR$runType$N, $LGN$fileCount/$totalFile$N.$LRD Not$N running$LGN PDF$N $LCY$outRscriptPDF$N: $summary\n","NA");
-			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1\n","NA");
-			print $outR_notrelevantPDF "cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1 #$runType\n";
-			$RLOG = 1;
-		}
-		$prevRLOG = $RLOG;
-		if (($opt_R == 2) or ($opt_R == 1 and $runR == 1)) {
-			if ($RLOG ne 0) {
-				if (not -e "$outRscriptPDF.LOG") {
-					$RLOG = "\t$outRscriptPDF.LOG cannot be found!\n" if $runR == 1;
-				}
-				else {
-					my @RLOG = `tail -n 5 $outRscriptPDF.LOG`;
-					$RLOG = "\t" . join("\n\t", @RLOG);
-				}
-				LOG($outLog, date() . "\t--> ${LRD}Failed$N to R --vanilla --no-save < $outRscriptPDF: $prevRLOG, LOG:\n$RLOG\n") if $runR == 1;
-			}
-			else {
-				LOG($outLog, date() . "\t--> ${LGN}Success$N on running R --vanilla --no-save < $LCY$outRscriptPDF$N\n");
-			}
-		}
-	}
-	LOG($outLog, "\n\n$YW ----------------- SCP PATHS ------------------$N\n\n");
-	foreach my $file (sort keys %scp) {
-		LOG($outLog, "$file\n");
-	}
-}
-
-=cut

@@ -278,9 +278,9 @@ sub parseName {
 		my @filename = split("/", $filename);
 		$filename = pop(@filename);
 	}
-	#$filename =~ s/_bismark_bt2.bam_/_/i;
-	$filename =~ s/PLASMID/plasmid/;
-	$filename =~ s/DESC/DESC/;
+	##$filename =~ s/_bismark_bt2.bam_/_/i;
+	#$filename =~ s/PLASMID/plasmid/;
+	#$filename =~ s/DESC/DESC/;
 	my ($label, $gene, $strand, $window, $thres, $type) = $filename =~ /^(.+)_gene(.+)_(Pos|Neg|Unk)_(.+)_(.+)_(CH|CG|GH|GC)/i;
 	my ($pcb, $bc, $plasmid, $desc) = ("", "", "", "");
 	if ($label =~ /^(.+)_bc.+_plasmid.+_desc.+$/i) {
@@ -290,7 +290,7 @@ sub parseName {
 	if ($filename =~ /^(.+)_bc.+_plasmid.+_desc.+_(Pos|Neg|Unk).*$/i) {
 		($pcb, $bc, $plasmid, $desc) = $filename =~ /^(.+)_bc(.+)_plasmid(.+)_desc(.+)_(Pos|Neg|Unk).*$/i;
 		die "\n\nmyFootLib::parseName: filename=$LGN$filename$N.\n\nCannot parse bc, plasmid, desc from label=$LPR$label$N\n\n" if not defined $bc or not defined $plasmid or not defined $desc;
-		if ($gene =~ /^(.+)_bc.+_plasmid.+_desc.+$/i) {
+		if ($gene =~ /^(.+_bc.+_plasmid.+_desc.+)_(Pos|Neg|Unk).*$/i) {
 			$gene =~ s/^(.+_bc.+_plasmid.+_desc.+)_(Pos|Neg|Unk).*$/$1/i;
 		}
 	}
