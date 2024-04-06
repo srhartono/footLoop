@@ -25,6 +25,7 @@ our $LPR		="\e[1;35m";
 our $DIES   ="$LRD!!!\t$N";
 
 our @EXPORT = qw(
+check_software
 parse_readName
 parse_footPeak_logFile
 parse_indexFile
@@ -93,6 +94,33 @@ $LPR
 my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 
 #################################
+
+sub check_software {
+   my ($footLoop_script_folder, $version, $md5script);
+   my @check_software = `check_software.pl 2>&1`;
+   foreach my $check_software_line (@check_software[0..@check_software-1]) {
+      chomp($check_software_line);
+      next if $check_software_line !~ /\=/;
+      my ($query, $value) = split("=", $check_software_line);
+      next if not defined $query;
+      #print "$check_software_line\n";
+      if ($query =~ /footLoop_version/) {
+         ($version) = $value;
+      }
+      if ($query =~ /footLoop_script_folder/) {
+         next if defined $footLoop_script_folder;
+         ($footLoop_script_folder) = $value;
+      }
+      if ($query =~ /md5sum_script/) {
+         ($md5script) = $value;
+      }
+   }
+   print "\ncheck_software.pl\n";
+   print "footLoop_script_folder=$footLoop_script_folder\n";
+   print "footLoop_version=$version\n";
+   print "md5script=$md5script\n\n";
+   return($footLoop_script_folder, $version, $md5script);
+}
 
 sub get_pcb_readname {
 	my ($outLog) = @_;
@@ -480,6 +508,16 @@ sub getFullpath {
 	chomp($folder);
 	$folder = "./" if $folder eq "";
 	return("$folder/$fullname");
+}
+
+sub getFullpathAll {
+   my @arr = @_;
+   for (my $i = 0; $i < @arr; $i++) {
+		my $file = $arr[$i];
+      ($file) = getFullpath($file);
+		$arr[$i] = $file;
+   }
+   return(@arr);
 }
 
 sub parseExon {
@@ -882,16 +920,6 @@ sub myeval {
 	return ($count, $print);
 }
 
-sub getFullpathAll {
-   my @arr = @_;
-   for (my $i = 0; $i < @arr; $i++) {
-		my $file = $arr[$i];
-      ($file) = getFullpath($file);
-		$arr[$i] = $file;
-   }
-   return(@arr);
-}
-
 sub getMD5_simple {
 	my ($file) = @_;
 	my ($md5) = `$md5script $file` =~ /^(\w+)\s+/;
@@ -1037,106 +1065,4 @@ sub parse_footPeak_logFile {
    }
 	return (\%coor, $outLog);
 }
-
-__END__
-sub makeopt {
-	my 
-(
-'a' => $opt_a,
-'b' => $opt_b,
-'c' => $opt_c,
-'d' => $opt_d,
-'e' => $opt_e,
-'f' => $opt_f,
-'g' => $opt_g,
-'h' => $opt_h,
-'i' => $opt_i,
-'j' => $opt_j,
-'k' => $opt_k,
-'l' => $opt_l,
-'m' => $opt_m,
-'n' => $opt_n,
-'o' => $opt_o,
-'p' => $opt_p,
-'q' => $opt_q,
-'r' => $opt_r,
-'s' => $opt_s,
-'t' => $opt_t,
-'u' => $opt_u,
-'v' => $opt_v,
-'w' => $opt_w,
-'x' => $opt_x,
-'y' => $opt_y,
-'z' => $opt_z,
-'A' => $opt_A,
-'B' => $opt_B,
-'C' => $opt_C,
-'D' => $opt_D,
-'E' => $opt_E,
-'F' => $opt_F,
-'G' => $opt_G,
-'H' => $opt_H,
-'I' => $opt_I,
-'J' => $opt_J,
-'K' => $opt_K,
-'L' => $opt_L,
-'M' => $opt_M,
-'N' => $opt_N,
-'O' => $opt_O,
-'P' => $opt_P,
-'Q' => $opt_Q,
-'R' => $opt_R,
-'S' => $opt_S,
-'T' => $opt_T,
-'U' => $opt_U,
-'V' => $opt_V,
-'W' => $opt_W,
-'X' => $opt_X,
-'Y' => $opt_Y,
-'Z' => $opt_Z,
-'1' => $opt_1,
-'2' => $opt_2,
-'3' => $opt_3,
-'4' => $opt_4,
-'5' => $opt_5,
-'6' => $opt_6,
-'7' => $opt_7,
-'8' => $opt_8,
-'9' => $opt_9,
-'0' => $opt_0
-)
-
-	return \%opt;
-}
-my ($useVars) = `grep 'use vars' $0` =~ /qw\((.+)\)/;
-my @opts = split(" ", $useVars); @opts = sort @opts;
-my %opts;
-foreach my $opt (sort @opts) {
-   my ($key) = $opt =~ /_(.)$/;
-   $opts{$key} = $opt;
-   print "$key -> $opts{$key}\n";
-}
-print "opts:\n" . join("\n", @opts) . "\n";die;
-
-__END__
-	else 
-	if ($number =~ /^\-?0\.[0]*[1-9]\d*e?\-?\d*$/) {
-		return($mod*abs($number));
-		$number = abs($number);
-		print "$number\n";
-		my ($zero) = $number =~ /^0\.(0*)[1-9]\d?\d?\d*\d?\-?\d*$/;
-		$zero = defined $zero ? length($zero)+1 : 1; #0.00123 = zero is 2 but times 10**5 to 123 divide by 10**2 = 1.23
-		my ($scient) = $number =~ /e(\-?\d+)$/ if $number =~ /e\-?\d+$/;
-		($number) = $number =~ /^(.+)e.+$/ if defined $scient;
-		print "$number\n";
-		$scient = 0 if not defined $scient;
-		print "number=$number scient = $scient\n";
-		$scient = $scient < 0 ? -1 * $zero + $scient : $zero + $scient;
-		print "scient = $scient\n";
-		print "$mod*abs(int($number * 10**($zero+2)+0.5)/10**2) . e$scient\n";
-		return($mod*abs(int($number * 10**($zero+2)+0.5)/10**2) . "e$scient");
-	}
-	else {
-		return $number;	
-	}
 

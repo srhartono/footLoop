@@ -14,17 +14,25 @@ my ($thismd5) = getMD5_simple($0);
 
 my ($indexFile, $seqFile, $origFileInd, $origFile, $outDir, $window, $threshold, $totalorigFile, $label, $genewant, $minDis, $minLen, $version_small) = @ARGV;
 die "\nUsage: $YW$0$N ${LCY}indexFile$N ${LGN}seqFile$N ${LCY}i$N ${LGN}origFile$N ${LCY}outDir$N ${LGN}window$N ${LCY}threshold$N ${LGN}totalorigFile$N ${LCY}label$N ${LGN}genewant$N ${LCY}minDis$N ${LGN}minLen$N ${LCY}version_small$N\n\n" unless @ARGV == 13;
+undef $genewant if defined($genewant) and $genewant eq -1;
+
 my ($origFolder, $origFilename) = getFilename($origFile,"folderfull");
-undef $genewant if $genewant eq -1;
+
 my $outLogFile = "$outDir/.footPeak_sbatch/$origFilename.footPeak_sbatch.log.txt";
 open (my $outLog, ">", $outLogFile) or die "Failed to write to $LCY$outLogFile$N: $!\n";
+
 my $SEQ = parse_indexFile_and_seqFile($indexFile, $seqFile, $outLog);
 
 run_footPeak_old($indexFile, $seqFile, $origFileInd, $origFile, $outDir, $window, $threshold, $totalorigFile, $label, $genewant, $minDis, $minLen, $SEQ, $version_small, $outLog);
 main_2($indexFile, $seqFile, $origFileInd, $origFile, $outDir, $window, $threshold, $totalorigFile, $label, $genewant, $minDis, $minLen, $SEQ, $version_small, $outLog);
 
+LOG($outLog, date() . "Done!\n\n$outLogFile\n\n");
 close $outLog;
-print "\n\n$outLogFile\n";
+
+###############
+# SUBROUTINES #
+###############
+
 sub run_footPeak_old {
 	#my $Q = new Thread::Queue;
 	my ($indexFile, $seqFile, $origFileInd, $origFile, $outDir, $window, $threshold, $totalorigFile, $label, $genewant, $minDis, $minLen, $SEQ, $version_small, $outLog) = @_;
@@ -102,6 +110,8 @@ sub run_footPeak_old {
 		my $check = 0;
 
 		if (defined $genewant and $name !~ /$genewant/i) {$check = 1; next;} #genewant
+		#print "$linecount Doing $name $type\n" ;
+		#next unless $name =~ /PBEH2_BCBC0_PLASMIDPFC9NTBSPQI13_DESCNOTXLINEARBSAICOSSB.m84066_240320_204128_s1\/163448324\/ccs/;
 
 		my ($pkcurr, $outcurr) = dothis($gene, $strand, $val, $name, $window, $threshold, $check);
 		foreach my $type (sort keys %{$pkcurr}) {
@@ -110,9 +120,9 @@ sub run_footPeak_old {
 		foreach my $type (sort keys %{$outcurr}) {
 			print {$out->{$type}} $outcurr->{$type};
 		}
+		#die "HERE\n" if $name =~ /PBEH2_BCBC0_PLASMIDPFC9NTBSPQI13_DESCNOTXLINEARBSAICOSSB.m84066_240320_204128_s1\/163448324\/ccs/;
 		#last if $linecount >= 100;
 	}
-
 	my $to;
 	foreach my $key (sort keys %pk) {
 		next if $key =~ /NO$/;
@@ -673,6 +683,10 @@ sub dothis {
    if ($peakCG != 0) {$pk->{CG} ++; $out->{'PEAKCG'} = $CG;} else {$pk->{CGNO} ++; $out->{'NOPKCG'} = $CG;}
    if ($peakGH != 0) {$pk->{GH} ++; $out->{'PEAKGH'} = $GH;} else {$pk->{GHNO} ++; $out->{'NOPKGH'} = $GH;}
    if ($peakGC != 0) {$pk->{GC} ++; $out->{'PEAKGC'} = $GC;} else {$pk->{GCNO} ++; $out->{'NOPKGC'} = $GC;}
+	#print "\n$LCY$out->{'PEAKCH'}$N\n" if $name =~ /PBEH2_BCBC0_PLASMIDPFC9NTBSPQI13_DESCNOTXLINEARBSAICOSSB.m84066_240320_204128_s1\/163448324\/ccs/;
+	#print "\n$LCY$out->{'PEAKGH'}$N\n" if $name =~ /PBEH2_BCBC0_PLASMIDPFC9NTBSPQI13_DESCNOTXLINEARBSAICOSSB.m84066_240320_204128_s1\/163448324\/ccs/;
+	#print "\n$LCY$out->{'PEAKCG'}$N\n" if $name =~ /PBEH2_BCBC0_PLASMIDPFC9NTBSPQI13_DESCNOTXLINEARBSAICOSSB.m84066_240320_204128_s1\/163448324\/ccs/;
+	#print "\n$LCY$out->{'PEAKGC'}$N\n" if $name =~ /PBEH2_BCBC0_PLASMIDPFC9NTBSPQI13_DESCNOTXLINEARBSAICOSSB.m84066_240320_204128_s1\/163448324\/ccs/;
    return($pk, $out);
    #return 0;
 }
@@ -737,9 +751,10 @@ sub getPeak {
          }
 #=cut
       }
-      if ($i == 0 and defined $check) {
-#        print "i=$i, " . join("", @{$peak->{CH}}[0..$window-1]) . "\n";
-      }
+      #if ($i == 0 and defined $check) {
+			#print "i=$i, gene=$gene " . join("", @{$peak->{CH}}[0..$window]) . "\n" if $name =~ /PBEH2_BCBC0_PLASMIDPFC9NTBSPQI13_DESCNOTXLINEARBSAICOSSB.m84066_240320_204128_s1\/163448324\/ccs/;
+      #}
+
       my ($CG, $CH, $GC, $GH) = (0,0,0,0);
       ($peak, $CG, $CH, $GC, $GH) = isPeak($i, $con, $peak, $window, $threshold, $SEQ->{$gene}, $totalseqpos, $totalseqneg, $check);
       $peakCH += $CH;
@@ -747,6 +762,10 @@ sub getPeak {
       $peakGC += $GC;
       $peakGH += $GH;
    }
+	print "peakCH=$peakCH\n" . join("", @{$peak->{CH}}[0..@{$peak->{CH}}-1]) . "\n" if $name =~ /PBEH2_BCBC0_PLASMIDPFC9NTBSPQI13_DESCNOTXLINEARBSAICOSSB.m84066_240320_204128_s1\/163448324\/ccs/;
+	print "peakGH=$peakGH\n" . join("", @{$peak->{GH}}[0..@{$peak->{GH}}-1]) . "\n" if $name =~ /PBEH2_BCBC0_PLASMIDPFC9NTBSPQI13_DESCNOTXLINEARBSAICOSSB.m84066_240320_204128_s1\/163448324\/ccs/;
+	print "peakCG=$peakCG\n" . join("", @{$peak->{CG}}[0..@{$peak->{CG}}-1]) . "\n" if $name =~ /PBEH2_BCBC0_PLASMIDPFC9NTBSPQI13_DESCNOTXLINEARBSAICOSSB.m84066_240320_204128_s1\/163448324\/ccs/;
+	print "peakGC=$peakGC\n" . join("", @{$peak->{GC}}[0..@{$peak->{GC}}-1]) . "\n" if $name =~ /PBEH2_BCBC0_PLASMIDPFC9NTBSPQI13_DESCNOTXLINEARBSAICOSSB.m84066_240320_204128_s1\/163448324\/ccs/;
    return ($peak, $peakCH, $peakCH, $peakGC, $peakGH);
 }
 
@@ -819,12 +838,13 @@ sub isPeak {
    my $GHcon = $con->{GH}{con};
    my $GHtot = $con->{GH}{tot};
 
-   my $Ctotmin = 2;
+   my $Ctotmin = 5;#$window;
    #instead of 5, becomes 2
    my $peakCG = ($CGtot >= $Ctotmin and ($CGcon / $CGtot) > $threshold) ? 1 : 0;
    my $peakCH = ($CHtot >= $Ctotmin and ($CHcon / $CHtot) > $threshold) ? 1 : 0;
    my $peakGC = ($GCtot >= $Ctotmin and ($GCcon / $GCtot) > $threshold) ? 1 : 0;
    my $peakGH = ($GHtot >= $Ctotmin and ($GHcon / $GHtot) > $threshold) ? 1 : 0;
+	#print "window=$window Ctotmin = $Ctotmin, GHtot=$GHtot, GHcon/GHtot = $GHcon/$GHtot > $threshold\n" if ($GHtot >= $Ctotmin and $GHcon / $GHtot > $threshold);
    if ($i < $totalseqpos - $window) {
       my $temp;
       my $min = $seq->{loc}{pos1}{$i};
@@ -859,7 +879,7 @@ sub isPeak {
          }
          @{$peak->{CG}}[$min..$max] = split("", $temp);
       }
-#     print "i=$i, min=$min, max=$max, CHcon=$LGN$CHcon$N, CHtot=$LPR$CHtot$N, " . join("", @{$peak->{CH}}[$min..$max]) . "\n" if defined $check and $check eq 1;# and $peakCH eq 1;
+     #print "i=$i, min=$min, max=$max, CHcon=$LGN$CHcon$N, CHtot=$LPR$CHtot$N, " . join("", @{$peak->{CH}}[$min..$max]) . "\n" if defined $check and $check eq 1;# and $peakCH eq 1;
    }
    if ($i < $totalseqneg - $window) {
       my $temp;

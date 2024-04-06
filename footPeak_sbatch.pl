@@ -32,6 +32,7 @@ BEGIN {
 use myFootLib;
 use FAlite;
 use footPeakAddon;
+use footLoop_sbatch;
 
 my $homedir = $ENV{"HOME"};
 
@@ -132,7 +133,8 @@ my $cmd = "$footLoop_script_folder/footPeak_sbatch_2.pl $indexFile $seqFile FNIN
 my $force_sbatch;
 
 #my @origFilesmall = @origFile[0..1];
-sbatch_these($cmd, "footPeak", \@origFile, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir);
+footLoop_sbatch_main($cmd, "footPeak", \@origFile, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir);
+#sbatch_these($cmd, "footPeak", \@origFile, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir);
 
 LOG($outLog, date() . "${LGN}SUCCESS$N: footPeak ran successfully!\n\n");
 
@@ -141,6 +143,7 @@ LOG($outLog, date() . "${LGN}SUCCESS$N: footPeak ran successfully!\n\n");
 # SUBROUTINES #
 ###############
 
+=comment
 sub sbatch_these {
 	#my ($cmd, $suffix, $ext, $filesARRAY, $max_parallel_run, $outLog, $force_sbatch, $folderwant) = @_;
 	my ($cmd, $suffix, $filesARRAY, $max_parallel_run, $outLog, $force_sbatch, $folderwant) = @_;
@@ -280,6 +283,7 @@ sub squeue_check {
    my ($total) = scalar(keys %{$jobidhash});
    return ($total);
 }
+=cut
 
 
 sub run_footPeak_old {
@@ -1106,7 +1110,7 @@ sub check_sanity {
 }
 
 # <-------------------------------
-
+=comment
 sub check_software {
    my ($footLoop_script_folder, $version, $md5script);
    my @check_software = `check_software.pl 2>&1`;
@@ -1133,6 +1137,7 @@ sub check_software {
    print "md5script=$md5script\n\n";
    return($footLoop_script_folder, $version, $md5script);
 }
+=cut
 
 sub usage {
 
