@@ -16,7 +16,6 @@
 # By downloading or using this software, you agree to the terms and conditions of the license. 
 
 use warnings FATAL => 'all'; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-# use colorz;
 use vars   qw($opt_v $opt_r $opt_g $opt_G $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f $opt_l $opt_e $opt_z $opt_9 $opt_o $opt_J $opt_0);
 my @opts = qw(       $opt_r $opt_g $opt_i $opt_G $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_l $opt_e $opt_z $opt_9 $opt_o $opt_J $opt_0);
 getopts("vr:g:G:i:n:L:x:y:q:HhZF:p:l:ez9o:J:0");
@@ -33,15 +32,21 @@ use FAlite;
 # 0. Check Sanity #
 ##################
 
-my ($footLoop_script_folder, $version, $md5script) = check_software();
+#my $version = "";
 my %OPTS  = ('r' => $opt_r, 'g' => $opt_g, 'i' => $opt_i, 'n' => $opt_n, 'G' => $opt_G,
 				 'L' => $opt_L, 'x' => $opt_x, 'y' => $opt_y, 'p' => $opt_p, 'J' => $opt_J,
 				 'q' => $opt_q, 'F' => 'NONE', 'Z' => 'NONE', 'o' => $opt_o, '0' => $opt_0,
 				 'p' => 'NONE', 'q' => $opt_q, 'l' => $opt_l);
 my %OPTS2 = ('p' => $opt_p, 'Z' => $opt_Z, 'F' => $opt_F);
 
+my $footLoop_script_folder = dirname(dirname abs_path $0) . "/footLoop/";
+my $version = "unk";
+my $md5script = "unk";
 check_sanity(\%OPTS, \%OPTS2);
+#my ($footLoop_script_folder, $version, $md5script) = check_software();
+($footLoop_script_folder, $version, $md5script) = check_software();
 
+print "version $YW$version$N\n";
 if (not defined $opt_p) {
 	$opt_p = -1;
 }
@@ -129,7 +134,6 @@ record_options(\%OPTS, \%OPTS2, $outReadLog, $version, $outLog);
 
 my ($SEQ, $geneIndexHash, $seqFile, $bismark_geneIndexDir, $geneIndexFile2) = parse_geneIndexFile($geneIndexFile, $genomeFile, $outDir, $minReadL, $outReadLog, $outLog);
 #seqFile is fasta file that's inside the $outDir/.geneIndex/<MD5> folder, e.g. $outDir/.geneIndex/<MD5>/seqFile.fa
-#bismark_folder is 
 #	return ($SEQ, $geneIndex, $geneIndexFa, "$outDir/.geneIndex/$geneIndexFaMD5/");
 #my $bismark_genome_preparation_folder = defined $opt_G ? $opt_G : "";
 
@@ -195,38 +199,6 @@ DIELOG($outLog, "GOOD\n");
 ###############
 # SUBROUTINES #
 ###############
-
-sub create_backup {
-	my ($file, $type) =  @_;
-	$type = "mv" if not defined $type;
-	if (not -e $file) {
-		return("\n${LCY}Trying to create_backup file=$LCY$N but file doesnt exist!\n\n");
-	}
-	else {
-		my $indice = 1;
-		my $currfile = $file;
-		while (-e $currfile) {
-			$indice ++;
-			$currfile = $file . ".$indice.backup";
-		}
-		my $cmd2 = "$type $file $currfile" if $type eq "mv";
-		system($cmd2) == 0 or die "\nFailed to $LCY$cmd2$N: $!\n\n";
-		return("\t{YW}$type $LCY$file$N to backup file $LCY$currfile$N:\n\t$LCY$cmd2$N\n\n");
-	}
-}
-
-sub LOGSTEP {
-	my ($outLog, $type, $STEP, $STEPCOUNT, $log2) = @_;
-	if (not defined $type) {
-		LOG($outLog, "$YW<==========$N\n\n");
-		return;
-	}
-	($STEP) = LOG($outLog, "$YW==========>$N\nSTEP \$STEP\n", $STEP, $STEPCOUNT);
-	if (defined $log2) {
-		LOG($outLog, $log2);
-	}
-	return($STEP);
-}
 
 sub split_BAMFile {
 	my ($BAMFile, $seqFile, $outReadLog, $outLog) = @_;
@@ -384,31 +356,6 @@ sub parse_BAMFile {
 	log_BAMFile($SEQ, $BAMFile, $BAMStats, $filteredDir, $outReadLog, $outLog);
 }
 
-=comment
-sub parse_cigar {
-   my ($cigar) = @_;
-   my @num = split("[A-Z]+", $cigar);
-   my @alp = split("[0-9]+", $cigar);
-   shift(@alp);
-#  print "cigar=$cigar, num=@num, alp=@alp\n";
-   my $length = 0;
-   for (my $i = 0; $i < @num; $i++) {
-   #  if ($alp[$i] eq "S") {next}
-      if ($alp[$i] !~ /^[IDMNXS]+$/) {
-         for (my $j = 0; $j <= @num; $j++) {
-   #        print "i=$j, num=$num[$j], alp=$alp[$j]\n";
-            if ($j == $i) {
-   #           print "i=$j, alp[i] is not S/X/I/D/M/N!\n";
-            }
-         }
-         die "Died alp $i isn't S/X/I/D/M/N (alp[i]=$alp[$i]) at cigar:\n$cigar\n";
-      }
-      $length += $num[$i] if $alp[$i] ne "I" and $alp[$i] ne "S";
-   }
-   return(\@num, \@alp, $length);
-}
-=cut
-
 sub count_indel {
 	my ($cigar) = @_;
 	my ($nums, $alps, $lenz) = parse_cigar($cigar);
@@ -454,7 +401,8 @@ sub log_BAMFile {
 	my ($BAMFileName) = getFilename($BAMFile);
 	
 	my $skipped = 0; my ($passedFilterP, $passedFilterN) = (0,0);
-	open (my $inBAMFix, "zcat < $filteredDir/$BAMFileName.fixed.gz|") or LOG($outLog, "Failed to open $filteredDir/$BAMFileName.fixed.gz: $!\n") and exit 1;
+	open (my $inBAMFix, "zcat $filteredDir/$BAMFileName.fixed.gz|") or LOG($outLog, "Failed to open $filteredDir/$BAMFileName.fixed.gz: $!\n") and exit 1;
+	#open (my $inBAMFix, "zcat < $filteredDir/$BAMFileName.fixed.gz|") or LOG($outLog, "Failed to open $filteredDir/$BAMFileName.fixed.gz: $!\n") and exit 1;
 	while (my $line = <$inBAMFix>) {
 		chomp($line);
 		my ($read, $type, $oldStrand, $strand, $genez, $pos, $info) = split("\t", $line);
@@ -846,7 +794,6 @@ sub run_bismark {
 			my $totalfilterBAMFile = @filterBAMFile;
 
 			if (defined $force{6} or @fixedFiles < @bamFiles or $totalfilterBAMFile == 0) {
-				#die "ASDF\n";;
 				sbatch_these($filter_BAMFile_cmd, "filterBAM", "log.txt", \@bamFiles, $max_slurm_job, $outLog);
 				@filterBAMFile = <$outFolder/*_bismark/*.log.txt>; #\_filterBAM/*.log.txt>;
 				$totalfilterBAMFile = @filterBAMFile;
@@ -890,8 +837,8 @@ sub run_bismark {
 			my $merge_success_usingprev = 0;
 
 			LOG($outLog, "\n" . date() . "${LPR}Merge *part/.filtered.gz .filtered.gz$N: Merging .filtered.gz files into one file per gene\n");
-
-			my $merge_filtered_cmd_print = "zcat -f $outFolder/*_bismark/FILENAME | gzip -f > $outDir/FILENAME";
+			makedir("$outDir/origFiles") if not -d "$outDir/origFiles";
+			my $merge_filtered_cmd_print = "zcat -f $outFolder/*_bismark/FILENAME | gzip -f > $outDir/origFiles/FILENAME";
 			print_cmd($merge_filtered_cmd_print, $outLog);
 
 			foreach my $gene (sort keys %{$SEQ}) {
@@ -900,8 +847,8 @@ sub run_bismark {
 					$runcount ++;
 					my $filteredFilename = "$gene\_$strands.filtered.gz";
 					LOG($outLog, "$filteredFilename\n","NA");
-					my $merge_filtered_cmd = "zcat -f $outFolder/*_bismark/$filteredFilename | gzip -f > $outDir/$filteredFilename";
-					my $outputFile = "$outDir/$filteredFilename";
+					my $outputFile = "$outDir/origFiles/$filteredFilename";
+					my $merge_filtered_cmd = "zcat -f $outFolder/*_bismark/$filteredFilename | gzip -f > $outputFile";
 					if ($runcount == 1) {
 						print_cmd($merge_filtered_cmd, $outLog);
 					}
@@ -1002,7 +949,7 @@ sub run_bismark {
 				}
 				LOG($outLog, "\n","NA") if $p < 5;
 			}
-			my $merged_report_to_log; 
+			my $merged_report_to_log = "";
 			my ($bismark_report) = $BAMFile =~ /^(.+).$ext/; $bismark_report .= "_footLoop_report.txt";
 			my $bismark_report_exist = 0;
 			if (-e $bismark_report) {
@@ -1012,7 +959,7 @@ sub run_bismark {
 			for (my $q = 0; $q < @HEADER; $q++) {
 				$REPORT[$q] = int(10000*$REPORT[$q]/($REPORT[0])+0.5)/100 if $HEADER[$q] =~ /^perc_/; # 2,500,000/(1000*2600) = 98.5
 				print $outbismark_report "$HEADER[$q]\t$REPORT[$q]\n";
-				$merged_report_to_log .= " $LCY$HEADER[$q]$N=$LGN$REPORT[$q]$N";
+				$merged_report_to_log .= "$LCY$HEADER[$q]$N=$LGN$REPORT[$q]$N\n";
 			}
 			close $outbismark_report;
 
@@ -1022,7 +969,7 @@ sub run_bismark {
 				LOG($outLog, "\n" . date() . "${LPR}Merge _SE_report.txt _footLoop_report.txt$N: ${GN}SUCCESS$N: Merged $LGN$totalbamFiles$N bismark reports in $LCY$outFolder*/*_SE_report.txt$N, stats: $merged_report_to_log\n");
 			}
 			else {
-				LOG($outLog, "\n" . date() . "${LPR}Merge _SE_report.txt _footLoop_report.txt$N: ${GN}SUCCESS$N: Using previously merged $LGN$totalbamFiles$N bismark reports in $LCY$outFolder*/*_SE_report.txt$N, stats: $merged_report_to_log\n");
+				LOG($outLog, "\n" . date() . "${LPR}Merge _SE_report.txt _footLoop_report.txt$N: ${GN}SUCCESS$N: Using previously merged $LGN$totalbamFiles$N bismark reports in $LCY$outFolder*/*_SE_report.txt$N, stats:\n\n$merged_report_to_log\n");
 			}
 			LOG($outLog, "==================================================\n");			
 
@@ -1485,34 +1432,6 @@ sub uppercaseFasta {
 	return("$fastaFile");
 }
 
-
-sub check_software {
-	my ($footLoop_script_folder, $version, $md5script);
-	my @check_software = `check_software.pl 2>&1`;
-	foreach my $check_software_line (@check_software[0..@check_software-1]) {
-		chomp($check_software_line);
-		next if $check_software_line !~ /\=/;
-		my ($query, $value) = split("=", $check_software_line);
-		next if not defined $query;
-		#print "$check_software_line\n";
-		if ($query =~ /footLoop_version/) {
-			($version) = $value;
-		}
-		if ($query =~ /footLoop_script_folder/) {
-			next if defined $footLoop_script_folder;
-			($footLoop_script_folder) = $value;
-		}
-		if ($query =~ /md5sum_script/) {
-			($md5script) = $value;
-		}
-	}
-	print "\ncheck_software.pl\n";
-	print "footLoop_script_folder=$footLoop_script_folder\n";
-	print "footLoop_version=$version\n";
-	print "md5script=$md5script\n\n";
-	return($footLoop_script_folder, $version, $md5script);
-}
-
 sub check_sanity {
 	my ($opts) = @_;
 
@@ -1539,6 +1458,7 @@ sub check_sanity {
 
 	if (defined $opt_r and -e $opt_r) {
 		$opt_n = $opt_r . "_footLoop" if not defined $opt_n;
+		$opt_n = `realpath $opt_n`;chomp($opt_n);
 		if (not -d $opt_n) {
 			makedir($opt_n);
 		}
@@ -1548,14 +1468,17 @@ sub check_sanity {
 		if (defined $opt_g and -e $opt_g and not defined $opt_i) {
 			my (@faPaths) = split("/", $opt_g);
 			my ($faFile) = $faPaths[@faPaths-1];
-			my $prev_opt_g = $opt_g;
+			my $prev_opt_g = `realpath $opt_g`;
+			chomp($prev_opt_g);
+			#my $prev_opt_g = $opt_g;
 	
 			my $curr_opt_g = "$opt_n/$faFile";
 			my $faiFile    = "$opt_n/$faFile.fai";
 			$opt_i         = "$opt_n/$faFile.fai.bed";
 	
-			if (not -e "$opt_n/$faFile") {
-				system("/bin/ln -s $opt_g $opt_n/$faFile");# == 0 or die "footLoop.pl::check_sanity: can't create symlink of fasta file into output folder: $!\n$LCY$opt_g$N\n$LGN$opt_n$N\n\n";
+			if (not -e $curr_opt_g) {#"$opt_n/$faFile") {
+				my ($ln_success) = system("/bin/ln -s $prev_opt_g $opt_n/$faFile");# == 0 or die "footLoop.pl::check_sanity: can't create symlink of fasta file into output folder: $!\n$LCY$opt_g$N\n$LGN$opt_n$N\n\n";
+				#print "ln_success = $LGN$ln_success$N\n";
 			}
 			if (not -e $curr_opt_g) {
 				print "footLoop.pl::check_sanity: can't create symlink of fasta file into output folder: $!\n$LCY$opt_g$N\n$LGN$opt_n$N\n\n";

@@ -96,30 +96,31 @@ my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 #################################
 
 sub check_software {
-   my ($footLoop_script_folder, $version, $md5script);
-   my @check_software = `check_software.pl 2>&1`;
-   foreach my $check_software_line (@check_software[0..@check_software-1]) {
-      chomp($check_software_line);
-      next if $check_software_line !~ /\=/;
-      my ($query, $value) = split("=", $check_software_line);
-      next if not defined $query;
-      #print "$check_software_line\n";
-      if ($query =~ /footLoop_version/) {
-         ($version) = $value;
-      }
-      if ($query =~ /footLoop_script_folder/) {
-         next if defined $footLoop_script_folder;
-         ($footLoop_script_folder) = $value;
-      }
-      if ($query =~ /md5sum_script/) {
-         ($md5script) = $value;
-      }
-   }
-   print "\ncheck_software.pl\n";
-   print "footLoop_script_folder=$footLoop_script_folder\n";
-   print "footLoop_version=$version\n";
-   print "md5script=$md5script\n\n";
-   return($footLoop_script_folder, $version, $md5script);
+	#my ($debug) = @_;# debug
+	my ($footLoop_script_folder, $version, $md5script);
+	my @check_software = `check_software.pl 2>&1`;
+	foreach my $check_software_line (@check_software[0..@check_software-1]) {
+		chomp($check_software_line);
+		next if $check_software_line !~ /\=/;
+		my ($query, $value) = split("=", $check_software_line);
+		next if not defined $query;
+		#print "$check_software_line\n";
+		if ($query =~ /footLoop_version/) {
+			($version) = $value;
+		}
+		if ($query =~ /footLoop_script_folder/) {
+			next if defined $footLoop_script_folder;
+			($footLoop_script_folder) = $value;
+		}
+		if ($query =~ /md5sum_script/) {
+			($md5script) = $value;
+		}
+	}
+	print "\ncheck_software.pl\n";
+	print "footLoop_script_folder=$footLoop_script_folder\n";
+	print "footLoop_version=$version\n";
+	print "md5script=$md5script\n\n";
+	return($footLoop_script_folder, $version, $md5script);
 }
 
 sub get_pcb_readname {
@@ -176,13 +177,13 @@ sub parse_readName {
 	die "readName not defined!\n" if not defined $outLog and not defined $readName;
 	return -1 if not defined $readName;
 	my ($id1a, $id1b, $junk, $id2, $id3) = $readName =~ /^.*m([A-Za-z0-9]+)_(\d+)_\d+(_c\w+_\w+_\w+)?\/(\d+)\/(ccs|\d+_\d+)/;
-	   ($id1a, $id1b, $junk, $id2, $id3) = $readName =~ /^.*m([A-Za-z0-9]+)_(\d+)(_\w+)?\/(\d+)\/(ccs|\d+_\d+)/ if not defined $id1a;
-	   ($id1a, $id1b, $junk, $id2, $id3) = $readName =~ /^.*m([A-Za-z0-9]+)_(\d+)(_\w+)?\/(\d+)\/(ccs|\d+)/ if not defined $id1a;
+		($id1a, $id1b, $junk, $id2, $id3) = $readName =~ /^.*m([A-Za-z0-9]+)_(\d+)(_\w+)?\/(\d+)\/(ccs|\d+_\d+)/ if not defined $id1a;
+		($id1a, $id1b, $junk, $id2, $id3) = $readName =~ /^.*m([A-Za-z0-9]+)_(\d+)(_\w+)?\/(\d+)\/(ccs|\d+)/ if not defined $id1a;
 	if (not defined $id1a) {
 		my @ids = split("/", $readName);
-	   ($id1a, $id1b) = $ids[0] =~ /^.*m([A-Za-z0-9]+)_(\d+)_?\w?/;
-	   ($id2) = $ids[1];
-	   ($id3) = $ids[2];
+		($id1a, $id1b) = $ids[0] =~ /^.*m([A-Za-z0-9]+)_(\d+)_?\w?/;
+		($id2) = $ids[1];
+		($id3) = $ids[2];
 	}
 	$id3 = (not defined $id3) ? 0 : $id3 eq "ccs" ? 0 : $id3;
 	my @ids = split("/", $readName);
@@ -194,20 +195,20 @@ sub parse_readName {
 
 }
 sub shuffle {
-        my ($value, $times) = @_;
-   my @value = @{$value};
-   $times = @value if not defined($times) or $times !~ /^\d+$/;
-        #print "Before: @value\n";
-        for (my $i = 0; $i < $times; $i++) {
-                my $rand1 = int(rand(@value));
-                my $rand2 = int(rand(@value));
-                my $val1 = $value[$rand1];
-                my $val2 = $value[$rand2];
-                $value[$rand1] = $val2;
-                $value[$rand2] = $val1;
-        }
-        #print "After: @value\n";
-        return(@value);
+	my ($value, $times) = @_;
+	my @value = @{$value};
+	$times = @value if not defined($times) or $times !~ /^\d+$/;
+	#print "Before: @value\n";
+	for (my $i = 0; $i < $times; $i++) {
+		my $rand1 = int(rand(@value));
+		my $rand2 = int(rand(@value));
+		my $val1 = $value[$rand1];
+		my $val2 = $value[$rand2];
+		$value[$rand1] = $val2;
+		$value[$rand2] = $val1;
+	}
+	#print "After: @value\n";
+	return(@value);
 }
 
 sub prettyPrint {
@@ -631,26 +632,6 @@ sub makedir {
    my ($folder, $isFile) = @_;
 	my $log = `mkdir -p $folder`;
 	return($log);
-=comment
-	my $log = "";
-   #$folder = getFullpath($folder);
-   my @folders = split("/", $folder);
-   die if @folders == 0;
-   my $curr_folder = "";
-   $log .= "FOLDER $LCY$folder$N is already exist!\n" and return $log if -e $folder;
-   for (my $i = 0; $i < @folders; $i++) {
-		last if $i == @folders-1 and defined $isFile;
-      $curr_folder .= "$folders[$i]/";
-      next if $curr_folder =~ /^\/$/;
-      next if $curr_folder =~ /^(\/|\/home\/)$/;
-      $log .= "$i: Undefined folder to add. Current folder=$LGN$curr_folder$N\n" and return $log if not defined $folders[$i];
-      next if -d $curr_folder or -e $curr_folder;
-      system("mkdir $curr_folder") == 0 or die "Failed to mkdir $curr_folder: $!\n";
-      $log .= "$i. $curr_folder\n";
-   }
-   $log .= "FOLDER $LGN$curr_folder$N is made!\n" if -e $curr_folder;
-   return ($log);
-=cut
 }
 
 sub ex { # 0 means it's not exists (bad)

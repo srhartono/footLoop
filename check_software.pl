@@ -4,9 +4,24 @@
 use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
 
 BEGIN {
-	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
-	push(@INC, $libPath);
+   my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
+   push(@INC, $libPath);
+   print "\n- Pushed $libPath into perl lib path INC\n";
 }
+#BEGIN {
+#	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
+#	my $exist = 0;
+#	for (my $incInd = 0; $incInd < @INC; $incInd++) {
+#		$exist = 1 if $INC[$incInd] eq $libPath;
+#		last if $exist eq 1;
+#	}
+#	if ($exist eq 0) {
+#		push(@INC, $libPath);
+#	}
+#	else {
+#		print "Exist = $exist\n";
+#	}
+#}
 
 use myFootLib; use FAlite;
 my ($nocolor) = @ARGV;
@@ -23,7 +38,6 @@ foreach my $software (@softwares[0..@softwares-1]) {
 		$location = "N/A";
 		$versionprint="N/A";
 		$softwareslog .= "$software=$location\n";
-
 	}
 	else {
 		chomp($location);
@@ -87,42 +101,3 @@ $version\_$commit\n";
 $warningslog = "${LRD}\nWARNING!!:\n$warningslog\n$N" if $warningslog ne "";
 print "$scripttestlog";
 print STDERR "$warningslog\n";
-__END__
-#my $bismarkloc  = `which bismark` ; chomp($bismarkloc) ; $bismarkloc  = "N/A" if $bismarkloc eq "";
-#my $bedtoolsloc = `which bedtools`; chomp($bedtoolsloc); $bedtoolsloc = "N/A" if $bedtoolsloc eq "";
-#my $bowtie2loc  = `which bowtie2` ; chomp($bowtie2loc) ; $bowtie2loc  = "N/A" if $bowtie2loc eq "";
-#my $samtoolsloc = `which samtools`; chomp($samtoolsloc); $samtoolsloc = "N/A" if $samtoolsloc eq "";
-#my $Rscriptloc  = `which Rscript` ; chomp($Rscriptloc) ; $Rscriptloc  = "N/A" if $Rscriptloc eq "";
-#my $bismarktest  = `bismark  --version 2>&1 | head`; chomp($bismarktest);
-#my $bedtoolstest = `bedtools --version 2>&1 | head`; chomp($bedtoolstest);
-#my $bowtie2test  = `bowtie2  --version 2>&1 | head`; chomp($bowtie2test);
-#my $samtoolstest = `samtools --version 2>&1 | head`; chomp($samtoolstest);
-#my $Rscripttest  = `Rscript  --version 2>&1 | head`; chomp($Rscripttest);
-
-
-#$version = "UNKNOWN VERSION" if not defined $version;
-#my ($version_small) = "vUNKNOWN";
-#foreach my $versionz (@version[0..@version-1]) {
-#   ($version_small) = $versionz =~ /^(v?\d+\.\d+\w*)$/ if $versionz =~ /^v?\d+\.\d+\w*$/;
-#	last if $version_small ne "vUNKNOWN";
-#}
-
-bedtools=$bedtoolsloc
-samtools=$samtoolsloc
-bowtie2=$bowtie2loc
-bismark=$bismarkloc
-Rscript=$Rscriptloc
-#bedtools --version
-$LGN$bedtoolstest
-
-#samtools --version
-$LGN$samtoolstest
-
-#bowtie2 --version
-$LGN$bowtie2test
-
-#bismark --version
-$LGN$bismarktest
-
-#Rscript --version
-$LGN$Rscripttest

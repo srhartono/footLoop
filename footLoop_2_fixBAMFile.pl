@@ -5,7 +5,7 @@ use vars qw($opt_v $opt_s $opt_i $opt_g $opt_n $opt_S $opt_c $opt_C $opt_o $opt_
 getopts("s:i:g:f:S:cCo:vn:b:0");
 
 BEGIN {
-   my $libPath = dirname(dirname abs_path $0) . '/lib';
+   my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
 	print "\n- Pushed $libPath into perl lib path INC\n";
 }
@@ -13,11 +13,12 @@ BEGIN {
 use myFootLib;
 use FAlite;
 
-#my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 my $homedir = $ENV{"HOME"};
-#my $footLoopScriptsFolder = dirname(dirname abs_path $0);
+my $footLoopScriptsFolder = dirname(dirname abs_path $0);
+my $version = "v3.8";
+my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 #my @version = `$footLoopScriptsFolder/check_software.pl 2>&1 | tail -n 12`;
-my ($footLoop_script_folder, $version, $md5script) = check_software();
+#my ($footLoop_script_folder, $version, $md5script) = check_software();
 my $version_small = $version; #"vUNKNOWN";
 #my $version = join("", @version);
 if (defined $opt_v) {
@@ -216,12 +217,264 @@ while (my $line = <$in1>) {
 		my ($ref3print, $seq3print) = colorconv(\@ref3print, \@seq3print);
 		my $bad3print = join("", @bad3print);
 		
+		
 		LOG($outLog, "After masking those in bad regions:\n");
 		LOG($outLog, "ref3: $ref3print\n");
 		LOG($outLog, "seq3: $seq3print\n");
 		LOG($outLog, "bad3: $bad3print\n\n");
 		$printed ++ ;
+
+
+		my ($VRmetpos, $VRmetneg, $VRmatperc, $VRmisperc, $VRinsperc, $VRdelperc, $VRseqlength) = check_VR(\@{$ref2}, \@{$seq2}, \@{$ref3}, \@{$seq3}, $outLog);
+		my $VRinstotal = int($VRinsperc/100 * $VRseqlength+0.5);
+		my $VRdeltotal = int($VRdelperc/100 * $VRseqlength+0.5);
+		#if ($VRseqlength ne -1) {
+		LOG($outLog, "$LGN$read$N ($LCY$chr $LGN$pos$N) (ins=$LGN$ins/$total$N ($LGN$insperc$N %), del=$LGN$del/$total$N ($LGN$delperc$N %), VRmetpos=$YW$VRmetpos$N, VRmetneg=$YW$VRmetneg$N, VRmat=$LGN$VRmatperc$N,VRmis=$LCY$VRmisperc$N,VRins=$LPR$VRinsperc ($VRinstotal)$N,VRdel=$LBU$VRdelperc ($VRdeltotal)$N,VRlen=$LGN$VRseqlength$N\n\n");
+		#}
+sub check_VR {
+	my ($refs2, $ques2, $refs3, $ques3, $outLog) = @_;
+	my @return;
+	my @ref2 = @{$refs2};
+	my @que2 = @{$ques2};
+	my $ref2 = join("", @ref2);
+	my $que2 = join("", @que2);
+	my %dict;
+	my @ref3 = @{$refs3};
+	my @que3 = @{$ques3};
+	my $ref3 = join("", @ref3);
+	my $que3 = join("", @que3);
+	my ($VRrefseq0, $VRrefseq1) = ("CTCCTCGCCTCGGTCACTGCGACGAATTC","CCGAGGGAGTGTTTGGGTACCCATTATAC");
+	my ($leftrefseq, $VRrefseq, $rightrefseq) = ("","","");
+	my ($leftqueseq, $VRqueseq, $rightqueseq) = ("","","");
+	my ($leftrefseq2, $VRrefseq2, $rightrefseq2) = ("","","");
+	my ($leftqueseq2, $VRqueseq2, $rightqueseq2) = ("","","");
+	my $ref3Ind = 0;
+	# ref2: ACTG---AAA
+	#       0123456789
+	# ref3: ACTG---AAA
+	#       0123333456
+	#2i  3i
+	#3 = 3
+	#4 = 3
+	#5 = 3
+	#6 = 3
+	#4 = 7
+	#5 = 8
+	#
+	for (my $ref2Ind = 0; $ref2Ind < @ref2; $ref2Ind++) {
+		if (not defined $dict{ref3toref2}{$ref3Ind}) {
+			$dict{ref3toref2}{$ref3Ind} = $ref2Ind;
+		}
+		$dict{ref2toref3}{$ref2Ind} = $ref3Ind;
+		#if ($ref2Ind > 40 and $ref2Ind < 70) {
+		#	LOG($outLog, "$ref2[$ref2Ind],$ref3[$ref3Ind],$ref2Ind,$ref3Ind\n");
+		#}
+		$ref3Ind ++ if $ref2[$ref2Ind] ne "-";
 	}
+
+	if ($ref3 =~ /$VRrefseq0.+$VRrefseq1/) {
+		($leftrefseq, $VRrefseq, $rightrefseq) = $ref3 =~ /^(.*$VRrefseq0)(.+)($VRrefseq1.*)$/; 
+		my $VRpos30  = length($leftrefseq);
+		my $VRrefseqlength  = length($VRrefseq);
+		my $VRpos31 = length($rightrefseq);
+		#print "leftrefseq=$leftrefseq\nVRrefseq=$VRrefseq\nrightrefseq=$rightrefseq\n\n";
+		($leftqueseq, $VRqueseq, $rightqueseq) = $que3 =~ /^(.{${VRpos30}})(.+)(.{${VRpos31}})$/;
+		#print "\nleftqueseq=$leftqueseq\nVRqueseq=$VRqueseq\nrightqueseq=$rightqueseq\n\n";
+
+		$ref3Ind = 0;
+		my ($VRpos20, $VRpos21) = (0,0);
+		for (my $i = 0; $i < @ref2; $i++) {
+			$ref3Ind ++ if $ref2 ne "-";
+			if ($VRpos20 eq 0) {
+				$VRpos20 = $i if $ref3Ind eq $VRpos30;
+			}
+			if ($VRpos21 eq 0) {
+				$VRpos21 = $i if $ref3Ind eq $VRpos31;
+			}
+		}
+		($leftqueseq2, $VRqueseq2, $rightqueseq2) = $que2 =~ /^(.{${VRpos20}})(.+)(.{${VRpos21}})$/;
+		($leftrefseq2, $VRrefseq2, $rightrefseq2) = $ref2 =~ /^(.{${VRpos20}})(.+)(.{${VRpos21}})$/;
+
+
+		my @VRrefseqs = split("", $VRrefseq2);
+		my @VRqueseqs = split("", $VRqueseq2);
+		my ($ins, $del, $mat, $mis, $metpos, $metneg) = (0,0,0,0,0,0,0);
+		my $badseq = "";
+		for (my $i = 0; $i < @VRrefseqs; $i++) {
+			my $VRrefseq = $VRrefseqs[$i];
+			my $VRqueseq = $VRqueseqs[$i];
+			if ($VRrefseq ne "-" and $VRqueseq ne "-" and $VRrefseq eq $VRqueseq) {
+				$mat ++;
+				$badseq .= " ";
+			}
+			elsif ($VRrefseq ne "-" and $VRqueseq ne "-" and $VRrefseq ne $VRqueseq) {
+				if ($VRrefseq eq "G" and $VRqueseq eq "A") {
+					$metneg ++;
+					$badseq .= " ";
+				}
+				elsif ($VRrefseq eq "C" and $VRqueseq eq "T") {
+					$metpos ++;
+					$badseq .= " ";
+				}
+				else {
+					$mis ++;
+					$badseq .= "*";
+				}
+			}
+			elsif ($VRrefseq eq "-" and $VRqueseq ne "-") {
+				$ins ++;
+				$badseq .= "I";
+			}
+			elsif ($VRrefseq ne "-" and $VRqueseq eq "-") {
+				$del ++;
+				$badseq .= "-";
+			}
+		}
+		my ($VRrefseqprint, $VRqueseqprint) = colorconv(\@VRrefseqs,\@VRqueseqs);
+		LOG($outLog, "$VRrefseqprint\n$VRqueseqprint\n$badseq\n\n");
+		my $matperc = int(1000*$mat / length($VRrefseq)+0.5)/10;
+		my $misperc = int(1000*$mis / length($VRrefseq)+0.5)/10;
+		my $insperc = int(1000*$ins / length($VRrefseq)+0.5)/10;
+		my $delperc = int(1000*$del / length($VRrefseq)+0.5)/10;
+
+		@return = ($metpos, $metneg, $matperc, $misperc, $insperc, $delperc, $VRrefseqlength);
+#		my $ref2join = $VRrefseq2;
+#		my $que2join = $VRqueseq2;
+#		if ($ref2join =~ /[A-Z][\-]{4,999}[A-Z]/) {
+#			my ($posins0, $bigins) = $ref2join =~ /^([A-Z]+)([\-]{4,999})[A-Z]/;
+#			my $inslen = length($bigins);
+#			my $posins1 = $posins0 + $inslen;
+#			LOG($outLog, "$read\tbigins\t$posins0\t$posins1\t$inslen\n");
+#		}
+#		if ($que2join =~ /[A-Z][\-]{4,999}[A-Z]/) {
+#			my ($posdel0, $bigdel) = $que2join =~ /^([A-Z]+)([\-]{4,999})[A-Z]/;
+#			my $dellen = length($bigdel);
+#			my $posdel1 = $posdel0 + $dellen;
+#			LOG($outLog, "$read\tbigdel\t$posdel0\t$posdel1\t$dellen\n");
+#		}
+		#print "$matperc\t$misperc\t$insperc\t$delperc\t$VRrefseqlength\n";
+
+		my $ref2join = $VRrefseq2;
+		my $que2join = $VRqueseq2;
+		while ($ref2join =~ /[\-]{4,999}/g) {
+			my ($prev, $curr, $next) = ($`, $&, $');
+			my $pos0 = length($prev);
+			my $inslen = length($curr);
+			my $pos1 = $pos0 + $inslen;
+			$pos0 += $VRpos20;
+			$pos1 += $VRpos20;
+			my $pos30 = $dict{ref2toref3}{$pos0};
+			my $pos31 = $dict{ref2toref3}{$pos1};
+			$pos30 = @ref3 if not defined $pos30;
+			$pos31 = @ref3 if not defined $pos31;
+			my $regiontype = "VR";
+			LOG($outLog, "$read\t$regiontype\tbigins\t$pos0\t$pos1\t$inslen\t$pos30\t$pos31\t$VRpos20\t$VRpos30\n");# . length($VRqueseq) . "\n");
+		}
+		while ($que2join =~ /[\-]{4,999}/g) {
+			my ($prev, $curr, $next) = ($`, $&, $');
+			my $pos0 = length($prev);
+			my $dellen = length($curr);
+			my $pos1 = $pos0 + $dellen;
+			$pos0 += $VRpos20;
+			$pos1 += $VRpos20;
+			my $pos30 = $dict{ref2toref3}{$pos0};
+			my $pos31 = $dict{ref2toref3}{$pos1};
+			$pos30 = @ref3 if not defined $pos30;
+			$pos31 = @ref3 if not defined $pos31;
+			my $regiontype = "VR";
+			LOG($outLog, "$read\t$regiontype\tbigdel\t$pos0\t$pos1\t$dellen\t$pos30\t$pos31\t$VRpos20\t$VRpos30\n");# . length($VRqueseq) . "\n");
+		}
+
+		$ref2join = join("", @ref2);
+		$que2join = join("", @que2);
+		while ($ref2join =~ /[\-]{4,999}/g) {
+			my ($prev, $curr, $next) = ($`, $&, $');
+			my $pos0 = length($prev);
+			my $inslen = length($curr);
+			my $pos1 = $pos0 + $inslen;
+			$pos0 = $VRpos21 + 1 if ($pos0 <= $VRpos21 and $pos1 >  $VRpos21);
+			$pos1 = $VRpos20 - 0 if ($pos0 <  $VRpos20 and $pos1 >= $VRpos20);
+			next if $pos0 >= $VRpos20 and $pos0 <= $VRpos21 and $pos1 >= $VRpos20 and $pos1 <= $VRpos21;
+			my $pos30 = $dict{ref2toref3}{$pos0};
+			my $pos31 = $dict{ref2toref3}{$pos1};
+			$pos30 = @ref3 if not defined $pos30;
+			$pos31 = @ref3 if not defined $pos31;
+			my $regiontype = $pos30 < 60 ? "FWprimer" : $pos30 > @ref3 - 60 ? "RVprimer" : "NOTVR";
+			LOG($outLog, "$read\t$regiontype\tbigins\t$pos0\t$pos1\t$inslen\t$pos30\t$pos31\n");
+		}
+		while ($que2join =~ /[\-]{4,999}/g) {
+			my ($prev, $curr, $next) = ($`, $&, $');
+			my $pos0 = length($prev);
+			my $dellen = length($curr);
+			my $pos1 = $pos0 + $dellen;
+			$pos0 = $VRpos21 + 1 if ($pos0 <= $VRpos21 and $pos1 >  $VRpos21);
+			$pos1 = $VRpos20 - 0 if ($pos0 <  $VRpos20 and $pos1 >= $VRpos20);
+			next if $pos0 >= $VRpos20 and $pos0 <= $VRpos21 and $pos1 >= $VRpos20 and $pos1 <= $VRpos21;
+			my $pos30 = $dict{ref2toref3}{$pos0};
+			my $pos31 = $dict{ref2toref3}{$pos1};
+			$pos30 = @ref3 if not defined $pos30;
+			$pos31 = @ref3 if not defined $pos31;
+			my $regiontype = $pos30 < 60 ? "FWprimer" : $pos30 > @ref3 - 60 ? "RVprimer" : "NOTVR";
+			LOG($outLog, "$read\t$regiontype\tbigdel\t$pos0\t$pos1\t$dellen\t$pos30\t$pos31\n");
+		}
+	}
+#				$dict{ref3toref2}{$ref3Ind} = $i;
+#			}
+#			$dict{ref2toref3}{$i} = $ref3Ind;
+
+	else {
+		my $ref2join = join("", @ref2);
+		my $que2join = join("", @que2);
+		while ($ref2join =~ /[\-]{4,999}/g) {
+			my ($prev, $curr, $next) = ($`, $&, $');
+			my $pos0 = length($prev);
+			my $inslen = length($curr);
+			my $pos1 = $pos0 + $inslen;
+			#$pos0 = $VRpos21 + 1 if ($pos0 <= $VRpos21 and $pos1 >  $VRpos21);
+			#$pos1 = $VRpos20 - 0 if ($pos0 <  $VRpos20 and $pos1 >= $VRpos20) 
+			#next if $pos0 >= $VRpos20 and $pos0 <= $VRpos21 and $pos1 >= $VRpos20 and $pos1 <= $VRpos21;
+			my $pos30 = $dict{ref2toref3}{$pos0};
+			my $pos31 = $dict{ref2toref3}{$pos1};
+			$pos30 = @ref3 if not defined $pos30;
+			$pos31 = @ref3 if not defined $pos31;
+			my $regiontype = $pos30 < 60 ? "FWprimer" : $pos30 > @ref3 - 60 ? "RVprimer" : "NOTVR";
+			LOG($outLog, "$read\t$regiontype\tbigins\t$pos0\t$pos1\t$inslen\t$pos30\t$pos31\n");
+		}
+		while ($que2join =~ /[\-]{4,999}/g) {
+			my ($prev, $curr, $next) = ($`, $&, $');
+			my $pos0 = length($prev);
+			my $dellen = length($curr);
+			my $pos1 = $pos0 + $dellen;
+			#$pos0 = $VRpos21 + 1 if ($pos0 <= $VRpos21 and $pos1 >  $VRpos21);
+			#$pos1 = $VRpos20 - 0 if ($pos0 <  $VRpos20 and $pos1 >= $VRpos20) 
+			#next if $pos0 >= $VRpos20 and $pos0 <= $VRpos21 and $pos1 >= $VRpos20 and $pos1 <= $VRpos21;
+			my $pos30 = $dict{ref2toref3}{$pos0};
+			my $pos31 = $dict{ref2toref3}{$pos1};
+			$pos30 = @ref3 if not defined $pos30;
+			$pos31 = @ref3 if not defined $pos31;
+			my $regiontype = $pos30 < 60 ? "FWprimer" : $pos30 > @ref3 - 60 ? "RVprimer" : "NOTVR";
+			LOG($outLog, "$read\t$regiontype\tbigdel\t$pos0\t$pos1\t$dellen\t$pos30\t$pos31\n");
+		}
+#		my $ref2join = join("", @{$ref2});
+#		my $seq2join = join("", @{$seq2});
+#		if ($ref2join =~ /[A-Z][\-]{4,999}[A-Z]/) {
+#			my ($bigins) = $ref2join =~ /[A-Z]([\-]{4,999})[A-Z]/;
+#			LOG($outLog, "$read\tNOTVR\tbigins\t$bigins\n");
+#		}
+#		if ($seq2join =~ /[A-Z][\-]{4,999}[A-Z]/) {
+#			my ($bigdel) = $seq2join =~ /[A-Z]([\-]{4,999})[A-Z]/;
+#			LOG($outLog, "$read\tNOTVR\tbigdel\t$bigdel\n");
+#		}
+		@return = (-1,-1,-1,-1,-1,-1,-1);
+	}
+	return(@return);
+	#exit 0;
+}
+
+
+
+	}
+
 	
 	my	($CTcons, $CC0, $GG0, $CC1, $GG1, $CT0, $GA0, $CT1, $GA1) = det_C_type($ref3, $seq3, $bad3, $seqborder0, $seqborder1);
 	my ($refPrint, $seqPrint) = colorconv($ref3, $seq3);
@@ -348,34 +601,6 @@ exit 0;
 # light quick dirty check if BAM or seq file are sane
 # BAM is sane if there are at least 10 rows (or less if less than 20 reads) with more than 10 columns
 # seq is sane if header is followed by seq and seq is ACTGUN (case-insensitive) at least 20 reads (or less if less than 20 reads in file)
-sub check_software {
-   my ($footLoop_script_folder, $version, $md5script);
-   my @check_software = `check_software.pl 2>&1`;
-   foreach my $check_software_line (@check_software[0..@check_software-1]) {
-      chomp($check_software_line);
-      next if $check_software_line !~ /\=/;
-      my ($query, $value) = split("=", $check_software_line);
-      next if not defined $query;
-      #print "$check_software_line\n";
-      if ($query =~ /footLoop_version/) {
-         ($version) = $value;
-      }
-      if ($query =~ /footLoop_script_folder/) {
-         next if defined $footLoop_script_folder;
-         ($footLoop_script_folder) = $value;
-      }
-      if ($query =~ /md5sum_script/) {
-         ($md5script) = $value;
-      }
-   }
-
-   print "\ncheck_software.pl\n";
-   print "footLoop_script_folder=$footLoop_script_folder\n";
-   print "footLoop_version=$version\n";
-   print "md5script=$md5script\n\n";
-   return($footLoop_script_folder, $version, $md5script);
-   #my ($footLoop_script_folder, $version, $md5script) = check_software();
-}
 
 sub check_file {
 	my ($file, $type, $outLog) = @_;
@@ -452,7 +677,7 @@ sub parse_seqFile {
       my $seq = uc($entry->seq);
 		my @seq = split("", $seq);
 		@{$ref{$def}} = @seq;
-		LOG($outLog, date() . "REF $def length=" . length($seq) . "\n");# . " SEQ = @seq\n\n");
+		LOG($outLog, date() . "REF $def length=" . length($seq) . "\n","NA");
    }
    close $in;
 	return(\%ref);
@@ -539,7 +764,7 @@ sub parse_bedFile {
 		my $length = $end - $beg;
 		$gene = uc($gene);
 		$genez->{$gene} = $length;
-		LOG($outLog, "\t$YW\$0${N}::${LGN}parse_bedFile$N: gene $gene = $length bp\n");
+		LOG($outLog, "\t$YW\$0${N}::${LGN}parse_bedFile$N: gene $gene = $length bp\n","NA");
 	}
 	close $in1;
 	return($genez);
@@ -737,5 +962,4 @@ sub check_chr_in_BAM {
 		next;
 	}
 }
-__END__
 

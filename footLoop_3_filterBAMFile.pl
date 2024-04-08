@@ -1,8 +1,20 @@
 #!/usr/bin/perl
 
-use strict; use warnings; use mitochy; use Getopt::Std; use FAlite; use myFootLib;
+use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
 use vars qw($opt_v $opt_b $opt_L $opt_g $opt_i $opt_o $opt_B $opt_q $opt_x $opt_y $opt_r $opt_O);
 getopts("vb:L:g:i:o:B:x:y:r:O:");
+
+BEGIN {
+   my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
+   push(@INC, $libPath);
+   print "\n- Pushed $libPath into perl lib path INC\n";
+}
+
+use myFootLib;
+use FAlite;
+
+#my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
+#print "libPath=$libPath\n";
 
 my ($BAMFile, $minReadL, $seqFile, $geneIndexFile, $outDir, $filteredDir) = ($opt_b, $opt_L, $opt_g, $opt_i, $opt_o, $opt_O);
 die "\nusage: $YW$0$N -r <readFile.fq.gz> -b $LCY<BAMFile>$N -L $LGN<minReadL>$N -g $CY<seqFile>$N -i $LCY<geneIndexFile>$N\n\n" unless defined $BAMFile and defined $minReadL and defined $seqFile and defined $geneIndexFile and -e $BAMFile and -e $seqFile and -e $geneIndexFile;
