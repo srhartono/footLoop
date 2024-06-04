@@ -261,6 +261,12 @@ sub makeOutDir {
 					$OUTDIRS->{$outDirName} = $outDir;
 					makedir($outDir) if not -d $outDir and $bool eq 0;
 					makedir("$outDir/ALL") if not -d "$outDir/ALL" and $bool eq 0;
+					makedir("$outDir/CONLY") if not -d "$outDir/CONLY" and $bool eq 0;
+					makedir("$outDir/CONLY_CONV") if not -d "$outDir/CONLY_CONV" and $bool eq 0;
+					makedir("$outDir/CGPROF") if not -d "$outDir/CGPROF" and $bool eq 0;
+					makedir("$outDir/CONV") if not -d "$outDir/CONV" and $bool eq 0;
+					makedir("$outDir/HEATMAP") if not -d "$outDir/HEATMAP" and $bool eq 0;
+					makedir("$outDir/HEATMAP2") if not -d "$outDir/HEATMAP2" and $bool eq 0;
 				}
 			}
 		}
@@ -311,16 +317,23 @@ sub parseName {
 	#$filename =~ s/PLASMID/plasmid/;
 	#$filename =~ s/DESC/DESC/;
 	my ($label, $gene, $strand, $window, $thres, $type) = $filename =~ /^(.+)_gene(.+)_(Pos|Neg|Unk)_(.+)_(.+)_(CH|CG|GH|GC)/i;
+	#print "1 gene=$gene\n";
 	my ($pcb, $bc, $plasmid, $desc) = ("", "", "", "");
 	if ($label =~ /^(.+)_bc.+_plasmid.+_desc.+$/i) {
 		($pcb, $bc, $plasmid, $desc) = $label =~ /^(.+)_bc(.+)_plasmid(.+)_desc(.+)$/i;
 		die "\n\nmyFootLib::parseName: filename=$LGN$filename$N.\n\nCannot parse bc, plasmid, desc from label=$LPR$label$N\n\n" if not defined $bc or not defined $plasmid or not defined $desc;
 	}
 	if ($filename =~ /^(.+)_bc.+_plasmid.+_desc.+_(Pos|Neg|Unk).*$/i) {
-		($pcb, $bc, $plasmid, $desc) = $filename =~ /^(.+)_bc(.+)_plasmid(.+)_desc(.+)_(Pos|Neg|Unk).*$/i;
+		($pcb, $bc, $plasmid, $desc) = $filename =~ /^(.+)_bc(.+)_plasmid(.+)_desc(.+)_(Pos|Neg|Unk)$/i;
+		($pcb, $bc, $plasmid, $desc) = $filename =~ /^(.+)_bc(.+)_plasmid(.+)_desc(.+)_(Pos|Neg|Unk)_.+$/i if not defined $pcb;
 		die "\n\nmyFootLib::parseName: filename=$LGN$filename$N.\n\nCannot parse bc, plasmid, desc from label=$LPR$label$N\n\n" if not defined $bc or not defined $plasmid or not defined $desc;
 		if ($gene =~ /^(.+_bc.+_plasmid.+_desc.+)_(Pos|Neg|Unk).*$/i) {
-			$gene =~ s/^(.+_bc.+_plasmid.+_desc.+)_(Pos|Neg|Unk).*$/$1/i;
+			$gene =~ s/^(.+_bc.+_plasmid.+_desc.+)_(Pos|Neg|Unk)$/$1/i;
+			#print "2 gene=$gene\n";
+		}
+		if ($gene =~ /^(.+_bc.+_plasmid.+_desc.+)_(Pos|Neg|Unk)_.+$/i) {
+			$gene =~ s/^(.+_bc.+_plasmid.+_desc.+)_(Pos|Neg|Unk)_.+$/$1/i;
+			#print "3 gene=$gene\n";
 		}
 	}
 	#print "PLASMID=$plasmid\n\n";

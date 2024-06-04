@@ -49,9 +49,9 @@ Usage: $YW$0$N -n $CY<folder of -n footLop.pl>$N -o $LGN<output dir>$N
 
 my ($footLoop_2_filterBAMFile_outDir) = $opt_o;
 makedir($footLoop_2_filterBAMFile_outDir);
-my $footLoop_2_filterBAMFile_logFile = "$footLoop_2_filterBAMFile_outDir/footLoop_2_filterBAMFile_logFile.txt";
-$footLoop_2_filterBAMFile_logFile = "$footLoop_2_filterBAMFile_outDir/footLoop_2_filterBAMFile_logFile_debug.txt" if defined $opt_0;
-open (my $outLog, ">", $footLoop_2_filterBAMFile_logFile) or die "Failed to write to footLoop_2_filterBAMFile_logFile: $!\n";
+my $footLoop_2_filterBAMFile_ambig_logFile = "$footLoop_2_filterBAMFile_outDir/footLoop_2_filterBAMFile_ambig_logFile.txt";
+$footLoop_2_filterBAMFile_ambig_logFile = "$footLoop_2_filterBAMFile_outDir/footLoop_2_filterBAMFile_ambig_logFile_debug.txt" if defined $opt_0;
+open (my $outLog, ">", $footLoop_2_filterBAMFile_ambig_logFile) or die "Failed to write to footLoop_2_filterBAMFile_ambig_logFile: $!\n";
 
 my ($BAMFile, $seqFile, $genez);
 if (defined $opt_n) {
@@ -62,7 +62,7 @@ else {
 	($BAMFile, $seqFile) = ($opt_b, $opt_g);
 	$genez = parse_bedFile($opt_i, $outLog);
 }
-
+$BAMFile =~ s/.bam/.ambig.bam/;
 #foreach my $gene (sort keys %{$genez}) {
 #	print "$LCY$gene$N: $genez->{$gene}\n";
 #}
@@ -91,8 +91,10 @@ my %out;
 my %data; my $cons; my %strand;
 my $linecount = 0;
 my ($BAMFolder, $BAMName) = getFilename($BAMFile, "folderfull");
+die "bamname doesn't have ambig on it\n" if $BAMName !~ /.ambig/;
 #my $debugFile = "$footLoop_2_filterBAMFile_outDir/debug.txt";
 my $outFixedfile = "$footLoop_2_filterBAMFile_outDir/$BAMName.fixed.gz";
+
 my $outFixed;
 my $outdebug;
 if (not defined $opt_0) {
@@ -126,15 +128,15 @@ while (my $line = <$in1>) {
 	LOG($outLog, date() . "\t$0: Parsed $LGN$linecount$N / $LCY$total_read$N\n") if $linecount % 100 == 0;
 	my ($read, $strand, $chr, $pos, $mapq, $cigar, $junk1, $junk2, $junk3, $seqs, $qual, $junk4, $junk5, $converted, @others) = @arr;
 	
-	#if ($cigar =~ /([A-Z])(\d+)([A-Z])(\d\d+)I(\d)M$/) {
-	#	my ($alp1, $num2, $alp2, $mat1, $mat2) = $cigar =~ /([A-Z])(\d+)([A-Z])(\d+)I(\d)M$/;
-	#	my $matfix = $mat1+$mat2;
-	#	$matfix += $num2 if $alp2 eq "M";
-	#	$matfix = $alp2 eq "M" ? "$alp1${matfix}M" : "$alp1$num2$alp2${matfix}M";
-	#	#print "cigar=$cigar\n";
-	#	$cigar  =~ s/([A-Z])(\d+)([A-Z])(\d+)I(\d)M$/$matfix/;
-	#	#die "cigar=$cigar\n";
-	#}
+	if ($cigar =~ /([A-Z])(\d+)([A-Z])(\d\d+)I(\d)M$/) {
+		my ($alp1, $num2, $alp2, $mat1, $mat2) = $cigar =~ /([A-Z])(\d+)([A-Z])(\d+)I(\d)M$/;
+		my $matfix = $mat1+$mat2;
+		$matfix += $num2 if $alp2 eq "M";
+		$matfix = $alp2 eq "M" ? "$alp1${matfix}M" : "$alp1$num2$alp2${matfix}M";
+		#print "cigar=$cigar\n";
+		$cigar  =~ s/([A-Z])(\d+)([A-Z])(\d+)I(\d)M$/$matfix/;
+		#die "cigar=$cigar\n";
+	}
 	LOG($outLog, "$read,cigar1,$cigar\n","NA");
 	#next if $read !~ /m84066_240320_204128_s1\/242684031\/ccs/;
 	#die "$read\n";
@@ -150,7 +152,7 @@ while (my $line = <$in1>) {
 	
 	my %poz = %{$poz};
 	#DONT MASK INDEL REGIONS!
-	my %bad;
+	my %bad; #%{mask_indel_region($ref2, $seq2, $seqborder0, $seqborder1)};
 	#my %bad = %{mask_indel_region($ref2, $seq2, $seqborder0, $seqborder1)};
 
 	# mask indel region:
@@ -163,6 +165,7 @@ while (my $line = <$in1>) {
 	my $del = 0;
 	my $total;
 	my %count;
+	my (@badprint2, @badprint3);
 	for (my $i = 0; $i < @{$ref2}; $i++) {
 		if ($i >= $seqborder0 and $i < $seqborder1) {
 			$ins ++ if $ref2->[$i] eq "-";
@@ -174,13 +177,34 @@ while (my $line = <$in1>) {
 			#}
 			$total ++; # if $ref2->[$i] ne "-";
 		}
-		my $badnuc2 = ($i < $seqborder0 or $i >= $seqborder1) ? " " : defined $bad{$i} ? "!" : " ";
+		my $badnuc2 = ($i < $seqborder0 or $i >= $seqborder1) ? "." : defined $bad{$i} ? "B" : ".";
+		if ($ref2->[$i] eq "-") {
+			$badprint2[$i] = "I";
+		}
+		elsif ($seq2->[$i] eq "-") {
+			$badprint2[$i] = "D";
+		}
+		elsif ($seq2->[$i] eq $ref2->[$i]) {
+			$badprint2[$i] = ".";
+		}
+		elsif ($seq2->[$i] ne $ref2->[$i]) {
+			if (($ref2->[$i] eq "G" and $seq2->[$i] eq "A") or ($ref2->[$i] eq "C" and $seq2->[$i] eq "T")) {
+				$badprint2[$i] = ".";
+			}
+			else {
+				$badprint2[$i] = "m";
+			}
+		}
+		else {
+			die "seeq2=$seq2->[$i], ref=$ref2->[$i], unknown!\n";
+		}
 		#}? "." : defined $bad{$i} ? "B" : ".";
 		push(@{$bad2}, $badnuc2);
 		if ($ref2->[$i] ne "-") {
 			push(@{$ref3}, $ref2->[$i]);
 			push(@{$seq3}, $seq2->[$i]);
 			push(@{$bad3}, $badnuc2);
+			push(@badprint3, $badprint2[$i]);
 		}
 	}
 	
@@ -232,9 +256,10 @@ while (my $line = <$in1>) {
 		#my ($ref2print, $seq2print) = colorconv(\@ref2print, \@seq2print);
 		my ($ref2print,$seq2print) = (join("", @ref2print),join("", @seq2print));
 		my $bad2print = join("", @bad2print);
+		my $badprint2 = join("", @badprint2);
 		$toprint .= "$read,GOOD,$linecount,ref,seq2,$chr,$ref2print\n";
 		$toprint .= "$read,GOOD,$linecount,que,seq2,$chr,$seq2print\n";
-		$toprint .= "$read,GOOD,$linecount,bad,seq2,$chr,$bad2print\n";
+		$toprint .= "$read,GOOD,$linecount,bad,seq2,$chr,$badprint2\n";
 
 		my @ref3print = @{$ref3} < 10000 ? @{$ref3} : @{$ref3}[0..10000];
 		my @seq3print = @{$seq3} < 10000 ? @{$seq3} : @{$seq3}[0..10000];
@@ -242,10 +267,11 @@ while (my $line = <$in1>) {
 		my ($ref3print,$seq3print) = (join("", @ref3print),join("", @seq3print));
 		#my ($ref3print, $seq3print) = colorconv(\@ref3print, \@seq3print);
 		my $bad3print = join("", @bad3print);
+		my $badprint3 = join("", @badprint3);
 		
 		$toprint .= "$read,GOOD,$linecount,ref,seq3,$chr,$ref3print\n";
 		$toprint .= "$read,GOOD,$linecount,que,seq3,$chr,$seq3print\n";
-		$toprint .= "$read,GOOD,$linecount,bad,seq3,$chr,$bad3print\n";
+		$toprint .= "$read,GOOD,$linecount,bad,seq3,$chr,$badprint3\n";
 		$printed ++ ;
 
 

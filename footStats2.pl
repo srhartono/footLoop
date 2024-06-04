@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_d $opt_n $opt_G $opt_c);
-getopts("vd:n:G:c");
+use vars qw($opt_v $opt_d $opt_n $opt_G $opt_c $opt_F);
+getopts("vd:n:G:cF");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -44,15 +44,282 @@ my ($footLoopFolder) = $opts->{footLoop2}{n};
 my $geneIndexFile = $opts->{footLoop2}{i};
 my $coor = parse_geneIndexFile($geneIndexFile, $outLog);
 DIELOG($outLog, date() . " ERROR: $footLoopFolder footloop folder doesn't exist!\n") if not -d $footLoopFolder;
-
-# get sam file
+my %data;
 my ($labelFile) = "$footPeakFolder/.LABEL";
-#die "LABEL doesnt exist ($LCY$labelFile$N)\n" if not -e $labelFile;
-#my ($BAMFile) = `cat $footLoopFolder/.LABEL`; chomp($BAMFile);
-my ($BAMFile) = $opts->{footLoop}{BAMFile};
-die "BAMFile undefined!\n" if not defined $BAMFile;
-die "BAMFile defined ($LCY$BAMFile$N) but doesn't exist!\n" if not -e $BAMFile;
 
+#for (my $i = 0; $i < @peakFiles; $i++) {
+#	my $peakFile = $peakFiles[$i];
+#	print "$i $peakFile\n";
+#	my $file = $peakFile;
+#	print "file=$file\n";
+#	open (my $in1, "<", $file) or LOG($outLog, "Failed to read from $file: $!\n") and exit 1;
+#	while (my $line = <$in1>) {
+#		chomp($line);
+#		my ($read, @val) = split("\t", $line);
+#		print "HERE\n$read\n";
+#		last;
+#	}
+#	close $in1;
+#	last if $i > 10;
+#}
+my $wclFile = "$footPeakFolder/99_FOOTSTATS/0_wcl.tsv";
+if (not -e $wclFile or defined $opt_F) {
+	my $cmd = "wc -l $footPeakFolder/.CALL/*.out > $wclFile";
+	print "\nGetting linecount of each .out files:\n$LCY$cmd$N\n\n";
+	system($cmd) == 0 or die "Failed to run cmd: $!\n$LCY$cmd$N\n\n";
+}
+my $wclhash = parse_wcl($wclFile);
+my %wcl = %{$wclhash};
+sub parse_wcl {
+	my ($wclFile) = @_;
+	my %wcl;
+	open (my $in1, "<", $wclFile) or die "Failed to read from $wclFile: $!\n";
+	while (my $line = <$in1>) {
+		chomp($line);
+		$line =~ s/^\s+(\d+)/$1/;
+		my ($totalread, $file) = split(" ", $line);
+		#print "$file\t$totalread\n";
+		$wcl{$file} = $totalread;
+	}
+	close $in1;
+	return(\%wcl);
+}
+
+my @peakFiles = <$footPeakFolder/.CALL/*PEAK*out>;
+my %final;
+my ($len) = $peakFiles[0] =~ /^.+_l(\d+)/;
+for (my $i = 0; $i < @peakFiles; $i++) {
+	print "Done $i\n" if $i % 1000 == 0;
+	my $peakFile = $peakFiles[$i];
+	($data{$peakFile}{total}) = defined($wcl{$peakFile}) ? $wcl{$peakFile} : 0;
+	#($data{$peakFile}{total}) = `wc -l $peakFile` =~ /^(\d+)/ if -e $peakFile;
+	my $parseName = parseName($peakFile);
+	my ($label, $gene, $strand, $window, $thres, $convtype, $bc, $plasmid, $desc, $pcb) = @{$parseName->{array}};
+	my $readstrand = $strand;
+	$label =~ s/_bismark_bt2.bam//;
+	my $plasmid2 = "$label\_BC$bc\_PLASMID$plasmid\_DESC$desc";
+	my $genestrand = $coor->{$plasmid2}{strand}; 
+	$genestrand = "Pos" if not defined $genestrand;
+	$genestrand = $genestrand eq "+" ? "Pos" : $genestrand eq "-" ? "Neg" : $genestrand;
+	my $array = $data{$peakFile}{array};
+   my ($flag) = getFlag($peakFile, $genestrand, $readstrand, $convtype);
+	#print "$i $YW$bc $plasmid2 $plasmid $desc $LPR$genestrand $LCY$readstrand $convtype $LPR$flag$N\t$LGN$data{$peakFile}{total}$N\t$peakFile\n";
+
+	my $nopkFile = $peakFile; $nopkFile =~ s/PEAK/NOPK/g;
+	($data{$nopkFile}{total}) = defined($wcl{$nopkFile}) ? $wcl{$nopkFile} : 0;
+	#($data{$nopkFile}{total}) = `wc -l $nopkFile` =~ /^(\d+)/ if -e $nopkFile;
+	my $totalread = $data{$peakFile}{total} + $data{$nopkFile}{total};
+	my $print = "$bc\t$plasmid\t$desc\t$readstrand\t$convtype\t$data{$peakFile}{total}\t$totalread\t$flag\t$peakFile\n";
+	my $plasmiddesc = "PLASMID$plasmid;DESC$desc";
+	$final{$bc}{$plasmiddesc}{$strand}{$convtype}{flag} = $flag;
+	$final{$bc}{$plasmiddesc}{$strand}{$convtype}{peak} = $data{$peakFile}{total};
+	$final{$bc}{$plasmiddesc}{$strand}{$convtype}{nopk} = $data{$nopkFile}{total};
+	$final{$bc}{$plasmiddesc}{$strand}{$convtype}{peakperc} = $totalread == 0 ? 0 : int(1000*$data{$peakFile}{total}/$totalread+0.5)/10;
+	$final{$bc}{$plasmiddesc}{$strand}{$convtype}{nopkperc} = $totalread == 0 ? 0 : int(1000*$data{$nopkFile}{total}/$totalread+0.5)/10;
+	$final{$bc}{$plasmiddesc}{$strand}{$convtype}{totalread} = $totalread;
+	#$parseName = parseName($nopkFile);
+	#($label, $gene, $strand, $window, $thres, $convtype, $bc, $plasmid, $desc, $pcb) = @{$parseName->{array}};
+	#$readstrand = $strand;
+	#$label =~ s/_bismark_bt2.bam//;
+	#$plasmid2 = "$label\_BC$bc\_PLASMID$plasmid\_DESC$desc";
+	#$genestrand = $coor->{$plasmid2}{strand}; 
+	#$genestrand = "Pos" if not defined $genestrand;
+	#$genestrand = $genestrand eq "+" ? "Pos" : $genestrand eq "-" ? "Neg" : $genestrand;
+	#$array = $data{$nopkFile}{array};
+   #($flag) = getFlag($nopkFile, $genestrand, $readstrand, $convtype);
+	#print "$i\t$YW$bc\t$plasmid\t$desc\t$readstrand\t$convtype\t$LGN$data{$peakFile}{total}$N\t$LGN$totalread$N\t$LPR$flag$N\n";
+	#print "$i $YW$bc $plasmid2 $plasmid $desc $LPR$genestrand $LCY$readstrand $convtype $LPR$flag$N\t$LGN$data{$nopkFile}{total}$N\t$nopkFile\n\n";
+}
+
+my @strand = qw(Pos Neg);
+my @convtype = qw(CG CH GC GH);
+my @strandconvtype = qw(Pos_CG Neg_GC Pos_GC Neg_CG Pos_CH Neg_GH Pos_GH Neg_CH);
+open (my $out1, ">", "$footPeakFolder/99_FOOTSTATS/1_STATS.txt") or die;
+print $out1 "BC\tplasmid\tdesc\ttx";
+#foreach my $strand (@strandtrand[0..@strand-1]) {#sort keys %{$final{$bc}{$plasmiddesc}}) {
+#	foreach my $convtype (@convtype[0..@convtype-1]) {#sort keys %{$final{$bc}{$plasmiddesc}{$strand}}) {
+foreach my $strand (@strand[0..@strand-1]) {
+	print $out1 "\t$strand";
+}
+#	}
+#}
+#foreach my $strand (@strand[0..@strand-1]) {#sort keys %{$final{$bc}{$plasmiddesc}}) {
+#	foreach my $convtype (@convtype[0..@convtype-1]) {#sort keys %{$final{$bc}{$plasmiddesc}{$strand}}) {
+foreach my $strandconvtype (@strandconvtype[0..@strandconvtype-1]) {
+	print $out1 "\t$strandconvtype";
+}
+#	}
+#}
+print $out1 "\n";
+foreach my $bc (sort keys %final) {
+	foreach my $plasmiddesc (sort keys %{$final{$bc}}) {
+		my ($plasmid, $desc) = $plasmiddesc =~ /^PLASMID(.+);DESC(.+)$/;
+		my ($tx) = $desc =~ /(TX_RH1|TX|NT|NT_RH1)$/;
+		my ($desc2) = $desc =~ /^(.+)_(TX_RH1|TX|NT|NT_RH1)$/;
+		$tx = "NA" if not defined $tx;
+		$desc2 = $desc if not defined $desc2;
+		print $out1 "$bc\t$plasmid\t$desc2\t$tx";
+		my $peakpercprint = "";
+		my $totalreadprint = "";
+		foreach my $strand (@strand[0..@strand-1]) {	
+			my $convtype = "CH";
+			my $totalread = $final{$bc}{$plasmiddesc}{$strand}{$convtype}{totalread};
+			$totalread = 0 if not defined $totalread;
+			$totalreadprint .= "\t$totalread";
+		}
+		foreach my $strandconvtype (@strandconvtype[0..@strandconvtype-1]) {
+		#foreach my $strand (@strand[0..@strand-1]) {#sort keys %{$final{$bc}{$plasmiddesc}}) {
+		#	foreach my $convtype (@convtype[0..@convtype-1]) {#sort keys %{$final{$bc}{$plasmiddesc}{$strand}}) {
+				my ($strand, $convtype) = $strandconvtype =~ /^(\w+)_(\w+)$/;
+				my $flag = $final{$bc}{$plasmiddesc}{$strand}{$convtype}{flag};				
+				my $peak = $final{$bc}{$plasmiddesc}{$strand}{$convtype}{peak};				
+				my $nopk = $final{$bc}{$plasmiddesc}{$strand}{$convtype}{nopk};				
+				my $totalread = $final{$bc}{$plasmiddesc}{$strand}{$convtype}{totalread};				
+				my $peakperc = $final{$bc}{$plasmiddesc}{$strand}{$convtype}{peakperc};				
+				my $nopkperc = $final{$bc}{$plasmiddesc}{$strand}{$convtype}{nopkperc};
+				$totalread = 0 if not defined $totalread;
+				$peakperc = 0 if not defined $peakperc;
+				$nopkperc = 0 if not defined $nopkperc;
+				$peakpercprint .= "\t$peakperc";
+		#	}
+		#}
+		}
+
+		print $out1 "$totalreadprint";
+		print $out1 "$peakpercprint\n";
+	}
+}
+
+print "SUCCESS!!!\n";
+exit 0;
+sub footStats_parse_footPeak_logFile {
+	my ($footPeakFolder, $footPeak_logFile, $outLog) = @_;
+	my %opts; my $debugprint = "\n\n$YW<--------- 0. PARSING LOGFILES ----------$N\n\n"; my $optprint = "";
+	open (my $footPeak_logFileIn, "<", $footPeak_logFile) or DIELOG($outLog, "Cannot read from $footPeak_logFile: $!\n");
+	while (my $line = <$footPeak_logFileIn>) {
+		chomp($line);
+		my $check = 0;
+		if ($line =~ />Run Params$/) {
+				$check ++;
+				die "0: ${LRD}ERROR!$N footPeak.pl logfile $LCY$footPeak_logFile$N is corrupted or different version than 2.95!\n" unless $check == 1;
+				while ($line !~ />Options:$/) {
+						my ($param, $value) = $line =~ /^([\w ]+[a-zA-Z]+)[ \t]+:[ \t]+(.+)$/;
+						$line =~ />Run Params$/ ? $debugprint .= "\n$LCY 0.$N footPeak $line:\n" : (defined $param and $param !~ /^Run script/) ? $debugprint .= "\t- $LCY$param$N=$value\n" : $debugprint .= "";
+						$opts{footPeak}{$param} = $value if (defined $param and defined $value and $param !~ /^Run script/);
+						if (defined $param and $param eq "Run script short") {
+								my @values = split(" -", $value); shift(@values);
+								foreach my $values (@values) {
+										my ($param2, $value2) = $values =~ /^(\w) (.+)$/;
+										$debugprint .= "footLoopFolder = $LCY$value2$N\n" if $values =~ /^n /;
+										$opts{footLoop2}{n} = $value2 if $values =~ /^n /;
+										$opts{footPeak}{$param2} = $value2;
+								}
+						}
+						$line = <$footPeak_logFileIn>; chomp($line);
+				}
+				$optprint .= ">footPeak\n";
+				foreach my $param (sort keys %{$opts{footPeak}}) {
+						$optprint .= "$param=$opts{footPeak}{$param}\n";
+				}
+		}
+		if ($line =~ /^>Options/) {
+				$check ++;
+				die "1: ${LRD}ERROR!$N footPeak.pl logfile $LCY$footPeak_logFile$N is corrupted or different version than 2.95!\n" unless $check == 2;
+				while ($line !~ />Run Params from footLoop.pl/) {
+						my ($param, $desc, $value) = $line =~ /^\-(\w)\s*(\w+)\s*:\s*([a-zA-Z0-9]+)$/;
+						   ($param, $value) = $line =~ /^\-(\w)\s*:\s*([a-zA-Z0-9]+)$/ if not defined $param;
+						$line =~ />Options/ ? $debugprint .= "\n$LGN 1.$N footPeak $line: " : defined $param ? $debugprint .= "$LCY$param$N=$value;" : $debugprint .= "";
+						$opts{footPeak2}{$param} = $value if (defined $param and defined $value);
+						$line = <$footPeak_logFileIn>; chomp($line);
+				}
+				foreach my $param (sort keys %{$opts{footPeak2}}) {
+						$optprint .= "$param=$opts{footPeak2}{$param}\n";
+				}
+		}
+		if ($line =~ />Run Params from footLoop.pl/) {
+				$check ++; my $debugprint2;
+				die "2: ${LRD}ERROR!$N footPeak.pl logfile $LCY$footPeak_logFile$N is corrupted or different version than 2.95!\n" unless $check == 3;
+				while ($line !~ /^>Options from footLoop.pl/) {
+						my ($param, $value) = $line =~ /^footLoop\s*(\w+)\s*:[ \t]+(.+)$/;
+						if ($line =~ /from footLoop.pl logfile/) {($param, $value) = $line =~ /(logfile)=\.?\/?(.+)$/; $value = $opts{footLoop2}{n} . $value; $debugprint2 .= "\t- $LCY$param$N=$value\n";}
+						$line =~ />Run Params/ ? $debugprint .= "\n$LCY 2.$N footLoop $line:\n$debugprint2" : defined $param ? $debugprint .= "\t- $LCY$param$N=$value\n" : $debugprint .= "";
+						$opts{footLoop}{$param} = $value if (defined $param and defined $value and $param ne "origDir");
+						$line = <$footPeak_logFileIn>; chomp($line);
+				}
+				$optprint .= ">footLoop\n";
+				foreach my $param (sort keys %{$opts{footLoop}}) {
+						$optprint .= "$param=$opts{footLoop}{$param}\n";
+				}
+
+		}
+		if ($line =~ /^>Options from footLoop.pl/) {
+				$check ++;
+				die "3: ${LRD}ERROR!$N footPeak.pl logfile $LCY$footPeak_logFile$N is corrupted or different version than 2.95!\n" unless $check == 4;
+				while ($line !~ /^.+[\-]+\>/) {
+						my ($param, $value) = $line =~ /^\-(\w)\s*:\s+(.+)$/;
+						$opts{footLoop2}{$param} = $value if (defined $param and defined $value);
+						$line =~ />Options from footLoop/ ? $debugprint .= "\n$YW 3.$N footLoop $line:\n" : defined $param ? $debugprint .= "\t- $LCY$param$N=$value\n" : $debugprint .= "";
+						$line = <$footPeak_logFileIn>; chomp($line);
+				}
+				foreach my $param (sort keys %{$opts{footLoop2}}) {
+						$optprint .= "$param=$opts{footLoop2}{$param}\n";
+				}
+		}
+	#	   my ($chr, $beg, $end, $gene, $zero, $strand) = split("\t", $bedLine);
+	}
+	$debugprint .= "\n\n$YW------------------------------------->$N\n\n\n";
+	makedir("$footPeakFolder/99_FOOTSTATS");
+	open (my $out, ">", "$footPeakFolder/99_FOOTSTATS/.PARAMS") or DIELOG($outLog, "Failed to write to $footPeakFolder/99_FOOTSTATS/.PARAMS: $!\n");
+	print $out "$optprint\n";
+	close $out;
+	LOG($outLog, $debugprint);
+	return \%opts;
+}
+sub parse_geneIndexFile {
+   my ($geneIndexFile, $outLog) = @_;
+   my %coor;
+   LOG($outLog, "${LCY}geneIndexFile$N=$geneIndexFile\n");
+   die "geneindexFile does not exist!\n" if not defined $geneIndexFile;
+   open (my $in, "<", $geneIndexFile) or DIELOG($outLog, "Failed to read from $geneIndexFile: $!\n");
+   while (my $line = <$in>) {
+	  chomp($line);
+	  my ($chr, $beg, $end, $gene, $zero, $strand) = split("\t", $line);
+	  $gene = uc($gene);
+	  $coor{uc($gene)}{chr} = $chr;
+	  $coor{uc($gene)}{beg} = $beg;
+	  $coor{uc($gene)}{end} = $end;
+	  $coor{uc($gene)}{strand} = $strand;
+	  #print "chr=$chr:$beg-$end gene=$gene, strand=$strand\n";
+   }
+   close $in;
+   return \%coor;
+}
+
+sub check_sanity {
+
+	my $usage = "
+
+-----------------
+$YW $0 $version_small $N
+-----------------
+
+Usage: $YW$0$N [Optional: -G <genewant>] -n $LCY<footPeak_folder>$N
+
+";
+
+	die $usage unless defined $opt_n and -d $opt_n;
+
+	my ($footPeakFolder) = $opt_n;
+	my ($logFile) = $footPeakFolder . "/footStats_logFile.txt";
+	my ($outDir) = $footPeakFolder . "/99_FOOTSTATS/";
+	my $optG = defined $opt_G ? "-G $opt_G " : "";
+	makedir("$footPeakFolder/99_FOOTSTATS/") if not -d "$footPeakFolder/99_FOOTSTATS/";
+	open (my $outLog, ">", $logFile) or die "\nFailed to write to $LCY$logFile$N: $!\n";
+	print $outLog "$0 version $version\n\nRun script: $0 $optG-n $opt_n\n";
+	return($footPeakFolder, $outLog);
+}
+
+=comment
 LOG($outLog, date() . "\n------------------------\n");
 LOG($outLog, date() . "${LPR}Processing BAMFile$N $LCY$BAMFile$N\n");
 my (%BAMData) = %{parse_BAMFile($BAMFile, $outLog)};
@@ -280,29 +547,6 @@ LOG($outLog, date() . "$LCY$opt_n$N Done!\n\nOutput:
 $footPeakFolder/99_FOOTSTATS/1_PEAKSTATS.TXT
 $footPeakFolder/99_FOOTSTATS/0_SUMMARY.TXT\n");
 
-sub check_sanity {
-
-	my $usage = "
-
------------------
-$YW $0 $version_small $N
------------------
-
-Usage: $YW$0$N [Optional: -G <genewant>] -n $LCY<footPeak_folder>$N
-
-";
-
-	die $usage unless defined $opt_n and -d $opt_n;
-
-	my ($footPeakFolder) = $opt_n;
-	my ($logFile) = $footPeakFolder . "/footStats_logFile.txt";
-	my ($outDir) = $footPeakFolder . "/99_FOOTSTATS/";
-	my $optG = defined $opt_G ? "-G $opt_G " : "";
-	makedir("$footPeakFolder/99_FOOTSTATS/") if not -d "$footPeakFolder/99_FOOTSTATS/";
-	open (my $outLog, ">", $logFile) or die "\nFailed to write to $LCY$logFile$N: $!\n";
-	print $outLog "$0 version $version\n\nRun script: $0 $optG-n $opt_n\n";
-	return($footPeakFolder, $outLog);
-}
 
 sub parseTXT {
 	my ($data, $TXTFile, $label, $gene, $strand, $window, $thres) = @_;
@@ -336,109 +580,7 @@ sub parseTXT {
 	return($data);
 }
 
-sub footStats_parse_footPeak_logFile {
-	my ($footPeakFolder, $footPeak_logFile, $outLog) = @_;
-	my %opts; my $debugprint = "\n\n$YW<--------- 0. PARSING LOGFILES ----------$N\n\n"; my $optprint = "";
-	open (my $footPeak_logFileIn, "<", $footPeak_logFile) or DIELOG($outLog, "Cannot read from $footPeak_logFile: $!\n");
-	while (my $line = <$footPeak_logFileIn>) {
-		chomp($line);
-		my $check = 0;
-		if ($line =~ />Run Params$/) {
-				$check ++;
-				die "0: ${LRD}ERROR!$N footPeak.pl logfile $LCY$footPeak_logFile$N is corrupted or different version than 2.95!\n" unless $check == 1;
-				while ($line !~ />Options:$/) {
-						my ($param, $value) = $line =~ /^([\w ]+[a-zA-Z]+)[ \t]+:[ \t]+(.+)$/;
-						$line =~ />Run Params$/ ? $debugprint .= "\n$LCY 0.$N footPeak $line:\n" : (defined $param and $param !~ /^Run script/) ? $debugprint .= "\t- $LCY$param$N=$value\n" : $debugprint .= "";
-						$opts{footPeak}{$param} = $value if (defined $param and defined $value and $param !~ /^Run script/);
-						if (defined $param and $param eq "Run script short") {
-								my @values = split(" -", $value); shift(@values);
-								foreach my $values (@values) {
-										my ($param2, $value2) = $values =~ /^(\w) (.+)$/;
-										$debugprint .= "footLoopFolder = $LCY$value2$N\n" if $values =~ /^n /;
-										$opts{footLoop2}{n} = $value2 if $values =~ /^n /;
-										$opts{footPeak}{$param2} = $value2;
-								}
-						}
-						$line = <$footPeak_logFileIn>; chomp($line);
-				}
-				$optprint .= ">footPeak\n";
-				foreach my $param (sort keys %{$opts{footPeak}}) {
-						$optprint .= "$param=$opts{footPeak}{$param}\n";
-				}
-		}
-		if ($line =~ /^>Options/) {
-				$check ++;
-				die "1: ${LRD}ERROR!$N footPeak.pl logfile $LCY$footPeak_logFile$N is corrupted or different version than 2.95!\n" unless $check == 2;
-				while ($line !~ />Run Params from footLoop.pl/) {
-						my ($param, $desc, $value) = $line =~ /^\-(\w)\s*(\w+)\s*:\s*([a-zA-Z0-9]+)$/;
-						   ($param, $value) = $line =~ /^\-(\w)\s*:\s*([a-zA-Z0-9]+)$/ if not defined $param;
-						$line =~ />Options/ ? $debugprint .= "\n$LGN 1.$N footPeak $line: " : defined $param ? $debugprint .= "$LCY$param$N=$value;" : $debugprint .= "";
-						$opts{footPeak2}{$param} = $value if (defined $param and defined $value);
-						$line = <$footPeak_logFileIn>; chomp($line);
-				}
-				foreach my $param (sort keys %{$opts{footPeak2}}) {
-						$optprint .= "$param=$opts{footPeak2}{$param}\n";
-				}
-		}
-		if ($line =~ />Run Params from footLoop.pl/) {
-				$check ++; my $debugprint2;
-				die "2: ${LRD}ERROR!$N footPeak.pl logfile $LCY$footPeak_logFile$N is corrupted or different version than 2.95!\n" unless $check == 3;
-				while ($line !~ /^>Options from footLoop.pl/) {
-						my ($param, $value) = $line =~ /^footLoop\s*(\w+)\s*:[ \t]+(.+)$/;
-						if ($line =~ /from footLoop.pl logfile/) {($param, $value) = $line =~ /(logfile)=\.?\/?(.+)$/; $value = $opts{footLoop2}{n} . $value; $debugprint2 .= "\t- $LCY$param$N=$value\n";}
-						$line =~ />Run Params/ ? $debugprint .= "\n$LCY 2.$N footLoop $line:\n$debugprint2" : defined $param ? $debugprint .= "\t- $LCY$param$N=$value\n" : $debugprint .= "";
-						$opts{footLoop}{$param} = $value if (defined $param and defined $value and $param ne "origDir");
-						$line = <$footPeak_logFileIn>; chomp($line);
-				}
-				$optprint .= ">footLoop\n";
-				foreach my $param (sort keys %{$opts{footLoop}}) {
-						$optprint .= "$param=$opts{footLoop}{$param}\n";
-				}
-
-		}
-		if ($line =~ /^>Options from footLoop.pl/) {
-				$check ++;
-				die "3: ${LRD}ERROR!$N footPeak.pl logfile $LCY$footPeak_logFile$N is corrupted or different version than 2.95!\n" unless $check == 4;
-				while ($line !~ /^.+[\-]+\>/) {
-						my ($param, $value) = $line =~ /^\-(\w)\s*:\s+(.+)$/;
-						$opts{footLoop2}{$param} = $value if (defined $param and defined $value);
-						$line =~ />Options from footLoop/ ? $debugprint .= "\n$YW 3.$N footLoop $line:\n" : defined $param ? $debugprint .= "\t- $LCY$param$N=$value\n" : $debugprint .= "";
-						$line = <$footPeak_logFileIn>; chomp($line);
-				}
-				foreach my $param (sort keys %{$opts{footLoop2}}) {
-						$optprint .= "$param=$opts{footLoop2}{$param}\n";
-				}
-		}
-	#	   my ($chr, $beg, $end, $gene, $zero, $strand) = split("\t", $bedLine);
-	}
-	$debugprint .= "\n\n$YW------------------------------------->$N\n\n\n";
-	makedir("$footPeakFolder/99_FOOTSTATS");
-	open (my $out, ">", "$footPeakFolder/99_FOOTSTATS/.PARAMS") or DIELOG($outLog, "Failed to write to $footPeakFolder/99_FOOTSTATS/.PARAMS: $!\n");
-	print $out "$optprint\n";
-	close $out;
-	LOG($outLog, $debugprint);
-	return \%opts;
-}
-sub parse_geneIndexFile {
-   my ($geneIndexFile, $outLog) = @_;
-   my %coor;
-   LOG($outLog, "${LCY}geneIndexFile$N=$geneIndexFile\n");
-   die "geneindexFile does not exist!\n" if not defined $geneIndexFile;
-   open (my $in, "<", $geneIndexFile) or DIELOG($outLog, "Failed to read from $geneIndexFile: $!\n");
-   while (my $line = <$in>) {
-	  chomp($line);
-	  my ($chr, $beg, $end, $gene, $zero, $strand) = split("\t", $line);
-	  $gene = uc($gene);
-	  $coor{uc($gene)}{chr} = $chr;
-	  $coor{uc($gene)}{beg} = $beg;
-	  $coor{uc($gene)}{end} = $end;
-	  $coor{uc($gene)}{strand} = $strand;
-	  #print "chr=$chr:$beg-$end gene=$gene, strand=$strand\n";
-   }
-   close $in;
-   return \%coor;
-}
-
+=cut
 __END__
 sub parse_geneIndexFile {
    my ($footLoopFolder, $outLog) = @_;

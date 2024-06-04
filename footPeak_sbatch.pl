@@ -16,8 +16,8 @@
 # By downloading or using this software, you agree to the terms and conditions of the license. 
 
 use strict; use warnings; use Getopt::Std; use Time::HiRes; use Benchmark qw(:all); use Benchmark ':hireswallclock'; use Carp; use Thread; use Thread::Queue; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_g $opt_p $opt_d $opt_s $opt_k $opt_K $opt_n $opt_h $opt_t $opt_w $opt_L $opt_l $opt_o $opt_A $opt_G $opt_Z $opt_O $opt_0 $opt_J);
-getopts("vg:p:d:s:k:K:n:ht:w:l:A:o:G:L:ZO:0J:");
+use vars qw($opt_v $opt_g $opt_p $opt_d $opt_s $opt_k $opt_K $opt_n $opt_h $opt_t $opt_w $opt_L $opt_l $opt_o $opt_A $opt_G $opt_Z $opt_O $opt_0 $opt_J $opt_F);
+getopts("vg:p:d:s:k:K:n:ht:w:l:A:o:G:L:ZO:0J:F");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -123,10 +123,13 @@ foreach my $origFile (@origFile) {
 LOG($outLog, "\n\n--------------$YW\n1. footPeak.pl processing $LGN" . scalar(keys %genes) . "$N genes (total file = $LGN" . scalar(@origFile) . "$N)\n\n");
 
 my ($max_parallel_run) = defined $opt_J ? $opt_J : 1;
-my $cmd = "$footLoop_script_folder/footPeak_sbatch_2.pl $indexFile $seqFile FNINDICE FILENAME $outDir $window $threshold $totalorigFile $label $genewant $minDis $minLen $version_small";
-my $force_sbatch;
+#my $cmd = "$footLoop_script_folder/footPeak_sbatch_2.pl $indexFile $seqFile FNINDICE FILENAME $outDir $window $threshold $totalorigFile $label $genewant $minDis $minLen $version_small";
+my $cmd = "$footLoop_script_folder/footPeak_sbatch_3.pl $indexFile $seqFile FNINDICE FILENAME $outDir $window $threshold $totalorigFile $label $genewant $minDis $minLen $version_small";
+my $force_sbatch = $opt_F;
 
 #my @origFilesmall = @origFile[0..1];
+makedir("$outDir/PEAKS_GENOME/") if not -d "$outDir/PEAKS_GENOME/";
+makedir("$outDir/PEAKS_LOCAL/") if not -d "$outDir/PEAKS_LOCAL/";
 footLoop_sbatch_main($cmd, "footPeak", \@origFile, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir);
 #sbatch_these($cmd, "footPeak", \@origFile, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir);
 
@@ -595,34 +598,6 @@ sub check_sanity {
 }
 
 # <-------------------------------
-=comment
-sub check_software {
-   my ($footLoop_script_folder, $version, $md5script);
-   my @check_software = `check_software.pl 2>&1`;
-   foreach my $check_software_line (@check_software[0..@check_software-1]) {
-      chomp($check_software_line);
-      next if $check_software_line !~ /\=/;
-      my ($query, $value) = split("=", $check_software_line);
-      next if not defined $query;
-      #print "$check_software_line\n";
-      if ($query =~ /footLoop_version/) {
-         ($version) = $value;
-      }
-      if ($query =~ /footLoop_script_folder/) {
-         next if defined $footLoop_script_folder;
-         ($footLoop_script_folder) = $value;
-      }
-      if ($query =~ /md5sum_script/) {
-         ($md5script) = $value;
-      }
-   }
-   print "\ncheck_software.pl\n";
-   print "footLoop_script_folder=$footLoop_script_folder\n";
-   print "footLoop_version=$version\n";
-   print "md5script=$md5script\n\n";
-   return($footLoop_script_folder, $version, $md5script);
-}
-=cut
 
 sub usage {
 

@@ -74,19 +74,6 @@ die "Failed to create output directory $LCY$outDir/PNG$N!\n" unless -d "$outDir/
 open (my $outLog, ">", "$outDir/logFile_footClust.txt") or die "Failed to create outLog file $outDir/logFile_footClust.txt: $!\n";
 
 
-LOG($outLog, "
-
-If R dies for any reason, make sure you have these required R libraries:
-- RColorBrewer v1.1-2
-- gridExtra v2.3
-- labeling v0.3
-- reshape2 v1.4.3
-- ggplot2 v3.1.0
-- GMD v0.3.3
-
-");
-
-
 # parse footLoop log file
 ($footPeakFolder) = getFullpath($footPeakFolder);
 my ($footPeak_logFile) = "$footPeakFolder/footPeak_logFile.txt";
@@ -139,7 +126,16 @@ system("/bin/cp $faFile $outDir") == 0 or LOG($outLog, date() . "Failed to copy$
 
 
 # get .local.bed peak files used for clustering
-my @local_peak_files = <$footPeakFolder/PEAKS_LOCAL/*.local.bed>;
+my @local_peak_files_temp = <$footPeakFolder/PEAKS_LOCAL/*PEAK.local.bed>;
+makedir("$footPeakFolder/PEAKS_LOCAL/.delete/") if not -d "$footPeakFolder/PEAKS_LOCAL/.delete/";
+my @local_peak_files;
+for (my $i = 0; $i < @local_peak_files_temp; $i++) {
+	my $size = -s $local_peak_files_temp[$i];
+	push(@local_peak_files, $local_peak_files_temp[$i]) if $size > 0;
+	if ($size == 0) {
+		system("/bin/mv $local_peak_files_temp[$i] $footPeakFolder/PEAKS_LOCAL/.delete/");
+	}
+}
 LOG($outLog, date() . "\nError: cannot find any .local.bed peak files in $LCY$footPeakFolder$N\n\n") and die if not -d "$footPeakFolder/PEAKS_LOCAL/" or @local_peak_files == 0;
 
 # Log initialization info
@@ -190,8 +186,11 @@ my @Rscript;
 foreach my $input1 (sort @local_peak_files) {
 #DEBUG
 	if (defined $opt_G and $input1 !~ /$opt_G/i) {
-		LOG($outLog, date() . " Skipped $LCY$input1$N as it doesn't contain $LGN-G $opt_G$N\n");
+		#LOG($outLog, date() . " Skipped $LCY$input1$N as it doesn't contain $LGN-G $opt_G$N\n");
 		next;
+	}
+	elsif (defined $opt_G and $input1 =~ /$opt_G/i) {
+		LOG($outLog, date() . " Doing $LCY$input1$N as it contain $LGN-G $opt_G$N\n");
 	}
 
 	# remove double // from folder
@@ -206,7 +205,8 @@ foreach my $input1 (sort @local_peak_files) {
    LOG($outLog, "\n------------- $YW WARNING!!! $N -------------\n\nUsing label=$label2. Inconsistent label in filename $LCY$fileName1$N\nLabel from $footPeakFolder/.LABEL: $label\nBut from fileName: $label2\n\n--------------- $YW WARNING!!! $N ---------------\n\n") if $label ne $label2;
    $label = $label2;
 	my ($coorCHR, $coorBEG, $coorEND, $coorSTRAND) = ($coor{uc($gene)}{chr}, $coor{uc($gene)}{beg}, $coor{uc($gene)}{end}, $coor{uc($gene)}{strand});
-	DIELOG($outLog, date() . "Fatal error at footClust.pl file=$input1, main gene index strand (\$coorSTRAND) is $coorSTRAND (has to be + or -\n") if $coorSTRAND !~ /^[\+\-]$/;
+	LOG($outLog, "gene=$LCY$gene$N\n");
+	DIELOG($outLog, date() . "Fatal error at footClust.pl file=$input1, gene=$LCY$gene$N main gene index strand (\$coorSTRAND) is $coorSTRAND (has to be + or -)\n") if $coorSTRAND !~ /^[\+\-]$/;
 	my $Rstrand = $coorSTRAND eq "+" ? "Pos" : "Neg";#$coorSTRAND eq "-" ? "Neg" : "Pos";
 #	my ($label2, $gene, $strand, $window, $thres, $type) = $fileName1 =~ /^(.+)\_gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(GH|GC|CG|CH).PEAK/;
 #	LOG($outLog, date() . "Cannot parse gene name from file=$LCY$input1$N\n") unless defined $gene and defined $strand and defined $window and defined $thres and defined $type;
@@ -229,11 +229,12 @@ foreach my $input1 (sort @local_peak_files) {
 	#	$files_log .= "$label\t$gene\t$strand\t$window\t$thres\t$type\t${LRD}Skip$N\ttotal_peak_all=$total_line\ttotal_read_unique=-1\ttotal_peak_used=-1\tPEAKS_LOCAL=PEAKS_LOCAL/$fullName1\tPEAK_FILE=NA\n";
 	#	next;
 	#}
-	$files_log .= "$label\t$gene\t$strand\t$window\t$thres\t$type\t${LGN}Ran$N\ttotal_peak_all=$total_line";
+	#$files_log .= "$label\t$gene\t$strand\t$window\t$thres\t$type\t${LGN}Ran$N\ttotal_peak_all=$total_line";
 
 	# Actual parse of peak file
 	my ($linecount, $total_peak_used, $total_peak_all, %data) = (0,0,0);
 	open (my $in1, "sort -k1,1 -k2,2n -k3,3n $input1|") or LOG($outLog, date() . "Cannot read from $input1: $!\n") and die;
+	LOG($outLog, "\n");
 	LOG($outLog, date() . "$LGN$input1_count.$type_count$N ${LCY}RUNNING$N: label=$LPR$label2$N gene=$LGN$gene$N strand=$LCY$strand$N window=$LGN$window$N thres=$LCY$thres$N type=$LGN$type$N input1=$input1\n");
 	LOG($outLog, date() . "$LCY\tInfo$N: pcb=$label,gene=$gene,strand=$strand,window=$window,thres=$thres,type=$type\n");
 	LOG($outLog, date() . "$LCY\tExample Lines$N:\n");
@@ -277,13 +278,17 @@ foreach my $input1 (sort @local_peak_files) {
 	die "Cannot get filenameshort of $input1 ($LCY$fullName1$N)\n" unless defined $fileNameShort;
 	my $peakFile = "$footPeakFolder/.CALL/$fileNameShort.PEAK.out";
 	die "Cannot find PEAK file of $input1 ($LCY$peakFile$N)\n" unless -e $peakFile;
-	$files_log .= "\ttotal_read_unique=$total_read_unique\ttotal_peak_used=$total_peak_used\tPEAKS_LOCAL=PEAKS_LOCAL/$fullName1\tPEAK_FILE=$peakFile\tCLUSTER_FILE=FOOTCLUST/.TEMP/$fullName1.clust\n";
+	#$files_log .= "\ttotal_read_unique=$total_read_unique\ttotal_peak_used=$total_peak_used\tPEAKS_LOCAL=PEAKS_LOCAL/$fullName1\tPEAK_FILE=$peakFile\tCLUSTER_FILE=FOOTCLUST/.TEMP/$fullName1.clust\n";
 
 	# Calculate average beg/mid/end and write a temp bed file for each peak
 	LOG($outLog, date() . "$LCY\tInfo 2$N: total_peak_all=$LGN$total_peak_all$N,total_read_unique=$LGN$total_read_unique$N,total_peak_used=$LGN$total_peak_used$N\n");
 	my $tempFile1_Peak = "$outDir/.TEMP/.$fullName1.clust.temp1";
 	my $tempFile2_Clust = "$outDir/.TEMP/.$fullName1.clust";
 	my $tempFile2_PNG = "$outDir/PNG/$fullName1.clust.png";
+	if ((keys %data) == 0) {
+		LOG($outLog, "footClust: No peak in $tempFile1_Peak so not writtn!\n");
+		next;
+	}
 	open (my $out1, ">", "$tempFile1_Peak") or DIELOG($outLog, date() . __LINE__ . "\tCannot write to $LCY$fileName1.temp$N: $!\n");
 	print $out1 "id\txbeg\txend\ttotal_peak\n";
 	foreach my $id (sort keys %data) {
@@ -310,6 +315,7 @@ print(.libPaths())
 		library(RColorBrewer)
 #	library(Cairo)
 	set.seed(420)
+	print(\"$tempFile1_Peak\")
 	df.main = read.table(\"$tempFile1_Peak\",header=T,sep=\"\\t\",colClasses=c(\"factor\",\"integer\",\"integer\",\"integer\")) # changed df to df.main
 	df.main.total_peak = unique(df.main[,4])
 
@@ -386,12 +392,12 @@ print(.libPaths())
 	df = df.final
 	df\$ybeg = seq(1,dim(df)[1])
 	df\$yend = seq(2,dim(df)[1]+1)
+	write.table(df,\"$tempFile2_Clust\",quote=F,row.names=F,col.names=T,sep=\"\\t\")
 	#png(type=\"cairo\",\"$tempFile2_PNG\",height=(dim(df)[1])*5,width=max(df\$xend)+10)
 	png(\"$tempFile2_PNG\",height=min(20000,(dim(df)[1])*5),width=max(df\$xend)+10)
 	ggplot(df, aes(xbeg,ybeg)) + geom_rect(aes(xmin=xbeg,ymin=ybeg,xmax=xend,ymax=yend,fill=as.factor(clust))) + theme_bw() + 
 	theme(panel.grid=element_blank()) + coord_fixed(ratio=10)
 	dev.off()
-	write.table(df,\"$tempFile2_Clust\",quote=F,row.names=F,col.names=T,sep=\"\\t\")
 	";
 
 
@@ -420,8 +426,11 @@ sbatch_these($sbatch_these_cmd, "footClust", \@Rscript, $max_parallel_run, $outL
 foreach my $input1 (sort @local_peak_files) {
 #DEBUG
 	if (defined $opt_G and $input1 !~ /$opt_G/i) {
-		LOG($outLog, date() . " Skipped $LCY$input1$N as it doesn't contain $LGN-G $opt_G$N\n");
+		#LOG($outLog, date() . " Skipped $LCY$input1$N as it doesn't contain $LGN-G $opt_G$N\n");
 		next;
+	}
+	elsif (defined $opt_G and $input1 =~ /$opt_G/i) {
+		LOG($outLog, date() . " Doing $LCY$input1$N as it contain $LGN-G $opt_G$N\n");
 	}
 
 	# remove double // from folder
@@ -464,9 +473,10 @@ foreach my $input1 (sort @local_peak_files) {
 	# Actual parse of peak file
 	my ($linecount, $total_peak_used, $total_peak_all, %data) = (0,0,0);
 	open (my $in1, "sort -k1,1 -k2,2n -k3,3n $input1|") or LOG($outLog, date() . "Cannot read from $input1: $!\n") and die;
+	LOG($outLog, "\n");
 	LOG($outLog, date() . "$LGN$input1_count.$type_count$N ${LCY}RUNNING$N: label=$LPR$label2$N gene=$LGN$gene$N strand=$LCY$strand$N window=$LGN$window$N thres=$LCY$thres$N type=$LGN$type$N input1=$input1\n");
 	LOG($outLog, date() . "$LCY\tInfo$N: pcb=$label,gene=$gene,strand=$strand,window=$window,thres=$thres,type=$type\n");
-	LOG($outLog, date() . "$LCY\tExample Lines$N:\n");
+	#LOG($outLog, date() . "$LCY\tExample Lines$N:\n");
 	while (my $line = <$in1>) {
 		chomp($line);
 		$linecount ++;
@@ -496,7 +506,7 @@ foreach my $input1 (sort @local_peak_files) {
 		if ($check == 0) {
 			push(@{$data{$id}}, [$beg,$end,$read,$gene]);
 			$total_peak_used ++;
-			LOG($outLog, date() . "$LGN\tline=$linecount$N: readid=$id beg=$beg end=$end\n") if $linecount < 5;
+			#LOG($outLog, date() . "$LGN\tline=$linecount$N: readid=$id beg=$beg end=$end\n") if $linecount < 5;
 		}
 	}
 	close $in1;
@@ -707,33 +717,6 @@ print $outz $files_log;
 close $outz;
 LOG($outLog, "\n$YW ----------- FILES RAN ---------- $N\n\n" . date() . "$LCY\tSummary of run$N: $outDir/.0_LOG_FILESRAN\n\n$files_log\n\n");
 
-sub check_software {
-   my ($footLoop_script_folder, $version, $md5script);
-   my @check_software = `check_software.pl 2>&1`;
-   foreach my $check_software_line (@check_software[0..@check_software-1]) {
-      chomp($check_software_line);
-      next if $check_software_line !~ /\=/;
-      my ($query, $value) = split("=", $check_software_line);
-      next if not defined $query;
-      #print "$check_software_line\n";
-      if ($query =~ /footLoop_version/) {
-         ($version) = $value;
-      }
-      if ($query =~ /footLoop_script_folder/) {
-         next if defined $footLoop_script_folder;
-         ($footLoop_script_folder) = $value;
-      }
-      if ($query =~ /md5sum_script/) {
-         ($md5script) = $value;
-      }
-   }
-   print "\ncheck_software.pl\n";
-   print "footLoop_script_folder=$footLoop_script_folder\n";
-   print "footLoop_version=$version\n";
-   print "md5script=$md5script\n\n";
-   return($footLoop_script_folder, $version, $md5script);
-}
-
 
 sub parse_footLoop_logFile {
    my ($logFile, $date, $uuid, $footFolder, $version) = @_;
@@ -892,132 +875,3 @@ sub print_cmd {
 }
 
 __END__
-=comment
-      if ($parline =~ /footLoop.pl,geneIndexFile,/) {
-			($defOpts->{geneIndexFile}) = $parline =~ /geneIndexFile,(.+)$/;
-      }
-      if ($parline =~ /footLoop.pl,geneIndexFile,/) {
-         ($defOpts->{geneIndexFile}) = $parline =~ /geneIndexFile,(.+)$/;
-      }
-      if ($parline =~ /footLoop.pl,seqFile,/) {
-         ($defOpts->{seqFile}) = $parline =~ /seqFile,(.+)$/;
-      }
-      if ($parline =~ /footLoop.pl,samFile,/) {
-         ($defOpts->{samFile}) = $parline =~ /samFile,(.+)$/;
-      }
-      if ($parline =~ /footLoop.pl,samFixedFile,/) {
-         ($defOpts->{samFixed}) = $parline =~ /samFixedFile,(.+)$/;
-      }
-      if ($parline =~ /footLoop.pl,samFixedFileMD5,/) {
-         ($defOpts->{samFixedMD5}) = $parline =~ /samFixedFileMD5,(.+)$/;
-      }
-   }
-   # %others contain other parameters from footLoop that aren't options (e.g. uuid)
-   my ($other, $outLog);
-
-
-   foreach my $line (@line[0..@line-1]) {
-      if ($line =~ /^\s*Date\s*:/) {
-         ($other->{date}) = $line =~ /^Date\s+:\s*([a-zA-Z0-9\:\-].+)$/;
-         print "Undefined date from $line\n" and die if not defined $other->{date};
-      }
-      if ($line =~ /^\s*Run ID\s*:/) {
-         ($other->{uuid}) = $line =~ /^Run ID[ \t]+:[ \t]+([a-zA-Z0-9]+.+)$/;
-         print "Undefined uuid from $line\n" and die if not defined $other->{uuid};
-      }
-      if ($line =~ /^\s*Run script\s*:/) {
-         ($other->{footLoop_runscript}) = $line =~ /^Run script[ ]+:(.+)$/;
-         print "Undefined runscript from $line\n" and die if not defined $other->{footLoop_runscript};
-         ($defOpts, $other->{runscript}) = parse_runscript($defOpts, $usrOpts, $other->{footLoop_runscript});
-      }
-      if ($line =~ /^\s*Output\s*:/) {
-         my ($value) = $line =~ /Output.+(\.0_orig_\w{32})/;
-         die "Died at line=$line, value=?\n" if not defined $value;
-         $value = $footFolder . "/$value";
-         die "Died at line=$line, value=?\n" if not -d $value;
-         ($other->{origDir}) = $value;
-         print "Undefined origDir from input=$inputFolder, line=$line\n" and die if not defined $other->{origDir};
-         print "origDir $other->{origDir} does not exist!\n" and die if not -d $other->{origDir};
-         $defOpts->{origDir} = $other->{origDir};
-         ($other->{md5}) = $other->{origDir} =~ /\.0_orig_(\w{32})/;
-         print "Can't parse md5 from outdir (outdir=$defOpts->{origDir})\n" and die if not defined $other->{md5};
-      }
-#     if ($line =~ /geneIndexFile=/) {
-#        ($defOpts->{geneIndexFile}) = $line =~ /geneIndexFile=(.+)$/ if $line !~ /,gene=.+,beg=\d+,end=\d+$/;
-#        ($defOpts->{geneIndexFile}) = $line =~ /geneIndexFile=(.+),gene=.+,beg=\d+,end=\d+$/ if $line =~ /,gene=.+,beg=\d+,end=\d+$/;
-#        $defOpts->{geneIndexFile} = $footFolder . "/" .  getFilename($defOpts->{geneIndexFile});
-#     }
-
-      if ($line =~ /^!\w+=/) {
-         my ($param, $value) = $line =~ /^!(\w+)=(.+)$/;
-         my $param2 = defined $param ? $param : "__UNDEF__";
-         my $value2 = defined $value ? $value : "__UNDEF__";
-         if ($value =~ /\//) {
-            if ($value =~ /\/?\.0_orig\w{32}/) {
-               ($value) = $value =~ /^.+(\/?\.0_orig_\w{32})/;
-               $value = $footFolder . "/$value";
-               die "Died at line=line, param=$param, value=?\n" if not defined $value;
-            }
-            if ($value =~ /\/\.geneIndex/) {
-               ($value) = $value =~ /^.+(\/\.geneIndex.+)$/;
-               $value = $footFolder . "/$value";
-               die "Died at line=line, param=$param, value=?\n" if not defined $value;
-            }
-            else {
-               ($value) = getFilename($value, 'full');
-               $value = $footFolder . "/$value";
-               die "Died at line=line, param=$param, value=?\n" if not defined $value;
-            }
-         }
-         print "$param = $value\n";
-         print "Cannot parse param=$param2 and value=$value2 from line=$line\n" and die if not defined $param or not defined $value;
-         print "$param file $value does not exist!\n" and die if $value =~ /\/+/ and not -e $value;
-         ($defOpts->{$param}) = $value if $param ne "n";
-      }
-   }
-   $defOpts->{o} = $defOpts->{n} if not defined $opt_o;
-   makedir($defOpts->{o}) if not -d $defOpts->{o};
-   #die "opt = $opt_o = $defOpts->{o}\n";
-   open ($outLog, ">", "$defOpts->{o}/footPeak_logFile.txt") or print "Failed to write to $defOpts->{o}/footPeak_logFile.txt: $!\n" and die;
-   record_options($defOpts, $usrOpts, $usrOpts2, $other, $outLog, $logFile, $date, $uuid, $version);
-#  print "Output = $defOpts->{o}\n";
-   return($defOpts, $outLog);
-}
-
-=cut
-#commentcut2
-	my %cl;
-	my %clust; my %clustlen; my @clust; my $clustheader = "";
-	open (my $in2, "<", "$tempFile2_Clust") or DIELOG($outLog, date() . __LINE__ . "\tFailed to read from tempFile2_Clust: $!\n");
-	my $linecount5 = 0;
-	my %used;
-	while (my $line = <$in2>) {
-		$linecount5 ++;
-		chomp($line);
-		if ($line =~ /(clust|xmax|ymax)/) {$clustheader = $line;next;}
-		my ($orignum, $beg, $end, $y, $y2, $clust) = split("\t", $line);
-		my ($num, $ind) = $orignum =~ /^(\d+)\.(\d+)$/ if $orignum =~ /^\d+\.\d+$/;
-		$ind = "" if not defined $ind;
-		LOG($outLog, "\t\torignum=$orignum, num=$num, ind=$ind\n") if $linecount5 < 5;
-		my $numlen = $end - $beg;
-		push(@clust, $num) if not grep(/^$num$/, @clust);
-		if (not defined $clustlen{$num} or (defined $clustlen{$num} and $clustlen{$num} < $numlen)) {
-			$clust{$num} = "$num\.0\t$beg\t$end\t$y\t$y2\t$clust";
-			$clustlen{$num} = $numlen;
-		}
-		LOG($outLog, date() . "Cannot parse num from line=$line\n") if not defined $num;
-		my ($mid) = int(($end + $beg)/2+0.5);
-		if (not defined $used{$num} or (defined $used{$num}{len} and $used{$num}{len} < ($end - $beg))) {
-			$used{$num}{clust} = $clust;
-			$used{$num}{len} = $end - $beg;
-		}
-		push(@{$cl{$clust}{beg}}, $beg);
-		push(@{$cl{$clust}{mid}}, $mid);
-		push(@{$cl{$clust}{end}}, $end);
-	}
-	close $in2;
-	foreach my $num (keys %used) {
-		my $clust = $used{$num}{clust};
-		$cl{$clust}{total_read_unique}{$num} = 1;
-	}
-

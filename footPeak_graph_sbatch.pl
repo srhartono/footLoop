@@ -154,6 +154,16 @@ If R dies for any reason, make sure you have these required R libraries:
 				my $type = $types[$h2];
 				my $thres2 = $thres; $thres =~ s/0$//;
 				my $peakFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.PEAK";
+				my $nopkFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.NOPK";
+				#LOG($outLog, "$resDir/PNG/CONLY/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.PEAK.out.PEAK.png.ALL.conly.png\n");
+				#LOG($outLog, "$resDir/PNG/CONLY/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.NOPK.out.NOPK.png.ALL.conly.png\n");
+				my $peakflag = getFlag($peakFile, "Pos", $strand, $type);
+				my $nopkflag = getFlag($nopkFile, "Pos", $strand, $type);
+				if ($peakflag !~ /RCONV/) {
+					LOG($outLog, "${LPR}PNGOUT $peakflag:$N\n");
+					LOG($outLog, "scp mitochi\@franklin.hpc.ucdavis.edu:/$resDir2/PNG/$peakflag/CONLY/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.PEAK.out.$peakflag.png.ALL.conly.png ./\n");
+					LOG($outLog, "scp mitochi\@franklin.hpc.ucdavis.edu:/$resDir2/PNG/$nopkflag/CONLY/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.NOPK.out.$nopkflag.png.ALL.conly.png ./\n");
+				}
 				#next if $peakFile !~ /PBEH2_BCBC4_PLASMIDPFC9NTBSPQI13_DESCTXLINEARBSAINTBSPQI13/;
 				$peakFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres2\_$type.PEAK" if not -e $peakFile;
 				die "Can't find peakFile $LCY$peakFile$N\n" if not -e $peakFile;
@@ -188,6 +198,7 @@ If R dies for any reason, make sure you have these required R libraries:
 	$sbatch_these_cmd .= " -c" if defined $opt_c;
 	$sbatch_these_cmd .= " -0" if defined $opt_0;
 	$sbatch_these_cmd .= " -F" if defined $opt_F;
+	$sbatch_these_cmd .= " -B $boxFile" if defined $opt_B;
 	#my $cmd = "$footLoop_script_folder/footPeak_sbatch_2.pl $indexFile $seqFile FNINDICE FILENAME $outDir >
 	my $force_sbatch = 1 if defined $opt_F;
 	my $outsbatchDir = "$resDir/.footPeak_graph_sbatch/";
@@ -197,273 +208,6 @@ If R dies for any reason, make sure you have these required R libraries:
 }
 
 
-
-=comment
-	foreach my $file (sort keys %files) {
-		$fileCount ++;
-		if ($opt_r eq 1 and defined $opt_c and $file =~ /(Pos.+CG|Neg.+GC|Pos.+CH|Neg.+GH)/) {
-			#print "$fileCount $LCY$file$N\n";# if defined $opt_c and 
-		}
-		elsif ($opt_r eq 1 and not defined $opt_c and $file =~ /(Pos.+CH|Neg.+GH)/) {
-			#print "$fileCount $LCY$file$N\n";# if defined $opt_c and 
-		}
-		else {
-			next;
-		}
-		my $NA = "NA";
-		undef $NA if ($fileCount < 10 or ($fileCount > 10 and $fileCount % 100 == 0));
-		LOG($outLog, "\n\n--------------------------\nFILE COUNT = $fileCount\n",$NA);
-		my $GENE = $files{$file};
-		my $STRAND = $coor{$GENE}{STRAND};
-		my $geneStrandPrint = $STRAND eq "Pos" ? "$LRD$STRAND$N" : $STRAND eq "Neg" ? "$LCY$STRAND$N" : "$LGN$STRAND$N";
-
-   	if (defined $opt_G and $file !~ /$opt_G/i) {
-   	   LOG($outLog, date() . " Skipped $LCY$file$N as it doesn't contain $LGN-G $opt_G$N\n",$NA);
-   	   next;
-   	}
-		if ($GENE ne $lastGENE) {
-			LOG($outLog, "\n$YW -------- $fileCount/$totalFile Doing$LPR $GENE$N (STRAND = $geneStrandPrint) ---------$N\n\n",$NA) if $GENE ne $lastGENE;
-			$currfileCount = 0;
-		}
-		$lastGENE = $GENE;
-		if (defined $opt_g and $GENE ne $opt_g) {
-			LOG($outLog, date() . " $LCY Skipped $GENE$N (requested gene is $LGN$opt_g$N\n",$NA);
-			next;
-		} 
-		if (defined $opt_w and $file !~ /$opt_w/) {
-			LOG($outLog, date() . " Skipped $LCY$file$N (requested want is $LGN$opt_w$N\n",$NA);
-			next;
-		} 
-
-		$lastfile = $file;
-		next if not defined $files{$file};
-
-		my ($pk_filename) =  getFilename($file, 'full') . ".out";
-		my $peakFile      =  "$resDir/.CALL/$pk_filename";
-		my $nopkFile      =  $peakFile;
-		my $cluster_file  = "$resDir/FOOTCLUST/CLUST_LOCAL/" . getFilename($file, "full") . ".local.bed.indiv.clust";
-		my $kmer_file     =  "$resDir/FOOTCLUST/.TEMP/$pk_filename";
-			$nopkFile      =~ s/\.PEAK.out$/.NOPK.out/;
-			$kmer_file     =~ s/.out$/.local.bed.clust.kmer/;
-		my $bedFile       =  "$resDir/PEAKS_LOCAL/$pk_filename.local.bed";
-			$bedFile       =~ s/.out.local.bed/.local.bed/;
-		#if (not -e $peakFile) {system("touch $peakFile");}
-		#if (not -e $nopkFile) {system("touch $nopkFile");}
-		my $totpeak = -e $peakFile ? -s $peakFile : 0;
-		my $totnopk = -e $nopkFile ? -s $nopkFile : 0;
-		#die "totpeak =$totpeak\n$peakFile\n" if $totpeak eq 0;
-		next if $totpeak eq 0 and $totnopk eq 0;
-		my ($type) = $peakFile =~ /_(CH|CG|GH|GC)./;
-		my $parseName = parseName($pk_filename);
-		my ($label2, $gene2, $strand2, $window2, $thres2, $type2) = @{$parseName->{array}};
-		DIELOG($outLog, date() . "Undefined label2=$label2, gene2=$gene2, strand2=$strand2, window2=$window2, thres2=$thres2, type2=$type2 from parsing filename=$LCY$pk_filename$N\n") if not defined $label2 or not defined $gene2 or not defined $strand2 or not defined $window2 or not defined $thres2 or not defined $type2;
-
-		for (my $p = 0; $p < 2; $p ++) {
-			$currfileCount ++;
-			my $currFile = $p == 0 ? $peakFile : $nopkFile;
-			my $currFileID = $currFile . ".id";
-			my $curr_cluster_file = $cluster_file;
-				$curr_cluster_file =~ s/PEAK/NOPK/ if $p != 0;
-			my ($currFolder, $currFilename) = getFilename($currFile, "folderfull");
-			my ($geneStrand, $readStrand, $rconvType) = ($STRAND, $strand2, $type2);
-			my $readStrandPrint = $readStrand eq "Pos" ? "$LRD$readStrand$N" : $readStrand eq "Neg" ? "$BU$readStrand$N" : "$LPR$readStrand$N";
-			my $rconvTypePrint  = $rconvType =~ /^(CG|GC)$/ ? "$YW$rconvType$N" : $rconvType;
-			my $max_cluster = 0;
-			if (-e $curr_cluster_file and -s $curr_cluster_file > 0) {
-				my @curr_cluster = `cut -f6 $curr_cluster_file|grep -v clust`; chomp(@curr_cluster);
-				foreach my $curr_cluster (sort {$b <=> $a} @curr_cluster) {
-					$max_cluster = $curr_cluster; last;
-				}
-			}
-			$max_cluster = 0 if not defined $max_cluster;
-			my $summary = $p == 0 ? "PEAK: $LGN$totpeak$N, cluster=$LCY$max_cluster$N" : "NOPK: $LGN$totnopk$N";
-			my $flag = getFlag($currFile, $geneStrand, $readStrand, $rconvType);
-			my $pngoutDir = $flag;
-			my $pdfoutDir = $flag;
-			LOG($outLog, "\n" . date() . "$LGN$currfileCount.$N $flag $readStrandPrint $rconvTypePrint $LCY$currFile$N\n","NA");#$NA);
-#			LOG($outLog, "\t\tCurrfile           = $LCY$currFile$N
-#\t\tcurr_cluster_file  = $LCY$curr_cluster_file$N
-#\t\tkmer_File          = $LPR$kmer_file$N
-#\t\tbedFile            = $BU$bedFile$N
-#\t\ttotpeak = $LGN$totpeak$N, nopk = $LGN$totnopk$N
-#",$NA);
-			LOG($outLog, "$readStrandPrint\t$rconvTypePrint\t$flag\n","NA");
-
-
-
-			my $madePNG = ($opt_r == 0) ? 0 : ($opt_r == 1 and defined $opt_c and $flag =~ /^(PEAK_C|NOPK_C|PEAK_TEMP_C|NOPK_TEMP_C)$/) ? 1 : ($opt_r == 1 and $flag =~ /(ALL|RCONV|_C)/) ? 0 : 1;
-		#	LOG($outLog, date() . " --> DEBUG flag=$flag madePNG = $madePNG\n","NA");
-			my $madePDF = ($opt_R == 0) ? 0 : ($opt_R == 1 and defined $opt_c and $flag =~ /^(PEAK_C|NOPK_C|PEAK_TEMP_C|NOPK_TEMP_C)$/) ? 1 : ($opt_R == 1 and $flag =~ /(ALL|RCONV|_C)/) ? 0 : 1;
-		#	LOG($outLog, date() . " --> DEBUG flag=$flag madePDF = $madePDF\n","NA");
-			my $pngout = "$resDir/PNG/$pngoutDir/$currFilename.$flag.png";
-			my $pdfout = "$resDir/PDF/$pdfoutDir/$currFilename.$flag.pdf";
-			my $lenpdfout = "$resDir/PDF/$pngoutDir$currFilename\_length.pdf";
-		#	$scp{"scp $user\@crick.cse.ucdavis.edu:$resDir2/PNG/$pngoutDir/$currFilename.$flag.png ./"} = 1 if $madePNG eq 1;
-		#	$scp{"scp $user\@crick.cse.ucdavis.edu:$resDir2/PDF/$pdfoutDir/$currFilename.$flag.pdf ./"} = 1 if $madePDF eq 1;
-
-			my ($RscriptPDF, $RscriptPNG, $RscriptPDF_nopk_ALL, $RscriptPNG_nopk_ALL);
-
-			my $Rscript = "
-library(labeling)
-library(ggplot2)
-library(reshape2)
-library(grid)
-library(gridExtra)
-library(RColorBrewer)
-#library(Cairo)
-";
-			
-			my $totread = $totpeak + $totnopk;
-			if (not -e $currFile or (-e $currFile and -s $currFile <= 2)) { #5
-		#		$Rscript .= "png(type=\"cairo\",\"$pngout\",1000,1000)\nplot(NA,xlim=c(1,100),ylim=c(1,100),xlab=NA,ylab=NA,bty=\"n\")\ntext(50,50,cex=3,labels=c(\"$currFilename\n\nPEAK = $totpeak / $totread\"))\ndev.off()\n";
-				$Rscript .= "png(\"$pngout\",1000,1000)\nplot(NA,xlim=c(1,100),ylim=c(1,100),xlab=NA,ylab=NA,bty=\"n\")\ntext(50,50,cex=3,labels=c(\"$currFilename\n\nPEAK = $totpeak / $totread\"))\ndev.off()\n";
-				$RscriptPNG = $Rscript;
-				$RscriptPDF = $Rscript;
-				$RscriptPNG_nopk_ALL = $Rscript;
-				$RscriptPDF_nopk_ALL = $Rscript;
-			}
-			else {
-				open (my $incurrFile, "cut -f1 $currFile|") or DIELOG($outLog, "Failed to open $currFile: $!\n");
-				open (my $outcurrFileID, ">", "$currFile.id") or DIELOG($outLog, "Failed to open $currFile.id: $!\n");
-				while (my $line = <$incurrFile>) {
-					chomp($line);
-					my ($num1, $num2, $num3) = $line =~ /^.*m([A-Za-z0-9]+_\d+)_.+\/(\d+)\/(ccs|\d+_\d+)/;
-					DIELOG($outLog, "\n\n" . date() . " Failed to parse numbers from currFile=$LCY$currFile$N id = $LPR$line$N\n\n") if not defined $num1 or not defined $num2 or not defined $num3;
-					$num3 = 0 if $num3 eq "ccs";
-					my $num = "$num1$num2$num3";
-			      $num =~ s/_//g;
-					print $outcurrFileID "$line\t$num\n";
-				}
-				close $incurrFile;
-				close $outcurrFileID;
-
-				my ($R) = Rscript($currFile, $bedFile, $curr_cluster_file, $totpeak, $totnopk, $pngout, $pdfout, $lenpdfout, $resDir);
-
-				# Read Table
-				$Rscript .= $R->{readTable};
-
-				# Cluster and Third Plot Cluster Graph
-				if (-e $curr_cluster_file and -s $curr_cluster_file > 0 and $currFile !~ /\.NOPK\./) {
-					$Rscript .= $R->{clusterFile};
-				} 
-				else {
-					$Rscript .= $R->{noclusterFile};
-				}
-
-				# Read Bed File
-				if (-e $bedFile and -s $bedFile > 0 and $currFile !~ /\.NOPK\./) {
-					$Rscript .= $R->{peakbedFile};
-				}
-
-				# Main Plot
-				if ($currFile =~ /\.NOPK\./) {
-					$Rscript .= $R->{mainplot_nopk};
-					$Rscript .= $R->{mainplot_nopk_rand_1000};
-					$Rscript .= $R->{mainplot_nopk_rand_100};
-				}
-				else {
-#					print "\n\n----------------- $LCY$currFile$N IS A PEAK FILE R = $currFile.PNG.R -------------- \n\n";
-					$Rscript .= $R->{mainplot}; # p png and p pdf
-				}
-
-				# Main Plot Cluster Addition
-				if (-e $curr_cluster_file and -s $curr_cluster_file > 0 and $currFile !~ /\.NOPK\./) {
-					$Rscript .= $R->{mainplotClusterAddition};
-				}
-				# Main Plot Peak Bed Addition
-				if (-e $bedFile and -s $bedFile > 0 and $currFile !~ /\.NOPK\./) {
-					$Rscript .= $R->{mainplotPeakBedAddition};
-				}
-				
-				# Second Plot & Conversion Graph
-				if ($currFile !~ /\.NOPK\./) {
-					$Rscript .= $R->{secondplotConversionGraph};
-				}
-				else {
-					$Rscript .= $R->{secondplotConversionGraph};
-					$Rscript .= $R->{secondplotConversionGraph_rand_1000};
-					$Rscript .= $R->{secondplotConversionGraph_rand_100};
-				}
-
-				if (defined $opt_B and -e $opt_B) {
-					if ($currFile !~ /\.NOPK\./) {
-						LOG($outLog, date() . "\t\t-> ADDED $boxFile!\n","NA") if defined $boxFile;
-						$Rscript .= $R->{box};
-					}
-					else {
-						LOG($outLog, date() . "\t\t-> ADDED $boxFile!\n","NA") if defined $boxFile;
-						$Rscript .= $R->{box_nopk};
-					}
-				}
-
-				# Add Third Plot and Do PNG
-				$Rscript .= $R->{Scale};
-				# Main Plot
-				if ($currFile !~ /\.NOPK\./) {
-					$RscriptPNG = $Rscript . $R->{PNG};
-					$RscriptPDF = $Rscript . $R->{PDF};
-				}
-				else {
-					$RscriptPNG = $Rscript . $R->{PNG_nopk};
-					$RscriptPDF = $Rscript . $R->{PDF_nopk};
-					$RscriptPNG .= $Rscript . $R->{PNG_nopk_rand_100};
-					$RscriptPDF .= $Rscript . $R->{PDF_nopk_rand_100};
-					$RscriptPNG_nopk_ALL = $Rscript . $R->{PNG_nopk_ALL};
-					$RscriptPDF_nopk_ALL = $Rscript . $R->{PDF_nopk_ALL};
-				}
-			}
-
-			open (my $outRscriptPNG, ">", "$currFile.PNG.R") or (LOG($outLog, date() . "Failed to write R script into $currFile.PNG.R: $!\n") and print $outLog $Rscript and next);
-			print $outRscriptPNG $RscriptPNG;
-			$Rscripts{"$currFile.PNG.R"}{summary} = $summary;
-			$Rscripts{"$currFile.PNG.R"}{runR} = (defined $opt_c and $flag =~ /^(NOPK_C|PEAK_C|NOPK_TEMP_C|PEAK_TEMP_C)$/) ? 1 : $flag =~ /(ALL|RCONV|_C)/ ? 0 : 1;
-			#$Rscripts{"$currFile.PNG.R"}{runR} = 0 if $totpeak == 0 and $flag =~ /PEAK/;
-			#$Rscripts{"$currFile.PNG.R"}{runR} = 0 if $totnopk == 0 and $flag =~ /NOPK/;
-			$Rscripts{"$currFile.PNG.R"}{runType} = $flag;
-			close $outRscriptPNG;
-
-			#push(@Rscript, "$currFile.PNG.R")          if $Rscripts{"$currFile.PNG.R"}{runR} eq 1 and $totpeak > 0;
-			#push(@Rscript, "$currFile.PNG_nopk_ALL.R") if $Rscripts{"$currFile.PNG.R"}{runR} eq 1 and $totnopk > 0;
-
-			open (my $outRscriptPDF, ">", "$currFile.PDF.R") or (LOG($outLog, date() . "Failed to write R script into $currFile.PDF.R: $!\n") and print $outLog $Rscript and next);
-			print $outRscriptPDF $RscriptPDF;
-			close $outRscriptPDF;
-
-			if ($currFile =~ /\.NOPK\./) {
-				open (my $outRscriptPNG_nopk_ALL, ">", "$currFile.PNG_nopk_ALL.R") or (LOG($outLog, date() . "Failed to write R script into $currFile.PNG_nopk_ALL.R: $!\n") and print $outLog $Rscript and next);
-				print $outRscriptPNG_nopk_ALL $RscriptPNG_nopk_ALL;
-				$Rscripts{"$currFile.PNG_nopk_ALL.R"}{summary} = $summary;
-				$Rscripts{"$currFile.PNG_nopk_ALL.R"}{runR} = 0;
-				$Rscripts{"$currFile.PNG_nopk_ALL.R"}{runType} = $flag . "_ALL";
-				close $outRscriptPNG_nopk_ALL;
-
-				open (my $outRscriptPDF_nopk_ALL, ">", "$currFile.PDF_nopk_ALL.R") or (LOG($outLog, date() . "Failed to write R script into $currFile.PDF_nopk_ALL.R: $!\n") and print $outLog $Rscript and next);
-				print $outRscriptPDF_nopk_ALL $RscriptPDF_nopk_ALL;
-				close $outRscriptPDF_nopk_ALL;
-			}
-		}
-		#print "$file\n";# if defined $opt_c and 
-		last if $fileCount > 100;
-	}
-	$totalFile = (keys %Rscripts);
-	LOG($outLog, "\n\n$YW ----------------- Running $totalFile/$fileCount R Scripts (below, showing only that are run) ------------------$N\n\n");
-	# open outRscripts for Rscripts that aren't relevant
-	$fileCount = 0;
-	foreach my $outRscriptPNG (sort keys %Rscripts) {
-		my $runR = $Rscripts{$outRscriptPNG}{runR};
-		push(@Rscript, $outRscriptPNG) if $runR == 1;
-	}
-
-	#print join("\n", @Rscript) . "\n";
-
-	my $sbatch_these_cmd = "Rscript FILENAME";
-	#my $cmd = "$footLoop_script_folder/footPeak_sbatch_2.pl $indexFile $seqFile FNINDICE FILENAME $outDir >
-	my $force_sbatch = 1 if defined $opt_F;
-	my $outsbatchDir = "$resDir/.footPeak_graph_sbatch/";
-	system("mkdir -p $outsbatchDir") if not -d $outsbatchDir;
-	sbatch_these($sbatch_these_cmd, "footPeak_graph", \@Rscript, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir);
-}
-=cut
 ###############
 # Subroutines #
 ###############
@@ -609,32 +353,6 @@ sub print_cmd {
    #LOG($outBigCMD, "\n$cmd\n","NA");
 }
 
-sub check_software {
-   my ($footLoop_script_folder, $version, $md5script);
-   my @check_software = `check_software.pl 2>&1`;
-   foreach my $check_software_line (@check_software[0..@check_software-1]) {
-      chomp($check_software_line);
-      next if $check_software_line !~ /\=/;
-      my ($query, $value) = split("=", $check_software_line);
-      next if not defined $query;
-      #print "$check_software_line\n";
-      if ($query =~ /footLoop_version/) {
-         ($version) = $value;
-      }
-      if ($query =~ /footLoop_script_folder/) {
-         next if defined $footLoop_script_folder;
-         ($footLoop_script_folder) = $value;
-      }
-      if ($query =~ /md5sum_script/) {
-         ($md5script) = $value;
-      }
-   }
-   print "\ncheck_software.pl\n";
-   print "footLoop_script_folder=$footLoop_script_folder\n";
-   print "footLoop_version=$version\n";
-   print "md5script=$md5script\n\n";
-   return($footLoop_script_folder, $version, $md5script);
-}
 
 sub Rscript {
 	my ($currFile, $bedFile, $curr_cluster_file, $totpeak, $totnopk, $pngout, $pdfout, $lenpdfout, $resDir) = @_;
@@ -1744,82 +1462,3 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 
 
 __END__
-=comment
-	open (my $outR_notrelevantPNG, ">", "$resDir/footPeak_graph_Rscripts.PNG.sh") or DIELOG($outLog, date() . " Failed to write to $LCY$resDir/footPeak_graph_Rscripts.PNG.sh: $!\n");
-	open (my $outR_notrelevantPDF, ">", "$resDir/footPeak_graph_Rscripts.PDF.sh") or DIELOG($outLog, date() . " Failed to write to $LCY$resDir/footPeak_graph_Rscripts.PDF.sh: $!\n");
-	foreach my $outRscriptPNG (sort keys %Rscripts) {
-		my $summary = $Rscripts{$outRscriptPNG}{summary};
-		my $runR = $Rscripts{$outRscriptPNG}{runR};
-		my $runType = $Rscripts{$outRscriptPNG}{runType};
-		my $outRscriptPDF = $outRscriptPNG; 
-			$outRscriptPDF =~ s/PNG.R$/PDF.R/;
-			$outRscriptPDF =~ s/PNG_nopk_ALL.R$/PDF_nopk_ALL.R/;
-		LOG($outLog, date() . " $LCY Skipped $outRscriptPNG$N (requested gene is $LGN$opt_g$N\n") and next if defined $opt_g and $outRscriptPNG !~ /$opt_g/;
-		$fileCount ++;
-		my $RLOG = 0;
-		if (($opt_r == 2) or ($opt_r == 1 and $runR == 1)) {
-			LOG($outLog, "\n" . date() . "flag=$LPR$runType$N, $LGN$fileCount/$totalFile$N. Running$LGN PNG$N $LCY$outRscriptPNG$N: $summary\n");
-			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1\n","NA");
-			print $outR_notrelevantPNG "cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1 #$runType\n";
-			$RLOG = system("cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1");
-		}
-		else {
-			LOG($outLog, "\n" . date() . "flag=$LPR$runType$N, $LGN$fileCount/$totalFile$N.$LRD Not$N running$LGN PNG$N $LCY$outRscriptPNG$N: $summary\n","NA");
-			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1\n","NA");
-			print $outR_notrelevantPNG "cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPNG > $outRscriptPNG.LOG 2>&1 #$runType\n";
-			$RLOG = 1;
-		}
-		my $prevRLOG = $RLOG;
-		if (($opt_r == 2) or ($opt_r == 1 and $runR == 1)) {
-			if ($RLOG ne 0) {
-				if (not -e "$outRscriptPNG.LOG") {
-					$RLOG = "\t$outRscriptPNG.LOG cannot be found!\n" if $runR == 1;
-				}
-				else {
-					my @RLOG = `tail -n 5 $outRscriptPNG.LOG`;
-					$RLOG = "\t" . join("\n\t", @RLOG);
-				}
-				LOG($outLog, date() . "\t--> ${LRD}Failed$N to R --vanilla --no-save < $outRscriptPNG: $prevRLOG, LOG:\n$RLOG\n") if $runR == 1;
-			}
-			else {
-				LOG($outLog, date() . "\t--> ${LGN}Success$N on running R --vanilla --no-save < $LCY$outRscriptPNG$N\n");
-			}
-		}
-
-		$RLOG = 0;
-		if (($opt_R == 2) or ($opt_R == 1 and $runR == 1)) {
-			LOG($outLog, "\n" . date() . "flag=$LPR$runType$N, $LGN$fileCount/$totalFile$N. Running$LGN PDF: $LCY$outRscriptPDF$N: $summary\n");
-			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1\n","NA");
-			print $outR_notrelevantPDF "cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1 #$runType\n";
-			$RLOG = system("cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1");
-		}
-		else {
-			LOG($outLog, "\n" . date() . "flag=$LPR$runType$N, $LGN$fileCount/$totalFile$N.$LRD Not$N running$LGN PDF$N $LCY$outRscriptPDF$N: $summary\n","NA");
-			LOG($outLog, date() . "\tprinted to ${LCY}footPeak_graph_Rscripts.sh$N: cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1\n","NA");
-			print $outR_notrelevantPDF "cd $currMainFolder/ && R --vanilla --no-save < $outRscriptPDF > $outRscriptPDF.LOG 2>&1 #$runType\n";
-			$RLOG = 1;
-		}
-		$prevRLOG = $RLOG;
-		if (($opt_R == 2) or ($opt_R == 1 and $runR == 1)) {
-			if ($RLOG ne 0) {
-				if (not -e "$outRscriptPDF.LOG") {
-					$RLOG = "\t$outRscriptPDF.LOG cannot be found!\n" if $runR == 1;
-				}
-				else {
-					my @RLOG = `tail -n 5 $outRscriptPDF.LOG`;
-					$RLOG = "\t" . join("\n\t", @RLOG);
-				}
-				LOG($outLog, date() . "\t--> ${LRD}Failed$N to R --vanilla --no-save < $outRscriptPDF: $prevRLOG, LOG:\n$RLOG\n") if $runR == 1;
-			}
-			else {
-				LOG($outLog, date() . "\t--> ${LGN}Success$N on running R --vanilla --no-save < $LCY$outRscriptPDF$N\n");
-			}
-		}
-	}
-	LOG($outLog, "\n\n$YW ----------------- SCP PATHS ------------------$N\n\n");
-	foreach my $file (sort keys %scp) {
-		LOG($outLog, "$file\n");
-	}
-}
-
-=cut

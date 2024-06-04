@@ -15,10 +15,10 @@
 # The license can be found at https://www.gnu.org/licenses/gpl-3.0.en.html. 
 # By downloading or using this software, you agree to the terms and conditions of the license. 
 
-use warnings FATAL => 'all'; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars   qw($opt_v $opt_r $opt_g $opt_G $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f $opt_l $opt_e $opt_z $opt_9 $opt_o $opt_J $opt_0);
-my @opts = qw(       $opt_r $opt_g $opt_i $opt_G $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_l $opt_e $opt_z $opt_9 $opt_o $opt_J $opt_0);
-getopts("vr:g:G:i:n:L:x:y:q:HhZF:p:l:ez9o:J:0");
+use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
+use vars   qw($opt_v $opt_r $opt_g $opt_G $opt_i $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_f $opt_l $opt_e $opt_z $opt_9 $opt_o $opt_J $opt_0 $opt_a);
+my @opts = qw(       $opt_r $opt_g $opt_i $opt_G $opt_n $opt_L $opt_x $opt_y $opt_p $opt_q $opt_Z $opt_h $opt_H $opt_F $opt_l $opt_e $opt_z $opt_9 $opt_o $opt_J $opt_0 $opt_a);
+getopts("vr:g:G:i:n:L:x:y:q:HhZF:p:l:ez9o:J:0a");
 
 BEGIN {
 	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -37,7 +37,7 @@ my %OPTS  = ('r' => $opt_r, 'g' => $opt_g, 'i' => $opt_i, 'n' => $opt_n, 'G' => 
 				 'L' => $opt_L, 'x' => $opt_x, 'y' => $opt_y, 'p' => $opt_p, 'J' => $opt_J,
 				 'q' => $opt_q, 'F' => 'NONE', 'Z' => 'NONE', 'o' => $opt_o, '0' => $opt_0,
 				 'p' => 'NONE', 'q' => $opt_q, 'l' => $opt_l);
-my %OPTS2 = ('p' => $opt_p, 'Z' => $opt_Z, 'F' => $opt_F);
+my %OPTS2 = ('p' => $opt_p, 'Z' => $opt_Z, 'F' => $opt_F, 'a' => $opt_a);
 
 my $footLoop_script_folder = dirname(dirname abs_path $0) . "/footLoop/";
 my $version = "unk";
@@ -55,6 +55,7 @@ if (not defined $opt_p) {
 # 1. Define Input #
 ###################
 my $snakemake;
+my $ambig = $opt_a;
 my ($readFile, $genomeFile, $geneIndexFile, $outDir) = getFullpathAll($opt_r, $opt_g, $opt_i, $opt_n);
 my ($readFilename)  = getFilename($opt_r, "full");
 my ($geneIndexName) = getFilename($geneIndexFile);
@@ -740,12 +741,39 @@ sub run_bismark {
 			my @bamFiles = <$outFolder/*_bismark/*bismark_bt2.bam>;#.$ext>; 
 			#my @bamFiles      = <$outFolder/*_bismark/*.$ext>;
 			my $totalbamFiles = @bamFiles;
-
+			
 			if (defined $force{4} or $totalfastqFiles > $totalbamFiles or $totalbamFiles == 0) {# or not -e $BAMFile) {
 				#die "ASDF\n";;
 				sbatch_these($bismark_cmd, "bismark", "bam", \@fastqFiles, $max_slurm_job, $outLog);
 				#@bamFiles      = <$outFolder/*_bismark/*.$ext>;
+
 				@bamFiles = <$outFolder/*_bismark/*bismark_bt2.bam>;#.$ext>; 
+
+				# AMBIG
+				if (defined $ambig) {
+					for (my $i = 0; $i < @bamFiles; $i++) {
+						my $ambigFile = $bamFiles[$i];
+						$ambigFile =~ s/.bam$/.ambig.bam/;
+						next if not -e $ambigFile;
+	
+						my $bamFile = $bamFiles[$i] . ".unmerged";
+						system("/bin/mv $bamFiles[$i] $bamFile");
+						my $fofnFile = "$bamFile.fofn";
+						open (my $outfofn, ">", $fofnFile) or die "Failed to write to $fofnFile: $!\n";
+						print $outfofn "$bamFile\n";
+						print $outfofn "$ambigFile\n";
+						close $outfofn;
+						my $merge_bam_cmd = "samtools merge -f --reference $genomeFile $bamFiles[$i] -b $fofnFile";
+						my $merge_bam_cmd_print = $merge_bam_cmd;
+						print_cmd($merge_bam_cmd, $outLog);
+						system($merge_bam_cmd) == 0 or DIELOG($outLog, "\n" . date() . "${LPR}Merge *part/.bam .bam$N: ${LRD}FAILED$N: Failed to merge cmd: $!\nCMD=$LCY$merge_bam_cmd$N\n\n");
+						LOG($outLog, "\n" . date() . "${LPR}Merge *part/.bam .bam$N: Merging ambig into .bam files using samtools\n");
+					}
+				}
+
+
+
+
 				$totalbamFiles = @bamFiles;
 				LOG($outLog, "\n" . date() . "${LPR}bismark .part.gz .bam$N: ${GN}SUCCESS$N: Created $LGN$totalbamFiles$N .bam files from bismark run in folders: $LCY$outFolder/*_bismark/$N\n");
 			}
@@ -935,9 +963,9 @@ sub run_bismark {
 				@HEADER = @header if $p == 0;
 				LOG($outLog, "\t#$p. $LCY$part_bismark_report$N:\n\t","NA") if $p < 5;
 				for (my $q = 0; $q < @header; $q++) {
-					LOG($outLog, " $q: $LCY$header[$q]$N=$LGN$report[$q]$N","NA") if $p < 5;
-					LOG($outLog, "\nfootLoop.pl::run_bismark: parse_bismark_report loop, ERROR undefined header at i=$q\n") if not defined $header[$q];
-					LOG($outLog, "\nfootLoop.pl::run_bismark: parse_bismark_report loop, ERROR header ($header[$q]) isnt' same as HEADER ($HEADER[$q]) at i=$q\n") if defined $header[$q] and $header[$q] ne $HEADER[$q];
+					#LOG($outLog, " $q: $LCY$header[$q]$N=$LGN$report[$q]$N","NA") if $p < 5;
+					#LOG($outLog, "\nfootLoop.pl::run_bismark: parse_bismark_report loop, ERROR undefined header at i=$q\n") if not defined $header[$q];
+					#LOG($outLog, "\nfootLoop.pl::run_bismark: parse_bismark_report loop, ERROR header q=$q header=$header[$q] isnt' same as HEADER=$HEADER[$q] at i=$q\n") if defined $header[$q] and $header[$q] ne $HEADER[$q];
 					# just next coz we're logging, not that important
 					next if not defined $header[$q];
 					next if $header[$q] ne $HEADER[$q];
@@ -1123,11 +1151,11 @@ sub sbatch_these {
 		print $out $sbatchprint;
 		close $out;
 
-		if (not defined $force{0} and not defined $force_sbatch and -e $donefile) {
+		if (-e $donefile) {#not defined $force{0} and not defined $force_sbatch and -e $donefile) {
 			LOG($outLog, "\n" . date() . "${LPR}$i/$totalfiles sbatch_these $suffix$N: sbatch $LCY$sbatchfile$N # ${LGN}DONE$N\n");
 			next;
 		}
-		else {
+		if (not -e $donefile) {
 			LOG($outLog, "\n" . date() . "${LPR}$i/$totalfiles sbatch_these $suffix$N: sbatch: $LCY$sbatchfile$N\n");
 		}
 		
