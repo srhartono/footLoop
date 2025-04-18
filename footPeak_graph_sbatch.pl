@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_w $opt_g $opt_G $opt_v $opt_n $opt_r $opt_R $opt_B $opt_c $opt_F $opt_0 $opt_J);
-getopts("n:vg:w:G:r:R:B:cF0J:");
+use vars qw($opt_w $opt_g $opt_G $opt_v $opt_n $opt_r $opt_R $opt_B $opt_c $opt_F $opt_0 $opt_J $opt_C);
+getopts("n:vg:w:G:r:R:B:cF0J:C");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -14,6 +14,7 @@ BEGIN {
 
 use myFootLib;
 use FAlite;
+use footLoop_sbatch;
 
 my $homedir = $ENV{"HOME"};
 
@@ -126,7 +127,7 @@ If R dies for any reason, make sure you have these required R libraries:
 			my ($gene, $CHR, $BEG, $END, $GENE, $VAL, $STRAND) = $line =~ /^def=(.+), coor=(.+), (\d+), (\d+), (.+), (\-?\d+\.?\d*), ([\+\-])$/;
 			LOG($outLog, "gene=$gene,chr=$CHR,beg=$BEG,end=$END,gene=$GENE,val=$VAL,strand=$STRAND\n","NA");
 	   	if (defined $opt_G and $gene !~ /$opt_G/i) {
-	   	   LOG($outLog, date() . " Skipped $LCY$gene$N as it doesn't contain $LGN-G $opt_G$N\n");
+	   #	   LOG($outLog, date() . " Skipped $LCY$gene$N as it doesn't contain $LGN-G $opt_G$N\n");
 	   	   next;
 	   	}
 			$GENE = uc($GENE);
@@ -155,6 +156,7 @@ If R dies for any reason, make sure you have these required R libraries:
 				my $thres2 = $thres; $thres =~ s/0$//;
 				my $peakFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.PEAK";
 				my $nopkFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.NOPK";
+				next if (defined $opt_G and $peakFile !~ /$opt_G/);
 				#LOG($outLog, "$resDir/PNG/CONLY/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.PEAK.out.PEAK.png.ALL.conly.png\n");
 				#LOG($outLog, "$resDir/PNG/CONLY/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.NOPK.out.NOPK.png.ALL.conly.png\n");
 				my $peakflag = getFlag($peakFile, "Pos", $strand, $type);
@@ -166,21 +168,37 @@ If R dies for any reason, make sure you have these required R libraries:
 				}
 				#next if $peakFile !~ /PBEH2_BCBC4_PLASMIDPFC9NTBSPQI13_DESCTXLINEARBSAINTBSPQI13/;
 				$peakFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres2\_$type.PEAK" if not -e $peakFile;
-				die "Can't find peakFile $LCY$peakFile$N\n" if not -e $peakFile;
+				
+				print "Can't find peakFile $LCY$peakFile$N\n" if not -e $peakFile;
 				LOG($outLog, "label=$label, gene$mygene, strand=$strand, peak=$peakFile\n","NA");
 				$files{$peakFile} = $mygene;
-				if ($opt_r eq 0 or $opt_r eq 1) {
-					if (defined $opt_c) {
-						next if $peakFile !~ /(Pos.+CG|Pos.+CH|Neg.+GC|Neg.+GH)/;
-					}
-					else {
-						next if $peakFile !~ /(Pos.+CH|Neg.+GH)/;
-					}
-					push(@files, $peakFile);
-				}
-				elsif ($opt_r eq 2) {
-					push(@files, $peakFile);
-				}
+
+			   my $RDMADEPNG = $opt_r;
+			   $RDMADEPNG = 0 if $peakflag =~ /(RCONV)/ and $opt_r < 2;
+			   $RDMADEPNG = 0 if $peakflag =~ /(ALL)/ and $opt_r < 3;
+			   $RDMADEPNG = 0 if $peakflag =~ /_C$/ and not defined $opt_c and not defined $opt_C;
+			   $RDMADEPNG = 0 if $peakflag !~ /_C$/ and defined $opt_c and not defined $opt_C;
+
+			   my $RDMADEPDF = $opt_R;
+			   $RDMADEPDF = 0 if $peakflag =~ /(RCONV)/ and $opt_R < 2;
+			   $RDMADEPDF = 0 if $peakflag =~ /(ALL)/ and $opt_R < 3;
+			   $RDMADEPDF = 0 if $peakflag =~ /_C$/ and not defined $opt_c and not defined $opt_C;
+			   $RDMADEPDF = 0 if $peakflag !~ /_C$/ and defined $opt_c and not defined $opt_C;
+				next if ($RDMADEPNG == 0 and $RDMADEPDF == 0);
+				push(@files, $peakFile);
+				
+				#if ($opt_r eq 0 or $opt_r eq 1) {
+				#	if (defined $opt_c) {
+				#		next if $peakFile !~ /(Pos.+CG|Pos.+CH|Neg.+GC|Neg.+GH)/;
+				#	}
+				#	else {
+				#		next if $peakFile !~ /(Pos.+CH|Neg.+GH)/;
+				#	}
+				#	push(@files, $peakFile);
+				#}
+				#elsif ($opt_r eq 2) {
+				#	push(@files, $peakFile);
+				#}
 				#last if @files > 5;
 			}
 			#last if @files > 5;
@@ -196,6 +214,7 @@ If R dies for any reason, make sure you have these required R libraries:
 
 	my $sbatch_these_cmd = "footPeak_graph_sbatch_2.pl -n $resDir -i FILENAME -r $opt_r -R $opt_R";
 	$sbatch_these_cmd .= " -c" if defined $opt_c;
+	$sbatch_these_cmd .= " -C" if defined $opt_C;
 	$sbatch_these_cmd .= " -0" if defined $opt_0;
 	$sbatch_these_cmd .= " -F" if defined $opt_F;
 	$sbatch_these_cmd .= " -B $boxFile" if defined $opt_B;
@@ -203,15 +222,21 @@ If R dies for any reason, make sure you have these required R libraries:
 	my $force_sbatch = 1 if defined $opt_F;
 	my $outsbatchDir = "$resDir/.footPeak_graph_sbatch/";
 	system("mkdir -p $outsbatchDir") if not -d $outsbatchDir;
-	
-	sbatch_these($sbatch_these_cmd, "footPeak_graph_sbatch", \@files, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir);
+	my $debug; my $mem = 4000;
+	$debug = 0 if defined $opt_0;
+	#if (defined $opt_0) {
+	#	foreach my $file (@files[0..@files-1]) {
+	#		LOG($outLog, "$file\n") if $file =~ /Pos.+CG/;
+	#	}
+	#}
+	footLoop_sbatch_main($sbatch_these_cmd, "footPeak_graph_sbatch", \@files, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir, $mem, $debug);
 }
 
 
 ###############
 # Subroutines #
 ###############
-
+=comment
 sub sbatch_these {
    #my ($cmd, $suffix, $ext, $filesARRAY, $max_parallel_run, $outLog, $force_sbatch, $folderwant) = @_;
    my ($cmd, $suffix, $filesARRAY, $max_parallel_run, $outLog, $force_sbatch, $folderwant) = @_;
@@ -352,7 +377,7 @@ sub print_cmd {
    LOG($outLog, "$LGN\n$cmd\n$N\n");
    #LOG($outBigCMD, "\n$cmd\n","NA");
 }
-
+=cut
 
 sub Rscript {
 	my ($currFile, $bedFile, $curr_cluster_file, $totpeak, $totnopk, $pngout, $pdfout, $lenpdfout, $resDir) = @_;
@@ -652,6 +677,73 @@ p.heatmaponly = ggplot(dm,aes(variable,y)) +
 p.png = p
 p.pdf = p
 ";
+
+# -------------------- $R->{mainplot_peak_rand_300}
+	$R->{mainplot_peak_rand_300} .= "
+
+##########################
+# Main Plot Part 1 peak rand
+df.total = dim(df)[1]
+set.seed(42)
+if (df.total > 300) {
+	df.rand.300 = df[sample( seq(1,df.total) ,300,replace=F),]
+	print(\"randoming 300. DF TOTAL = \"); print(df.total)
+} else {
+	df.rand.300 = df
+	print(\"NOT randoming 300. DF TOTAL = \"); print(df.total)
+}
+
+# sorting by hclust
+if (dim(df.rand.300)[1] < 300) {
+	h = hclust(dist(df.rand.300[,-1]))
+	df.rand.300 = df.rand.300[h\$order,]
+} else if (dim(df.rand.300)[2] < 10) {
+	mysum = apply(df.rand.300[,-1],1,sum)
+	df.rand.300 = df.rand.300[order(mysum),]
+}
+df.rand.300\$y = seq(1,dim(df.rand.300)[1])
+
+write.table(df.rand.300,file=\"$currFile.rand\",quote=F,row.names=F,col.names=F,sep=\"\\t\")
+print(\"Wrote to $currFile.rand\")
+
+dm.rand.300 = melt(df.rand.300,id.vars=c(\"V1\",\"y\"))
+print(dim(df.rand.300))
+print(dim(dm.rand.300))
+dm.rand.300\$variable = as.numeric(as.character(dm.rand.300\$variable))
+
+p.rand.300 = ggplot(dm.rand.300,aes(variable,y)) +  
+	 geom_tile(aes(fill=as.factor(value))) + 
+	 theme_bw() + theme(legend.position=\"none\") + 
+	 scale_fill_manual(values=c(p.col)) +
+	 scale_color_manual(values=c(p.col)) +
+	 scale_x_continuous(expand = c(0,0)) + 
+	 scale_y_continuous(expand = c(0,0)) +
+	 theme(
+	 	line = element_blank(),
+	 	axis.text = element_blank(),
+	 	axis.title = element_blank()
+	 ) + 
+	 ggtitle(paste(\"(peak=\",$totpeak,\"; nopk=\",$totnopk,\")\",sep=\"\"))
+
+p.heatmaponly.rand.300 = ggplot(dm.rand.300,aes(variable,y)) +  
+	 geom_tile(aes(fill=as.factor(value))) + 
+	 theme_bw() + theme(legend.position=\"none\") + 
+	 scale_fill_manual(values=c(p.col)) +
+	 scale_color_manual(values=c(p.col)) +
+	 scale_x_continuous(expand = c(0,0)) + 
+	 scale_y_continuous(expand = c(0,0)) +
+	 theme(
+	 	line = element_blank(),
+	 	axis.text = element_blank(),
+	 	axis.title = element_blank()
+	 )
+
+	p.rand.300.pdf = p.rand.300 + theme(plot.title = element_text(size = 10*p.pdf.scale))
+	p.rand.300.png = p.rand.300 + theme(plot.title = element_text(size = 10*p.png.scale))
+
+";
+
+
 
 	$R->{box} = "
 

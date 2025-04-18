@@ -47,6 +47,8 @@ my $coor = parse_geneIndexFile($geneIndexFile, $outLog);
 DIELOG($outLog, date() . " ERROR: $footLoopFolder footloop folder doesn't exist!\n") if not -d $footLoopFolder;
 my %data;
 my ($labelFile) = "$footPeakFolder/.LABEL";
+my @nuc = qw(0 1 2 3 4 5 6 7 8 9);
+my @color = ($GR, $N, $N, $N, $YW, $YW, $LGN, $LGN, $LRD, $LRD); 
 
 #for (my $i = 0; $i < @peakFiles; $i++) {
 #	my $peakFile = $peakFiles[$i];
@@ -65,15 +67,13 @@ my ($labelFile) = "$footPeakFolder/.LABEL";
 #}
 my $wclFile = "$footPeakFolder/99_FOOTSTATS/0_wcl.tsv";
 if (not -e $wclFile or defined $opt_F) {
-	#my $cmd = "footPeak_wclthese.pl -n $footPeakFolder";
+	my $cmd = "footPeak_wclthese.pl -n $footPeakFolder";
 	#print "\nGetting linecount of each .out files cmd #1:\n$LCY$cmd$N\n\n";
-	#system($cmd) == 0 or die "Failed to run cmd: $!\n$LCY$cmd$N\n\n";
+	system($cmd) == 0 or die "Failed to run cmd: $!\n$LCY$cmd$N\n\n";
 	my $cmd2 = "cat $footPeakFolder/.CALL/*.wcl > $footPeakFolder/99_FOOTSTATS/0_wcl.tsv";
-	print "\nGetting linecount of each .out files cmd #2:\n$LCY$cmd2$N\n\n";
+	#print "\nGetting linecount of each .out files cmd #2:\n$LCY$cmd2$N\n\n";
 	system($cmd2) == 0 or die "Failed to run cmd: $!\n$LCY$cmd2$N\n\n";
 }
-print "\n------------------------------\n";
-print "${YW}1. Parsing wclFile $LCY$wclFile$N\n\n";
 my $wclhash = parse_wcl($wclFile);
 my %wcl = %{$wclhash};
 sub parse_wcl {
@@ -91,7 +91,7 @@ sub parse_wcl {
 		$file =~ s/\/+/\//g;
 		$file =~ s/\.\//\//g;
 		$file =~ s/\/+/\//g;
-		print "\n${LGN}wclFile $LCY$wclFile$N: Example line $linecount:\n$file\t$totalread\n\n" if $linecount eq 1;
+		#print "\n${LGN}wclFile $LCY$wclFile$N: Example line $linecount:\n$file\t$totalread\n\n" if $linecount eq 1;
 		$wcl{$file} = $totalread;
 	}
 	close $in1;
@@ -101,69 +101,198 @@ sub parse_wcl {
 my $peakFileCount = 0;
 my $totalfile = (keys %wcl);
 my %bed;
-print "${LGN}SUCCESS!!!$N ${YW}Parsed wclFile$N $LCY$wclFile$N\n\n";
-print "\n------------------------------\n";
-print "${YW}2. Checking bedFiles$N (n=$LGN$totalfile$N)\n\n";
-
-my $goodFileCount = 0;
+my $lastplasmid;
+print "Checking peak.out Files (n=$LGN$totalfile$N)\n\n";
+$peakFileCount = 0;
+my $counthash;
+print "${LCY}PBEH2_BC81_PLASMIDPFC8_TACT1T2_DESCLINEAR_SGRNA08_TX.m84066_240320_204128_s1/123669377/ccs$N\t${LPR}peaktype$N\tconvperc\tconv\tlength";
+foreach my $nuc (@nuc[0..@nuc-1]) {
+	print "\t$color[$nuc]$nuc     $N";
+}
+print "\n";
 foreach my $peakFile (sort keys %wcl) {
-	last if $peakFileCount > 2;#205;
-	my $totalread = $wcl{$peakFile};
-		$data{$peakFile}{PEAK}{totalread} = $totalread;
-
-	my $localbeddataFile = "$peakFile.localbed.footStats2.data.gz.data.gz";
-	my $bedFile = $peakFile;
-	print "$peakFileCount/$totalfile $LCY$bedFile$N\n" if ($peakFileCount) % 100 == 0;
-	my ($peakFileName) = getFilename($peakFile);
-	$bedFile =~ s/\/\.CALL\//\/PEAKS_LOCAL\//;
-	$bedFile =~ s/.out$/.local.bed/;
-	if (-e $localbeddataFile and -s $localbeddataFile > 0) {
-		$data{$peakFile}{GOOD} = 1;
-		print "  $LGN$peakFileCount.$goodFileCount$N get localbed $LCY$localbeddataFile$N $goodFileCount\n" if $goodFileCount < 5 or $goodFileCount % 100 == 0;
-		get_localbeddataFile($peakFile, $localbeddataFile);
-		#print "Doesn't exist peakFile\n" if not defined $data{$peakFile}{PEAKLEN}{SD};
-		if (defined $opt_d and $goodFileCount == 0) {
-			foreach my $key (sort keys %{$data{$peakFile}}) {
-				if ($data{$peakFile}{$key} =~ /HASH/) {
-					foreach my $key2 (sort keys %{$data{$peakFile}{$key}}) {
-						print "$key $key2 $data{$peakFile}{$key}{$key2}\n";
-					}
-				}
-				else {
-					print "$key $data{$peakFile}{$key}\n";
-				}
-			}
-		}
-		die "here\n" if defined $opt_d;
-		$goodFileCount ++;
-		$peakFileCount ++;
+	if (defined $opt_G and $peakFile !~ /$opt_G/i) {
 		next;
 	}
-	else {
-		$data{$peakFile}{GOOD} = 0;
-		$peakFileCount ++;
-		$data{$peakFile}{PEAKLEN}{MEAN} = 0;
-		$data{$peakFile}{PEAKLEN}{MEDIAN} = 0;
-		$data{$peakFile}{PEAKLEN}{SD} = 0;
-		$data{$peakFile}{PEAK}{total} = 0;
-		for (my $i = 0; $i <= 100; $i+=25) {
-			$data{$peakFile}{PEAK}{$i} = 0;
-			$data{$peakFile}{PEAKPERC}{$i} = 0;
-			$data{$peakFile}{PEAKATLEAST}{$i} = 0;
-			$data{$peakFile}{PEAKATLEASTPERC}{$i} = 0;
-		}
-		$data{$peakFile}{PEAK}{totalpeak} = 0;
-		$data{$peakFile}{PEAK}{totalread} = 0;
+	$peakFileCount ++;
+	my $totalread = $wcl{$peakFile};
+	$data{$peakFile}{PEAK}{totalread} = $totalread;
+	#print "$LGN$peakFileCount/$totalfile$N: totalread=$YW$totalread$N $LCY$bedFile$N\n" if -e $bedFile;next;
+	print "$peakFileCount/$totalfile$N $peakFile\n" if $peakFileCount % 1000 == 0;
+	print "$LGN$peakFileCount/$totalfile$N totalread=$YW$totalread$N\n" if $peakFileCount % 1000 == 0;
+	my $parseName = parseName($peakFile);
+	my ($label, $gene, $strand, $window, $thres, $convtype, $bc, $plasmid, $desc, $pcb) = @{$parseName->{array}};
+	my $readstrand = $strand;
+	$label =~ s/_bismark_bt2.bam//;
+	my $plasmid2 = "$label\_BC$bc\_PLASMID$plasmid\_DESC$desc";
+	my $genestrand = $coor->{$plasmid2}{strand}; 
+	$genestrand = "Pos" if not defined $genestrand;
+	$genestrand = $genestrand eq "+" ? "Pos" : $genestrand eq "-" ? "Neg" : $genestrand;
+	my $array = $parseName->{$peakFile}{array};
+   my ($flag) = getFlag($peakFile, $genestrand, $readstrand, $convtype);
+	#print "$LCY$plasmid2$N $YW$readstrand$N $LGN$convtype$N $LPR$flag$N\n";
+	$lastplasmid = $plasmid2 if not defined $lastplasmid;
+
+	if ($lastplasmid ne $plasmid2) {
+		print "lastplasmid=$LGN$lastplasmid$N plasmid2=$LCY$plasmid2$N\n";
+		printcounthash($counthash);
+		undef $counthash;
 	}
+	$lastplasmid = $plasmid2;
+	$counthash = parse_outFile($peakFile, $counthash, $flag);# if $flag eq "PEAK_C";
+	#print "$lastplasmid $plasmid2 total $flag = " . (keys %{$counthash}) . "\n";
+	last if $peakFileCount > 320;
+}
+
+		#print "Here\n";
+if (1 == 1) {
+	print "lastplasmid=$LGN$lastplasmid$N\n";
+	printcounthash($counthash);
+}
+sub printcounthash {
+	my ($counthash) = @_;
+		#my %printed;
+		my $totalcounthash = (keys %{$counthash});
+		print "$totalcounthash\n";
+		foreach my $read (sort keys %{$counthash}) {
+			next if not defined $counthash->{$read};
+			next if (keys %{$counthash->{$read}} < 4);
+			next if not defined $counthash->{$read}{NOPK_TEMP_C};
+			next if not defined $counthash->{$read}{NOPK_TEMP_RCONV_C};
+		#	$printed{$flag} = 1;
+#			print "$LCY$read$N";
+			my $perc0  = $counthash->{$read}{NOPK_TEMP_C}{perc}{6} + $counthash->{$read}{NOPK_TEMP_C}{perc}{7} + $counthash->{$read}{NOPK_TEMP_C}{perc}{8} + $counthash->{$read}{NOPK_TEMP_C}{perc}{9};
+			my $total0 = $counthash->{$read}{NOPK_TEMP_C}{perc}{4} + $counthash->{$read}{NOPK_TEMP_C}{perc}{5} + $perc0;
+			my $len0 = int($counthash->{$read}{NOPK_TEMP_C}{total} * $total0/100+0.5);
+			my $finalperc0 = $total0 == 0 ? 1 : int(1000*$perc0 / $total0+0.5)/10;
+			my $conv0 = int($counthash->{$read}{NOPK_TEMP_C}{total} * $perc0/100+0.5);
+
+			my $perc1  = $counthash->{$read}{NOPK_TEMP_RCONV_C}{perc}{6} + $counthash->{$read}{NOPK_TEMP_RCONV_C}{perc}{7} + $counthash->{$read}{NOPK_TEMP_RCONV_C}{perc}{8} + $counthash->{$read}{NOPK_TEMP_RCONV_C}{perc}{9};
+			my $total1 = $counthash->{$read}{NOPK_TEMP_RCONV_C}{perc}{4} + $counthash->{$read}{NOPK_TEMP_RCONV_C}{perc}{5} + $perc1;
+			my $len1 = int($counthash->{$read}{NOPK_TEMP_RCONV_C}{total} * $total1/100+0.5);
+			my $finalperc1 = $total1 == 0 ? 1 : int(1000*$perc1 / $total1+0.5)/10;
+			my $conv1 = int($counthash->{$read}{NOPK_TEMP_RCONV_C}{total} * $perc1/100+0.5);
+
+			print "$LCY$read$N\t${LPR}NOPK_TEMP_C$N\t$finalperc0\t$conv0\t$len0";
+			foreach my $nuc (@nuc[0..@nuc-1]) {
+				print "\t$color[$nuc]$counthash->{$read}{NOPK_TEMP_C}{perc}{$nuc}$N";
+			}
+			print "\n";
+			print "$LCY$read$N\t${LPR}NOPK_TEMP_RCONV_C$N\t$finalperc1\t$conv1\t$len1";
+			foreach my $nuc (@nuc[0..@nuc-1]) {
+				print "\t$color[$nuc]$counthash->{$read}{NOPK_TEMP_RCONV_C}{perc}{$nuc}$N";
+			}
+			print "\n";
+		#	last if (keys %printed == 16);
+		}
+		print "\n\n";
+
+		foreach my $read (sort keys %{$counthash}) {
+			next if not defined $counthash->{$read};
+			next if (keys %{$counthash->{$read}} < 4);
+			next if not defined $counthash->{$read}{NOPK_C};
+			next if not defined $counthash->{$read}{NOPK_RCONV_C};
+#			$printed{$flag} = 1;
+#			print "$LCY$read$N" if $flag =~ /_C/;
+			my $perc0  = $counthash->{$read}{NOPK_C}{perc}{6} + $counthash->{$read}{NOPK_C}{perc}{7} + $counthash->{$read}{NOPK_C}{perc}{8} + $counthash->{$read}{NOPK_C}{perc}{9};
+			my $total0 = $counthash->{$read}{NOPK_C}{perc}{4} + $counthash->{$read}{NOPK_C}{perc}{5} + $perc0;
+			my $len0 = int($counthash->{$read}{NOPK_C}{total} * $total0/100+0.5);
+			my $finalperc0 = $total0 == 0 ? 0 : int(1000*$perc0 / $total0+0.5)/10;
+			my $conv0 = int($counthash->{$read}{NOPK_C}{total} * $perc0/100+0.5);
+
+			my $perc1  = $counthash->{$read}{NOPK_RCONV_C}{perc}{6} + $counthash->{$read}{NOPK_RCONV_C}{perc}{7} + $counthash->{$read}{NOPK_RCONV_C}{perc}{8} + $counthash->{$read}{NOPK_RCONV_C}{perc}{9};
+			my $total1 = $counthash->{$read}{NOPK_RCONV_C}{perc}{4} + $counthash->{$read}{NOPK_RCONV_C}{perc}{5} + $perc1;
+			my $len1 = int($counthash->{$read}{NOPK_RCONV_C}{total} * $total1/100+0.5);
+			my $finalperc1 = $total1 == 0 ? 1 : int(1000*$perc1 / $total1+0.5)/10;
+			my $conv1 = int($counthash->{$read}{NOPK_RCONV_C}{total} * $perc1/100+0.5);
+			print "$LCY$read$N\t${LPR}NOPK_C$N\t$finalperc0\t$conv0\t$len0";
+			foreach my $nuc (@nuc[0..@nuc-1]) {
+				print "\t$color[$nuc]$counthash->{$read}{NOPK_C}{perc}{$nuc}$N";
+			}
+			print "\n";
+			print "$LCY$read$N\t${LPR}NOPK_RCONV_C$N\t$finalperc1\t$conv1\t$len1";
+			foreach my $nuc (@nuc[0..@nuc-1]) {
+				print "\t$color[$nuc]$counthash->{$read}{NOPK_RCONV_C}{perc}{$nuc}$N";
+			}
+			print "\n";
+#			last if (keys %printed == 16);
+		}
+		print "\n\n";
+		undef $counthash;
+}
+print "DEBUG\n";
+exit 0;
+sub parse_outFile {
+	my @flags = qw(NOPK_C NOPK_TEMP_C NOPK_RCONV_C NOPK_TEMP_RCONV_C);
+	my @nuc = qw(0 1 2 3 4 5 6 7 8 9);
+	my ($peakoutFile, $counthash, $flag) = @_;
+	my $linecount = 0;
+	open (my $in, "<", $peakoutFile) or die;
+	while (my $line = <$in>) {
+		chomp($line);
+		my ($read, @val) = split("\t", $line);
+		#foreach my $flags (@flags) {
+		#	foreach my $nuc (@nuc[0..@nuc-1]) {
+		#		$counthash->{$read}{$flags}{perc}{$nuc} = 0 if not defined $counthash->{$read}{$flags}{perc}{$nuc};
+		#	}
+		#}
+		my $val = join("", @val);
+		#print "$read";# if $linecount == 0;
+		$linecount ++;
+		$counthash->{$read}{$flag}{total} = @val;
+		for (my $i = 0; $i < @val; $i++) {
+			foreach my $nuc (@nuc[0..@nuc-1]) {
+				$counthash->{$read}{$flag}{count}{$nuc} = 0 if not defined $counthash->{$read}{$flag}{count}{$nuc};
+				$counthash->{$read}{$flag}{count}{$nuc} ++ if $val[$i] eq $nuc;
+			}
+			#print "\t$nuc[$i]\t$nuc[4]\t$n4\t$n42\t$counthash->{$read}{$flag}{total}\ttot=$tot\n";
+			#exit 0;
+		}
+		foreach my $nuc (@nuc[0..@nuc-1]) {
+			$counthash->{$read}{$flag}{perc}{$nuc} = $counthash->{$read}{$flag}{count}{$nuc} / $counthash->{$read}{$flag}{total};
+			my $mult = $counthash->{$read}{$flag}{perc}{$nuc} < 0.01 ? 100000 : 1000;
+			$counthash->{$read}{$flag}{perc}{$nuc} = int($mult*$counthash->{$read}{$flag}{perc}{$nuc}+0.5)/($mult/100);
+			
+		}
+		foreach my $nuc (@nuc[0..@nuc-1]) {
+			my @color = ($GR, $N, $N, $N, $YW, $YW, $LGN, $LGN, $LRD, $LRD); 
+#			print "\t$color[$nuc]$nuc$N=
+			#print "\t$color[$nuc]$counthash->{$read}{$flag}{count}{$nuc}$N";
+			#print "\t$color[$nuc]$counthash->{$read}{$flag}{perc}{$nuc}$N";
+		}
+		#print "\n";
+		last if $linecount > 10;
+	}
+	close $in;
+	return($counthash);
+}
+print "Checking bedFiles (n=$LGN$totalfile$N)\n\n";
+foreach my $peakFile (sort keys %wcl) {
+	$data{$peakFile}{PEAKLEN}{MEAN} = 0;
+	$data{$peakFile}{PEAKLEN}{MEDIAN} = 0;
+	$data{$peakFile}{PEAKLEN}{SD} = 0;
+	$data{$peakFile}{PEAK}{total} = 0;
+	for (my $i = 0; $i <= 100; $i+=25) {
+		$data{$peakFile}{PEAK}{$i} = 0;
+		$data{$peakFile}{PEAKPERC}{$i} = 0;
+		$data{$peakFile}{PEAKATLEAST}{$i} = 0;
+		$data{$peakFile}{PEAKATLEASTPERC}{$i} = 0;
+	}
+	$data{$peakFile}{PEAK}{totalpeak} = 0;
+	$data{$peakFile}{PEAK}{totalread} = 0;
+	$peakFileCount ++;
 	my ($folder1, $peakFileName1) = getFilename($peakFile, "folderfull");
 	
-	#my $bedFile = $peakFile;
-	#
-	#$bedFile =~ s/\/\.CALL\//\/PEAKS_LOCAL\//;
-	#$bedFile =~ s/.out$/.local.bed/;
+	my $bedFile = $peakFile;
+	
+	$bedFile =~ s/\/\.CALL\//\/PEAKS_LOCAL\//;
+	$bedFile =~ s/.out$/.local.bed/;
+	my $totalread = $wcl{$peakFile};
+	$data{$peakFile}{PEAK}{totalread} = $totalread;
 	#print "$LGN$peakFileCount/$totalfile$N: totalread=$YW$totalread$N $LCY$bedFile$N\n" if -e $bedFile;next;
+	print "$peakFileCount/$totalfile $LCY$bedFile$N\n" if $peakFileCount % 1000 == 0;
 	next if not -e $bedFile;
-	print "$LGN$peakFileCount/$totalfile$N totalread=$YW$totalread$N bedFile=$LCY$bedFile$N\n" if ($peakFileCount-1) % 1000 == 0;
+	print "$LGN$peakFileCount/$totalfile$N totalread=$YW$totalread$N bedFile=$LCY$bedFile$N\n" if $peakFileCount % 1000 == 0;
 	my $parseName = parseName($bedFile);
 	my ($label, $gene, $strand, $window, $thres, $convtype, $bc, $plasmid, $desc, $pcb) = @{$parseName->{array}};
 	my $readstrand = $strand;
@@ -244,7 +373,7 @@ foreach my $peakFile (sort keys %wcl) {
 			$totaltemp2 = (keys %total2);
 		} else {$totaltemp2 = 0;}
 		my $totaltemp2perc = $totalread == 0 ? 0 : int(1000*$totaltemp2 / $totalread+0.5)/10;
-		print "$YW$linecount$N: a. [$i0-$i1 " . join(" ", @{$ops[0]}) . " AND " . join(" ", @{$ops[1]}) . "]: $LGN$totaltemp2$N/$YW$totalread$N ($LGN$totaltemp2perc$N %)\n" if defined $opt_d and $linecount % 100 == 0;
+		print "[$i0-$i1 " . join(" ", @{$ops[0]}) . " AND " . join(" ", @{$ops[1]}) . "]: $LGN$totaltemp2$N/$YW$totalread$N ($LGN$totaltemp2perc$N %)\n" if defined $opt_d;
 		$data{$peakFile}{PEAK}{$i} = $totaltemp2;
 		$data{$peakFile}{PEAKPERC}{$i} = $totaltemp2perc;
 	}
@@ -266,7 +395,7 @@ foreach my $peakFile (sort keys %wcl) {
 			$totaltemp2 = (keys %total2);
 		} else {$totaltemp2 = 0;}
 		my $totaltemp2perc = $totalread == 0 ? 0 : int(1000*$totaltemp2 / $totalread+0.5)/10;
-		print "$YW$linecount$N: b. [$i0 " . join(" ", @{$ops[0]}) . "]: $LGN$totaltemp2$N/$YW$totalread$N ($LGN$totaltemp2perc$N %)\n" if defined $opt_d and $linecount % 100 == 0;
+		print "[$i0 " . join(" ", @{$ops[0]}) . "]: $LGN$totaltemp2$N/$YW$totalread$N ($LGN$totaltemp2perc$N %)\n" if defined $opt_d;
 		$data{$peakFile}{PEAKATLEAST}{$i} = $totaltemp2;
 		$data{$peakFile}{PEAKATLEASTPERC}{$i} = $totaltemp2perc;
 	}
@@ -288,12 +417,7 @@ foreach my $peakFile (sort keys %wcl) {
 	last if $peakFileCount > 100 and defined $opt_d;
 }
 print "\n";
-my $goodpeakfile = 0;
 foreach my $peakFile (sort keys %data) {
-	if (defined $data{$peakFile}{GOOD}) {
-		$goodpeakfile ++ if $data{$peakFile}{GOOD} eq 1;
-		next if $data{$peakFile}{GOOD} eq 1;
-	}
 	my $totalpeak = $data{$peakFile}{PEAK}{totalpeak};
 	my $totalread = $data{$peakFile}{PEAK}{totalread};
 	my $peak0 = $data{$peakFile}{PEAK}{0};
@@ -325,35 +449,8 @@ foreach my $peakFile (sort keys %data) {
 	$data{$peakFile}{PEAKPRINT} .= "\t$LGN$peakatleast0\t$peakatleast25\t$peakatleast50\t$peakatleast75\t$peakatleast100";
 	$data{$peakFile}{PEAKPRINT} .= "\t$LCY$peakperc0\t$peakperc25\t$peakperc50\t$peakperc75\t$peakperc100";
 	$data{$peakFile}{PEAKPRINT} .= "\t$LGN$peakatleastperc0\t$peakatleastperc25\t$peakatleastperc50\t$peakatleastperc75\t$peakatleastperc100$N";
-	$data{$peakFile}{PEAKPRINT} = 
-my @print = ($totalread,$totalpeak,$mean,$median,$sd,
-$peak0,$peak25,$peak50,$peak75,$peak100,
-$peakatleast0,$peakatleast25,$peakatleast50,$peakatleast75,$peakatleast100,
-$peakperc0,$peakperc25,$peakperc50,$peakperc75,$peakperc100,
-$peakatleastperc0,$peakatleastperc25,$peakatleastperc50,$peakatleastperc75,$peakatleastperc100);
-
-my @printname = ("totalread","totalpeak","mean","median","sd",
-"$peak0","peak25","peak50","peak75","peak100",
-"$peakatleast0","peakatleast25","peakatleast50","peakatleast75","peakatleast100",
-"$peakperc0","peakperc25","peakperc50","peakperc75","peakperc100",
-"$peakatleastperc0","peakatleastperc25","peakatleastperc50","peakatleastperc75","peakatleastperc100");
-	
 	print "$peakFile$data{$peakFile}{PEAKPRINT}\n" if defined $opt_d;
-	my $localbeddataFile = "$peakFile.localbed.footStats2.data.gz.data.gz";
-	open (my $out2, " | gzip -f > $localbeddataFile");
-	print $out2 "$peakFile";
-	for (my $i = 0; $i < @printname; $i++) {
-		print $out2 "\t$print[$i]";
-	}
-	print $out2 "\n";
-	close $out2;
-	#print "\n$LCY$localbeddataFile$N\n\n";
 }
-my $totalpeakfile = (keys %data);
-my $madepeakfile = $totalpeakfile - $goodpeakfile;
-print "previously made file= $LGN$goodpeakfile / $totalpeakfile$N, created another $LGN$madepeakfile/$totalpeakfile$N files\n\n" if $madepeakfile > 0;
-print "previously made file= $LGN$goodpeakfile / $totalpeakfile$N\n\n" if $madepeakfile == 0;
-
 #	my @op;
 #	for (my $i = 100; $i < 200; $i+= 100) {
 #		$colname = "len";
@@ -372,7 +469,7 @@ for (my $i = 0; $i < @peakFiles; $i++) {
 	my $peakFile = $peakFiles[$i];
 	$peakFile =~ s/\/+/\//g;
 	if ($i == 0) {
-		print "Example: \npeakFile=$LCY$peakFile$N, total=$wcl{$peakFile}\n";
+		#print "Example: \npeakFile=$LCY$peakFile$N, total=$wcl{$peakFile}\n";
 	}
 	($data{$peakFile}{total}) = defined($wcl{$peakFile}) ? $wcl{$peakFile} : 0;
 	#($data{$peakFile}{total}) = `wc -l $peakFile` =~ /^(\d+)/ if -e $peakFile;
@@ -396,7 +493,7 @@ for (my $i = 0; $i < @peakFiles; $i++) {
 	my $totalread = $data{$peakFile}{total} + $data{$nopkFile}{total};
 	my $print = "$bc\t$plasmid\t$desc\t$readstrand\t$convtype\t$data{$peakFile}{total}\t$totalread\t$flag\t$peakFile\n";
 	my $plasmiddesc = "PLASMID$plasmid;DESC$desc";
-	print "$print\n" if $i == 0;
+	#print "$print\n" if $i == 0;
 	my $totalpeak = $data{$peakFile}{PEAK}{total};
 	my $peakmean = $data{$peakFile}{PEAKLEN}{MEAN}; $peakmean = 0 if not defined $peakmean;
 	my $nopkmean = $data{$nopkFile}{PEAKLEN}{MEAN}; $nopkmean = 0 if not defined $nopkmean;
@@ -447,29 +544,19 @@ for (my $i = 0; $i < @peakFiles; $i++) {
 my @strand = qw(Pos Neg);
 my @convtype = qw(CG CH GC GH);
 my @strandconvtype = qw(Pos_CG Neg_GC Pos_GC Neg_CG Pos_CH Neg_GH Pos_GH Neg_CH);
-
 open (my $out1, ">", "$footPeakFolder/99_FOOTSTATS/1_STATS.txt") or die;
 print $out1 "BC\tplasmid\tdesc\ttx";
 #foreach my $strand (@strandtrand[0..@strand-1]) {#sort keys %{$final{$bc}{$plasmiddesc}}) {
 #	foreach my $convtype (@convtype[0..@convtype-1]) {#sort keys %{$final{$bc}{$plasmiddesc}{$strand}}) {
 foreach my $strand (@strand[0..@strand-1]) {
-	print $out1 "\ttotalread.$strand";
+	print $out1 "\t$strand";
 }
 #	}
 #}
 #foreach my $strand (@strand[0..@strand-1]) {#sort keys %{$final{$bc}{$plasmiddesc}}) {
 #	foreach my $convtype (@convtype[0..@convtype-1]) {#sort keys %{$final{$bc}{$plasmiddesc}{$strand}}) {
 foreach my $strandconvtype (@strandconvtype[0..@strandconvtype-1]) {
-	print $out1 "\ttotalpeak.$strandconvtype" if ($strandconvtype =~ /^(Pos_CG|Neg_GC)$/);
-}
-foreach my $strandconvtype (@strandconvtype[0..@strandconvtype-1]) {
-	print $out1 "\ttotalpeakperc.$strandconvtype" if ($strandconvtype =~ /^(Pos_CG|Neg_GC)$/);
-}
-foreach my $strandconvtype (@strandconvtype[0..@strandconvtype-1]) {
-	print $out1 "\ttotalpeak.$strandconvtype";
-}
-foreach my $strandconvtype (@strandconvtype[0..@strandconvtype-1]) {
-	print $out1 "\ttotalpeakperc.$strandconvtype";
+	print $out1 "\ttotal.$strandconvtype";
 }
 foreach my $strandconvtype (@strandconvtype[0..@strandconvtype-1]) {
 	print $out1 "\tpeakmean.$strandconvtype";
@@ -512,11 +599,8 @@ foreach my $bc (sort keys %final) {
 		$tx = "NA" if not defined $tx;
 		$desc2 = $desc if not defined $desc2;
 		print $out1 "$bc\t$plasmid\t$desc2\t$tx";
+		my $peakpercprint = "";
 		my $totalreadprint = "";
-		my $totalpeakprint = "";
-		my $totalpeakpercprint = "";
-		my $totalpeakrelevantprint = "";
-		my $totalpeakrelevantpercprint = "";
 		my $peakmean = "";
 		my $nopkmean = "";
 		my $peak25print = "";
@@ -556,11 +640,6 @@ foreach my $bc (sort keys %final) {
 				$totalread = 0 if not defined $totalread;
 				$peakperc = 0 if not defined $peakperc;
 				$nopkperc = 0 if not defined $nopkperc;
-				$peak = 0 if not defined $peak;
-				$totalpeakprint .= "\t$peak";
-				$totalpeakpercprint .= "\t$peakperc";
-				$totalpeakrelevantprint .= "\t$peak" if ($strandconvtype =~ /^(Pos_CG|Neg_GC)$/);
-				$totalpeakrelevantpercprint .= "\t$peakperc" if ($strandconvtype =~ /^(Pos_CG|Neg_GC)$/);
 				$peakmean .= "\t$peakmean1";
 				$nopkmean .= "\t$nopkmean1";
 				$peak25print .=  "\t$peakprint25";
@@ -571,6 +650,7 @@ foreach my $bc (sort keys %final) {
 				$nopk50print .=  "\t$nopkprint50";
 				$nopk75print .=  "\t$nopkprint75";
 				$nopk100print .=  "\t$nopkprint100";
+				$peakpercprint .= "\t$peakperc";
 #				$nopkprint .=  "\t$nopkprint1";
 		#	}
 		#}
@@ -578,10 +658,7 @@ foreach my $bc (sort keys %final) {
 		}
 
 		print $out1 "$totalreadprint";
-		print $out1 "$totalpeakrelevantprint";
-		print $out1 "$totalpeakrelevantpercprint";
-		print $out1 "$totalpeakprint";
-		print $out1 "$totalpeakpercprint";
+		print $out1 "$peakpercprint";
 		print $out1 "$peakmean";
 		print $out1 "$nopkmean";
 		print $out1 "$peak25print";
@@ -597,52 +674,8 @@ foreach my $bc (sort keys %final) {
 	}
 }
 
-print "SUCCESS!!!\n$footPeakFolder/99_FOOTSTATS/1_STATS.txt\n";
-
+print "SUCCESS!!!\n";
 exit 0;
-
-sub get_localbeddataFile {
-	#my ($data, $peakFile, $localbeddataFile) = @_;
-	my ($peakFile, $localbeddataFile) = @_;
-	open (my $in2, "zcat $localbeddataFile|");
-	while (my $line = <$in2>) {
-		chomp($line);
-		my ($peakname, $totalread,$totalpeak,$mean,$median,$sd,
-			$peak0,$peak25,$peak50,$peak75,$peak100,
-			$peakatleast0,$peakatleast25,$peakatleast50,$peakatleast75,$peakatleast100,
-			$peakperc0,$peakperc25,$peakperc50,$peakperc75,$peakperc100,
-			$peakatleastperc0,$peakatleastperc25,$peakatleastperc50,$peakatleastperc75,$peakatleastperc100) = split("\t", $line);
-		$data{$peakFile}{PEAK}{totalpeak} = $totalpeak;
-		$data{$peakFile}{PEAK}{totalread} = $totalread;
-		$data{$peakFile}{PEAK}{0} = $peak0;
-		$data{$peakFile}{PEAK}{25} = $peak25;
-		$data{$peakFile}{PEAK}{50} = $peak50;
-		$data{$peakFile}{PEAK}{75} = $peak75;
-		$data{$peakFile}{PEAK}{100} = $peak100;
-		$data{$peakFile}{PEAKPERC}{0} = $peakperc0;
-		$data{$peakFile}{PEAKPERC}{25} = $peakperc25;
-		$data{$peakFile}{PEAKPERC}{50} = $peakperc50;
-		$data{$peakFile}{PEAKPERC}{75} = $peakperc75;
-		$data{$peakFile}{PEAKPERC}{100} = $peakperc100;
-		$data{$peakFile}{PEAKATLEAST}{0} = $peakatleast0;
-		$data{$peakFile}{PEAKATLEAST}{25} = $peakatleast25;
-		$data{$peakFile}{PEAKATLEAST}{50} = $peakatleast50;
-		$data{$peakFile}{PEAKATLEAST}{75} = $peakatleast75;
-		$data{$peakFile}{PEAKATLEAST}{100} = $peakatleast100;
-		$data{$peakFile}{PEAKATLEASTPERC}{0} = $peakatleastperc0;
-		$data{$peakFile}{PEAKATLEASTPERC}{25} = $peakatleastperc25;
-		$data{$peakFile}{PEAKATLEASTPERC}{50} = $peakatleastperc50;
-		$data{$peakFile}{PEAKATLEASTPERC}{75} = $peakatleastperc75;
-		$data{$peakFile}{PEAKATLEASTPERC}{100} = $peakatleastperc100;
-	#	$data{$peakFile}{PEAK}{total} = $totalpeak;
-		$data{$peakFile}{PEAKLEN}{MEAN} = $mean;
-		$data{$peakFile}{PEAKLEN}{MEDIAN} = $median;
-		$data{$peakFile}{PEAKLEN}{SD} = $sd;
-		#print "data sd=$sd peakFIle=$LCY$peakFile$N\n";
-		#print "LINE:$LGN$line$N\n\n";
-	}
-	close $in2;
-}
 
 sub check0 {
 	my ($df, $ops) = @_;
@@ -787,13 +820,13 @@ sub footStats_parse_footPeak_logFile {
 	open (my $out, ">", "$footPeakFolder/99_FOOTSTATS/.PARAMS") or DIELOG($outLog, "Failed to write to $footPeakFolder/99_FOOTSTATS/.PARAMS: $!\n");
 	print $out "$optprint\n";
 	close $out;
-	LOG($outLog, $debugprint);
+	LOG($outLog, $debugprint,"NA");
 	return \%opts;
 }
 sub parse_geneIndexFile {
    my ($geneIndexFile, $outLog) = @_;
    my %coor;
-   LOG($outLog, "${LCY}geneIndexFile$N=$geneIndexFile\n");
+   LOG($outLog, "${LCY}geneIndexFile$N=$geneIndexFile\n","NA");
    die "geneindexFile does not exist!\n" if not defined $geneIndexFile;
    open (my $in, "<", $geneIndexFile) or DIELOG($outLog, "Failed to read from $geneIndexFile: $!\n");
    while (my $line = <$in>) {
@@ -1103,7 +1136,7 @@ sub parse_geneIndexFile {
    my ($footLoopFolder, $outLog) = @_;
    my ($geneIndexFile) = <$footLoopFolder/*.bed>;
    my %coor;
-   LOG($outLog, "${LCY}geneIndexFile$N=$geneIndexFile\n");
+   LOG($outLog, "${LCY}geneIndexFile$N=$geneIndexFile\n","NA");
    die "geneindexFile does not exist!\n" if not defined $geneIndexFile;
    open (my $in, "<", $geneIndexFile) or DIELOG($outLog, "Failed to read from $geneIndexFile: $!\n");
    while (my $line = <$in>) {

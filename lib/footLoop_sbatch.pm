@@ -20,7 +20,7 @@ use strict; use warnings;
 use vars qw(@EXPORT);
 use parent "Exporter";
 
-our @EXPORT = qw(footLoop_sbatch_main);
+our @EXPORT = qw(footLoop_sbatch_main squeue_check print_cmd);
 
 use myFootLib;
 use FAlite;
@@ -32,8 +32,16 @@ use FAlite;
 #$version_small = $version if not defined $version_small;
 
 sub footLoop_sbatch_main {
-	my ($cmdtemplate, $suffix, $filesARRAY, $max_parallel_run, $outLog, $force_sbatch, $folderwant, $debug) = @_;
-
+	my ($cmdtemplate, $suffix, $filesARRAY, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir, $mem, $debug) = @_;
+	my $force_sbatch_print = defined $force_sbatch ? "force_sbatch is on" : "force_sbatch_is_off";
+	LOG($outLog, "${LPR}footLoop_sbatch::footLoop_sbatch_main$N $force_sbatch_print\n");
+	if (defined $debug) {
+		LOG($outLog, "${LPR}footLoop_sbatch::footLoop_sbatch_main$N debug is on!\n");
+	}
+	else {
+		LOG($outLog, "${LPR}footLoop_sbatch::footLoop_sbatch_main$N debug is off!\n");
+	}
+	
 	my %force;
 	
 	# - suffix : $file\_$suffix.sbatch/sbout/folder
@@ -42,22 +50,22 @@ sub footLoop_sbatch_main {
 	my $jobidhash;
 	my $totalfiles = scalar(@{$filesARRAY});
 	for (my $i = 0; $i < @{$filesARRAY}; $i++) {
-
+		my $iprint = $i + 1;
 		my $file = $filesARRAY->[$i];
 		my ($folder, $filename) = getFilename($file, "folderfull");
-		$folderwant = $folder if not defined $folderwant;
-		my $sbatchfile = "$folderwant/$filename\_$suffix.sbatch";
-		my $sboutfile  = "$folderwant/$filename\_$suffix.sbout";
-		my $donefile	= "$folderwant/$filename\_$suffix.done";
+		$outsbatchDir = $folder if not defined $outsbatchDir;
+		my $sbatchfile = "$outsbatchDir/$filename\_$suffix.sbatch";
+		my $sboutfile  = "$outsbatchDir/$filename\_$suffix.sbout";
+		my $donefile	= "$outsbatchDir/$filename\_$suffix.done";
 		
 		my $cmd = $cmdtemplate;
 			$cmd =~ s/FILENAME/$file/g;	
 
 		if ($cmd !~ /FOLDER/) {
-			system("mkdir -p $folderwant/$filename\_$suffix") if not -e "$folderwant/$filename\_$suffix";
+			system("mkdir -p $outsbatchDir/$filename\_$suffix") if not -e "$outsbatchDir/$filename\_$suffix";
 		}
 		else {
-			$cmd =~ s/FOLDER/$folderwant/g;	
+			$cmd =~ s/FOLDER/$outsbatchDir/g;	
 		}
 		if ($i == 0) {
 			print_cmd($cmd, $outLog);
@@ -68,9 +76,10 @@ sub footLoop_sbatch_main {
 		}
 
 		$sboutfile =~ s/\/+/\//g;
+		$mem = 16000 if not defined $mem;
 		my $sbatchprint = "";
 			$sbatchprint .= "#!/bin/bash -l\n";
-			$sbatchprint .= "#SBATCH -n 2 -N 1 -p high --mem 16000 -t 999:99:99\n";
+			$sbatchprint .= "#SBATCH -n 2 -N 1 -p high --mem $mem -t 999:99:99\n";
 			$sbatchprint .= "#SBATCH --job-name \"$filename\_$suffix\"\n";
 			$sbatchprint .= "#SBATCH --output \"$sboutfile\"\n\n";
 			$sbatchprint .= "conda activate footLoop2\n";
@@ -80,13 +89,16 @@ sub footLoop_sbatch_main {
 		open (my $out, ">", $sbatchfile) or die "Can't write to $LCY$sbatchfile$N: $!\n";
 		print $out $sbatchprint;
 		close $out;
-
+		my $is_run =  (not defined $debug) ? "$LGN(PRINTED AND RAN)$N" : "$LPR(PRINTED BUT NOT RUN/DEBUG)$N";
 		if (not defined $force{0} and not defined $force_sbatch and -e $donefile) {
-			LOG($outLog, "\n" . date() . "${LPR}$i/$totalfiles sbatch_these $suffix$N: sbatch $LCY$sbatchfile$N # ${LGN}DONE$N\n");
+			LOG($outLog, "\n" . date() . "${LPR}$iprint/$totalfiles sbatch_these $suffix$N: sbatch $LCY$sbatchfile$N # ${LGN}DONE$N\n");
+			LOG($outLog, date() . "${LPR}$iprint/$totalfiles donefile: $LCY$donefile$N\n");
 			next;
 		}
 		else {
-			LOG($outLog, "\n" . date() . "${LPR}$i/$totalfiles sbatch_these $suffix$N: sbatch: $LCY$sbatchfile$N\n");
+			LOG($outLog, "\n" . date() . "${LPR}$iprint/$totalfiles sbatch_these $suffix$N: sbatch: $LCY$sbatchfile$N $is_run\n");
+			LOG($outLog, date() . "${LPR}$iprint/$totalfiles donefile: $LCY$donefile$N\n");
+			#LOG($outLog, date() . "${LPR}$iprint/$totalfiles donefile: $LCY$donefile$N\n") if defined $debug;
 		}
 		
 		if (defined $debug) { # Debug
@@ -97,8 +109,8 @@ sub footLoop_sbatch_main {
 			my $sleep = 0;
 			while (1) {
 				last if $i < $max_parallel_run;
-				my ($job_left) = squeue_check($jobidhash);
-				LOG($outLog, "\n" . date() . "$job_left jobs left!\n") if $sleep % 12 == 0;
+				my ($job_left, $test_sboutfile) = squeue_check($jobidhash);
+				LOG($outLog, "\n" . date() . "[A] $job_left jobs left! ($LCY$test_sboutfile$N)\n") if $sleep % 12 == 0;
 				last if ($job_left < $max_parallel_run);
 				$sleep ++;
 				sleep 5;
@@ -108,14 +120,16 @@ sub footLoop_sbatch_main {
 		chomp($jobid);
 		($jobid) = $jobid =~ /^Submi.+job (\d+)$/;
 		next if not defined $jobid;
-		$jobidhash->{$jobid} = 1;
+		$jobidhash->{$jobid} = $sboutfile;
+
 		LOG($outLog, "$YW$i$N $LCY$filename$N $LGN$jobid$N\n");
 	}
 	my $sleep = 0;
 	while (1) {
-		my ($job_left) = squeue_check($jobidhash);
+		my ($job_left, $test_sboutfile) = squeue_check($jobidhash);
 		my $sleeptime = $job_left < $max_parallel_run ? 5 : $job_left < 100 ? 20 : 60;
-		LOG($outLog, "\n" . date() . "$job_left jobs left!\n") if $sleep % 12 == 0;
+		LOG($outLog, "\n" . date() . "[B] $job_left jobs left! ($LCY$test_sboutfile$N)\n") if $sleep % 12 == 0;
+		#LOG($outLog, "\n" . date() . "$job_left jobs left!\n") if $sleep % 12 == 0;
 		last if $job_left == 0;
 		$sleep ++;
 		sleep $sleeptime;
@@ -139,6 +153,7 @@ sub print_cmd {
 
 sub squeue_check {
 	my ($jobidhash, $outLog) = @_;
+	my $test_sboutfile;
 	my @squeue = `squeue`;
 	my $squeuehash;
 	foreach my $line (@squeue) {
@@ -152,10 +167,14 @@ sub squeue_check {
 		$squeuehash->{$jobid} = 1;
 	}
 	foreach my $jobid (keys %{$jobidhash}) {
-		next if defined $squeuehash->{$jobid};
+		if (defined $squeuehash->{$jobid}) {
+			$test_sboutfile = $jobidhash->{$jobid} if not defined $test_sboutfile;
+			next;
+		}
 		undef $jobidhash->{$jobid};
 		delete $jobidhash->{$jobid};
 	}
 	my ($total) = scalar(keys %{$jobidhash});
-	return ($total);
+	$test_sboutfile = "[none]" if not defined $test_sboutfile;
+	return ($total, $test_sboutfile);
 }

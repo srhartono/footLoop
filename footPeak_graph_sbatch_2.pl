@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_w $opt_g $opt_G $opt_v $opt_n $opt_r $opt_R $opt_B $opt_c $opt_F $opt_0 $opt_J $opt_i $opt_I);
-getopts("n:vg:w:G:r:R:B:cF0J:i:I:");
+use vars qw($opt_w $opt_g $opt_G $opt_v $opt_n $opt_r $opt_R $opt_B $opt_c $opt_F $opt_0 $opt_J $opt_i $opt_I $opt_C $opt_0);
+getopts("n:vg:w:G:r:R:B:cF0J:i:I:C0");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -14,6 +14,7 @@ BEGIN {
 
 use myFootLib;
 use FAlite;
+use footLoop_sbatch;
 
 my $homedir = $ENV{"HOME"};
 
@@ -33,10 +34,13 @@ Usage: $YW$0$N -n$LCY <footPeak output directory>$N
 
 ${LGN}Optionals$N:
 
+-0 dry run/debug
+
 -G $LGN<gene to process>$N] 
 
--c: Include Cytosine from CpG (use this for in vitro data)
-
+default: Run ONLY CH/GH
+-c: Run ONLY CG/GC (use this for in vitro data)
+-C: Run BOTH CG/GC and CH/GH
 
 -r Option to run R scripts $LCY(PNG)$N
    -r 0: do not run any R scripts
@@ -129,7 +133,7 @@ If R dies for any reason, make sure you have these required R libraries:
 			my ($gene, $CHR, $BEG, $END, $GENE, $VAL, $STRAND) = $line =~ /^def=(.+), coor=(.+), (\d+), (\d+), (.+), (\-?\d+\.?\d*), ([\+\-])$/;
 			LOG($outLog, "gene=$gene,chr=$CHR,beg=$BEG,end=$END,gene=$GENE,val=$VAL,strand=$STRAND\n","NA");
 	   	if (defined $opt_G and $gene !~ /$opt_G/i) {
-	   	   LOG($outLog, date() . " Skipped $LCY$gene$N as it doesn't contain $LGN-G $opt_G$N\n");
+	   	   #LOG($outLog, date() . " Skipped $LCY$gene$N as it doesn't contain $LGN-G $opt_G$N\n");
 	   	   next;
 	   	}
 			$GENE = uc($GENE);
@@ -157,7 +161,11 @@ If R dies for any reason, make sure you have these required R libraries:
             my $thres2 = $thres; $thres =~ s/0$//;
             my $peakFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres\_$type.PEAK";
             $peakFile   = "$resDir/.CALL/$label\_gene$mygene\_$strand\_$window\_$thres2\_$type.PEAK" if not -e $peakFile;
-            die "Can't find peakFile $LCY$peakFile$N\n" if not -e $peakFile;
+		   	if (defined $opt_G and $peakFile !~ /$opt_G/i) {
+		   	   LOG($outLog, date() . " Skipped $LCY$peakFile$N as it doesn't contain $LGN-G $opt_G$N\n");
+		   	   next;
+		   	}
+           # print "Can't find peakFile $LCY$peakFile$N\n" if not -e $peakFile;
             LOG($outLog, "label=$label, gene$mygene, strand=$strand, peak=$peakFile\n","NA");
             $files{$peakFile} = $mygene;
          }
@@ -177,12 +185,14 @@ If R dies for any reason, make sure you have these required R libraries:
 	my $RDMADEPNG = $opt_r;
 	$RDMADEPNG = 0 if $RDFLAG =~ /(RCONV)/ and $opt_r < 2;
 	$RDMADEPNG = 0 if $RDFLAG =~ /(ALL)/ and $opt_r < 3;
-	$RDMADEPNG = 0 if $RDFLAG =~ /_C/ and not defined $opt_c;
+	$RDMADEPNG = 0 if $RDFLAG =~ /_C$/ and not defined $opt_c and not defined $opt_C;
+	$RDMADEPNG = 0 if $RDFLAG !~ /_C$/ and defined $opt_c and not defined $opt_C;
 
 	my $RDMADEPDF = $opt_R;
 	$RDMADEPDF = 0 if $RDFLAG =~ /(RCONV)/ and $opt_R < 2;
 	$RDMADEPDF = 0 if $RDFLAG =~ /(ALL)/ and $opt_R < 3;
-	$RDMADEPDF = 0 if $RDFLAG =~ /_C/ and not defined $opt_c;
+	$RDMADEPDF = 0 if $RDFLAG =~ /_C$/ and not defined $opt_c and not defined $opt_C;
+	$RDMADEPDF = 0 if $RDFLAG !~ /_C$/ and defined $opt_c and not defined $opt_C;
 
 	LOG($outLog, "$fileCount $LCY$file$N $LGN$STRAND$N $LCY$RDSTRAND$N $LGN$RDCONVTYPE$N $LPR$RDFLAG$N\n");# if defined $opt_c and 
 	if ($RDMADEPNG eq 0 and $RDMADEPDF eq 0) {
@@ -190,7 +200,8 @@ If R dies for any reason, make sure you have these required R libraries:
 		return 0;
 	}
 	else {
-		LOG($outLog, "MAKE MPNG\n");
+		LOG($outLog, "MAKE PNG\n") if $RDMADEPNG ne 0;
+		LOG($outLog, "MAKE PDF\n") if $RDMADEPDF ne 0;
 	}
 
 	
@@ -297,15 +308,28 @@ If R dies for any reason, make sure you have these required R libraries:
 
 
 		LOG($outLog, "flag=$LPR $flag$N opt_r=$opt_r\n");
+#		my $madePNG = $opt_r;
+#		$madePNG = 0 if $flag =~ /(RCONV)/ and $opt_r < 2;
+#		$madePNG = 0 if $flag =~ /(ALL)/ and $opt_r < 3;
+#		$madePNG = 0 if $flag =~ /_C/ and not defined $opt_c;
+
+#		my $madePDF = $opt_R;
+#		$madePDF = 0 if $flag =~ /(RCONV)/ and $opt_R < 2;
+#		$madePDF = 0 if $flag =~ /(ALL)/ and $opt_R < 3;
+#		$madePDF = 0 if $flag =~ /_C/ and not defined $opt_c;
+
+
 		my $madePNG = $opt_r;
 		$madePNG = 0 if $flag =~ /(RCONV)/ and $opt_r < 2;
 		$madePNG = 0 if $flag =~ /(ALL)/ and $opt_r < 3;
-		$madePNG = 0 if $flag =~ /_C/ and not defined $opt_c;
+		$madePNG = 0 if $flag =~ /_C$/ and not defined $opt_c and not defined $opt_C;
+		$madePNG = 0 if $flag !~ /_C$/ and defined $opt_c and not defined $opt_C;
 
 		my $madePDF = $opt_R;
 		$madePDF = 0 if $flag =~ /(RCONV)/ and $opt_R < 2;
 		$madePDF = 0 if $flag =~ /(ALL)/ and $opt_R < 3;
-		$madePDF = 0 if $flag =~ /_C/ and not defined $opt_c;
+		$madePDF = 0 if $flag =~ /_C$/ and not defined $opt_c and not defined $opt_C;
+		$madePDF = 0 if $flag !~ /_C$/ and defined $opt_c and not defined $opt_C;
 
 		$madePNG = 1 if $madePNG > 0;
 		$madePDF = 1 if $madePDF > 0;
@@ -318,8 +342,8 @@ If R dies for any reason, make sure you have these required R libraries:
 		my $pngout = "$resDir/PNG/$pngoutDir/$currFilename2.$flag.png";
 		my $pngout_conly = "$resDir/PNG/$pngoutDir/CONLY/$currFilename2.$flag.png.conly.png";
 		my $pdfout = "$resDir/PDF/$pdfoutDir/$currFilename2.$flag.pdf";
-		my $pdfout_conly = "$resDir/PDF/$pngoutDir/CONLY/$currFilename2.$flag.pdf.conly.pdf";
-		my $lenpdfout = "$resDir/PDF/$pngoutDir$currFilename2\_length.pdf";
+		my $pdfout_conly = "$resDir/PDF/$pdfoutDir/CONLY/$currFilename2.$flag.pdf.conly.pdf";
+		my $lenpdfout = "$resDir/PNG/$pngoutDir/LENGTH/$currFilename2\_length.pdf";
 		LOG($outLog, date() . " --> DEBUG flag=$flag madePNG = $madePNG pngout=$pngout\n");
 	#	$scp{"scp $user\@crick.cse.ucdavis.edu:$resDir2/PNG/$pngoutDir/$currFilename2.$flag.png ./"} = 1 if $madePNG eq 1;
 	#	$scp{"scp $user\@crick.cse.ucdavis.edu:$resDir2/PDF/$pdfoutDir/$currFilename2.$flag.pdf ./"} = 1 if $madePDF eq 1;
@@ -346,6 +370,7 @@ library(RColorBrewer)
 			$RscriptPNG_nopk_ALL = $Rscript;
 			$RscriptPDF_nopk_ALL = $Rscript;
 			LOG($outLog, "${LPR}PNGOUT$N:\n$LCY$pngout$N $LGN #Not run coz totpeak is $totpeak$N\n\n");
+			LOG($outLog, "${LPR}PDFOUT$N:\n$LCY$pdfout$N $LGN #Not run coz totpeak is $totpeak$N\n\n");
 		}
 		else {
 			open (my $incurrFile, "cut -f1 $currFile|") or DIELOG($outLog, "Failed to open $currFile: $!\n");
@@ -389,13 +414,13 @@ library(RColorBrewer)
 
 			# Main Plot
 			if ($currFile =~ /\.NOPK\./) {
-				$Rscript .= $R->{mainplot_nopk};
+				$Rscript .= $R->{mainplot_nopk}; #uncomment 24/7/17
 				$Rscript .= $R->{mainplot_nopk_rand_1000};
-				$Rscript .= $R->{mainplot_nopk_rand_100};
+				$Rscript .= $R->{mainplot_nopk_rand_100}; #uncomment
 			}
 			else {
-#					print "\n\n----------------- $LCY$currFile$N IS A PEAK FILE R = $currFile.PNG.R -------------- \n\n";
-				$Rscript .= $R->{mainplot}; # p png and p pdf
+				$Rscript .= $R->{mainplot}; # p png and p pdf #uncomment 24/7/17
+				$Rscript .= $R->{mainplot_peak_rand_300}; # p png and p pdf
 			}
 
 			# Main Plot Cluster Addition
@@ -430,17 +455,17 @@ library(RColorBrewer)
 				my ($pk_filename_short) = $pk_filename =~ /^.+gene(.+)_(Pos|Neg|Unk)_\d+.+$/;
 				my ($pk_filename_plasmid) = $pk_filename_short =~ /^(.+)_desc.+$/i;
 				$pk_filename_plasmid = $pk_filename_short if not defined $pk_filename_plasmid;
-				if ($currFile !~ /\.NOPK\./) {
+				if ($currFile !~ /\.NOPK\./) { #PEAK
 					LOG($outLog, date() . "\t\t-> ADDED $boxFile!\n","NA") if defined $boxFile;
 					#$Rscript .= $R->{box};
-					my ($Rbox, $Rbox_nopk) = getbox($boxFile,$pk_filename_short,$pk_filename_plasmid);
-					$Rscript .= $Rbox;
+					my ($Rbox_peak, $Rbox_nopk) = getbox($boxFile,$pk_filename_short,$pk_filename_plasmid);
+					$Rscript .= $Rbox_peak;
 				}
-				else {
+				else { #NOPK
 					LOG($outLog, date() . "\t\t-> ADDED $boxFile!\n","NA") if defined $boxFile;
 					#$Rscript .= $R->{box_nopk};
 					my ($Rbox, $Rbox_nopk) = getbox($boxFile,$pk_filename_short,$pk_filename_plasmid);
-					$Rscript .= $Rbox;
+					#$Rscript .= $Rbox;
 					$Rscript .= $Rbox_nopk;
 				}
 			}
@@ -448,29 +473,38 @@ library(RColorBrewer)
 			# Add Third Plot and Do PNG
 			$Rscript .= $R->{Scale};
 			# Main Plot
+			$RscriptPNG = $Rscript;
+			$RscriptPDF = $Rscript;
+			$RscriptPNG_nopk_ALL = $Rscript;
+			$RscriptPDF_nopk_ALL = $Rscript;
+
 			if ($currFile !~ /\.NOPK\./) {
-				$RscriptPNG = $Rscript . $R->{PNG};
-				$RscriptPDF = $Rscript . $R->{PDF};
+				$RscriptPNG .= $R->{PNG};
+				$RscriptPNG .= $R->{PNG_peak_300};
+				$RscriptPDF .= $R->{PDF};
+				$RscriptPDF .= $R->{PDF_peak_300};
 			}
 			else {
-				$RscriptPNG = $Rscript . $R->{PNG_nopk};
-				$RscriptPDF = $Rscript . $R->{PDF_nopk};
-				$RscriptPNG .= $Rscript . $R->{PNG_nopk_rand_100};
-				$RscriptPDF .= $Rscript . $R->{PDF_nopk_rand_100};
-				$RscriptPNG_nopk_ALL = $Rscript . $R->{PNG_nopk_ALL};
-				$RscriptPDF_nopk_ALL = $Rscript . $R->{PDF_nopk_ALL};
+				$RscriptPNG .= $R->{PNG_nopk};
+				$RscriptPNG .= $R->{PNG_nopk_rand_100};
+				$RscriptPNG_nopk_ALL .= $R->{PNG_nopk_ALL};
+
+				$RscriptPDF .= $R->{PDF_nopk};
+				$RscriptPDF .= $R->{PDF_nopk_rand_100};
+				$RscriptPDF_nopk_ALL .= $R->{PDF_nopk_ALL};
 			}
 		}
 
 		open (my $outRscriptPNG, ">", "$currFile.PNG.R") or (LOG($outLog, date() . "Failed to write R script into $currFile.PNG.R: $!\n") and print $outLog $Rscript and next);
 		print $outRscriptPNG $RscriptPNG;
-		$Rscripts{"$currFile.PNG.R"}{pngout} = $pngout;
+		$Rscripts{"$currFile.PNG.R"}{graphfile} = $pngout;
 		$Rscripts{"$currFile.PNG.R"}{summary} = $summary;
 		$Rscripts{"$currFile.PNG.R"}{runR} = $madePNG; #(defined $opt_c and $flag =~ /^(NOPK_C|PEAK_C|NOPK_TEMP_C|PEAK_TEMP_C)$/) ? 1 : $flag =~ /(ALL|RCONV|_C)/ ? 0 : 1;
 		#$Rscripts{"$currFile.PNG.R"}{runR} = 0 if $totpeak == 0 and $flag =~ /PEAK/;
 		#$Rscripts{"$currFile.PNG.R"}{runR} = 0 if $totnopk == 0 and $flag =~ /NOPK/;
 		$Rscripts{"$currFile.PNG.R"}{runType} = $flag;
 		close $outRscriptPNG;
+		LOG($outLog, "${LPR}PNGOUT$N:\n$LCY$pngout$N # $LGN$totpeak$N peak\n\n") if $madePNG ne 0;
 
 		#push(@Rscript, "$currFile.PNG.R")          if $Rscripts{"$currFile.PNG.R"}{runR} eq 1 and $totpeak > 0;
 		#push(@Rscript, "$currFile.PNG_nopk_ALL.R") if $Rscripts{"$currFile.PNG.R"}{runR} eq 1 and $totnopk > 0;
@@ -478,6 +512,13 @@ library(RColorBrewer)
 		open (my $outRscriptPDF, ">", "$currFile.PDF.R") or (LOG($outLog, date() . "Failed to write R script into $currFile.PDF.R: $!\n") and print $outLog $Rscript and next);
 		print $outRscriptPDF $RscriptPDF;
 		close $outRscriptPDF;
+		$Rscripts{"$currFile.PDF.R"}{graphfile} = $pdfout;
+		$Rscripts{"$currFile.PDF.R"}{summary} = $summary;
+		$Rscripts{"$currFile.PDF.R"}{runR} = $madePDF; #(defined $opt_c and $flag =~ /^(NOPK_C|PEAK_C|NOPK_TEMP_C|PEAK_TEMP_C)$/) ? 1 : $flag =~ /(ALL|RCONV|_C)/ ? 0 : 1;
+		#$Rscripts{"$currFile.PDF.R"}{runR} = 0 if $totpeak == 0 and $flag =~ /PEAK/;
+		#$Rscripts{"$currFile.PDF.R"}{runR} = 0 if $totnopk == 0 and $flag =~ /NOPK/;
+		$Rscripts{"$currFile.PDF.R"}{runType} = $flag;
+		LOG($outLog, "${LPR}PDFOUT$N:\n$LCY$pdfout$N # $LGN$totpeak$N peak\n\n") if $madePDF ne 0;
 
 		if ($currFile =~ /\.NOPK\./) {
 			open (my $outRscriptPNG_nopk_ALL, ">", "$currFile.PNG_nopk_ALL.R") or (LOG($outLog, date() . "Failed to write R script into $currFile.PNG_nopk_ALL.R: $!\n") and print $outLog $Rscript and next);
@@ -486,13 +527,20 @@ library(RColorBrewer)
 			$Rscripts{"$currFile.PNG_nopk_ALL.R"}{runR} = 0;
 			$Rscripts{"$currFile.PNG_nopk_ALL.R"}{runType} = $flag . "_ALL";
 			close $outRscriptPNG_nopk_ALL;
+		}
 
+
+
+		if ($currFile =~ /\.NOPK\./) {
 			open (my $outRscriptPDF_nopk_ALL, ">", "$currFile.PDF_nopk_ALL.R") or (LOG($outLog, date() . "Failed to write R script into $currFile.PDF_nopk_ALL.R: $!\n") and print $outLog $Rscript and next);
 			print $outRscriptPDF_nopk_ALL $RscriptPDF_nopk_ALL;
+			$Rscripts{"$currFile.PDF_nopk_ALL.R"}{summary} = $summary;
+			$Rscripts{"$currFile.PDF_nopk_ALL.R"}{runR} = 0;
+			$Rscripts{"$currFile.PDF_nopk_ALL.R"}{runType} = $flag . "_ALL";
 			close $outRscriptPDF_nopk_ALL;
 		}
-		LOG($outLog, "${LPR}PNGOUT$N:\n$LCY$pngout$N # $LGN$totpeak$N peak\n\n");
-		#print "${LPR}PNGOUT$N:\n$LCY$pngout$N\n\n";
+		LOG($outLog, "${LPR}PDFOUT$N:\n$LCY$pdfout$N # $LGN$totpeak$N peak\n\n");
+		#print "${LPR}PNGOUT$N:\n$LCY$pdfout$N\n\n";
 	}
 	#print "$file\n";# if defined $opt_c and 
 	#last if $fileCount > 100;
@@ -500,12 +548,12 @@ library(RColorBrewer)
 	LOG($outLog, "\n\n$YW ----------------- Running $totalFile/$fileCount R Scripts (below, showing only that are run) ------------------$N\n\n");
 	# open outRscripts for Rscripts that aren't relevant
 	$fileCount = 0;
-	foreach my $outRscriptPNG (sort keys %Rscripts) {
-		my $runR = $Rscripts{$outRscriptPNG}{runR};
-		my $summary = $Rscripts{$outRscriptPNG}{summary};
-		my $pngout = $Rscripts{$outRscriptPNG}{pngout};
-		LOG($outLog, "${LPR}Rscript$N: $YW$outRscriptPNG$N\n${LPR}PNG    $N: $LCY$pngout$N\n${LPR}Summary$N: $LGN$summary$N\n\n") if $runR == 1;
-		push(@Rscript, $outRscriptPNG) if $runR == 1;
+	foreach my $outRscriptGRAPH (sort keys %Rscripts) {
+		my $runR = $Rscripts{$outRscriptGRAPH}{runR};
+		my $summary = $Rscripts{$outRscriptGRAPH}{summary};
+		my $pngout = $Rscripts{$outRscriptGRAPH}{graphfile};
+		LOG($outLog, "${LPR}Rscript$N: $YW$outRscriptGRAPH$N\n${LPR}GRAPH    $N: $LCY$pngout$N\n${LPR}Summary$N: $LGN$summary$N\n\n") if $runR == 1;
+		push(@Rscript, $outRscriptGRAPH) if $runR == 1;
 	}
 	
 	#print join("\n", @Rscript) . "\n";
@@ -516,154 +564,18 @@ library(RColorBrewer)
 	my $outsbatchDir = "$resDir/.footPeak_graph_sbatch_2/";
 	system("mkdir -p $outsbatchDir") if not -d $outsbatchDir;
 	#print "sbatch_these($sbatch_these_cmd, \"footPeak_graph_sbatch_2\", \@Rscript, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir)\n";
-	sbatch_these($sbatch_these_cmd, "footPeak_graph_sbatch_2", \@Rscript, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir, $mem);
+	my $debug;
+	if (not defined $opt_0) {
+		footLoop_sbatch_main($sbatch_these_cmd, "footPeak_graph_sbatch_2", \@Rscript, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir, $mem, $debug);
+	}
+	else {
+		LOG($outLog, "\n${LGN}DEBUG SUCCESSFUL!!$N\n\n");
+	}
 }
 
 ###############
 # Subroutines #
 ###############
-
-sub sbatch_these {
-   #my ($cmd, $suffix, $ext, $filesARRAY, $max_parallel_run, $outLog, $force_sbatch, $folderwant) = @_;
-   my ($cmd, $suffix, $filesARRAY, $max_parallel_run, $outLog, $force_sbatch, $folderwant, $mem) = @_;
-
-   my %force;
-
-   # - suffix : $file\_$suffix.sbatch/sbout/folder
-   # - ext    : determine donefile (<$file\_$suffix/*.$ext>)
-
-   my $jobidhash;
-   my $totalfiles = scalar(@{$filesARRAY});
-   for (my $i = 0; $i < @{$filesARRAY}; $i++) {
-
-      my $file = $filesARRAY->[$i];
-      my ($folder, $filename) = getFilename($file, "folderfull");
-      $folderwant = $folder if not defined $folderwant;
-      my $sbatchfile = "$folderwant/$filename\_$suffix.sbatch";
-      my $sboutfile  = "$folderwant/$filename\_$suffix.sbout";
-      my $donefile   = "$folderwant/$filename\_$suffix.done";
-
-      my $cmdcopy = $cmd;
-         $cmdcopy =~ s/FILENAME/$file/g;
-
-      if ($cmdcopy !~ /FOLDER/) {
-         system("mkdir -p $folderwant/$filename\_$suffix") if not -e "$folderwant/$filename\_$suffix";
-      }
-      else {
-         $cmdcopy =~ s/FOLDER/$folderwant/g;
-      }
-      if ($i == 0) {
-         print_cmd($cmdcopy, $outLog);
-      }
-
-      if ($cmd =~ /FNINDICE/) {
-         $cmdcopy =~ s/FNINDICE/$i/g;
-      }
-
-      $sboutfile =~ s/\/+/\//g;
-      my $sbatchprint = "";
-         $sbatchprint .= "#!/bin/bash -l\n";
-         $sbatchprint .= "#SBATCH -n 2 -N 1 -p high --mem $mem -t 999:99:99\n";
-         $sbatchprint .= "#SBATCH --job-name \"$filename\_$suffix\"\n";
-         $sbatchprint .= "#SBATCH --output \"$sboutfile\"\n\n";
-         $sbatchprint .= "conda activate footLoop2\n";
-         $sbatchprint .= "$cmdcopy && echo \"Done!\" > $donefile\n\n";
-
-      #"sbatchFile=\n$LCY$sbatchfile$N\n\n" if defined $opt_0;
-      open (my $out, ">", $sbatchfile) or die "Can't write to $LCY$sbatchfile$N: $!\n";
-      print $out $sbatchprint;
-      close $out;
-
-      my $iprint = $i + 1;
-      if (not defined $force{0} and not defined $force_sbatch and -e $donefile) {
-         LOG($outLog, "\n" . date() . "${LPR}$iprint/$totalfiles sbatch_these $suffix$N: sbatch $LCY$sbatchfile$N # ${LGN}DONE$N\n");
-         next;
-      }
-      else {
-         LOG($outLog, "\n" . date() . "${LPR}$iprint/$totalfiles sbatch_these $suffix$N: sbatch: $LCY$sbatchfile$N\n");
-      }
-
-      if (defined $opt_0) { # Debug
-         next;
-      }
-
-      if ($i != 0) {
-         my $sleep = 0;
-         while (1) {
-            last if $i < $max_parallel_run;
-            my ($job_left) = squeue_check($jobidhash);
-            LOG($outLog, "\n" . date() . "$job_left jobs left!\n") if $sleep % 12 == 0;
-            last if ($job_left < $max_parallel_run);
-            $sleep ++;
-            sleep 5;
-         }
-      }
-      my ($jobid) = `sbatch $sbatchfile`;
-      chomp($jobid);
-      ($jobid) = $jobid =~ /^Submi.+job (\d+)$/;
-      next if not defined $jobid;
-      $jobidhash->{$jobid} = 1;
-      LOG($outLog, "$YW$i$N $LCY$filename$N $LGN$jobid$N\n");
-      #system("touch $file.done") == 0 or die "failed to touch $file.done: $!\n";
-   }
-   my $sleep = 0;
-   #while (1) {
-   #  my ($job_left) = squeue_check($jobidhash);
-   #  LOG($outLog, "\n" . date() . "$job_left jobs left!\n") if $sleep % 60 == 0;
-   #  last if ($job_left < $max_parallel_run);
-   #  $sleep ++;
-   #  sleep 1;
-   #}
-   #$sleep = 0;
-   while (1) {
-      my ($job_left) = squeue_check($jobidhash);
-      LOG($outLog, "\n" . date() . "$job_left jobs left!\n") if $sleep % 12 == 0;
-      last if $job_left == 0;
-      $sleep ++;
-      sleep 5;
-   }
-   LOG($outLog, "\n" . date() . "All have been run!\n\n");
-   return(0);
-}
-
-sub squeue_check {
-   my ($jobidhash, $outLog) = @_;
-   my @squeue = `squeue`;
-   my $squeuehash;
-   foreach my $line (@squeue) {
-      next if $line =~ /JOBID\s+PARTITION.+/;
-      my ($jobid) = $line =~ /^\s*(\d+)\s+/;
-      if (not defined $jobid) {
-         LOG($outLog, "Can't parse jobid from line=$LCY$line$N\n");
-         next; # just next so we don't kill the script...
-      }
-      next if not defined $jobidhash->{$jobid};
-      $squeuehash->{$jobid} = 1;
-   }
-   foreach my $jobid (keys %{$jobidhash}) {
-      next if defined $squeuehash->{$jobid};
-      undef $jobidhash->{$jobid};
-      delete $jobidhash->{$jobid};
-   }
-   my ($total) = scalar(keys %{$jobidhash});
-   return ($total);
-}
-
-sub print_cmd {
-   my ($cmd, $outLog) = @_;
-   #LOG($outBigCMD, "\n$cmd\n","NA");
-   if ($cmd !~ /^#/) {
-      $cmd =~ s/^/    /;
-      $cmd =~ s/ \-/ \\\n      \-/g;
-   }
-   else {
-      $cmd =~ s/^#/   # /;
-      $cmd =~ s/ \-/ \\\n     # \-/g;
-   }
-   LOG($outLog, "$LGN\n$cmd\n$N\n");
-   #LOG($outBigCMD, "\n$cmd\n","NA");
-}
-
 
 sub Rscript {
 	my ($currFile, $bedFile, $curr_cluster_file, $totpeak, $totnopk, $pngout, $pdfout, $lenpdfout, $resDir, $convtype, $mytitle) = @_;
@@ -717,7 +629,6 @@ myseq = data.frame(variable=seq(1,dim(myseq)[2]),value=t(myseq))
 colnames(myseq) = c(\"variable\",\"value\")
 myseq\$value0 = c(\"N\",myseq\$value[1:(dim(myseq)[1]-1)])
 myseq\$value2 = c(myseq\$value[2:(dim(myseq)[1])],\"N\")
-
 
 CGprof = function(df,window=200,step=10) {
 	df\$value0 = c(\"N\",df\$value[1:(dim(df)[1]-1)])
@@ -777,28 +688,64 @@ library(reshape2)
 myresdm = melt(myres,id.vars=\"x\")
 p3.CGprof.col = c(\"CGdens\"=\"blue2\",\"GCcont\"=\"green4\",\"GCskew\"=\"red3\",\"ATskew\"=\"orange\")
 p3.CGprof = ggplot(myresdm,aes(x,value)) +
-	geom_line(aes(color=variable),lwd=1) +
+	geom_line(aes(color=variable),lwd=0.1) +
 	ylim(c(0,1)) +
 	theme_bw() + theme(panel.grid = element_blank()) +
 	ylab(\"\") + xlab(\"bp\") +
 	scale_color_manual(values=p3.CGprof.col,expand=c(0,0))
 
-p3.CGprof = p3.CGprof +
+p3.CGprof.mod.png = ggplot(myresdm,aes(x,value)) +
+	geom_line(aes(color=variable),lwd=0.1) +
+	ylim(c(0,1)) +
+	theme_bw() + theme(panel.grid = element_blank()) +
+	ylab(\"\") + xlab(\"bp\") +
+	scale_color_manual(values=p3.CGprof.col,expand=c(0,0))
+
+
+p3.CGprof.mod.pdf = ggplot(myresdm,aes(x,value)) +
+	geom_line(aes(color=variable),lwd=0.1) +
+	ylim(c(0,1)) +
+	theme_bw() + theme(panel.grid = element_blank()) +
+	ylab(\"\") + xlab(\"bp\") +
+	scale_color_manual(values=p3.CGprof.col,expand=c(0,0))
+
+#p3.CGprof.mod.png = p3.CGprof
+#p3.CGprof.mod.pdf = p3.CGprof
+
+p3.CGprof.mod.png = p3.CGprof.mod.png +
 	annotate(geom=\"segment\",x=0.04*max(myresdm\$x),xend=0.04*max(myresdm\$x),y=0.0,yend=1.00,color=\"blue2\") +
 	annotate(geom=\"segment\",x=0.08*max(myresdm\$x),xend=0.08*max(myresdm\$x),y=0.0,yend=1.00,color=\"red3\")
 for (i in seq(0,1,0.25)) {
-	p3.CGprof = p3.CGprof + annotate(geom=\"segment\",x=0.03*max(myresdm\$x),xend=0.04*max(myresdm\$x),y=i,yend=i,color=\"blue2\")
-	p3.CGprof = p3.CGprof + annotate(geom=\"text\"   ,x=0.03*max(myresdm\$x),y=i,label=i*2,size=5*p2.png.scale,hjust=1,color=\"blue2\")
-	p3.CGprof = p3.CGprof + annotate(geom=\"segment\",x=0.08*max(myresdm\$x),xend=0.08*max(myresdm\$x),y=i,yend=i,color=\"red3\")
-	p3.CGprof = p3.CGprof + annotate(geom=\"text\"   ,x=0.09*max(myresdm\$x),y=i,label=(i*2)-1,size=5*p2.png.scale,hjust=0,color=\"red3\")
-	#p3.CGprof = p3.CGprof + annotate(geom=\"segment\",x=0.93*max(myresdm\$x),xend=0.9*max(myresdm\$x),y=i,yend=i,color=\"red3\")
-	p3.CGprof = p3.CGprof + annotate(geom=\"text\"   ,x=0.06*max(myresdm\$x),y=i,label=i,size=5*p2.png.scale,hjust=0.5,color=\"green4\")
+	p3.CGprof.mod.png = p3.CGprof.mod.png + annotate(geom=\"segment\",x=0.03*max(myresdm\$x),xend=0.04*max(myresdm\$x),y=i,yend=i,color=\"blue2\")
+	p3.CGprof.mod.png = p3.CGprof.mod.png + annotate(geom=\"text\"   ,x=0.03*max(myresdm\$x),y=i,label=i*2,size=5*p2.png.scale,hjust=1,color=\"blue2\")
+	p3.CGprof.mod.png = p3.CGprof.mod.png + annotate(geom=\"segment\",x=0.08*max(myresdm\$x),xend=0.09*max(myresdm\$x),y=i,yend=i,color=\"red3\")
+	p3.CGprof.mod.png = p3.CGprof.mod.png + annotate(geom=\"text\"   ,x=0.09*max(myresdm\$x),y=i,label=(i*2)-1,size=5*p2.png.scale,hjust=0,color=\"red3\")
+	p3.CGprof.mod.png = p3.CGprof.mod.png + annotate(geom=\"text\"   ,x=0.06*max(myresdm\$x),y=i,label=i,size=5*p2.png.scale,hjust=0.5,color=\"green4\")
 }
-p3.CGprof = p3.CGprof +
+p3.CGprof.mod.png = p3.CGprof.mod.png +
 	scale_x_continuous(expand = c(0,0)) +
 	theme_blank
 
-p3.CGprof.mod = p3.CGprof
+p3.CGprof.mod.pdf = p3.CGprof.mod.pdf +
+	annotate(geom=\"segment\",x=0.04*max(myresdm\$x),xend=0.04*max(myresdm\$x),y=0.0,yend=1.00,color=\"blue2\",lwd=0.1) +
+	annotate(geom=\"segment\",x=0.08*max(myresdm\$x),xend=0.08*max(myresdm\$x),y=0.0,yend=1.00,color=\"red3\",lwd=0.1)
+for (i in seq(0,1,0.25)) {
+	p3.CGprof.mod.pdf = p3.CGprof.mod.pdf + annotate(geom=\"segment\",x=0.03*max(myresdm\$x),xend=0.04*max(myresdm\$x),y=i,yend=i,color=\"blue2\",lwd=0.1)
+	p3.CGprof.mod.pdf = p3.CGprof.mod.pdf + annotate(geom=\"text\"   ,x=0.03*max(myresdm\$x),y=i,label=i*2,size=1,hjust=1,color=\"blue2\")
+	p3.CGprof.mod.pdf = p3.CGprof.mod.pdf + annotate(geom=\"segment\",x=0.08*max(myresdm\$x),xend=0.09*max(myresdm\$x),y=i,yend=i,color=\"red3\",lwd=0.1)
+	p3.CGprof.mod.pdf = p3.CGprof.mod.pdf + annotate(geom=\"text\"   ,x=0.09*max(myresdm\$x),y=i,label=(i*2)-1,size=1,hjust=0,color=\"red3\")
+	p3.CGprof.mod.pdf = p3.CGprof.mod.pdf + annotate(geom=\"text\"   ,x=0.06*max(myresdm\$x),y=i,label=i,size=1,hjust=0.5,color=\"green4\")
+}
+p3.CGprof.mod.pdf = p3.CGprof.mod.pdf +
+	scale_x_continuous(expand = c(0,0)) +
+	theme_blank
+
+myseq\$type = \"N\"
+myseq[myseq\$value == \"C\",]\$type = \"CH\"
+myseq[myseq\$value == \"G\",]\$type = \"GH\"
+myseq[myseq\$value == \"C\" & myseq\$value2 == \"G\",]\$type = \"CG\"
+myseq[myseq\$value == \"G\" & myseq\$value0 == \"C\",]\$type = \"GC\"
+
 
 df = read.table(\"$currFile\",sep=\"\\t\")
 if (length(grep(\"^[0-9]+\$\",df[,2])) == 0) {
@@ -1099,29 +1046,150 @@ p = ggplot(dm,aes(variable,y)) +
 
 p.heatmaponly = ggplot(dm,aes(variable,y)) +  
 	geom_tile(aes(fill=as.factor(value))) +
-	 theme_bw() + theme(legend.position=\"none\") + 
 	 scale_fill_manual(values=c(p.col)) +
 	 scale_color_manual(values=c(p.col)) +
 	 scale_x_continuous(expand = c(0,0)) + 
 	 scale_y_continuous(expand = c(0,0)) +
-	 labs(x=NULL,y=NULL) + theme_blank
+	 labs(x=NULL,y=NULL) +
+	 theme_void() +
+	 theme(legend.position=\"none\")
 
 
 dm.conly = dm[dm\$variable \%in\% dmc\$variable,]
 dm.conly = merge(dm.conly,dmc,by=\"variable\")
 p.conly = ggplot(dm.conly,aes(x,y)) +  
 	geom_tile(aes(fill=as.factor(value))) +
-	 theme_bw() + theme(legend.position=\"none\") + 
 	 scale_fill_manual(values=c(p.col)) +
 	 scale_color_manual(values=c(p.col)) +
 	 scale_x_continuous(expand = c(0,0)) + 
 	 scale_y_continuous(expand = c(0,0)) +
-	 labs(x=NULL,y=NULL) + theme_blank
+	 labs(x=NULL,y=NULL) +
+	 theme_void() +
+	 theme(legend.position=\"none\")
 p.png = p
 p.pdf = p
 p.conly.png = p.conly
 
 ";
+
+
+# -------------------- $R->{mainplot_peak_rand_300} 240716
+$R->{mainplot_peak_rand_300} .= "
+	
+	##########################
+	# Main Plot Part 1 peak rand
+	count0 = apply(df[,-1], 1, function(x){return(length(x[x == 0])/length(x))})
+   if (length(count0[count0 >= 0.2]) > 0) {
+      print(\"###########################\")
+      print(paste(\"Has indel more than 20% of read length:\",length(count0[count0 > 0.2])))
+      print(paste(\"Example:\"))
+      print(head(df[count0 >= 0.2,1:5]))
+      print(\"###########################\")
+   }
+   if (length(count0[count0 < 0.2]) > 0) {
+		df.rand.300 = df[count0 < 0.2,]
+	} else {
+		print(\"Using all df.rand.300 coz there's almost no reads left\")
+		df.rand.300 = df
+	}
+
+	df.total = dim(df.rand.300)[1]
+	set.seed(42)
+	if (df.total > 300) {
+		df.rand.300 = df.rand.300[sample( seq(1,df.total) ,300,replace=F),]
+		print(\"randoming 300. DF TOTAL = \"); print(df.total)
+	} else {
+		df.rand.300 = df.rand.300
+		print(\"NOT randoming 300. DF TOTAL = \"); print(df.total)
+	}
+
+	df.rand.300 = df.rand.300[order(df.rand.300\$y),]
+	df.rand.300\$y = seq(1,dim(df.rand.300)[1])
+
+	write.table(df.rand.300,file=\"$currFile.rand\",quote=F,row.names=F,col.names=F,sep=\"\\t\")
+	print(\"Wrote to $currFile.rand\")
+	
+	dm.rand.300 = melt(df.rand.300,id.vars=c(\"V1\",\"y\"))
+	print(dim(df.rand.300))
+	dm.rand.300\$variable = as.numeric(as.character(dm.rand.300\$variable))
+	
+	#dmc.rand.300 = data.frame(variable = unique(dm.rand.300[dm.rand.300\$value >= 4,]\$variable),x=1)
+	if (convwant == \"CH\") {
+		dmc.rand.300 = myseq[myseq\$value == \"C\" & myseq\$value2 != \"G\",]
+	} else if (convwant == \"CG\") {
+		dmc.rand.300 = myseq[myseq\$value == \"C\",]
+	} else if (convwant == \"GH\") {
+		dmc.rand.300 = myseq[myseq\$value == \"G\" & myseq\$value0 != \"C\",]
+	} else if (convwant == \"GC\") {
+		dmc.rand.300 = myseq[myseq\$value == \"G\",]
+	}
+	dmc.rand.300 = dmc.rand.300[order(dmc.rand.300\$variable),]
+	dmc.rand.300\$x= seq(1,dim(dmc.rand.300)[1])
+	dmc.rand.300 = subset(dmc.rand.300,select=c(variable,x))
+	dmc.rand.300 = dmc.rand.300[order(dmc.rand.300\$variable),]
+	i0 = dmc.rand.300[dim(dmc.rand.300)[1],,drop=F]
+	dmc2.rand.300 = data.frame()
+	for (i in seq(max(dmc.rand.300\$variable),1,-1)) {
+	   if (dim(dmc.rand.300[dmc.rand.300\$variable == i,])[1] == 0) {
+	      icurr = i0
+	      icurr\$variable = i
+	      dmc2.rand.300 = rbind(dmc2.rand.300,icurr)
+	   } else {
+	      i0 = dmc.rand.300[dmc.rand.300\$variable == i,,drop=F]
+	      dmc2.rand.300 = rbind(dmc2.rand.300,i0)
+	   }
+	}
+	dmc2.rand.300 = dmc2.rand.300[order(dmc2.rand.300\$variable),]
+	rownames(dmc2.rand.300) = seq(1,dim(dmc2.rand.300)[1])
+	dmc2.rand.300\$beg = dmc2.rand.300\$x
+	dmc2.rand.300\$end = dmc2.rand.300\$x
+	dmc2.rand.300\$V2 = dmc2.rand.300\$variable
+	dmc2.rand.300\$V3 = dmc2.rand.300\$variable
+	
+	totalpeak = $totpeak + $totnopk
+	if (totalpeak == 0) {
+		peakperc = 0
+	} else {
+		peakperc = as.integer(1000*$totpeak / ($totpeak + $totnopk)+0.5)/10
+	}
+	p.rand.300 = ggplot(dm.rand.300,aes(variable,y)) +  
+		 geom_tile(aes(fill=as.factor(value))) + 
+		 scale_fill_manual(values=c(p.col)) +
+		 scale_color_manual(values=c(p.col)) +
+		 scale_x_continuous(expand = c(0,0)) + 
+		 scale_y_continuous(expand = c(0,0)) +
+		 theme_void() +
+		 theme(legend.position=\"none\") + 
+		 ggtitle(paste(\"$mytitle\",\"\\n\",peakperc,\"\% $totpeak/\",totalpeak,sep=\"\"))
+	
+	p.heatmaponly.rand.300 = ggplot(dm.rand.300,aes(variable,y)) +  
+		 geom_tile(aes(fill=as.factor(value))) + 
+		 scale_fill_manual(values=c(p.col)) +
+		 scale_color_manual(values=c(p.col)) +
+		 scale_x_continuous(expand = c(0,0)) + 
+		 scale_y_continuous(expand = c(0,0)) +
+		 theme_void() +
+		 theme(legend.position=\"none\")
+	
+	dm.rand.300.conly = dm.rand.300[dm.rand.300\$variable \%in\% dmc.rand.300\$variable,]
+	dm.rand.300.conly = merge(dm.rand.300.conly,dmc.rand.300,by=\"variable\")
+	
+	p.rand.300.conly = ggplot(dm.rand.300.conly,aes(x,y)) +  
+		geom_tile(aes(fill=as.factor(value))) +
+		 scale_fill_manual(values=c(p.col)) +
+		 scale_color_manual(values=c(p.col)) +
+		 scale_x_continuous(expand = c(0,0)) + 
+		 scale_y_continuous(expand = c(0,0)) +
+		 labs(x=NULL,y=NULL) +
+		 theme_void() +
+		 theme(legend.position=\"none\")
+
+	p.rand.300.pdf = p.rand.300 + theme(plot.title = element_text(size = 20*p.pdf.scale))
+	p.rand.300.png = p.rand.300 + theme(plot.title = element_text(size = 20*p.png.scale))
+	p.rand.300.conly.png = p.rand.300.conly
+
+";
+
 
 sub getbox {
 	my ($boxFile, $boxchr, $boxplasmid) = @_;
@@ -1195,8 +1263,10 @@ sub getbox {
 	";
 	my $Rbox_nopk = $Rbox;
 
+	#$Rbox .= "
 
-	$Rbox .= "
+	my $Rbox_peak = $Rbox;
+	$Rbox_peak .= "
 		print(\"!!! PEAK\")
 		print(names(p.col2))
 		print(p.col2)
@@ -1213,31 +1283,63 @@ sub getbox {
 		box\$y2 = 0
 		box\$value = 0
 
-		p.png = p.png + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=max(dm\$y)),fill=NA,size=0.5*p.png.scale) # SIZE
+		# p
+		p.png = p.png + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=max(dm\$y)),fill=NA,size=0.5*p.png.scale,alpha=0.5) # SIZE
 		p.png = p.png + geom_text(data=box,aes(color=V4,x=V2,y=max(dm\$y),label=label),angle=90,vjust=0,hjust=1,size=3) # SIZE
 		p.png = p.png + scale_fill_manual(values=c(p.col2)) + scale_color_manual(values=c(p.col2))
 
-		p2.png.mod = p2.png.mod + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=1),fill=NA,size=0.5*p.png.scale) # SIZE
+		p.pdf = p.pdf + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=max(dm\$y)),fill=NA,size=0.1*p.pdf.scale,alpha=0.5) # SIZE
+		p.pdf = p.pdf + geom_text(data=box,aes(color=V4,x=V2,y=max(dm\$y),label=label),angle=90,vjust=0,hjust=1,size=1) # SIZE
+		p.pdf = p.pdf + scale_fill_manual(values=c(p.col2)) + scale_color_manual(values=c(p.col2))
+
+		# p2
+		p2.png.mod = p2.png.mod + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=1),fill=NA,size=0.5*p.png.scale,alpha=0.5) # SIZE
 		p2.png.mod = p2.png.mod + geom_text(data=box,aes(color=V4,x=V2,y=1,label=label),angle=90,vjust=0,hjust=1,size=3) # SIZE
 		p2.png.mod = p2.png.mod + scale_fill_manual(values=c(p.col2)) + scale_color_manual(values=c(p.col2))
 
+		p2.pdf.mod = p2.pdf.mod + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=1),fill=NA,size=0.1*p.pdf.scale,alpha=0.5) # SIZE
+		p2.pdf.mod = p2.pdf.mod + geom_text(data=box,aes(color=V4,x=V2,y=1,label=label),angle=90,vjust=0,hjust=1,size=1) # SIZE
+		p2.pdf.mod = p2.pdf.mod + scale_fill_manual(values=c(p.col2)) + scale_color_manual(values=c(p.col2))
+
+		# p3
+		p3.CGprof.col = c(p3.CGprof.col,p.col2)
+		p3.CGprof.mod.png = p3.CGprof.mod.png + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=1),fill=NA,size=0.5*p.png.scale,alpha=0.5) # SIZE
+		p3.CGprof.mod.png = p3.CGprof.mod.png + geom_text(data=box,aes(color=V4,x=V2,y=1,label=label),angle=90,vjust=0,hjust=1,size=3) # SIZE
+		p3.CGprof.mod.png = p3.CGprof.mod.png + scale_fill_manual(values=c(p3.CGprof.col)) + scale_color_manual(values=c(p3.CGprof.col))
 
 		p3.CGprof.col = c(p3.CGprof.col,p.col2)
-		p3.CGprof.mod = p3.CGprof.mod + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=1),fill=NA,size=0.5*p.png.scale) # SIZE
-		p3.CGprof.mod = p3.CGprof.mod + geom_text(data=box,aes(color=V4,x=V2,y=1,label=label),angle=90,vjust=0,hjust=1,size=3) # SIZE
-		p3.CGprof.mod = p3.CGprof.mod + scale_fill_manual(values=c(p3.CGprof.col)) + scale_color_manual(values=c(p3.CGprof.col))
+		p3.CGprof.mod.pdf = p3.CGprof.mod.pdf + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=1),fill=NA,size=0.1*p.pdf.scale,alpha=0.5) # SIZE
+		p3.CGprof.mod.pdf = p3.CGprof.mod.pdf + geom_text(data=box,aes(color=V4,x=V2,y=1,label=label),angle=90,vjust=0,hjust=1,size=1) # SIZE
+		p3.CGprof.mod.pdf = p3.CGprof.mod.pdf + scale_fill_manual(values=c(p3.CGprof.col)) + scale_color_manual(values=c(p3.CGprof.col))
 
+		# p.heatmaponly
 		p.heatmaponly2 = p.heatmaponly
-		p.heatmaponly2 = p.heatmaponly2 + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=max(dm\$y)),fill=NA,size=0.5*p.png.scale) # SIZE
+		p.heatmaponly2 = p.heatmaponly2 + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=max(dm\$y)),fill=NA,size=0.5*p.png.scale,alpha=0.5) # SIZE
 		p.heatmaponly2 = p.heatmaponly2 + geom_text(data=box,aes(color=V4,x=V2,y=max(dm\$y),label=label),angle=90,vjust=0,hjust=1,size=3) # SIZE
 		p.heatmaponly2 = p.heatmaponly2 + scale_fill_manual(values=c(p.col2)) + scale_color_manual(values=c(p.col2))
 
-		p.pdf = p.pdf + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=max(dm\$y)),fill=NA,size=0.5*p.pdf.scale) # SIZE
-		p.pdf = p.pdf + geom_text(data=box,aes(color=V4,x=V2,y=max(dm\$y),label=label),angle=90,vjust=0,hjust=1) # SIZE
-		p.pdf = p.pdf + scale_fill_manual(values=c(p.col2)) + scale_color_manual(values=c(p.col2))
-		p.conly.png = p.conly.png + geom_rect(data=box2,aes(color=V4,xmin=beg,xmax=end,ymin=0,ymax=max(dm\$y)),fill=NA,size=0.5*p.png.scale)
+		p.conly.png = p.conly.png + geom_rect(data=box2,aes(color=V4,xmin=beg,xmax=end,ymin=0,ymax=max(dm\$y)),fill=NA,size=0.5*p.png.scale,alpha=0.5)
 		p.conly.png = p.conly.png + geom_text(data=box2,aes(color=V4,x=beg,y=max(dm\$y),label=label),angle=90,vjust=0,hjust=1,size=3) # SIZE
 		p.conly.png = p.conly.png + scale_fill_manual(values=c(p.col2)) + scale_color_manual(values=c(p.col2))
+
+		# p.rand.300.png 240717
+		p.rand.300.png = p.rand.300.png + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=max(dm.rand.300\$y)),fill=NA,size=0.5*p.png.scale) # SIZE
+		p.rand.300.png = p.rand.300.png + geom_text(data=box,aes(color=V4,x=V2,y=max(dm.rand.300\$y),label=label),angle=90,vjust=0,hjust=1,size=3) # SIZE
+		p.rand.300.png = p.rand.300.png + scale_fill_manual(values=c(p.col2)) + scale_color_manual(values=c(p.col2))
+
+		p.heatmaponly2.rand.300.png = p.heatmaponly.rand.300
+		p.heatmaponly2.rand.300.png = p.heatmaponly2.rand.300.png + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=max(dm.rand.300\$y)),fill=NA,size=0.5*p.png.scale) # SIZE
+		p.heatmaponly2.rand.300.png = p.heatmaponly2.rand.300.png + geom_text(data=box,aes(color=V4,x=V2,y=max(dm.rand.300\$y),label=label),angle=90,vjust=0,hjust=1,size=3) # SIZE
+		p.heatmaponly2.rand.300.png = p.heatmaponly2.rand.300.png + scale_fill_manual(values=c(p.col2)) + scale_color_manual(values=c(p.col2))
+
+		p.rand.300.pdf = p.rand.300.pdf + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=max(dm.rand.300\$y)),fill=NA,size=0.1*p.pdf.scale) # SIZE
+		p.rand.300.pdf = p.rand.300.pdf + geom_text(data=box,aes(color=V4,x=V2,y=max(dm.rand.300\$y),label=label),angle=90,vjust=0,hjust=1,size=1) # SIZE
+		p.rand.300.pdf = p.rand.300.pdf + scale_fill_manual(values=c(p.col2)) + scale_color_manual(values=c(p.col2))
+
+		p.heatmaponly2.rand.300.pdf = p.heatmaponly.rand.300
+		p.heatmaponly2.rand.300.pdf = p.heatmaponly2.rand.300.pdf + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=max(dm.rand.300\$y)),fill=NA,size=0.1*p.pdf.scale) # SIZE
+		p.heatmaponly2.rand.300.pdf = p.heatmaponly2.rand.300.pdf + geom_text(data=box,aes(color=V4,x=V2,y=max(dm.rand.300\$y),label=label),angle=90,vjust=0,hjust=1,size=3) # SIZE
+		p.heatmaponly2.rand.300.pdf = p.heatmaponly2.rand.300.pdf + scale_fill_manual(values=c(p.col2)) + scale_color_manual(values=c(p.col2))
 	}
 	";
 
@@ -1262,23 +1364,23 @@ sub getbox {
 		p.rand.1000.png = p.rand.1000.png + geom_text(data=box,aes(color=V4,x=V2,y=max(dm.rand.1000\$y),label=label),angle=90,vjust=0,hjust=1,size=3) # SIZE
 		p.rand.1000.png = p.rand.1000.png + scale_fill_manual(values=c(p.col2)) + scale_color_manual(values=c(p.col2))
 
-#print(p.heatmaponly2.rand.1000)
 
-		p.heatmaponly2.rand.1000 = p.heatmaponly.rand.1000
-		p.heatmaponly2.rand.1000 = p.heatmaponly2.rand.1000 + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=max(dm.rand.1000\$y)),fill=NA,size=0.5*p.png.scale) # SIZE
-		p.heatmaponly2.rand.1000 = p.heatmaponly2.rand.1000 + geom_text(data=box,aes(color=V4,x=V2,y=max(dm.rand.1000\$y),label=label),angle=90,vjust=0,hjust=1,size=3) # SIZE
-		p.heatmaponly2.rand.1000 = p.heatmaponly2.rand.1000 + scale_fill_manual(values=c(p.col2)) + scale_color_manual(values=c(p.col2))
+		p.heatmaponly2.rand.1000.png = p.heatmaponly.rand.1000
+		p.heatmaponly2.rand.1000.png = p.heatmaponly2.rand.1000.png + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=max(dm.rand.1000\$y)),fill=NA,size=0.5*p.png.scale) # SIZE
+		p.heatmaponly2.rand.1000.png = p.heatmaponly2.rand.1000.png + geom_text(data=box,aes(color=V4,x=V2,y=max(dm.rand.1000\$y),label=label),angle=90,vjust=0,hjust=1,size=3) # SIZE
+		p.heatmaponly2.rand.1000.png = p.heatmaponly2.rand.1000.png + scale_fill_manual(values=c(p.col2)) + scale_color_manual(values=c(p.col2))
 
-		p.rand.1000.pdf = p.rand.1000.pdf + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=max(dm.rand.1000\$y)),fill=NA,size=0.5*p.pdf.scale) # SIZE
-		p.rand.1000.pdf = p.rand.1000.pdf + geom_text(data=box,aes(color=V4,x=V2,y=max(dm.rand.1000\$y),label=label),angle=90,vjust=0,hjust=1) # SIZE
+		p.rand.1000.pdf = p.rand.1000.pdf + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=max(dm.rand.1000\$y)),fill=NA,size=0.1*p.pdf.scale) # SIZE
+		p.rand.1000.pdf = p.rand.1000.pdf + geom_text(data=box,aes(color=V4,x=V2,y=max(dm.rand.1000\$y),label=label),angle=90,vjust=0,hjust=1,size=1) # SIZE
 		p.rand.1000.pdf = p.rand.1000.pdf + scale_fill_manual(values=c(p.col2)) + scale_color_manual(values=c(p.col2))
+
 		p.rand.1000.conly.png = p.rand.1000.conly.png + geom_rect(data=box2,aes(color=V4,xmin=beg,xmax=end,ymin=0,ymax=max(dm.rand.1000\$y)),fill=NA,size=0.5*p.png.scale) # SIZE
 		p.rand.1000.conly.png = p.rand.1000.conly.png + geom_text(data=box2,aes(color=V4,x=beg,y=max(dm.rand.1000\$y),label=label),angle=90,vjust=0,hjust=1,size=3) # SIZE
 		p.rand.1000.conly.png = p.rand.1000.conly.png + scale_fill_manual(values=c(p.col2)) + scale_color_manual(values=c(p.col2))
 
 	}
 	";
-	return($Rbox, $Rbox_nopk);
+	return($Rbox_peak, $Rbox_nopk);
 }
 
 # -------------------- $R->{mainplot_nopk_rand_100}
@@ -1324,30 +1426,22 @@ if (totalpeak == 0) {
 }
 p.rand.100 = ggplot(dm.rand.100,aes(variable,y)) +  
 	 geom_tile(aes(fill=as.factor(value))) + 
-	 theme_bw() + theme(legend.position=\"none\") + 
+	 theme_void() +
+	 theme(legend.position=\"none\") +
 	 scale_fill_manual(values=c(p.col)) +
 	 scale_color_manual(values=c(p.col)) +
 	 scale_x_continuous(expand = c(0,0)) + 
 	 scale_y_continuous(expand = c(0,0)) +
-	 theme(
-	 	line = element_blank(),
-	 	axis.text = element_blank(),
-	 	axis.title = element_blank()
-	 ) + 
 	 ggtitle(paste(\"$mytitle\",\"\\n\",peakperc,\"\% $totpeak/\",totalpeak,sep=\"\"))
 
 p.heatmaponly.rand.100 = ggplot(dm.rand.100,aes(variable,y)) +  
 	 geom_tile(aes(fill=as.factor(value))) + 
-	 theme_bw() + theme(legend.position=\"none\") + 
+	 theme_void() +
+	 theme(legend.position=\"none\") +
 	 scale_fill_manual(values=c(p.col)) +
 	 scale_color_manual(values=c(p.col)) +
 	 scale_x_continuous(expand = c(0,0)) + 
-	 scale_y_continuous(expand = c(0,0)) +
-	 theme(
-	 	line = element_blank(),
-	 	axis.text = element_blank(),
-	 	axis.title = element_blank()
-	 )
+	 scale_y_continuous(expand = c(0,0))
 
 	p.rand.100.pdf = p.rand.100 + theme(plot.title = element_text(size = 20*p.pdf.scale))
 	p.rand.100.png = p.rand.100 + theme(plot.title = element_text(size = 20*p.png.scale))
@@ -1427,42 +1521,35 @@ if (totalpeak == 0) {
 }
 p.rand.1000 = ggplot(dm.rand.1000,aes(variable,y)) +  
 	 geom_tile(aes(fill=as.factor(value))) + 
-	 theme_bw() + theme(legend.position=\"none\") + 
+	 theme_void() +
+	 theme(legend.position=\"none\") +
 	 scale_fill_manual(values=c(p.col)) +
 	 scale_color_manual(values=c(p.col)) +
 	 scale_x_continuous(expand = c(0,0)) + 
 	 scale_y_continuous(expand = c(0,0)) +
-	 theme(
-	 	line = element_blank(),
-	 	axis.text = element_blank(),
-	 	axis.title = element_blank()
-	 ) + 
 	 ggtitle(paste(\"$mytitle\",\"\\n\",peakperc,\"\% $totpeak/\",totalpeak,sep=\"\"))
 
 p.heatmaponly.rand.1000 = ggplot(dm.rand.1000,aes(variable,y)) +  
 	 geom_tile(aes(fill=as.factor(value))) + 
-	 theme_bw() + theme(legend.position=\"none\") + 
+	 theme_void() +
+	 theme(legend.position=\"none\") +
 	 scale_fill_manual(values=c(p.col)) +
 	 scale_color_manual(values=c(p.col)) +
 	 scale_x_continuous(expand = c(0,0)) + 
-	 scale_y_continuous(expand = c(0,0)) +
-	 theme(
-	 	line = element_blank(),
-	 	axis.text = element_blank(),
-	 	axis.title = element_blank()
-	 )
+	 scale_y_continuous(expand = c(0,0))
 
 dm.rand.1000.conly = dm.rand.1000[dm.rand.1000\$variable \%in\% dmc.rand.1000\$variable,]
 dm.rand.1000.conly = merge(dm.rand.1000.conly,dmc.rand.1000,by=\"variable\")
 
 p.rand.1000.conly = ggplot(dm.rand.1000.conly,aes(x,y)) +  
 	geom_tile(aes(fill=as.factor(value))) +
-	 theme_bw() + theme(legend.position=\"none\") + 
+	 theme_void() +
+	 theme(legend.position=\"none\") +
 	 scale_fill_manual(values=c(p.col)) +
 	 scale_color_manual(values=c(p.col)) +
 	 scale_x_continuous(expand = c(0,0)) + 
 	 scale_y_continuous(expand = c(0,0)) +
-	 labs(x=NULL,y=NULL) + theme_blank
+	 labs(x=NULL,y=NULL)
 
 	p.rand.1000.pdf = p.rand.1000 + theme(plot.title = element_text(size = 20*p.pdf.scale))
 	p.rand.1000.png = p.rand.1000 + theme(plot.title = element_text(size = 20*p.png.scale))
@@ -1546,16 +1633,12 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
  #  print(head(dm.temp))
 	p = ggplot(dm.temp,aes(variable,y)) +  
 		 geom_tile(aes(fill=as.factor(value))) + 
-		 theme_bw() + theme(legend.position=\"none\") + 
+		 theme_void() +
+		 theme(legend.position=\"none\") +
 		 scale_fill_manual(values=c(p.col)) +
 		 scale_color_manual(values=c(p.col)) +
 		 scale_x_continuous(expand = c(0,0)) + 
-		 scale_y_continuous(expand = c(0,0)) +
-		 theme(
-		 	line = element_blank(),
-		 	axis.text = element_blank(),
-		 	axis.title = element_blank()
-		 ) + 
+		 scale_y_continuous(expand = c(0,0))
 		 ggtitle(paste(\"PLOT #\",i,\" (total peak=\",$totpeak,\"; total nopk=\",$totnopk,\")\",sep=\"\"))
 	plot_list[[i]] = p
 
@@ -1567,12 +1650,13 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 	dm.conly = merge(dm.conly,dmc,by=\"variable\")
 	p.conly = ggplot(dm.conly,aes(x,y)) +  
 		geom_tile(aes(fill=as.factor(value))) +
-		 theme_bw() + theme(legend.position=\"none\") + 
+		 theme_void() +
+		 theme(legend.position=\"none\") +
 		 scale_fill_manual(values=c(p.col)) +
 		 scale_color_manual(values=c(p.col)) +
 		 scale_x_continuous(expand = c(0,0)) + 
 		 scale_y_continuous(expand = c(0,0)) +
-		 labs(x=NULL,y=NULL) + theme_blank
+		 labs(x=NULL,y=NULL)
 	p.png = p
 	p.pdf = p
 	p.heatmaponly = p
@@ -1595,8 +1679,8 @@ p.png = p.png +
 
 p.pdf = p.pdf + 
 	 geom_rect(data=clust2,aes(fill=as.factor(clust),x=xmin,y=ymin,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax),alpha=0.5,size=0.5*p.pdf.scale) + # SIZE
-	 geom_rect(data=clust2,aes(color=as.factor(clust),x=xpos0,y=ymin,xmin=xpos0,xmax=xpos1,ymin=ymin,ymax=ymax),size=0.5*p.pdf.scale,fill=rgb(1,1,1,alpha=0),lwd=1*p.pdf.scale) + # SIZE
-	 geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=paste(clust-10,\"(\",id2,\")\",sep=\"\")),hjust=0,size=10*p.png.scale) +
+	# geom_rect(data=clust2,aes(color=as.factor(clust),x=xpos0,y=ymin,xmin=xpos0,xmax=xpos1,ymin=ymin,ymax=ymax),size=0.5*p.pdf.scale,fill=rgb(1,1,1,alpha=0),lwd=1*p.pdf.scale) + # SIZE
+	 geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=paste(clust-10,\"(\",id2,\")\",sep=\"\")),hjust=0,size=5*p.pdf.scale) +
 	 theme(plot.title = element_text(size = 20*p.pdf.scale))
 
 ";
@@ -1666,57 +1750,55 @@ if (length(bed) != 0 & dim(bed)[1] > 0) {
 
 # Calculate % Conversion
 df2 = subset(df,select=c(-V1,-y));
-#print(head(df)[1:min(3,dim(df)[2])])
-#print(tail(df)[1:min(3,dim(df)[2])])
-if (length(df2[df2 < $peakminVal]) > 0) {
-	df2[df2 < $peakminVal] = 0;
+if (length(df2[df2 < 4]) > 0) {
+   df2[df2 < 4] = 0;
 }
-if (length(df2[df2 >= $peakminVal]) > 0) {
-	df2[df2 >= $peakminVal] = 1
+if (length(df2[df2 >= 4 & df2 < 6]) > 0) {
+   df2[df2 >= 4 & df2 < 6] = 1
+}
+if (length(df2[df2 >= 6 & df2 < 8]) > 0) {
+   df2[df2 >= 6 & df2 < 8] = 2
+}
+if (length(df2[df2 >= 8 & df2 <= 9]) > 0) {
+   df2[df2 >= 8 & df2 <= 9] = 3
+}
+df2temp = data.frame(x=seq(1,dim(df2)[2]),C=apply(df2,2,max))
+df2temp2 = df2
+if (length(df2temp2[df2temp2 == 1]) > 0) {
+   df2temp2[df2temp2 == 1] = 0;
+}
+if (length(df2temp2[df2temp2 >= 2]) > 0) {
+   df2temp2[df2temp2 >= 2] = 1;
+}
+df2temp\$meanall = apply(df2temp2,2,mean)
+
+df2temp2 = df2
+if (length(df2temp2[df2temp2 == 1]) > 0) {
+   df2temp2[df2temp2 == 1] = 0;
+}
+if (length(df2temp2[df2temp2 >= 3]) > 0) {
+   df2temp2[df2temp2 >= 3] = 1;
+}
+df2temp\$meanpeak = apply(df2temp2,2,mean)
+
+if (convwant == \"CG\") {
+	df2temp = df2temp[df2temp\$x \%in\% myseq[myseq\$type == \"CG\" | myseq\$type == \"CH\",]\$variable,]
+} else if (convwant == \"GC\") {
+	df2temp = df2temp[df2temp\$x \%in\% myseq[myseq\$type == \"GC\" | myseq\$type == \"GH\",]\$variable,]
+} else if (convwant == \"CH\") {
+	df2temp = df2temp[df2temp\$x \%in\% myseq[myseq\$type == \"CH\",]\$variable,]
+} else if (convwant == \"GH\") {
+	df2temp = df2temp[df2temp\$x \%in\% myseq[myseq\$type == \"GH\",]\$variable,]
 }
 
-#min.df2.x2 = min(as.numeric(as.character(df2\$x)))
-#max.df2.x2 = max(as.numeric(as.character(df2\$x)))
-df2 = data.frame(x=seq(1,dim(df2)[2]), y=apply(df2,2,mean))
-df2temp = data.frame(x=NA,x2=NA,y=NA,y2=NA)
-#if (dim(df2[df2\$y > 0,])[1] > $plotminReads & $plotminReads > 5) {
-if (dim(df2[df2\$y > 0,])[1] > $plotminReads) {
-	df2 = df2[df2\$y > 0,]
-	df2\$x = as.numeric(as.character(df2\$x));
-	df2\$y = as.numeric(as.character(df2\$y));
-	df2\$x2 = df2\$x
-	df2\$y2 = df2\$y
-	for (i in 1:(dim(df2)[1]-10)) {
-		a = df2[df2\$x >= df2[i,]\$x & df2\$x <= (df2[i,]\$x+10),]
-		if (length(a) != 0 & dim(a)[1] != 0) {
-			df2[i,]\$x2 = df2[i,]\$x
-			df2[i,]\$y2 = mean(a\$y)
-			#print(paste(\"#\",i))
-			#print(a\$x)
-			#print(a\$y)
-			#print(df2[i,]\$x2)
-			#print(df2[i,]\$y2)
-		}
-	}
-	mins = seq(1,as.integer(df2[1,]\$x2)-1,10)
-	maxs = seq(max(df2\$x2),dim(df)[2]-2,10)
-	df2 = rbind(data.frame(x=mins,y=0,x2=mins,y2=0),df2)
-	df2 = rbind(df2,data.frame(x=maxs,y=0,x2=maxs,y2=0))
+# using meanall
+#df2temp = df2temp[df2temp\$C != 0,]
+if (dim(df2temp[df2temp\$meanall > 0,])[1] > 0) {
+   df2 = data.frame(x=df2temp\$x,y=df2temp\$meanall,x2=df2temp\$x,y2=df2temp\$meanall)
 } else {
-	df2 = data.frame(x=seq(1,dim(df)[2]), y=0, x2=seq(1,dim(df)[2]), y2=0);
+   df2 = data.frame(x=seq(1,dim(subset(df,select=c(-V1,-y)))[2]), y=0, x2=seq(1,dim(subset(df,select=c(-V1,-y)))[2]), y2=0);
 }
-
-min.df2.x2 = min(c(df2\$x2))
-max.df2.x2 = max(c(df2\$x2))
-df2temp = data.frame(x=NA,x2=seq(min.df2.x2,max.df2.x2),y=NA,y2=NA)
-for (i in dim(df2temp)[1]) {
-	if (dim(df2[df2\$x2 == df2temp[i,]\$x2,])[1] > 0) {
-		df2temp[i,]\$x = df2[i,]\$x
-		df2temp[i,]\$x2 = df2[i,]\$x2
-		df2temp[i,]\$y = df2[i,]\$y
-		df2temp[i,]\$y2 = df2[i,]\$y2
-	}
-}
+#old
 write.table(df2,file=\"$currFile.fixedwig\",quote=F,row.names=F,col.names=T,sep=\"\\t\")
 write.table(df2temp,file=\"$currFile.fixedwig2\",quote=F,row.names=F,col.names=T,sep=\"\\t\")
 
@@ -1726,12 +1808,12 @@ write.table(df2temp,file=\"$currFile.fixedwig2\",quote=F,row.names=F,col.names=T
 
 p2.png = 
 	ggplot(df2,aes(x2,y2)) + 
-	geom_point(aes(x=x,y=y),size=1*p2.png.scale) + # SIZE
-	geom_line(color=rgb(1,0,0,alpha=1),size=1*p2.png.scale) + # SIZE
-	theme_bw() +
+	geom_point(aes(x=x,y=y),size=0.5*p2.png.scale) + # SIZE
+	geom_line(color=rgb(1,0,0,alpha=1),lwd=0.5) + # SIZE
+	theme_void() +
+	theme(legend.position=\"none\") +
 	scale_x_continuous(expand = c(0,0)) +
 	scale_y_continuous(expand = c(0,0)) +
-	theme_blank +
 	coord_cartesian(ylim=c(-0.05,1.05)) +
 	annotate(geom='segment',x=0.01*max(df2\$x2),xend=0.01*max(df2\$x2),y=0,yend=1,color=\"black\")
 	for (i in seq(0,1,0.25)) {
@@ -1739,63 +1821,71 @@ p2.png =
 			annotate(geom='segment',x=0.01*max(df2\$x2),xend=0.02*max(df2\$x2),y=i,yend=i,color=\"black\") +
 			annotate(geom='text',x=0.02*max(df2\$x2),y=i,label=paste(i*100,\" \%\",sep=\"\"),size=5*p2.png.scale,hjust=0)
 	}
-p2.png.mod = p2.png
 
-	#annotate(geom='text',x=1,y=0.75,label=\"-  75 \%\",size=5*p2.png.scale,hjust=0) +
-	#annotate(geom='text',x=1,y=0.50,label=\"-  50 \%\",size=5*p2.png.scale,hjust=0) +
-	#annotate(geom='text',x=1,y=0.25,label=\"-  25 \%\",size=5*p2.png.scale,hjust=0) +
-	#annotate(geom='text',x=1,y=0.00,label=\"-   0\%\",size=5*p2.png.scale,hjust=0) +
+p2.png.mod = p2.png
 
 p2.pdf = 
 	ggplot(df2,aes(x2,y2)) + 
-	geom_point(aes(x=x,y=y),size=1*p2.pdf.scale) +  # SIZE
-	geom_line(color=rgb(1,0,0,alpha=1),size=1*p2.pdf.scale) + # SIZE 
-	theme_bw() +
+	geom_point(aes(x=x,y=y),pch=\".\",size=0.1) +  # SIZE
+	geom_line(color=rgb(1,0,0,alpha=1),lwd=0.1) + # SIZE 
+	theme_void() +
+	theme(legend.position=\"none\") +
 	scale_x_continuous(expand = c(0,0)) +
 	scale_y_continuous(expand = c(0,0)) +
-	theme_blank +
-	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5*p2.pdf.scale,hjust=0) +
-	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5*p2.pdf.scale,hjust=0) +
-	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5*p2.pdf.scale,hjust=0) +
-	annotate(geom='text',x=10,y=0.25,label=\"-  25 \%\",size=5*p2.pdf.scale,hjust=0) +
-	annotate(geom='text',x=10,y=0,label=\"-   0\%\",size=5*p2.pdf.scale,hjust=0) +
-	coord_cartesian(ylim=c(-0.05,1.05))
+	coord_cartesian(ylim=c(-0.05,1.05)) +
+	annotate(geom='segment',x=0.01*max(df2\$x2),xend=0.01*max(df2\$x2),y=0,yend=1,color=\"black\")
+	for (i in seq(0,1,0.25)) {
+		p2.pdf = p2.pdf + 
+			annotate(geom='segment',x=0.01*max(df2\$x2),xend=0.02*max(df2\$x2),y=i,yend=i,color=\"black\") +
+			annotate(geom='text',x=0.02*max(df2\$x2),y=i,label=paste(i*100,\" \%\",sep=\"\"),hjust=0,size=1)
+	}
 
+p2.pdf.mod = p2.pdf
 ";
 
 	$R->{secondplotConversionGraph_rand_100} = "
 
 # Calculate % Conversion
 df2.rand.100 = subset(df.rand.100,select=c(-V1,-y));
-if (length(df2.rand.100[df2.rand.100 < $peakminVal]) > 0) {
-	df2.rand.100[df2.rand.100 < $peakminVal] = 0;
+if (length(df2.rand.100[df2.rand.100 < 4]) > 0) {
+   df2.rand.100[df2.rand.100 < 4] = 0;
 }
-if (length(df2.rand.100[df2.rand.100 >= $peakminVal]) > 0) {
-	df2.rand.100[df2.rand.100 >= $peakminVal] = 1
+if (length(df2.rand.100[df2.rand.100 >= 4 & df2.rand.100 < 6]) > 0) {
+   df2.rand.100[df2.rand.100 >= 4 & df2.rand.100 < 6] = 1
 }
-df2.rand.100 = data.frame(x=seq(1,dim(df2.rand.100)[2]), y=apply(df2.rand.100,2,mean))
-#if (dim(df2.rand.100[df2.rand.100\$y > 0,])[1] > $plotminReads & $plotminReads > 5) {
-if (dim(df2.rand.100[df2.rand.100\$y > 0,])[1] > $plotminReads) {
-	df2.rand.100 = df2.rand.100[df2.rand.100\$y > 0,]
-	df2.rand.100\$x = as.numeric(as.character(df2.rand.100\$x));
-	df2.rand.100\$y = as.numeric(as.character(df2.rand.100\$y));
-	df2.rand.100\$x2 = df2.rand.100\$x
-	df2.rand.100\$y2 = df2.rand.100\$y
-	for (i in 1:(dim(df2.rand.100)[1]-10)) {
-		a = df2.rand.100[df2.rand.100\$x >= df2.rand.100[i,]\$x & df2.rand.100\$x <= df2.rand.100[i+10-1,]\$x,]
-		if (length(a) != 0 & dim(a)[1] != 0) {
-			df2.rand.100[i,]\$y2 = mean(a\$y)
-			df2.rand.100[i,]\$x2 = mean(a\$x)
-		}
-	}
-	mins = seq(1,as.integer(df2.rand.100[1,]\$x2)-1,10)
-	maxs = seq(max(df2.rand.100\$x2),dim(df.rand.100)[2]-2,10)
-	df2.rand.100 = rbind(data.frame(x=mins,y=0,x2=mins,y2=0),df2.rand.100)
-	df2.rand.100 = rbind(df2.rand.100,data.frame(x=maxs,y=0,x2=maxs,y2=0))
+if (length(df2.rand.100[df2.rand.100 >= 6 & df2.rand.100 < 8]) > 0) {
+   df2.rand.100[df2.rand.100 >= 6 & df2.rand.100 < 8] = 2
+}
+if (length(df2.rand.100[df2.rand.100 >= 8 & df2.rand.100 <= 9]) > 0) {
+   df2.rand.100[df2.rand.100 >= 8 & df2.rand.100 <= 9] = 3
+}
+df2.rand.100temp = data.frame(x=seq(1,dim(df2.rand.100)[2]),C=apply(df2.rand.100,2,max))
+df2.rand.100temp2 = df2.rand.100
+if (length(df2.rand.100temp2[df2.rand.100temp2 == 1]) > 0) {
+   df2.rand.100temp2[df2.rand.100temp2 == 1] = 0;
+}
+if (length(df2.rand.100temp2[df2.rand.100temp2 >= 2]) > 0) {
+   df2.rand.100temp2[df2.rand.100temp2 >= 2] = 1;
+}
+df2.rand.100temp\$meanall = apply(df2.rand.100temp2,2,mean)
+
+df2.rand.100temp2 = df2.rand.100
+if (length(df2.rand.100temp2[df2.rand.100temp2 == 1]) > 0) {
+   df2.rand.100temp2[df2.rand.100temp2 == 1] = 0;
+}
+if (length(df2.rand.100temp2[df2.rand.100temp2 >= 3]) > 0) {
+   df2.rand.100temp2[df2.rand.100temp2 >= 3] = 1;
+}
+df2.rand.100temp\$meanpeak = apply(df2.rand.100temp2,2,mean)
+
+# using meanall
+df2.rand.100temp = df2.rand.100temp[df2.rand.100temp\$C != 0,]
+if (dim(df2.rand.100temp[df2.rand.100temp\$meanall > 0,])[1] > 4) {
+   df2.rand.100 = data.frame(x=df2.rand.100temp\$x,y=df2.rand.100temp\$meanall,x2=df2.rand.100temp\$x,y2=df2.rand.100temp\$meanall)
 } else {
-	df2.rand.100 = data.frame(x=seq(1,dim(df.rand.100)[2]), y=0, x2=seq(1,dim(df.rand.100)[2]), y2=0);
+   df2.rand.100 = data.frame(x=seq(1,dim(subset(df,select=c(-V1,-y)))[2]), y=0, x2=seq(1,dim(subset(df,select=c(-V1,-y)))[2]), y2=0);
 }
- 
+
 # P2 % Conversion XY Plot
 p2.rand.png.scale = p.png.scale
 p2.rand.pdf.scale = p.pdf.scale
@@ -1804,7 +1894,8 @@ p2.rand.100.png =
 	ggplot(df2.rand.100,aes(x2,y2)) + 
 	geom_point(aes(x=x,y=y),size=1*p2.png.scale) + # SIZE
 	geom_line(color=rgb(1,0,0,alpha=1),size=1*p2.png.scale) + # SIZE
-	theme_bw() +
+	theme_void() +
+	theme(legend.position=\"none\") +
 	scale_x_continuous(expand = c(0,0)) +
 	scale_y_continuous(expand = c(0,0)) +
 	theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank()) +
@@ -1819,15 +1910,16 @@ p2.rand.100.pdf =
 	ggplot(df2.rand.100,aes(x2,y2)) + 
 	geom_point(aes(x=x,y=y),size=1*p2.pdf.scale) +  # SIZE
 	geom_line(color=rgb(1,0,0,alpha=1),size=1*p2.pdf.scale) + # SIZE 
-	theme_bw() +
+	theme_void() +
+	theme(legend.position=\"none\") +
 	scale_x_continuous(expand = c(0,0)) +
 	scale_y_continuous(expand = c(0,0)) +
 	theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank()) +
-	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5*p2.pdf.scale,hjust=0) +
-	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5*p2.pdf.scale,hjust=0) +
-	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5*p2.pdf.scale,hjust=0) +
-	annotate(geom='text',x=10,y=0.25,label=\"-  25 \%\",size=5*p2.pdf.scale,hjust=0) +
-	annotate(geom='text',x=10,y=0,label=\"-   0\%\",size=5*p2.pdf.scale,hjust=0) +
+	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=1,hjust=0) +
+	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=1,hjust=0) +
+	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=1,hjust=0) +
+	annotate(geom='text',x=10,y=0.25,label=\"-  25 \%\",size=1,hjust=0) +
+	annotate(geom='text',x=10,y=0,label=\"-   0\%\",size=1,hjust=0) +
 	coord_cartesian(ylim=c(-0.05,1.05))
 
 ";
@@ -1836,33 +1928,43 @@ p2.rand.100.pdf =
 
 # Calculate % Conversion
 df2.rand.1000 = subset(df.rand.1000,select=c(-V1,-y));
-if (length(df2.rand.1000[df2.rand.1000 < $peakminVal]) > 0) {
-	df2.rand.1000[df2.rand.1000 < $peakminVal] = 0;
+if (length(df2.rand.1000[df2.rand.1000 < 4]) > 0) {
+   df2.rand.1000[df2.rand.1000 < 4] = 0;
 }
-if (length(df2.rand.1000[df2.rand.1000 >= $peakminVal]) > 0) {
-	df2.rand.1000[df2.rand.1000 >= $peakminVal] = 1
+if (length(df2.rand.1000[df2.rand.1000 >= 4 & df2.rand.1000 < 6]) > 0) {
+   df2.rand.1000[df2.rand.1000 >= 4 & df2.rand.1000 < 6] = 1
 }
-df2.rand.1000 = data.frame(x=seq(1,dim(df2.rand.1000)[2]), y=apply(df2.rand.1000,2,mean))
-#if (dim(df2.rand.1000[df2.rand.1000\$y > 0,])[1] > $plotminReads & $plotminReads > 5) {
-if (dim(df2.rand.1000[df2.rand.1000\$y > 0,])[1] > $plotminReads) {
-	df2.rand.1000 = df2.rand.1000[df2.rand.1000\$y > 0,]
-	df2.rand.1000\$x = as.numeric(as.character(df2.rand.1000\$x));
-	df2.rand.1000\$y = as.numeric(as.character(df2.rand.1000\$y));
-	df2.rand.1000\$x2 = df2.rand.1000\$x
-	df2.rand.1000\$y2 = df2.rand.1000\$y
-	for (i in 1:(dim(df2.rand.1000)[1]-10)) {
-		a = df2.rand.1000[df2.rand.1000\$x >= df2.rand.1000[i,]\$x & df2.rand.1000\$x <= df2.rand.1000[i+10-1,]\$x,]
-		if (length(a) != 0 & dim(a)[1] != 0) {
-			df2.rand.1000[i,]\$y2 = mean(a\$y)
-			df2.rand.1000[i,]\$x2 = mean(a\$x)
-		}
-	}
-	mins = seq(1,as.integer(df2.rand.1000[1,]\$x2)-1,10)
-	maxs = seq(max(df2.rand.1000\$x2),dim(df.rand.1000)[2]-2,10)
-	df2.rand.1000 = rbind(data.frame(x=mins,y=0,x2=mins,y2=0),df2.rand.1000)
-	df2.rand.1000 = rbind(df2.rand.1000,data.frame(x=maxs,y=0,x2=maxs,y2=0))
+if (length(df2.rand.1000[df2.rand.1000 >= 6 & df2.rand.1000 < 8]) > 0) {
+   df2.rand.1000[df2.rand.1000 >= 6 & df2.rand.1000 < 8] = 2
+}
+if (length(df2.rand.1000[df2.rand.1000 >= 8 & df2.rand.1000 <= 9]) > 0) {
+   df2.rand.1000[df2.rand.1000 >= 8 & df2.rand.1000 <= 9] = 3
+}
+df2.rand.1000temp = data.frame(x=seq(1,dim(df2.rand.1000)[2]),C=apply(df2.rand.1000,2,max))
+df2.rand.1000temp2 = df2.rand.1000
+if (length(df2.rand.1000temp2[df2.rand.1000temp2 == 1]) > 0) {
+   df2.rand.1000temp2[df2.rand.1000temp2 == 1] = 0;
+}
+if (length(df2.rand.1000temp2[df2.rand.1000temp2 >= 2]) > 0) {
+   df2.rand.1000temp2[df2.rand.1000temp2 >= 2] = 1;
+}
+df2.rand.1000temp\$meanall = apply(df2.rand.1000temp2,2,mean)
+
+df2.rand.1000temp2 = df2.rand.1000
+if (length(df2.rand.1000temp2[df2.rand.1000temp2 == 1]) > 0) {
+   df2.rand.1000temp2[df2.rand.1000temp2 == 1] = 0;
+}
+if (length(df2.rand.1000temp2[df2.rand.1000temp2 >= 3]) > 0) {
+   df2.rand.1000temp2[df2.rand.1000temp2 >= 3] = 1;
+}
+df2.rand.1000temp\$meanpeak = apply(df2.rand.1000temp2,2,mean)
+
+# using meanall
+df2.rand.1000temp = df2.rand.1000temp[df2.rand.1000temp\$C != 0,]
+if (dim(df2.rand.1000temp[df2.rand.1000temp\$meanall > 0,])[1] > 4) {
+   df2.rand.1000 = data.frame(x=df2.rand.1000temp\$x,y=df2.rand.1000temp\$meanall,x2=df2.rand.1000temp\$x,y2=df2.rand.1000temp\$meanall)
 } else {
-	df2.rand.1000 = data.frame(x=seq(1,dim(df.rand.1000)[2]), y=0, x2=seq(1,dim(df.rand.1000)[2]), y2=0);
+   df2.rand.1000 = data.frame(x=seq(1,dim(subset(df,select=c(-V1,-y)))[2]), y=0, x2=seq(1,dim(subset(df,select=c(-V1,-y)))[2]), y2=0);
 }
  
 # P2 % Conversion XY Plot
@@ -1873,7 +1975,8 @@ p2.rand.1000.png =
 	ggplot(df2.rand.1000,aes(x2,y2)) + 
 	geom_point(aes(x=x,y=y),size=1*p2.png.scale) + # SIZE
 	geom_line(color=rgb(1,0,0,alpha=1),size=1*p2.png.scale) + # SIZE
-	theme_bw() +
+	theme_void() +
+	theme(legend.position=\"none\") +
 	scale_x_continuous(expand = c(0,0)) +
 	scale_y_continuous(expand = c(0,0)) +
 	theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank()) +
@@ -1888,15 +1991,16 @@ p2.rand.1000.pdf =
 	ggplot(df2.rand.1000,aes(x2,y2)) + 
 	geom_point(aes(x=x,y=y),size=1*p2.pdf.scale) +  # SIZE
 	geom_line(color=rgb(1,0,0,alpha=1),size=1*p2.pdf.scale) + # SIZE 
-	theme_bw() +
+	theme_void() +
+	theme(legend.position=\"none\") +
 	scale_x_continuous(expand = c(0,0)) +
 	scale_y_continuous(expand = c(0,0)) +
 	theme(line = element_blank(),axis.text = element_blank(),axis.title = element_blank()) +
-	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=5*p2.pdf.scale,hjust=0) +
-	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=5*p2.pdf.scale,hjust=0) +
-	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=5*p2.pdf.scale,hjust=0) +
-	annotate(geom='text',x=10,y=0.25,label=\"-  25 \%\",size=5*p2.pdf.scale,hjust=0) +
-	annotate(geom='text',x=10,y=0,label=\"-   0\%\",size=5*p2.pdf.scale,hjust=0) +
+	annotate(geom='text',x=10,y=1,label=\"- 100 \%\",size=1,hjust=0) +
+	annotate(geom='text',x=10,y=0.75,label=\"-  75 \%\",size=1,hjust=0) +
+	annotate(geom='text',x=10,y=5,label=\"-  50 \%\",size=1,hjust=0) +
+	annotate(geom='text',x=10,y=0.25,label=\"-  25 \%\",size=1,hjust=0) +
+	annotate(geom='text',x=10,y=0,label=\"-   0\%\",size=1,hjust=0) +
 	coord_cartesian(ylim=c(-0.05,1.05))
 
 ";
@@ -1911,11 +2015,11 @@ totalheight = max(30,dim(df)[1]) + 31.25
 totalheight2 = max(30,dim(df)[1]) + 31.25 + 26.5625
 totalwidth  = dim(df)[2] * 0.125
 totalratio  = c(ratio1, ratio2)
-	if (file.exists(\"$curr_cluster_file\") & file.info(\"$curr_cluster_file\")\$size > 0) {
+#	if (file.exists(\"$curr_cluster_file\") & file.info(\"$curr_cluster_file\")\$size > 0) {
 		totalheight = totalheight + 26.5625
 		totalratio = c(totalratio, ratio3)
 		mynrow = 3
-	}
+#	}
 
 # Scaling
 
@@ -1933,275 +2037,342 @@ totalratio_nopk_last  = c(totalread_nopk/(totalread_nopk+31.25+26.5625), 31.25 /
 	my ($pdfoutFolder, $pdfoutFilename) = getFilename($pdfout, "folderfull");
 
 
-	$R->{PNG} = "
 
-# PNG
-#png(type=\"cairo\",\"$pngout\",width=totalwidth,height=totalheight)
-print(\"$pngout\")
-png(\"$pngout\",width=min(30000,totalwidth),height=min(30000,totalheight))
-grid.arrange(p.png,p2.png.mod,p3.CGprof.mod,ncol=1,nrow=mynrow,heights=totalratio)
-#if (mynrow == 3) {
-#	grid.arrange(p.png,p2.png,p3.png,ncol=1,nrow=mynrow,heights=totalratio)
-#} else {
-#	grid.arrange(p.png,p2.png,ncol=1,nrow=mynrow,heights=totalratio)
-#}
-dev.off()
+############ Declare ###########
+$R->{PNG} = "";
+$R->{PNG_peak_300} = "";
+$R->{PNG_nopk} = "";
+$R->{PNG_nopk_rand_100} = "";
+$R->{PNG_nopk_ALL} = "";
 
-# PNG HEATMAP ONLY
-totalheight = max(30,dim(df)[1]) * myscale
-pngout_heatmap_only = \"$pngoutFolder/HEATMAP/$pngoutFilename.heatmap.png\"
-#png(type=\"cairo\",pngout_heatmap_only,width=totalwidth,height=totalheight)
-print(pngout_heatmap_only)
-png(pngout_heatmap_only,width=min(30000,totalwidth),height=min(30000,totalheight))
-print(p.heatmaponly)
-dev.off()
+$R->{PDF} = "";
+$R->{PDF_peak_300} = "";
+$R->{PDF_nopk} = "";
+$R->{PDF_nopk_rand_100} = "";
+$R->{PDF_nopk_ALL} = "";
+################################
 
-# PNG HEATMAP2 (+ box)
-pngout_heatmaponly2 = \"$pngoutFolder/HEATMAP2/$pngoutFilename.heatmapbox.png\"
-print(pngout_heatmaponly2)
-#png(type=\"cairo\",pngout_peak_all_c_conv,width=totalwidth,height=31.25*myscale)
-png(pngout_heatmaponly2,width=min(30000,totalwidth),height=min(30000,totalheight))
-grid.arrange(p.heatmaponly2)
-dev.off()
+$R->{PNG_peak_300} = "
 
-# PNG all Conv
-pngout_peak_all_c_conv = \"$pngoutFolder/CONV/$pngoutFilename.c_conv.png\"
-print(pngout_peak_all_c_conv)
-png(pngout_peak_all_c_conv,width=min(30000,totalwidth),height=31.25*myscale)
-#png(type=\"cairo\",pngout_peak_all_c_conv,width=totalwidth,height=31.25*myscale)
-grid.arrange(p2.png)
-dev.off()
-
-# PNG all Conv
-pngout_peak_cgprof = \"$pngoutFolder/CGPROF/$pngoutFilename.cgprof.png\"
-print(pngout_peak_cgprof)
-png(pngout_peak_cgprof,width=min(30000,totalwidth),height=31.25*myscale)
-grid.arrange(p3.CGprof)
-dev.off()
-
-
-totalwidth.conly = max(dm.conly\$x)*4
-totalheight.conly = max(dm.conly\$y)*4
-# PNG Conly
-pngout_peak_all_conly = \"$pngoutFolder/CONLY/$pngoutFilename.conly.png\"
-print(pngout_peak_all_conly)
-png(pngout_peak_all_conly,width=min(30000,totalwidth.conly),height=min(30000,totalheight.conly))
-grid.arrange(p.conly.png)
-dev.off()
+	# PNG HEATMAP ONLY SUBSAMPLE
+	totalheight = dim(df.rand.300)[1] * myscale
+	pngout_heatmap_only = \"$pngoutFolder/HEATMAP300/$pngoutFilename.heatmap.300.png\"
+	print(paste(\"Making\",pngout_heatmap_only))
+	png(pngout_heatmap_only,width=min(30000,totalwidth),height=min(30000,totalheight))
+	print(p.heatmaponly.rand.300)
+	dev.off()
+	
+	pngout_heatmaponly2 = \"$pngoutFolder/HEATMAPBOX300/$pngoutFilename.heatmapbox.300.png\"
+	print(paste(\"Making\",pngout_heatmaponly2))
+	png(pngout_heatmaponly2,width=min(30000,totalwidth),height=min(30000,totalheight))
+	print(p.heatmaponly2.rand.300.png)
+	dev.off()
 
 ";
 
-	$R->{PNG_nopk} = "
+#240717
+$R->{PNG} = "
 
-# PNG
-totalheight = (dim(df.rand.1000)[1] + 31.25) * myscale
-print(\"$pngout\")
-png(\"$pngout\",width=min(30000,totalwidth),height=min(30000,totalheight))
-#png(type=\"cairo\",\"$pngout\",width=totalwidth,height=min(30000,totalheight))
-grid.arrange(p.rand.1000.png,p2.rand.1000.png,ncol=1,nrow=mynrow,heights=totalratio)
-dev.off()
-
-# PNG HEATMAP ONLY
-totalheight = dim(df.rand.1000)[1] * myscale
-pngout_heatmap_only = \"$pngoutFolder/HEATMAP/$pngoutFilename.heatmap.png\"
-print(pngout_heatmap_only)
-#png(type=\"cairo\",pngout_heatmap_only,width=min(30000,totalwidth),height=totalheight)
-png(pngout_heatmap_only,width=min(30000,totalwidth),height=min(30000,totalheight))
-print(p.heatmaponly.rand.1000)
-dev.off()
-
-pngout_heatmaponly2 = \"$pngoutFolder/HEATMAP2/$pngoutFilename.heatmapbox.png\"
-print(pngout_heatmaponly2)
-#png(type=\"cairo\",pngout_heatmaponly2,width=min(30000,totalwidth),height=totalheight)
-png(pngout_heatmaponly2,width=min(30000,totalwidth),height=min(30000,totalheight))
-print(p.heatmaponly2.rand.1000)
-dev.off()
-
-# PNG all Conv
-pngout_nopk_all_c_conv = \"$pngoutFolder/CONV/$pngoutFilename.c_conv.png\"
-print(pngout_nopk_all_c_conv)
-png(pngout_nopk_all_c_conv,width=min(30000,totalwidth),height=31.25*myscale)
-#png(type=\"cairo\",pngout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
-grid.arrange(p2.png)
-dev.off()
-
-totalwidth.conly = max(dm.rand.1000.conly\$x)*4
-totalheight.conly = max(dm.rand.1000.conly\$y)*4
-# PNG all Conv
-pngout_nopk_all_conly = \"$pngoutFolder/CONLY/$pngoutFilename.conly.png\"
-print(pngout_nopk_all_conly)
-png(pngout_nopk_all_conly,width=min(30000,totalwidth.conly),height=min(30000,totalheight.conly))
-#png(type=\"cairo\",pngout_nopk_all_conly,width=totalwidth,height=31.25*myscale)
-grid.arrange(p.rand.1000.conly.png)
-dev.off()
-
-";
-
-	$R->{PNG_nopk_rand_100} = "
-
-pngout_nopk_rand_100 = \"$pngoutFolder/ALL/$pngoutFilename.RAND.100.png\"
-# PNG
-totalheight = (dim(df.rand.100)[1] + 31.25) * myscale
-#png(type=\"cairo\",pngout_nopk_rand_100,width=totalwidth,height=totalheight)
-png(pngout_nopk_rand_100,width=min(30000,totalwidth),height=min(30000,totalheight))
-grid.arrange(p.rand.100.png,p2.rand.100.png,ncol=1,nrow=mynrow,heights=totalratio)
-dev.off()
-
-# PNG HEATMAP ONLY
-totalheight = dim(df.rand.100)[1] * myscale
-pngout_heatmap_only = \"$pngoutFolder/ALL/$pngoutFilename.RAND.100.heatmap.png\"
-#png(type=\"cairo\",pngout_heatmap_only,width=totalwidth,height=totalheight)
-png(pngout_heatmap_only,width=min(30000,totalwidth),height=min(30000,totalheight))
-print(p.heatmaponly.rand.100)
-dev.off()
-
-# PNG all Conv
-pngout_nopk_all_c_conv = \"$pngoutFolder/ALL/$pngoutFilename.RAND.100.c_conv.png\"
-#png(type=\"cairo\",pngout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
-png(pngout_nopk_all_c_conv,width=min(30000,totalwidth),height=31.25*myscale)
-grid.arrange(p2.rand.100.png)
-dev.off()
+	# PNG
+	print(\"$pngout\")
+	png(\"$pngout\",width=min(30000,totalwidth),height=min(30000,totalheight))
+	grid.arrange(p.png,p2.png.mod,p3.CGprof.mod.png,ncol=1,nrow=3,heights=totalratio)
+	dev.off()
+	
+	# PNG HEATMAP ONLY
+	totalheight = max(30,dim(df)[1]) * myscale
+	pngout_heatmap_only = \"$pngoutFolder/HEATMAP/$pngoutFilename.heatmap.png\"
+	print(pngout_heatmap_only)
+	png(pngout_heatmap_only,width=min(30000,totalwidth),height=min(30000,totalheight))
+	print(p.heatmaponly)
+	dev.off()
+	
+	# PNG HEATMAP2 (+ box)
+	pngout_heatmaponly2 = \"$pngoutFolder/HEATMAP2/$pngoutFilename.heatmapbox.png\"
+	print(pngout_heatmaponly2)
+	png(pngout_heatmaponly2,width=min(30000,totalwidth),height=min(30000,totalheight))
+	grid.arrange(p.heatmaponly2)
+	dev.off()
+	
+	# PNG all Conv
+	pngout_peak_all_c_conv = \"$pngoutFolder/CONV/$pngoutFilename.c_conv.png\"
+	print(pngout_peak_all_c_conv)
+	png(pngout_peak_all_c_conv,width=min(30000,totalwidth),height=31.25*myscale)
+	grid.arrange(p2.png)
+	dev.off()
+	
+	# PNG all Conv
+	pngout_peak_cgprof = \"$pngoutFolder/CGPROF/$pngoutFilename.cgprof.png\"
+	print(pngout_peak_cgprof)
+	png(pngout_peak_cgprof,width=min(30000,totalwidth),height=31.25*myscale)
+	grid.arrange(p3.CGprof)
+	dev.off()
+	
+	totalwidth.conly = max(dm.conly\$x)*4
+	totalheight.conly = max(dm.conly\$y)*4
+	# PNG Conly
+	pngout_peak_all_conly = \"$pngoutFolder/CONLY/$pngoutFilename.conly.png\"
+	print(pngout_peak_all_conly)
+	png(pngout_peak_all_conly,width=min(30000,totalwidth.conly),height=min(30000,totalheight.conly))
+	grid.arrange(p.conly.png)
+	dev.off()
 
 ";
 
-	$R->{PNG_nopk_ALL} = "
+$R->{PNG_nopk} = "
 
-for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
-	pngout_nopk = \"$pngoutFolder/ALL/$pngoutFilename\"
-	pngout_nopk = gsub(\"^(.+).png\$\",\"\\\\1\",pngout_nopk,perl=T)
-	pngout_nopk = paste(pngout_nopk,\".\",i,\".png\",sep=\"\")
-	if (i == max(seq( 1,as.integer(dim(df)[1]/mywindow) + 1 ))) {
-		currtotalheight = totalheight_nopk_last
-		currtotalratio = totalratio_nopk_last
-		#print(paste(i,currtotalheight,currtotalratio))
-#		png(type=\"cairo\",pngout_nopk,width=totalwidth,height=currtotalheight)
-		png(pngout_nopk,width=min(30000,totalwidth),height=min(30000,currtotalheight))
-		grid.arrange(plot_list[[i]],p2,ncol=1,nrow=mynrow,heights=currtotalratio)
-		dev.off()
-	} else {
-		currtotalheight = totalheight_nopk
-		#print(paste(i,currtotalheight))
-	#	png(type=\"cairo\",pngout_nopk,width=totalwidth,height=currtotalheight)
-		png(pngout_nopk,width=min(30000,totalwidth),height=min(30000,currtotalheight))
-		grid.arrange(plot_list[[i]],ncol=1)
-		dev.off()
+	# PNG
+	totalheight = (dim(df.rand.1000)[1] + 31.25) * myscale
+	print(\"$pngout\")
+	png(\"$pngout\",width=min(30000,totalwidth),height=min(30000,totalheight))
+	#png(type=\"cairo\",\"$pngout\",width=totalwidth,height=min(30000,totalheight))
+	grid.arrange(p.rand.1000.png,p2.rand.1000.png,ncol=1,nrow=mynrow,heights=totalratio)
+	dev.off()
+	
+	# PNG HEATMAP ONLY
+	totalheight = dim(df.rand.1000)[1] * myscale
+	pngout_heatmap_only = \"$pngoutFolder/HEATMAP/$pngoutFilename.heatmap.png\"
+	print(pngout_heatmap_only)
+	#png(type=\"cairo\",pngout_heatmap_only,width=min(30000,totalwidth),height=totalheight)
+	png(pngout_heatmap_only,width=min(30000,totalwidth),height=min(30000,totalheight))
+	print(p.heatmaponly.rand.1000)
+	dev.off()
+	
+	pngout_heatmaponly2 = \"$pngoutFolder/HEATMAP2/$pngoutFilename.heatmapbox.png\"
+	print(pngout_heatmaponly2)
+	#png(type=\"cairo\",pngout_heatmaponly2,width=min(30000,totalwidth),height=totalheight)
+	png(pngout_heatmaponly2,width=min(30000,totalwidth),height=min(30000,totalheight))
+	print(p.heatmaponly2.rand.1000.png)
+	dev.off()
+	
+	# PNG all Conv
+	pngout_nopk_all_c_conv = \"$pngoutFolder/CONV/$pngoutFilename.c_conv.png\"
+	print(pngout_nopk_all_c_conv)
+	png(pngout_nopk_all_c_conv,width=min(30000,totalwidth),height=31.25*myscale)
+	#png(type=\"cairo\",pngout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
+	grid.arrange(p2.png)
+	dev.off()
+	
+	totalwidth.conly = max(dm.rand.1000.conly\$x)*4
+	totalheight.conly = max(dm.rand.1000.conly\$y)*4
+	# PNG all Conv
+	pngout_nopk_all_conly = \"$pngoutFolder/CONLY/$pngoutFilename.conly.png\"
+	print(pngout_nopk_all_conly)
+	png(pngout_nopk_all_conly,width=min(30000,totalwidth.conly),height=min(30000,totalheight.conly))
+	#png(type=\"cairo\",pngout_nopk_all_conly,width=totalwidth,height=31.25*myscale)
+	grid.arrange(p.rand.1000.conly.png)
+	dev.off()
+
+";
+
+$R->{PNG_nopk_rand_100} = "
+
+	pngout_nopk_rand_100 = \"$pngoutFolder/ALL/$pngoutFilename.RAND.100.png\"
+	# PNG
+	totalheight = (dim(df.rand.100)[1] + 31.25) * myscale
+	#png(type=\"cairo\",pngout_nopk_rand_100,width=totalwidth,height=totalheight)
+	png(pngout_nopk_rand_100,width=min(30000,totalwidth),height=min(30000,totalheight))
+	grid.arrange(p.rand.100.png,p2.rand.100.png,ncol=1,nrow=mynrow,heights=totalratio)
+	dev.off()
+	
+	# PNG HEATMAP ONLY
+	totalheight = dim(df.rand.100)[1] * myscale
+	pngout_heatmap_only = \"$pngoutFolder/ALL/$pngoutFilename.RAND.100.heatmap.png\"
+	#png(type=\"cairo\",pngout_heatmap_only,width=totalwidth,height=totalheight)
+	png(pngout_heatmap_only,width=min(30000,totalwidth),height=min(30000,totalheight))
+	print(p.heatmaponly.rand.100)
+	dev.off()
+	
+	# PNG all Conv
+	pngout_nopk_all_c_conv = \"$pngoutFolder/ALL/$pngoutFilename.RAND.100.c_conv.png\"
+	#png(type=\"cairo\",pngout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
+	png(pngout_nopk_all_c_conv,width=min(30000,totalwidth),height=31.25*myscale)
+	grid.arrange(p2.rand.100.png)
+	dev.off()
+
+";
+
+$R->{PNG_nopk_ALL} = "
+
+	for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
+		pngout_nopk = \"$pngoutFolder/ALL/$pngoutFilename\"
+		pngout_nopk = gsub(\"^(.+).png\$\",\"\\\\1\",pngout_nopk,perl=T)
+		pngout_nopk = paste(pngout_nopk,\".\",i,\".png\",sep=\"\")
+		if (i == max(seq( 1,as.integer(dim(df)[1]/mywindow) + 1 ))) {
+			currtotalheight = totalheight_nopk_last
+			currtotalratio = totalratio_nopk_last
+			#print(paste(i,currtotalheight,currtotalratio))
+	#		png(type=\"cairo\",pngout_nopk,width=totalwidth,height=currtotalheight)
+			png(pngout_nopk,width=min(30000,totalwidth),height=min(30000,currtotalheight))
+			grid.arrange(plot_list[[i]],p2,ncol=1,nrow=mynrow,heights=currtotalratio)
+			dev.off()
+		} else {
+			currtotalheight = totalheight_nopk
+			#print(paste(i,currtotalheight))
+		#	png(type=\"cairo\",pngout_nopk,width=totalwidth,height=currtotalheight)
+			png(pngout_nopk,width=min(30000,totalwidth),height=min(30000,currtotalheight))
+			grid.arrange(plot_list[[i]],ncol=1)
+			dev.off()
+		}
 	}
-}
-
-
 ";
+
+
+####### PDF ########
 
 my $PDFSCALE = 200;
-	$R->{PDF} = "
 
-# PDF
-currheight = totalheight / $PDFSCALE
-currwidth = totalwidth / $PDFSCALE
-pdf(\"$pdfout\",width=min(30000,currwidth),height=min(30000,currheight))
-if (mynrow == 3) {
-	grid.arrange(p.pdf,p2.pdf,p3.pdf,ncol=1,nrow=mynrow,heights=totalratio)
-} else {
-	grid.arrange(p.pdf,p2.pdf,ncol=1,nrow=mynrow,heights=totalratio)
-}
-dev.off()
+$R->{PDF_peak_300} = "
 
-# PDF HEATMAP ONLY
-currheight = dim(df)[1] * myscale / $PDFSCALE
-currwidth = totalwidth / $PDFSCALE
-pdfout_heatmap_only = \"$pdfoutFolder/ALL/$pdfoutFilename.heatmap.pdf\"
-pdf(pdfout_heatmap_only,width=min(30000,currwidth),height=min(30000,currheight))
-print(p.heatmaponly)
-dev.off()
+	# PDF HEATMAP ONLY SUBSAMPLE 240717
+	currheight = dim(df.rand.300)[1] * myscale / $PDFSCALE
+	currwidth = totalwidth / $PDFSCALE
+	pdfout_heatmap_only = \"$pdfoutFolder/HEATMAP300/$pdfoutFilename.heatmap.300.pdf\"
+	print(paste(\"Making\",pdfout_heatmap_only))
+	print(paste(\"currheight\",currheight,currwidth))
+	pdf(pdfout_heatmap_only,width=min(30000,currwidth),height=min(30000,currheight))
+	print(p.heatmaponly.rand.300)
+	dev.off()
+	
+	# PDF HEATMAP2 ONLY SUBSAMPLE 240717
+	currheight = dim(df.rand.300)[1] * myscale / $PDFSCALE
+	currwidth = totalwidth / $PDFSCALE
+	pdfout_heatmaponly2 = \"$pdfoutFolder/HEATMAPBOX300/$pdfoutFilename.heatmapbox.300.pdf\"
+	print(paste(\"Making\",pdfout_heatmaponly2))
+	print(paste(\"currheight\",currheight,currwidth))
+	pdf(pdfout_heatmaponly2,width=min(30000,currwidth),height=min(30000,currheight))
+	print(p.heatmaponly2.rand.300.pdf)
+	dev.off()
+";
 
-# PDF all Conv
-currheight = 31.25 * myscale / $PDFSCALE
-currwidth = totalwidth / $PDFSCALE
-pdfout_peak_all_c_conv = \"$pdfoutFolder/ALL/$pdfoutFilename.c_conv.pdf\"
-pdf(pdfout_peak_all_c_conv,width=min(30000,currwidth),height=min(30000,currheight))
-grid.arrange(p2.pdf)
-dev.off()
+$R->{PDF} = "
+
+	# PDF
+	currheight = totalheight / $PDFSCALE
+	currwidth = totalwidth / $PDFSCALE
+	print(\"$pdfout\")
+	pdf(\"$pdfout\",width=min(30000,currwidth),height=min(30000,currheight))
+	grid.arrange(p.pdf,p2.pdf.mod,p3.CGprof.mod.pdf,ncol=1,nrow=3,heights=totalratio)
+	dev.off()
+	#if (mynrow == 3) {
+	#	grid.arrange(p.pdf,p2.pdf,p3.pdf,ncol=1,nrow=mynrow,heights=totalratio)
+	#} else {
+	#	grid.arrange(p.pdf,p2.pdf,ncol=1,nrow=mynrow,heights=totalratio)
+	#}
+	#dev.off()
+	print(\"HERE\")
+	
+	#pdf(\"$pdfout\",width=min(30000,currwidth),height=min(30000,currheight))
+	#if (mynrow == 3) {
+	#	grid.arrange(p.pdf,p2.pdf,p3.pdf,ncol=1,nrow=mynrow,heights=totalratio)
+	#} else {
+	#	grid.arrange(p.pdf,p2.pdf,ncol=1,nrow=mynrow,heights=totalratio)
+	#}
+	#dev.off()
+	
+	# PDF all Conv
+	pdfout_peak_cgprof = \"$pdfoutFolder/CGPROF/$pdfoutFilename.cgprof.pdf\"
+	print(pdfout_peak_cgprof)
+	pdf(pdfout_peak_cgprof,width=min(30000,currwidth),height=min(30000,currheight))
+	grid.arrange(p3.CGprof.mod.pdf)
+	dev.off()
+	
+	# PDF HEATMAP ONLY
+	currheight = dim(df)[1] * myscale / $PDFSCALE
+	currwidth = totalwidth / $PDFSCALE
+	pdfout_heatmap_only = \"$pdfoutFolder/HEATMAP/$pdfoutFilename.heatmap.pdf\"
+	pdf(pdfout_heatmap_only,width=min(30000,currwidth),height=min(30000,currheight))
+	print(p.heatmaponly)
+	dev.off()
+	
+	# PDF all Conv
+	currheight = 31.25 * myscale / $PDFSCALE
+	currwidth = totalwidth / $PDFSCALE
+	pdfout_peak_all_c_conv = \"$pdfoutFolder/CONV/$pdfoutFilename.c_conv.pdf\"
+	pdf(pdfout_peak_all_c_conv,width=min(30000,currwidth),height=min(30000,currheight))
+	grid.arrange(p2.pdf)
+	dev.off()
 
 ";
 
-	$R->{PDF_nopk} = "
+$R->{PDF_nopk} = "
 
-# PDF
-currheight = (dim(df.rand.1000)[1] + 31.25) * myscale / $PDFSCALE
-currwidth = totalwidth / $PDFSCALE
-pdf(\"$pdfout\",width=min(30000,currwidth),height=min(30000,currheight))
-grid.arrange(p.rand.1000.pdf,p2.rand.1000.pdf,ncol=1,nrow=mynrow,heights=totalratio)
-dev.off()
-
-
-# PDF HEATMAP ONLY
-currheight = dim(df.rand.1000)[1] * myscale / $PDFSCALE
-currwidth = totalwidth / $PDFSCALE
-pdfout_heatmap_only = \"$pdfoutFolder/HEATMAP/$pdfoutFilename.heatmap.pdf\"
-pdf(pdfout_heatmap_only,width=min(30000,currwidth),height=min(30000,currheight))
-print(p.heatmaponly.rand.1000)
-dev.off()
-
-# PDF all Conv
-currheight = 31.25 * myscale / $PDFSCALE
-currwidth = totalwidth / $PDFSCALE
-pdfout_nopk_all_c_conv = \"$pdfoutFolder/CONV/$pdfoutFilename.c_conv.pdf\"
-pdf(pdfout_nopk_all_c_conv,width=min(30000,currwidth),height=min(30000,currheight))
-grid.arrange(p2.pdf)
-dev.off()
-
-";
-
-	$R->{PDF_nopk_rand_100} = "
-currheight = (dim(df.rand.100)[1] + 31.25) * myscale / $PDFSCALE
-currwidth = totalwidth / $PDFSCALE
-pdfout_nopk_rand_100 = \"$pdfoutFolder/ALL/$pdfoutFilename.RAND.100.pdf\"
-
-# PDF
-pdf(pdfout_nopk_rand_100,width=min(30000,currwidth),height=min(30000,currheight))
-grid.arrange(p.rand.100.pdf,p2.rand.100.pdf,ncol=1,nrow=mynrow,heights=totalratio)
-dev.off()
-
-# PDF HEATMAP ONLY
-currheight = dim(df.rand.100)[1] * myscale / $PDFSCALE
-currwidth = totalwidth / $PDFSCALE
-pdfout_heatmap_only = \"$pdfoutFolder/HEATMAP/$pdfoutFilename.RAND.100.heatmap.pdf\"
-pdf(pdfout_heatmap_only,width=min(30000,currwidth),height=min(30000,currheight))
-print(p.heatmaponly.rand.100)
-dev.off()
-
-
-# PDF all Conv
-currheight = 31.25 * myscale / $PDFSCALE
-currwidth = totalwidth / $PDFSCALE
-pdfout_nopk_all_c_conv = \"$pdfoutFolder/CONV/$pdfoutFilename.RAND.100.c_conv.pdf\"
-pdf(pdfout_nopk_all_c_conv,width=min(30000,currwidth),height=min(30000,currheight))
-grid.arrange(p2.rand.100.pdf)
-dev.off()
+	# PDF
+	currheight = (dim(df.rand.1000)[1] + 31.25) * myscale / $PDFSCALE
+	currwidth = totalwidth / $PDFSCALE
+	pdf(\"$pdfout\",width=min(30000,currwidth),height=min(30000,currheight))
+	grid.arrange(p.rand.1000.pdf,p2.rand.1000.pdf,ncol=1,nrow=mynrow,heights=totalratio)
+	dev.off()
+	
+	
+	# PDF HEATMAP ONLY
+	currheight = dim(df.rand.1000)[1] * myscale / $PDFSCALE
+	currwidth = totalwidth / $PDFSCALE
+	pdfout_heatmap_only = \"$pdfoutFolder/HEATMAP/$pdfoutFilename.heatmap.pdf\"
+	pdf(pdfout_heatmap_only,width=min(30000,currwidth),height=min(30000,currheight))
+	print(p.heatmaponly.rand.1000)
+	dev.off()
+	
+	# PDF all Conv
+	currheight = 31.25 * myscale / $PDFSCALE
+	currwidth = totalwidth / $PDFSCALE
+	pdfout_nopk_all_c_conv = \"$pdfoutFolder/CONV/$pdfoutFilename.c_conv.pdf\"
+	pdf(pdfout_nopk_all_c_conv,width=min(30000,currwidth),height=min(30000,currheight))
+	grid.arrange(p2.pdf)
+	dev.off()
 
 ";
 
-	$R->{PDF_nopk_ALL} = "
+$R->{PDF_nopk_rand_100} = "
+	currheight = (dim(df.rand.100)[1] + 31.25) * myscale / $PDFSCALE
+	currwidth = totalwidth / $PDFSCALE
+	pdfout_nopk_rand_100 = \"$pdfoutFolder/ALL/$pdfoutFilename.RAND.100.pdf\"
+	
+	# PDF
+	pdf(pdfout_nopk_rand_100,width=min(30000,currwidth),height=min(30000,currheight))
+	grid.arrange(p.rand.100.pdf,p2.rand.100.pdf,ncol=1,nrow=mynrow,heights=totalratio)
+	dev.off()
+	
+	# PDF HEATMAP ONLY
+	currheight = dim(df.rand.100)[1] * myscale / $PDFSCALE
+	currwidth = totalwidth / $PDFSCALE
+	pdfout_heatmap_only = \"$pdfoutFolder/HEATMAP/$pdfoutFilename.RAND.100.heatmap.pdf\"
+	pdf(pdfout_heatmap_only,width=min(30000,currwidth),height=min(30000,currheight))
+	print(p.heatmaponly.rand.100)
+	dev.off()
+	
+	
+	# PDF all Conv
+	currheight = 31.25 * myscale / $PDFSCALE
+	currwidth = totalwidth / $PDFSCALE
+	pdfout_nopk_all_c_conv = \"$pdfoutFolder/CONV/$pdfoutFilename.RAND.100.c_conv.pdf\"
+	pdf(pdfout_nopk_all_c_conv,width=min(30000,currwidth),height=min(30000,currheight))
+	grid.arrange(p2.rand.100.pdf)
+	dev.off()
 
-for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
-	pdfout_nopk = \"$pdfoutFolder/ALL/$pdfoutFilename\"
-	pdfout_nopk = gsub(\"^(.+).pdf\$\",\"\\\\1\",pdfout_nopk,perl=T)
-	pdfout_nopk = paste(pdfout_nopk,\".\",i,\".pdf\",sep=\"\")
-	if (i == max(seq( 1,as.integer(dim(df)[1]/mywindow) + 1 ))) {
-		currtotalwidth  = totalwidth / $PDFSCALE
-		currtotalheight = totalheight_nopk_last / $PDFSCALE
-		currtotalratio = totalratio_nopk_last
-		pdf(pdfout_nopk,width=currtotalwidth,height=min(30000,currtotalheight))
-		grid.arrange(plot_list[[i]],p2,ncol=1,nrow=mynrow,heights=currtotalratio)
-		dev.off()
-	} else {
-		currtotalwidth = totalwidth / $PDFSCALE
-		currtotalheight = totalheight_nopk / $PDFSCALE
-		pdf(pdfout_nopk,width=currtotalwidth,height=min(30000,currtotalheight))
-		grid.arrange(plot_list[[i]],ncol=1)
-		dev.off()
+";
+
+$R->{PDF_nopk_ALL} = "
+
+	for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
+		pdfout_nopk = \"$pdfoutFolder/ALL/$pdfoutFilename\"
+		pdfout_nopk = gsub(\"^(.+).pdf\$\",\"\\\\1\",pdfout_nopk,perl=T)
+		pdfout_nopk = paste(pdfout_nopk,\".\",i,\".pdf\",sep=\"\")
+		if (i == max(seq( 1,as.integer(dim(df)[1]/mywindow) + 1 ))) {
+			currtotalwidth  = totalwidth / $PDFSCALE
+			currtotalheight = totalheight_nopk_last / $PDFSCALE
+			currtotalratio = totalratio_nopk_last
+			pdf(pdfout_nopk,width=currtotalwidth,height=min(30000,currtotalheight))
+			grid.arrange(plot_list[[i]],p2,ncol=1,nrow=mynrow,heights=currtotalratio)
+			dev.off()
+		} else {
+			currtotalwidth = totalwidth / $PDFSCALE
+			currtotalheight = totalheight_nopk / $PDFSCALE
+			pdf(pdfout_nopk,width=currtotalwidth,height=min(30000,currtotalheight))
+			grid.arrange(plot_list[[i]],ncol=1)
+			dev.off()
+		}
 	}
-}
-
 ";
 
 	return $R;

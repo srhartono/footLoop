@@ -107,14 +107,28 @@ my $R;
 my @total_Rscript = <$origFolder/*.R>;
 my @total_png = <$origFolder/*.png>;
 my %genes;
-
+my $totalorigFiles = @origFile;
+my @neworigFiles;
 for (my $i = 0; $i < @origFile; $i++) {
 	my ($peakFolder, $peakFilename) = getFilename($origFile[$i], "folderfull");
 	$peakFilename =~ s/.filtered.gz$//;
 	$peakFilename = "$label\_gene$peakFilename";
+   if (defined $opt_G) {
+      if ($peakFilename !~ /$opt_G/i) {
+         #LOG($outLog, date() . "${LPR}footPeak_sbatch.pl$N: $LGN$i/$totalorigFiles$N ${LRD}Skipped$N $LCY$peakFilename$N as it doesn't contain $LGN-G $opt_G$N\n");
+         next;
+      }
+      else {
+         LOG($outLog, date() . "${LPR}footPeak_sbatch.pl$N: $LGN$i/$totalorigFiles$N ${LGN}Processing$N $LCY$peakFilename$N as it contain $LGN-G $opt_G$N\n");
+      }
+   }
+   else {
+      LOG($outLog, date() . "${LPR}footPeak_sbatch.pl$N: $LGN$i/$totalorigFiles$N ${LGN}Processing$N $LCY$peakFilename$N\n");
+   }
 	my ($gene, $strand) = $peakFilename =~ /_gene(.+)_(Pos|Neg|Unk)$/; $gene = uc($gene);
 	$genes{uc($gene)} ++;
 	LOG($outLog, "Example: $LCY$origFile[$i]\t$gene\t$strand$N\n\n") if $i eq 0;
+	push(@neworigFiles, $origFile[$i]);
 }
 
 my $totalorigFile = @origFile;
@@ -130,7 +144,8 @@ my $force_sbatch = $opt_F;
 #my @origFilesmall = @origFile[0..1];
 makedir("$outDir/PEAKS_GENOME/") if not -d "$outDir/PEAKS_GENOME/";
 makedir("$outDir/PEAKS_LOCAL/") if not -d "$outDir/PEAKS_LOCAL/";
-footLoop_sbatch_main($cmd, "footPeak", \@origFile, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir);
+my $debug; my $mem = 16000;
+footLoop_sbatch_main($cmd, "footPeak", \@neworigFiles, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir, $mem, $debug);
 #sbatch_these($cmd, "footPeak", \@origFile, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir);
 
 LOG($outLog, date() . "${LGN}SUCCESS$N: footPeak ran successfully!\n\n");

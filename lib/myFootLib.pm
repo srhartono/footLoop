@@ -267,6 +267,9 @@ sub makeOutDir {
 					makedir("$outDir/CONV") if not -d "$outDir/CONV" and $bool eq 0;
 					makedir("$outDir/HEATMAP") if not -d "$outDir/HEATMAP" and $bool eq 0;
 					makedir("$outDir/HEATMAP2") if not -d "$outDir/HEATMAP2" and $bool eq 0;
+					makedir("$outDir/HEATMAP300") if not -d "$outDir/HEATMAP300" and $bool eq 0;
+					makedir("$outDir/HEATMAPBOX300") if not -d "$outDir/HEATMAPBOX300" and $bool eq 0;
+					makedir("$outDir/LENGTH") if not -d "$outDir/LENGTH" and $bool eq 0;
 				}
 			}
 		}
