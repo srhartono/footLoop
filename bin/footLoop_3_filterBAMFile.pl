@@ -5,7 +5,7 @@ use vars qw($opt_v $opt_b $opt_L $opt_g $opt_i $opt_o $opt_B $opt_q $opt_x $opt_
 getopts("vb:L:g:i:o:B:x:y:r:O:");
 
 BEGIN {
-   my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
+   my $libPath = dirname(dirname abs_path $0) . '/lib';
    push(@INC, $libPath);
    print "\n- Pushed $libPath into perl lib path INC\n";
 }

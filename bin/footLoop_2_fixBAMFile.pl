@@ -5,7 +5,7 @@ use vars qw($opt_v $opt_s $opt_i $opt_g $opt_n $opt_S $opt_c $opt_C $opt_o $opt_
 getopts("s:i:g:f:S:cCo:vn:b:0");
 
 BEGIN {
-   my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
+   my $libPath = dirname(dirname abs_path $0) . '/lib';
    push(@INC, $libPath);
 	print "\n- Pushed $libPath into perl lib path INC\n";
 }
@@ -259,10 +259,136 @@ while (my $line = <$in1>) {
 		if ($toprint =~ /,big,/) {
 			$toprint =~ s/,GOOD,/,BIGINDEL,/g;
 		}
-		LOG($outLog, $toprint,$NA);
-#,$VRmetpos,$VRmetneg,$VRmatperc,$VRmisperc,$VRinsperc,$VRdelperc,$VRseqlength\n$toprint\n",$NA);
-#/$total$N ($LGN$insperc$N %), del=$LGN$del/$total$N ($LGN$delperc$N %), VRmetpos=$YW$VRmetpos$N, VRmetneg=$YW$VRmetneg$N, VRmat=$LGN$VRmatperc$N,VRmis=$LCY$VRmisperc$N,VRins=$LPR$VRinsperc ($VRinstotal)$N,VRdel=$LBU$VRdelperc ($VRdeltotal)$N,VRlen=$LGN$VRseqlength$N\n\n",$NA);
-		die "GOOD DEBUG\n" if $printed > 10 and defined $opt_0;
+		#LOG($outLog, $toprint,"NA");
+		DIELOG($outLog, "GOOD DEBUG\n") if $printed > 10 and defined $opt_0;
+	}
+
+	
+	my	($CTcons, $CC0, $GG0, $CC1, $GG1, $CT0, $GA0, $CT1, $GA1) = det_C_type($ref3, $seq3, $bad3, $seqborder0, $seqborder1);
+	my ($refPrint, $seqPrint) = colorconv($ref3, $seq3);
+	my $CTPrint = join("", @{$CTcons});
+	my $newstrand = $CT1 > $GA1 ? 0 : $GA1 > $CT1 ? 16 : $strand;
+
+	# 3. DETERMINING TYPE BASED ON CONVERSION
+	my $type;
+
+	# 3a 3_NONE: super low C->T conversion and G->A conversion then it's NONE
+	if ($CT1 <= 5 and $GA1 <= 5) {
+		$type = "3_NONE";
+	}
+
+	# 3b. 6_BOTH: otherwise, if C->T and G->A are within +/- 10% then of each other then it's BOTH
+	elsif ($CT1 == $GA1 or ($CT1 > 5 and $GA1 > 5 and ($GA1 >= $CT1 * 0.9 and $GA1 <= $CT1 * 1.1) and ($CT1 >= $GA1 * 0.9 and $CT1 <= $GA1 * 1.1))) {
+		$type = "6_BOTH";
+	}
+	# 3c. 1_SNEG and 6_SPOS: otherwise if one is strongly less than the other then STRONG "S" POS or NEG (SPOS or SNEG)
+	# -> arbitrary criterias (CT vs GA for POS, and vice versa for NEG)
+	#    1. CT 15+ vs GA 5-
+	#    2. CT 5+ and ratio CT:GA is at least 3:1
+	#    3. CT 20+ and ratio CT:GA is at least 2:1
+	elsif (($CT1 > 15 and $GA1 < 5) or ($GA1 >= 5 and $CT1 / $GA1 > 3) or ($GA1 >= 20 and $CT1 / $GA1 >= 2)) {
+		$type = "5_SPOS";
+	}
+	elsif (($GA1 > 15 and $CT1 < 5) or ($CT1 >= 5 and $GA1 / $CT1 > 3) or ($CT1 >= 20 and $GA1 / $CT1 >= 2)) {
+		$type = "1_SNEG";
+	}
+	# 3d. 2_WNEG and 4_WPOS: otherwise just WEAK "W" POS or NEG (WPOS or WNEG)
+	elsif ($CT1 < $GA1) {
+		$type = "2_WNEG";
+	}
+	elsif ($CT1 > $GA1) {
+		$type = "4_WPOS";
+	}
+	# 3e. 99_UNK: otherwise default is UNKNOWN
+	else {
+		$type = "99_UNK";
+	}
+
+	if (not defined $opt_0) {
+		print $outFixed "$read\t$type\t$strand\t$newstrand\t$chr\t$CTPrint\t$CT0,$CC0,$GA0,$GG0,$CT1,$CC1,$GA1,$GG1\n";
+	}
+	LOG($outLog, date() . "file=$LCY$BAMFile$N, linecount=$linecount, read=$read, die coz no info\n") if not defined $GG1;
+
+	## 3f. Below is for debug printing
+	#print $outdebug ">$read,$type,OldStrand=$strand,NewStrand=$newstrand,$chr,CT0=$CT0,CC0=$CC0,GA0=$GA0,GG0=$GG0,CT1=$CT1,CC1=$CC1,GA1=$GA1,GG1=$GG1\n";
+	#print $outdebug "$refPrint\n";
+	#print $outdebug "$seqPrint\n";
+	#print $outdebug "$CTPrint\n";
+	#print $outdebug "$read\t$chr\tstrand=$strand, new=$newstrand\n" . join("", @{$ref3}) . "\n";
+	#print $outdebug "CC = $CC1 / $CC0\n";
+	#print $outdebug "CT = $CT1 / $CT0\n";
+	#print $outdebug "GG = $GG1 / $GG0\n";
+	#print $outdebug "GA = $GA1 / $GA0\n";
+	#print $outdebug "REF: $refPrint\n";
+	#print $outdebug "SEQ: $seqPrint\n";
+	#print $outdebug "CON: " . join("", @{$CTcons}) . "\n";
+}
+if (not defined $opt_0) {
+	close $outFixed;
+}
+
+LOG($outLog, "maxinsperc\t$maxinsperc\t$maxinspercread\n","NA");
+LOG($outLog, "maxdelperc\t$maxdelperc\t$maxdelpercread\n","NA");
+foreach my $ref2nuc (sort keys %allcount) {
+	foreach my $seq2nuc (sort keys %{$allcount{$ref2nuc}}) {
+		my $maxperc = $allcount{$ref2nuc}{$seq2nuc}{maxperc};
+		my $maxread = $allcount{$ref2nuc}{$seq2nuc}{maxread};
+		LOG($outLog, "max\t$ref2nuc>$seq2nuc\t$maxperc\t$maxread\n","NA");
+	}
+}
+
+$meaninsperc = $totalread == 0 ? 0 : int($meaninsperc/$totalread*100)/100;
+$meandelperc = $totalread == 0 ? 0 : int($meandelperc/$totalread*100)/100;
+LOG($outLog, "meaninsperc\t$meaninsperc\n","NA");
+LOG($outLog, "meandelperc\t$meandelperc\n","NA");
+foreach my $ref2nuc (sort keys %allcount) {
+	foreach my $seq2nuc (sort keys %{$allcount{$ref2nuc}}) {
+		my $perc = $allcount{$ref2nuc}{$seq2nuc}{perc};
+		$perc = $totalread == 0 ? 0 : int($perc/$totalread * 100)/100;
+		LOG($outLog, "mean\t$ref2nuc>$seq2nuc\t$perc\n","NA");
+	}
+}
+
+#DIELOG($outLog, "DEBUG Exit before printing\n","NA");
+foreach my $strand (sort keys %strand) {
+	my @types = ("BAMe","diff");
+	if (not defined $opt_0) {
+		print $outdebug "$strand: ";
+	}
+	foreach my $type (@types[0..1]) {
+		my $total = $strand{$strand}{$type}; $total = 0 if not defined $total;
+		if (not defined $opt_0) {
+			print $outdebug "$type=$total,";
+		}
+		my $CT = $strand{$strand}{CT}{$type};
+		my ($mean, $meanse, $tmm, $tmmse) = (0,0,0,0);
+		if (defined $CT) {
+			$tmm    = int(1000*tmm(@{$CT})+0.5)/1000;
+			$mean   = int(1000*mean(@{$CT})+0.5)/1000;
+			$tmmse  = int(1000*tmmse(@{$CT})+0.5)/1000;
+			$meanse = int(1000*se(@{$CT})+0.5)/1000;
+		}
+		if (not defined $opt_0) {
+			print $outdebug "CT=tmm=$tmm +/- $tmmse;mean=$mean +/- $meanse, ";
+		}
+		my $tot = $strand{$strand}{tot}{$type}; 
+		($mean, $meanse, $tmm, $tmmse) = (0,0,0,0);
+		if (defined $tot) {
+			$tmm    = int(1000*tmm(@{$tot})+0.5)/1000;
+			$mean   = int(1000*mean(@{$tot})+0.5)/1000;
+			$tmmse  = int(1000*tmmse(@{$tot})+0.5)/1000;
+			$meanse = int(1000*se(@{$tot})+0.5)/1000;
+		}
+		if (not defined $opt_0) {
+			print $outdebug "tot=tmm=$tmm +/- $tmmse;mean=$mean +/- $meanse\n";
+		}
+	}
+}
+exit 0;
+
+# light quick dirty check if BAM or seq file are sane
+# BAM is sane if there are at least 10 rows (or less if less than 20 reads) with more than 10 columns
+# seq is sane if header is followed by seq and seq is ACTGUN (case-insensitive) at least 20 reads (or less if less than 20 reads in file)
 
 sub check_VR {
 	my ($read, $linecount, $refs2, $ques2, $refs3, $ques3, $outLog, $NA, $toprint) = @_;
@@ -304,7 +430,7 @@ sub check_VR {
 		}
 		$dict{ref2toref3}{$ref2Ind} = $ref3Ind;
 		#if ($ref2Ind > 40 and $ref2Ind < 70) {
-		#	LOG($outLog, "$ref2[$ref2Ind],$ref3[$ref3Ind],$ref2Ind,$ref3Ind\n");
+		#	LOG($outLog, "$ref2[$ref2Ind],$ref3[$ref3Ind],$ref2Ind,$ref3Ind\n","NA");
 		#}
 		$ref3Ind ++ if $ref2[$ref2Ind] ne "-";
 	}
@@ -474,13 +600,13 @@ sub check_VR {
 #			my ($posins0, $bigins) = $ref2join =~ /^([A-Z]+)([\-]{4,999})[A-Z]/;
 #			my $inslen = length($bigins);
 #			my $posins1 = $posins0 + $inslen;
-#			$toprint .= "$read\tbigins\t$posins0\t$posins1\t$inslen\n");
+#			$toprint .= "$read\tbigins\t$posins0\t$posins1\t$inslen\n","NA");
 #		}
 #		if ($que2join =~ /[A-Z][\-]{4,999}[A-Z]/) {
 #			my ($posdel0, $bigdel) = $que2join =~ /^([A-Z]+)([\-]{4,999})[A-Z]/;
 #			my $dellen = length($bigdel);
 #			my $posdel1 = $posdel0 + $dellen;
-#			$toprint .= "$read\tbigdel\t$posdel0\t$posdel1\t$dellen\n");
+#			$toprint .= "$read\tbigdel\t$posdel0\t$posdel1\t$dellen\n","NA");
 #		}
 		#print "$matperc\t$misperc\t$insperc\t$delperc\t$VRrefseqlength\n";
 
@@ -588,11 +714,11 @@ sub check_VR {
 #		my $seq2join = join("", @{$seq2});
 #		if ($ref2join =~ /[A-Z][\-]{4,999}[A-Z]/) {
 #			my ($bigins) = $ref2join =~ /[A-Z]([\-]{4,999})[A-Z]/;
-#			$toprint .= "$read\tNOTVR\tbigins\t$bigins\n");
+#			$toprint .= "$read\tNOTVR\tbigins\t$bigins\n","NA");
 #		}
 #		if ($seq2join =~ /[A-Z][\-]{4,999}[A-Z]/) {
 #			my ($bigdel) = $seq2join =~ /[A-Z]([\-]{4,999})[A-Z]/;
-#			$toprint .= "$read\tNOTVR\tbigdel\t$bigdel\n");
+#			$toprint .= "$read\tNOTVR\tbigdel\t$bigdel\n","NA");
 #		}
 		@return = (-1,-1,-1,-1,-1,-1,-1, $toprint);
 	}
@@ -602,134 +728,6 @@ sub check_VR {
 
 
 
-	}
-
-	
-	my	($CTcons, $CC0, $GG0, $CC1, $GG1, $CT0, $GA0, $CT1, $GA1) = det_C_type($ref3, $seq3, $bad3, $seqborder0, $seqborder1);
-	my ($refPrint, $seqPrint) = colorconv($ref3, $seq3);
-	my $CTPrint = join("", @{$CTcons});
-	my $newstrand = $CT1 > $GA1 ? 0 : $GA1 > $CT1 ? 16 : $strand;
-
-	# 3. DETERMINING TYPE BASED ON CONVERSION
-	my $type;
-
-	# 3a 3_NONE: super low C->T conversion and G->A conversion then it's NONE
-	if ($CT1 <= 5 and $GA1 <= 5) {
-		$type = "3_NONE";
-	}
-
-	# 3b. 6_BOTH: otherwise, if C->T and G->A are within +/- 10% then of each other then it's BOTH
-	elsif ($CT1 == $GA1 or ($CT1 > 5 and $GA1 > 5 and ($GA1 >= $CT1 * 0.9 and $GA1 <= $CT1 * 1.1) and ($CT1 >= $GA1 * 0.9 and $CT1 <= $GA1 * 1.1))) {
-		$type = "6_BOTH";
-	}
-	# 3c. 1_SNEG and 6_SPOS: otherwise if one is strongly less than the other then STRONG "S" POS or NEG (SPOS or SNEG)
-	# -> arbitrary criterias (CT vs GA for POS, and vice versa for NEG)
-	#    1. CT 15+ vs GA 5-
-	#    2. CT 5+ and ratio CT:GA is at least 3:1
-	#    3. CT 20+ and ratio CT:GA is at least 2:1
-	elsif (($CT1 > 15 and $GA1 < 5) or ($GA1 >= 5 and $CT1 / $GA1 > 3) or ($GA1 >= 20 and $CT1 / $GA1 >= 2)) {
-		$type = "5_SPOS";
-	}
-	elsif (($GA1 > 15 and $CT1 < 5) or ($CT1 >= 5 and $GA1 / $CT1 > 3) or ($CT1 >= 20 and $GA1 / $CT1 >= 2)) {
-		$type = "1_SNEG";
-	}
-	# 3d. 2_WNEG and 4_WPOS: otherwise just WEAK "W" POS or NEG (WPOS or WNEG)
-	elsif ($CT1 < $GA1) {
-		$type = "2_WNEG";
-	}
-	elsif ($CT1 > $GA1) {
-		$type = "4_WPOS";
-	}
-	# 3e. 99_UNK: otherwise default is UNKNOWN
-	else {
-		$type = "99_UNK";
-	}
-
-	if (not defined $opt_0) {
-		print $outFixed "$read\t$type\t$strand\t$newstrand\t$chr\t$CTPrint\t$CT0,$CC0,$GA0,$GG0,$CT1,$CC1,$GA1,$GG1\n";
-	}
-	LOG($outLog, date() . "file=$LCY$BAMFile$N, linecount=$linecount, read=$read, die coz no info\n") if not defined $GG1;
-
-	## 3f. Below is for debug printing
-	#print $outdebug ">$read,$type,OldStrand=$strand,NewStrand=$newstrand,$chr,CT0=$CT0,CC0=$CC0,GA0=$GA0,GG0=$GG0,CT1=$CT1,CC1=$CC1,GA1=$GA1,GG1=$GG1\n";
-	#print $outdebug "$refPrint\n";
-	#print $outdebug "$seqPrint\n";
-	#print $outdebug "$CTPrint\n";
-	#print $outdebug "$read\t$chr\tstrand=$strand, new=$newstrand\n" . join("", @{$ref3}) . "\n";
-	#print $outdebug "CC = $CC1 / $CC0\n";
-	#print $outdebug "CT = $CT1 / $CT0\n";
-	#print $outdebug "GG = $GG1 / $GG0\n";
-	#print $outdebug "GA = $GA1 / $GA0\n";
-	#print $outdebug "REF: $refPrint\n";
-	#print $outdebug "SEQ: $seqPrint\n";
-	#print $outdebug "CON: " . join("", @{$CTcons}) . "\n";
-}
-if (not defined $opt_0) {
-	close $outFixed;
-}
-
-LOG($outLog, "maxinsperc\t$maxinsperc\t$maxinspercread\n");
-LOG($outLog, "maxdelperc\t$maxdelperc\t$maxdelpercread\n");
-foreach my $ref2nuc (sort keys %allcount) {
-	foreach my $seq2nuc (sort keys %{$allcount{$ref2nuc}}) {
-		my $maxperc = $allcount{$ref2nuc}{$seq2nuc}{maxperc};
-		my $maxread = $allcount{$ref2nuc}{$seq2nuc}{maxread};
-		LOG($outLog, "max\t$ref2nuc>$seq2nuc\t$maxperc\t$maxread\n");
-	}
-}
-
-$meaninsperc = $totalread == 0 ? 0 : int($meaninsperc/$totalread*100)/100;
-$meandelperc = $totalread == 0 ? 0 : int($meandelperc/$totalread*100)/100;
-LOG($outLog, "meaninsperc\t$meaninsperc\n");
-LOG($outLog, "meandelperc\t$meandelperc\n");
-foreach my $ref2nuc (sort keys %allcount) {
-	foreach my $seq2nuc (sort keys %{$allcount{$ref2nuc}}) {
-		my $perc = $allcount{$ref2nuc}{$seq2nuc}{perc};
-		$perc = $totalread == 0 ? 0 : int($perc/$totalread * 100)/100;
-		LOG($outLog, "mean\t$ref2nuc>$seq2nuc\t$perc\n");
-	}
-}
-
-#DIELOG($outLog, "DEBUG Exit before printing\n");
-foreach my $strand (sort keys %strand) {
-	my @types = ("BAMe","diff");
-	if (not defined $opt_0) {
-		print $outdebug "$strand: ";
-	}
-	foreach my $type (@types[0..1]) {
-		my $total = $strand{$strand}{$type}; $total = 0 if not defined $total;
-		if (not defined $opt_0) {
-			print $outdebug "$type=$total,";
-		}
-		my $CT = $strand{$strand}{CT}{$type};
-		my ($mean, $meanse, $tmm, $tmmse) = (0,0,0,0);
-		if (defined $CT) {
-			$tmm    = int(1000*tmm(@{$CT})+0.5)/1000;
-			$mean   = int(1000*mean(@{$CT})+0.5)/1000;
-			$tmmse  = int(1000*tmmse(@{$CT})+0.5)/1000;
-			$meanse = int(1000*se(@{$CT})+0.5)/1000;
-		}
-		if (not defined $opt_0) {
-			print $outdebug "CT=tmm=$tmm +/- $tmmse;mean=$mean +/- $meanse, ";
-		}
-		my $tot = $strand{$strand}{tot}{$type}; 
-		($mean, $meanse, $tmm, $tmmse) = (0,0,0,0);
-		if (defined $tot) {
-			$tmm    = int(1000*tmm(@{$tot})+0.5)/1000;
-			$mean   = int(1000*mean(@{$tot})+0.5)/1000;
-			$tmmse  = int(1000*tmmse(@{$tot})+0.5)/1000;
-			$meanse = int(1000*se(@{$tot})+0.5)/1000;
-		}
-		if (not defined $opt_0) {
-			print $outdebug "tot=tmm=$tmm +/- $tmmse;mean=$mean +/- $meanse\n";
-		}
-	}
-}
-exit 0;
-
-# light quick dirty check if BAM or seq file are sane
-# BAM is sane if there are at least 10 rows (or less if less than 20 reads) with more than 10 columns
-# seq is sane if header is followed by seq and seq is ACTGUN (case-insensitive) at least 20 reads (or less if less than 20 reads in file)
 
 sub get_seq_indel_stat {
 	my ($refseq, $queseq) = @_;
