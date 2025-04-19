@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 	
 use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_d $opt_n $opt_G $opt_t $opt_R $opt_D $opt_0 $opt_J $opt_F);
-getopts("vd:n:G:t:RD:0J:F");
+use vars qw($opt_v $opt_d $opt_n $opt_G $opt_t $opt_R $opt_D $opt_0 $opt_J $opt_F $opt_f $opt_p);
+getopts("vd:n:G:t:RD:0J:Ffp");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
@@ -22,8 +22,6 @@ my ($footLoop_script_folder, $version, $md5script) = check_software();
 my ($version_small) = $version =~ /^([vV]\d+\.\d+)[a-zA-Z_]*.*$/;
 $version_small = $version if not defined $version_small;
 
-my ($max_parallel_run) = defined $opt_J ? $opt_J : 1;
-
 my $date = getDate();
 my $uuid = getuuid();
 
@@ -38,8 +36,10 @@ $YW $0 $version_small $N
 
 Usage: $YW$0$N $LGN-g gene$N $CY-n <footPeak's output folder (footPeak's -o)>$N
 
--D: tightness of read placement in each cluster (default: 200)
--R: toggle to order reads reversely (good foor in vitro REVERSE_ genes)
+-f/F : force rerun
+-p   : Parallel run if slurm system exist
+-D   : tightness of read placement in each cluster (default: 200)
+-R   : toggle to order reads reversely (good foor in vitro REVERSE_ genes)
 
 ";
 
@@ -47,6 +47,7 @@ die $usage  unless defined $opt_n and -d $opt_n;
 
 my $outDir = "$footPeakFolder/FOOTCLUST/";
 $outDir= getFullpath($outDir);
+my $footClustMainScript = "$footLoop_script_folder/bin/footClust_main.pl";
 my $windowDiv = defined $opt_D ? $opt_D : 200;
 die "\nWindowDiv must be integer!\n" if $windowDiv !~ /^\d+$/ or $windowDiv <= 0;
 
@@ -61,6 +62,8 @@ die "Failed to create output directory $LCY$outDir/PNG$N!\n" unless -d "$outDir/
 
 # establish log file
 open (my $outLog, ">", "$outDir/logFile_footClust.txt") or die "Failed to create outLog file $outDir/logFile_footClust.txt: $!\n";
+
+my ($max_parallel_run) = defined $opt_J ? $opt_J : 1;
 
 my $footClust_sbatch_logFileDir = "$footPeakFolder/.footClust_sbatch/";
 my $footClust_sbatch_2_logFileDir = "$footPeakFolder/.footClust_sbatch_2/";
@@ -174,7 +177,6 @@ close $faIn2;
 close $faOut;
 system("/bin/rm $faFile.footClustfastafile.fai") if -e "$faFile.footClustfastafile.fai";
 system("samtools faidx $faFile.footClustfastafile") == 0 or LOG($outLog, "Failed to samtools faidx $faFile.footClustfastafile: $!\n") and exit 0;
-     #    $footPeakFolder/.footClust_sbatch_2/$peakFile\_footClust_logFile.txt
 
 ####################
 # Processing Input #
@@ -193,77 +195,84 @@ my $curr_gene = -1;
 my $type_count = -1;
 my @Rscript;
 my $totalpeakFiles = @local_peak_files;
-my @filesARRAY;
+my @neworigFiles;
 for (my $i = 0; $i < @local_peak_files; $i++) {
 	my $local_peak_file = $local_peak_files[$i];
-	#run_footClust_sbatch_2(\@cmd);
 	my $peakFile = $local_peak_file;
 	if (defined $opt_G) {
 		if ($local_peak_file !~ /$opt_G/i) {
-			#LOG($outLog, date() . "${LPR}footClust_sbatch_2.pl$N: $LGN$i/$totalpeakFiles$N ${LRD}Skipped$N $LCY$local_peak_file$N as it doesn't contain $LGN-G $opt_G$N\n");
 			next;
 		}
 		else {
-			LOG($outLog, date() . "${LPR}footClust_sbatch_2.pl$N: $LGN$i/$totalpeakFiles$N ${LGN}Processing$N $LCY$local_peak_file$N as it contain $LGN-G $opt_G$N\n");
+			LOG($outLog, date() . "${LPR}footClust.pl$N: $LGN$i/$totalpeakFiles$N ${LGN}Processing$N $LCY$local_peak_file$N as it contain $LGN-G $opt_G$N\n");
 		}
 	}
 	else {
-		LOG($outLog, date() . "${LPR}footClust_sbatch_2.pl$N: $LGN$i/$totalpeakFiles$N ${LGN}Processing$N $LCY$local_peak_file$N\n");
+		LOG($outLog, date() . "${LPR}footClust.pl$N: $LGN$i/$totalpeakFiles$N ${LGN}Processing$N $LCY$local_peak_file$N\n");
 	}
 
-	#my @cmd = ("FILENAME", $faFile, $label, $footLoopFolder, $geneIndexFile, $totalpeakFiles);
-	push(@filesARRAY, $peakFile);
-	#my $cmd = "footClust_sbatch_2.pl";
-	#$cmd .= " -n $footPeakFolder -J $max_parallel_run -t $clustThreshold -D $windowDiv -d $dist";
-	#$cmd .= " -R" if defined $opt_R;
-	#$cmd .= " -F" if defined $opt_F;
-	#$cmd .= " -G $opt_G" if defined $opt_G;
-	#$cmd .= " " . join(" ", @cmd);
-	#LOG($outLog, "Example cmd:\n$LCY$cmd$N\n\n") if $i == 0;
-	#LOG($outLog, "$i. footClust_sbatch_2.pl $peakFile\n") if $i > 0;
-	#system($cmd) == 0 or die "Failed to run cmd: $!\n";
-	#last;
-	#last if $i >= 2;
+	push(@neworigFiles, $peakFile);
 }
+my $totalorigFile = @neworigFiles;
 
 my @cmd = ("FILENAME", $faFile, $label, $footLoopFolder, $geneIndexFile, $totalpeakFiles);
-my $cmd = "footClust_sbatch_2.pl";
+my $cmd = "$footClustMainScript";
 $cmd .= " -n $footPeakFolder";
 my $cmd2 = "-J $max_parallel_run -t $clustThreshold -D $windowDiv -d $dist";
 $cmd2 .= " -R" if defined $opt_R;
 $cmd2 .= " -F" if defined $opt_F;
+$cmd2 .= " -f" if defined $opt_f;
 $cmd2 .= " -G $opt_G" if defined $opt_G;
 my $runScript = $cmd2;
 $cmd .= " $cmd2 " . join(" ", @cmd);
-#LOG($outLog, "Example cmd:\n$LCY$cmd$N\n\n");
-my $sbatch_these_cmd = $cmd; #"footClust_sbatch_2.pl -n FILENAME -J ..etc"
+my $sbatch_cmd = $cmd; 
 my $force_sbatch = 1 if defined $opt_F;
 my $outsbatchDir = "$footPeakFolder/.footClust_sbatch/";
 system("mkdir -p $outsbatchDir") if not -d $outsbatchDir;
-my $mem = 8000;
-my $debug;
-$debug = 0 if defined $opt_0;
-my $force_sbatch_print = defined $force_sbatch ? "force_sbatch is on" : "force_sbatch_is_off";
-LOG($outLog, "force sbatch is $YW$force_sbatch_print$N\n\n");
-footLoop_sbatch_main($sbatch_these_cmd, "footClust_sbatch", \@filesARRAY, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir, $mem, $debug);
+
+my $forcerun = "off";
+   $forcerun = "on" if defined $opt_F;
+   $forcerun = "on" if defined $opt_f;
+LOG($outLog, "forcerun is $YW$forcerun$N\n\n");
+
+
+if (defined $opt_p) {
+   LOG($outLog, "#Parallel run with slurm enabled (-p)\n\n");
+   if (defined $opt_0) {
+      LOG($outLog, date() . "\n" . "$cmd\n");
+   }
+	my $mem = 16000;
+	my $debug;
+	$debug = 1 if defined $opt_0;
+   my $force_sbatch = $opt_F;
+      $force_sbatch = $opt_f if not defined $opt_F;
+	footLoop_sbatch_main($sbatch_cmd, "footClust_sbatch", \@neworigFiles, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir, $mem, $debug);
+}
+else {
+   LOG($outLog, "#Single run\n\n");
+   for (my $i = 0; $i < @neworigFiles; $i++) {
+      my $neworigFile = $neworigFiles[$i];
+      my ($neworigFilename) = getFilename($neworigFile, "full");
+      my $neworigFileDone = "$outsbatchDir/$neworigFilename.done";
+      my $currcmd = $cmd;
+      my $indice = $i + 1;
+      $currcmd =~ s/FILENAME/$neworigFile/g;
+      $currcmd =~ s/FNINDICE/$indice/g;
+      if (defined $opt_0) {
+         LOG($outLog, date() . "$YW$indice/$totalorigFile$N $LCY$neworigFilename$N\n");
+         LOG($outLog, "\t$LGN$currcmd$N\n");
+      }
+      elsif (not -e $neworigFileDone or defined $opt_F or defined $opt_f) {
+         system($currcmd) == 0 or DIELOG($outLog, "Failed to run cmd: $!\n\n$LCY$currcmd$N\n\n");
+         system("touch $neworigFileDone") if not -e $neworigFileDone;
+      }
+      else {
+         LOG($outLog, date() . "${LPR}$0$N: $YW$indice/$totalorigFile$N $LCY$neworigFilename$N: using previously made peaks\n");
+         LOG($outLog, "Done=$LCY$neworigFileDone$N)\n","NA");
+      }
+   }
+}
 
 LOG($outLog, "\n\n");
 LOG($outLog, date() . "${LGN}SUCCESS!!$N\n\n${YW}footClust_sbatch.pl -n $LCY$footPeakFolder$N $LGN$runScript$N\n\n");
 LOG($outLog, "\n\n");
-
-sub parse_footLoop_logFile {
-   my ($logFile, $date, $uuid, $footFolder, $version) = @_;
-   #my @line = `cat $logFile`;
-   my $paramsFile = "$footFolder/.PARAMS";
- #  my $inputFolder = $defOpts->{n};
-	my $geneIndexFile;
-   my @parline = `cat $paramsFile`;
-   foreach my $parline (@parline) {
-      if ($parline =~ /footLoop.pl,geneIndexFile,/) {
-         ($geneIndexFile) = $parline =~ /geneIndexFile,(.+)$/;
-      }
-	}
-	return($geneIndexFile);
-}
-
-__END__

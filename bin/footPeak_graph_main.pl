@@ -1,15 +1,15 @@
 #!/usr/bin/perl
 
 use strict; use warnings; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_w $opt_g $opt_G $opt_v $opt_n $opt_r $opt_R $opt_B $opt_c $opt_F $opt_0 $opt_J $opt_i $opt_I $opt_C $opt_0);
-getopts("n:vg:w:G:r:R:B:cF0J:i:I:C0");
+use vars qw($opt_w $opt_g $opt_G $opt_v $opt_n $opt_r $opt_R $opt_B $opt_c $opt_F $opt_0 $opt_J $opt_i $opt_I $opt_C $opt_0 $opt_f $opt_p);
+getopts("n:vg:w:G:r:R:B:cFf0J:i:I:C0p");
 
 BEGIN {
-   my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
+   my $libPath = dirname(dirname abs_path $0) . '/lib';
    push(@INC, $libPath);
 	print "\n- Pushed $libPath into perl lib path INC\n";
 
-   my $softwarePath = dirname(dirname abs_path $0) . '/footLoop/softwares/';
+   my $softwarePath = dirname(dirname abs_path $0) . '/softwares/';
 }
 
 use myFootLib;
@@ -99,15 +99,11 @@ sub main {
 	my $footPeak_graph_logFile = "$resDir/.footPeak_graph_sbatch_2/.$fileName1\_footPeak_graph_sbatch_2_logFile.txt";
 	open (my $outLog, ">", $footPeak_graph_logFile) or die "\n\nFailed to write to $footPeak_graph_logFile: $!\n\n";
 
-	############
-	# LOG START
 	LOG($outLog, ">footPeak_graph_sbatch_2.pl version $version\n");
 	LOG($outLog, ">UUID: $uuid\n", "NA");
 	LOG($outLog, ">Date: $date\n", "NA");
 	LOG($outLog, ">Run script: $0 -n $opt_n -i $opt_i\n", "NA");
 	
-	############
-
 	my %coor;
 	my @lines   = `cat $footPeak_logFile`;
 	LOG($outLog, " Parsing footpeak logfile $footPeak_logFile\n");
@@ -133,7 +129,6 @@ If R dies for any reason, make sure you have these required R libraries:
 			my ($gene, $CHR, $BEG, $END, $GENE, $VAL, $STRAND) = $line =~ /^def=(.+), coor=(.+), (\d+), (\d+), (.+), (\-?\d+\.?\d*), ([\+\-])$/;
 			LOG($outLog, "gene=$gene,chr=$CHR,beg=$BEG,end=$END,gene=$GENE,val=$VAL,strand=$STRAND\n","NA");
 	   	if (defined $opt_G and $gene !~ /$opt_G/i) {
-	   	   #LOG($outLog, date() . " Skipped $LCY$gene$N as it doesn't contain $LGN-G $opt_G$N\n");
 	   	   next;
 	   	}
 			$GENE = uc($GENE);
@@ -165,7 +160,6 @@ If R dies for any reason, make sure you have these required R libraries:
 		   	   LOG($outLog, date() . " Skipped $LCY$peakFile$N as it doesn't contain $LGN-G $opt_G$N\n");
 		   	   next;
 		   	}
-           # print "Can't find peakFile $LCY$peakFile$N\n" if not -e $peakFile;
             LOG($outLog, "label=$label, gene$mygene, strand=$strand, peak=$peakFile\n","NA");
             $files{$peakFile} = $mygene;
          }
@@ -175,7 +169,6 @@ If R dies for any reason, make sure you have these required R libraries:
 
 	my ($lastGENE, $totalFile, $currfileCount, $lastfile, $fileCount) = (-1,scalar(keys %files),0,-1,0);
 	my %Rscripts;
-	#DIELOG($outLog, "\n\nERROR: There is no files in $LCY\%files$N defined!\n") if (keys %files) == 0;
 
 	my $GENE = $files{$file};
 	my $STRAND = $coor{$GENE}{STRAND};
@@ -194,7 +187,7 @@ If R dies for any reason, make sure you have these required R libraries:
 	$RDMADEPDF = 0 if $RDFLAG =~ /_C$/ and not defined $opt_c and not defined $opt_C;
 	$RDMADEPDF = 0 if $RDFLAG !~ /_C$/ and defined $opt_c and not defined $opt_C;
 
-	LOG($outLog, "$fileCount $LCY$file$N $LGN$STRAND$N $LCY$RDSTRAND$N $LGN$RDCONVTYPE$N $LPR$RDFLAG$N\n");# if defined $opt_c and 
+	LOG($outLog, "$fileCount $LCY$file$N $LGN$STRAND$N $LCY$RDSTRAND$N $LGN$RDCONVTYPE$N $LPR$RDFLAG$N\n");
 	if ($RDMADEPNG eq 0 and $RDMADEPDF eq 0) {
 		LOG($outLog, "DONT MAKE MPNG\n");
 		return 0;
@@ -205,25 +198,6 @@ If R dies for any reason, make sure you have these required R libraries:
 	}
 
 	
-	#if ($opt_r eq 1) {
-	#	if (defined $opt_c and $file =~ /(Pos.+CG|Neg.+GC|Pos.+CH|Neg.+GH)/) {
-	#		print "$fileCount $LCY$file$N\n";# if defined $opt_c and 
-	#	}
-	#	elsif (not defined $opt_c and $file =~ /(Pos.+CH|Neg.+GH)/) {
-	#		print "$fileCount $LCY$file$N\n";# if defined $opt_c and 
-	#	}
-	#	else {
-	#		return 0;
-	#	}
-	#
-	#}
-	#elsif ($opt_r eq 2 and $file =~ /RCONV/) {
-	#}
-	#else {
-	#	return 0;
-	#}
-
-
 	my $NA = "NA";
 	undef $NA if ($fileCount < 10 or ($fileCount > 10 and $fileCount % 100 == 0));
 	LOG($outLog, "\n\n--------------------------\nFILE COUNT = $fileCount\n",$NA);
@@ -259,16 +233,12 @@ If R dies for any reason, make sure you have these required R libraries:
 		$kmer_file     =~ s/.out$/.local.bed.clust.kmer/;
 	my $bedFile       =  "$resDir/PEAKS_LOCAL/$pk_filename.local.bed";
 		$bedFile       =~ s/.out.local.bed/.local.bed/;
-	#if (not -e $peakFile) {system("touch $peakFile");}
-	#if (not -e $nopkFile) {system("touch $nopkFile");}
 	my $totpeak = (-e $peakFile and -s $peakFile > 0) ? linecount($peakFile) : 0;
 	my $totnopk = (-e $nopkFile and -s $nopkFile > 0) ? linecount($nopkFile) : 0;
 	my $mem = 4000;
 	if ($totpeak > 2000 or $totnopk > 2000) {
 		$mem = 32000;
 	}
-	#die "totpeak =$totpeak\n$peakFile\n" if $totpeak eq 0;
-	#next if $totpeak eq 0 and $totnopk eq 0;
 	my ($type) = $peakFile =~ /_(CH|CG|GH|GC)./;
 	my $parseName = parseName($pk_filename);
 	my ($label2, $gene2, $strand2, $window2, $thres2, $type2) = @{$parseName->{array}};
@@ -296,28 +266,12 @@ If R dies for any reason, make sure you have these required R libraries:
 		my $flag = getFlag($currFile, $geneStrand, $readStrand, $rconvType);
 		my $pngoutDir = $flag;
 		my $pdfoutDir = $flag;
-		LOG($outLog, "\n" . date() . "$LGN$currfileCount.$N $flag $readStrandPrint $rconvTypePrint $LCY$currFile$N\n","NA");#$NA);
-#			LOG($outLog, "\t\tCurrfile           = $LCY$currFile$N
-#\t\tcurr_cluster_file  = $LCY$curr_cluster_file$N
-#\t\tkmer_File          = $LPR$kmer_file$N
-#\t\tbedFile            = $BU$bedFile$N
-#\t\ttotpeak = $LGN$totpeak$N, nopk = $LGN$totnopk$N
-#",$NA);
+		LOG($outLog, "\n" . date() . "$LGN$currfileCount.$N $flag $readStrandPrint $rconvTypePrint $LCY$currFile$N\n","NA");
 		LOG($outLog, "$readStrandPrint\t$rconvTypePrint\t$flag\n","NA");
 
 
 
 		LOG($outLog, "flag=$LPR $flag$N opt_r=$opt_r\n");
-#		my $madePNG = $opt_r;
-#		$madePNG = 0 if $flag =~ /(RCONV)/ and $opt_r < 2;
-#		$madePNG = 0 if $flag =~ /(ALL)/ and $opt_r < 3;
-#		$madePNG = 0 if $flag =~ /_C/ and not defined $opt_c;
-
-#		my $madePDF = $opt_R;
-#		$madePDF = 0 if $flag =~ /(RCONV)/ and $opt_R < 2;
-#		$madePDF = 0 if $flag =~ /(ALL)/ and $opt_R < 3;
-#		$madePDF = 0 if $flag =~ /_C/ and not defined $opt_c;
-
 
 		my $madePNG = $opt_r;
 		$madePNG = 0 if $flag =~ /(RCONV)/ and $opt_r < 2;
@@ -333,9 +287,6 @@ If R dies for any reason, make sure you have these required R libraries:
 
 		$madePNG = 1 if $madePNG > 0;
 		$madePDF = 1 if $madePDF > 0;
-		#my $madePNG = ($opt_r == 0) ? 0 : ($opt_r == 1 and defined $opt_c and $flag =~ /^(PEAK_C|NOPK_C|PEAK_TEMP_C|NOPK_TEMP_C)$/) ? 1 : ($opt_r == 1 and $flag =~ /(ALL|RCONV|_C)/) ? 0 : 1;
-		#my $madePDF = ($opt_R == 0) ? 0 : ($opt_R == 1 and defined $opt_c and $flag =~ /^(PEAK_C|NOPK_C|PEAK_TEMP_C|NOPK_TEMP_C)$/) ? 1 : ($opt_R == 1 and $flag =~ /(ALL|RCONV|_C)/) ? 0 : 1;
-	#	LOG($outLog, date() . " --> DEBUG flag=$flag madePDF = $madePDF\n","NA");
 		my $currFilename2 = $currFilename;
 		$currFilename2 =~ s/^.+_bismark_bt2.bam_gene(.+)$/$1/;
 		$currFilename2 =~ s/.(NOPK|PEAK).out//;
@@ -345,8 +296,6 @@ If R dies for any reason, make sure you have these required R libraries:
 		my $pdfout_conly = "$resDir/PDF/$pdfoutDir/CONLY/$currFilename2.$flag.pdf.conly.pdf";
 		my $lenpdfout = "$resDir/PNG/$pngoutDir/LENGTH/$currFilename2\_length.pdf";
 		LOG($outLog, date() . " --> DEBUG flag=$flag madePNG = $madePNG pngout=$pngout\n");
-	#	$scp{"scp $user\@crick.cse.ucdavis.edu:$resDir2/PNG/$pngoutDir/$currFilename2.$flag.png ./"} = 1 if $madePNG eq 1;
-	#	$scp{"scp $user\@crick.cse.ucdavis.edu:$resDir2/PDF/$pdfoutDir/$currFilename2.$flag.pdf ./"} = 1 if $madePDF eq 1;
 
 		my ($RscriptPDF, $RscriptPNG, $RscriptPDF_nopk_ALL, $RscriptPNG_nopk_ALL);
 
@@ -357,12 +306,10 @@ library(reshape2)
 library(grid)
 library(gridExtra)
 library(RColorBrewer)
-#library(Cairo)
 ";
 		
 		my $totread = $totpeak + $totnopk;
-		if (not -e $currFile or (-e $currFile and -s $currFile <= 2)) { #5
-	#		$Rscript .= "png(type=\"cairo\",\"$pngout\",1000,1000)\nplot(NA,xlim=c(1,100),ylim=c(1,100),xlab=NA,ylab=NA,bty=\"n\")\ntext(50,50,cex=3,labels=c(\"$currFilename2\n\nPEAK = $totpeak / $totread\"))\ndev.off()\n";
+		if (not -e $currFile or (-e $currFile and -s $currFile <= 2)) { 
 			$Rscript .= "png(\"$pngout\",1000,1000)\nplot(NA,xlim=c(1,100),ylim=c(1,100),xlab=NA,ylab=NA,bty=\"n\")\ntext(50,50,cex=3,labels=c(\"$currFilename2\n\nPEAK = $totpeak / $totread\"))\ndev.off()\n";
 			$Rscript .= "png(\"$pngout_conly\",1000,1000)\nplot(NA,xlim=c(1,100),ylim=c(1,100),xlab=NA,ylab=NA,bty=\"n\")\ntext(50,50,cex=3,labels=c(\"$currFilename2\n\nPEAK = $totpeak / $totread\"))\ndev.off()\n";
 			$RscriptPNG = $Rscript;
@@ -414,13 +361,13 @@ library(RColorBrewer)
 
 			# Main Plot
 			if ($currFile =~ /\.NOPK\./) {
-				$Rscript .= $R->{mainplot_nopk}; #uncomment 24/7/17
+				$Rscript .= $R->{mainplot_nopk}; 
 				$Rscript .= $R->{mainplot_nopk_rand_1000};
-				$Rscript .= $R->{mainplot_nopk_rand_100}; #uncomment
+				$Rscript .= $R->{mainplot_nopk_rand_100}; 
 			}
 			else {
-				$Rscript .= $R->{mainplot}; # p png and p pdf #uncomment 24/7/17
-				$Rscript .= $R->{mainplot_peak_rand_300}; # p png and p pdf
+				$Rscript .= $R->{mainplot}; 
+				$Rscript .= $R->{mainplot_peak_rand_300}; 
 			}
 
 			# Main Plot Cluster Addition
@@ -444,28 +391,17 @@ library(RColorBrewer)
 
 			if (defined $opt_B and -e $opt_B) {
 
-				#open (my $inoptB, "<", $boxFile) or LOG($outLog, date() . " boxFile: Failed to read from boxFile $LCY$boxFile$N: $!\n");
-				#while (my $line = <$inoptB>) {
-				#	chomp($line);
-				#	my ($boxchr, $boxbeg, $boxend) = split("\t", $line);
-				#	
-				#}
-				#return($R->{box}, $R->{box_nopk});
-				#close $inoptB;
 				my ($pk_filename_short) = $pk_filename =~ /^.+gene(.+)_(Pos|Neg|Unk)_\d+.+$/;
 				my ($pk_filename_plasmid) = $pk_filename_short =~ /^(.+)_desc.+$/i;
 				$pk_filename_plasmid = $pk_filename_short if not defined $pk_filename_plasmid;
 				if ($currFile !~ /\.NOPK\./) { #PEAK
 					LOG($outLog, date() . "\t\t-> ADDED $boxFile!\n","NA") if defined $boxFile;
-					#$Rscript .= $R->{box};
 					my ($Rbox_peak, $Rbox_nopk) = getbox($boxFile,$pk_filename_short,$pk_filename_plasmid);
 					$Rscript .= $Rbox_peak;
 				}
 				else { #NOPK
 					LOG($outLog, date() . "\t\t-> ADDED $boxFile!\n","NA") if defined $boxFile;
-					#$Rscript .= $R->{box_nopk};
 					my ($Rbox, $Rbox_nopk) = getbox($boxFile,$pk_filename_short,$pk_filename_plasmid);
-					#$Rscript .= $Rbox;
 					$Rscript .= $Rbox_nopk;
 				}
 			}
@@ -499,24 +435,17 @@ library(RColorBrewer)
 		print $outRscriptPNG $RscriptPNG;
 		$Rscripts{"$currFile.PNG.R"}{graphfile} = $pngout;
 		$Rscripts{"$currFile.PNG.R"}{summary} = $summary;
-		$Rscripts{"$currFile.PNG.R"}{runR} = $madePNG; #(defined $opt_c and $flag =~ /^(NOPK_C|PEAK_C|NOPK_TEMP_C|PEAK_TEMP_C)$/) ? 1 : $flag =~ /(ALL|RCONV|_C)/ ? 0 : 1;
-		#$Rscripts{"$currFile.PNG.R"}{runR} = 0 if $totpeak == 0 and $flag =~ /PEAK/;
-		#$Rscripts{"$currFile.PNG.R"}{runR} = 0 if $totnopk == 0 and $flag =~ /NOPK/;
+		$Rscripts{"$currFile.PNG.R"}{runR} = $madePNG; 
 		$Rscripts{"$currFile.PNG.R"}{runType} = $flag;
 		close $outRscriptPNG;
 		LOG($outLog, "${LPR}PNGOUT$N:\n$LCY$pngout$N # $LGN$totpeak$N peak\n\n") if $madePNG ne 0;
-
-		#push(@Rscript, "$currFile.PNG.R")          if $Rscripts{"$currFile.PNG.R"}{runR} eq 1 and $totpeak > 0;
-		#push(@Rscript, "$currFile.PNG_nopk_ALL.R") if $Rscripts{"$currFile.PNG.R"}{runR} eq 1 and $totnopk > 0;
 
 		open (my $outRscriptPDF, ">", "$currFile.PDF.R") or (LOG($outLog, date() . "Failed to write R script into $currFile.PDF.R: $!\n") and print $outLog $Rscript and next);
 		print $outRscriptPDF $RscriptPDF;
 		close $outRscriptPDF;
 		$Rscripts{"$currFile.PDF.R"}{graphfile} = $pdfout;
 		$Rscripts{"$currFile.PDF.R"}{summary} = $summary;
-		$Rscripts{"$currFile.PDF.R"}{runR} = $madePDF; #(defined $opt_c and $flag =~ /^(NOPK_C|PEAK_C|NOPK_TEMP_C|PEAK_TEMP_C)$/) ? 1 : $flag =~ /(ALL|RCONV|_C)/ ? 0 : 1;
-		#$Rscripts{"$currFile.PDF.R"}{runR} = 0 if $totpeak == 0 and $flag =~ /PEAK/;
-		#$Rscripts{"$currFile.PDF.R"}{runR} = 0 if $totnopk == 0 and $flag =~ /NOPK/;
+		$Rscripts{"$currFile.PDF.R"}{runR} = $madePDF; 
 		$Rscripts{"$currFile.PDF.R"}{runType} = $flag;
 		LOG($outLog, "${LPR}PDFOUT$N:\n$LCY$pdfout$N # $LGN$totpeak$N peak\n\n") if $madePDF ne 0;
 
@@ -540,10 +469,7 @@ library(RColorBrewer)
 			close $outRscriptPDF_nopk_ALL;
 		}
 		LOG($outLog, "${LPR}PDFOUT$N:\n$LCY$pdfout$N # $LGN$totpeak$N peak\n\n");
-		#print "${LPR}PNGOUT$N:\n$LCY$pdfout$N\n\n";
 	}
-	#print "$file\n";# if defined $opt_c and 
-	#last if $fileCount > 100;
 	$totalFile = (keys %Rscripts);
 	LOG($outLog, "\n\n$YW ----------------- Running $totalFile/$fileCount R Scripts (below, showing only that are run) ------------------$N\n\n");
 	# open outRscripts for Rscripts that aren't relevant
@@ -556,21 +482,55 @@ library(RColorBrewer)
 		push(@Rscript, $outRscriptGRAPH) if $runR == 1;
 	}
 	
-	#print join("\n", @Rscript) . "\n";
 	$max_parallel_run = scalar(@Rscript);
-	my $sbatch_these_cmd = "Rscript FILENAME";
-	#my $cmd = "$footLoop_script_folder/footPeak_sbatch_2.pl $indexFile $seqFile FNINDICE FILENAME $outDir >
+	my $sbatch_cmd = "Rscript FILENAME";
 	my $force_sbatch = 1 if defined $opt_F;
 	my $outsbatchDir = "$resDir/.footPeak_graph_sbatch_2/";
 	system("mkdir -p $outsbatchDir") if not -d $outsbatchDir;
-	#print "sbatch_these($sbatch_these_cmd, \"footPeak_graph_sbatch_2\", \@Rscript, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir)\n";
 	my $debug;
-	if (not defined $opt_0) {
-		footLoop_sbatch_main($sbatch_these_cmd, "footPeak_graph_sbatch_2", \@Rscript, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir, $mem, $debug);
+
+	my $forcerun = "off";
+	   $forcerun = "on" if defined $opt_F;
+	   $forcerun = "on" if defined $opt_f;
+	LOG($outLog, "forcerun is $YW$forcerun$N\n\n");
+
+	if (defined $opt_p) {
+	   LOG($outLog, "#Parallel run with slurm enabled (-p)\n\n");
+	   if (defined $opt_0) {
+	      LOG($outLog, date() . "\n" . "$sbatch_cmd\n");
+	   }
+	   my $mem = 16000;
+	   my $debug = 1 if defined $opt_0;
+	   my ($max_parallel_run) = defined $opt_J ? $opt_J : 1;
+	   my $force_sbatch = $opt_F;
+  	   $force_sbatch = $opt_f if not defined $opt_F;
+		footLoop_sbatch_main($sbatch_cmd, "footPeak_graph_sbatch_2", \@Rscript, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir, $mem, $debug);
 	}
 	else {
-		LOG($outLog, "\n${LGN}DEBUG SUCCESSFUL!!$N\n\n");
-	}
+   	LOG($outLog, "#Single run\n\n");
+   	for (my $i = 0; $i < @Rscript; $i++) {
+	      my $Rscriptindiv = $Rscript[$i];
+	      my ($Rscriptindivname) = getFilename($Rscriptindiv, "full");
+	      my $RscriptindivDone = "$outsbatchDir/$Rscriptindivname.done";
+	      my $currcmd = $sbatch_cmd;
+	      my $indice = $i + 1;
+	      $currcmd =~ s/FILENAME/$Rscriptindiv/g;
+		      $currcmd =~ s/FNINDICE/$indice/g;
+	      if (defined $opt_0) {
+  		      LOG($outLog, date() . "$YW$indice/$totalFile$N $LCY$Rscriptindivname$N\n");
+   	      LOG($outLog, "\t$LGN$currcmd$N\n");
+   	   }
+   	   elsif (not -e $RscriptindivDone or defined $opt_F or defined $opt_f) {
+				LOG($outLog, "\n\t$LCY$currcmd$N\n");
+   	      system("$currcmd > $outsbatchDir/$Rscriptindivname.log.txt 2>&1") == 0 or LOG($outLog, "Failed to run:\n$LCY$currcmd$N\n$outsbatchDir/$Rscriptindivname.log.txt 2>&1\n$LRD$!$N\n\n");
+   	      system("touch $RscriptindivDone") if not -e $RscriptindivDone;
+   	   }
+   	   else {
+   	      LOG($outLog, date() . "${LPR}footPeak.pl$N: $YW$indice/$totalFile$N $LCY$Rscriptindivname$N: using previously made peaks\n");
+   	      LOG($outLog, "Done=$LCY$RscriptindivDone$N)\n","NA");
+			}
+      }
+   }
 }
 
 ###############
@@ -668,9 +628,6 @@ CGprof = function(df,window=200,step=10) {
 			GCskew[ind] = 0
 			ATskew[ind] = 0
 		}
-		#if (i \%\% 100 == 0) {
-			#print(paste(i,nA,nC,nG,nT,nCG,nTot,CpG[ind],GC[ind],GCskew[ind],ATskew[ind]))
-		#}
 		
 	}
 	mylist = list(x=seq(1,dim(df)[1],10),CGdens=CpG,GCcont=GC,GCskew=GCskew,ATskew=ATskew)
@@ -708,9 +665,6 @@ p3.CGprof.mod.pdf = ggplot(myresdm,aes(x,value)) +
 	theme_bw() + theme(panel.grid = element_blank()) +
 	ylab(\"\") + xlab(\"bp\") +
 	scale_color_manual(values=p3.CGprof.col,expand=c(0,0))
-
-#p3.CGprof.mod.png = p3.CGprof
-#p3.CGprof.mod.pdf = p3.CGprof
 
 p3.CGprof.mod.png = p3.CGprof.mod.png +
 	annotate(geom=\"segment\",x=0.04*max(myresdm\$x),xend=0.04*max(myresdm\$x),y=0.0,yend=1.00,color=\"blue2\") +
@@ -752,8 +706,6 @@ if (length(grep(\"^[0-9]+\$\",df[,2])) == 0) {
    df = df[,-1]
 }
 df.id = read.table(\"$currFileID\",sep=\"\\t\",colClasses=c(\"factor\",\"factor\"))
-#print(head(df[1:10]))
-#print(head(df.id))
 colnames(df) = c(\"V1\",seq(1,dim(df)[2]-1))
 colnames(df.id) = c(\"V1\",\"ID\")
 df\$id = df.id\$ID
@@ -803,9 +755,7 @@ clust2\$clust = clust2\$clust + 10
 clust = subset(clust,select=-id2)
 clust = subset(clust,select=c(\"id\",\"y\",\"clust\"))
 print(head(clust))
-#print(head(clust2))
 df3 = merge(df,clust,by=\"id\")
-#print(head(df3[1:10]))
 df3 = subset(df3,select=c(-y,-id,-V1))
 df3clust = df3\$clust
 
@@ -866,7 +816,6 @@ df3\$x = as.numeric(as.character(df3\$x))
 df3\$y = as.numeric(as.character(df3\$y))
 df3\$value  = as.numeric(as.character(df3\$value))
 df4\$clust2 = df4\$clust + 10
-#print(unique(df4\$clust2))
 greens = rev(brewer.pal(9,\"Greens\"))
 reds = brewer.pal(9,\"Reds\")
 p3.col=c(
@@ -1011,8 +960,6 @@ dmc2\$V2 = dmc2\$variable
 dmc2\$V3 = dmc2\$variable
 
 
-#			\"8\"=\"green4\",
-#			\"9\"=\"seagreen4\"
 p.col = c(
 			\"0\"=\"#f0f0f0\",
 			\"1\"=\"white\",
@@ -1113,7 +1060,6 @@ $R->{mainplot_peak_rand_300} .= "
 	print(dim(df.rand.300))
 	dm.rand.300\$variable = as.numeric(as.character(dm.rand.300\$variable))
 	
-	#dmc.rand.300 = data.frame(variable = unique(dm.rand.300[dm.rand.300\$value >= 4,]\$variable),x=1)
 	if (convwant == \"CH\") {
 		dmc.rand.300 = myseq[myseq\$value == \"C\" & myseq\$value2 != \"G\",]
 	} else if (convwant == \"CG\") {
@@ -1193,7 +1139,6 @@ $R->{mainplot_peak_rand_300} .= "
 
 sub getbox {
 	my ($boxFile, $boxchr, $boxplasmid) = @_;
-	#$R->{box} = "
 	my $Rbox = "
 	box = read.table(\"$boxFile\",sep=\"\\t\")
 	if ((dim(box[grep(\"^$boxchr\$\",box\$V1,ignore.case=TRUE),])[1] > 0) | (dim(box[grep(\"^$boxplasmid\$\",box\$V1,ignore.case=TRUE),])[1] > 0)) {
@@ -1242,9 +1187,6 @@ sub getbox {
 		if (length(p.col2[grep(\"Prom\",names(p.col2),ignore.case=TRUE)]) > 0) {
 			p.col2[grep(\"Prom\",names(p.col2),ignore.case=TRUE)] = \"#e7298a\"
 		}
-		#if (length(p.col2[grep(\"Term\",names(p.col2),ignore.case=TRUE)]) > 0) {
-		#	p.col2[grep(\"Term\",names(p.col2),ignore.case=TRUE)] = \"grey\"
-		#}
 		if (length(p.col2[grep(\"VR_?[0-9]\",names(p.col2),ignore.case=TRUE)]) > 0) {
 			p.col2[grep(\"VR_?[0-9]\",names(p.col2),ignore.case=TRUE)] = \"#045a8d\"
 		}
@@ -1263,7 +1205,6 @@ sub getbox {
 	";
 	my $Rbox_nopk = $Rbox;
 
-	#$Rbox .= "
 
 	my $Rbox_peak = $Rbox;
 	$Rbox_peak .= "
@@ -1358,8 +1299,6 @@ sub getbox {
       box\$x = 0
       box\$y = 0
       box\$variable = 0
-		#p.rand.100.png  = p.rand.100.png  + geom_rect(data=box,aes(xmin=V2,xmax=V3,ymin=0,ymax=max(dm.rand.100\$y)),fill=NA,size=0.5*p.png.scale) # SIZE
-		#p.rand.100.pdf  = p.rand.100.pdf  + geom_rect(data=box,aes(xmin=V2,xmax=V3,ymin=0,ymax=max(dm.rand.100\$y)),fill=NA,size=0.5*p.pdf.scale) # SIZE
 		p.rand.1000.png = p.rand.1000.png + geom_rect(data=box,aes(color=V4,xmin=V2,xmax=V3,ymin=0,ymax=max(dm.rand.1000\$y)),fill=NA,size=0.5*p.png.scale) # SIZE
 		p.rand.1000.png = p.rand.1000.png + geom_text(data=box,aes(color=V4,x=V2,y=max(dm.rand.1000\$y),label=label),angle=90,vjust=0,hjust=1,size=3) # SIZE
 		p.rand.1000.png = p.rand.1000.png + scale_fill_manual(values=c(p.col2)) + scale_color_manual(values=c(p.col2))
@@ -1480,7 +1419,6 @@ dm.rand.1000 = melt(df.rand.1000,id.vars=c(\"V1\",\"y\"))
 print(dim(df.rand.1000))
 dm.rand.1000\$variable = as.numeric(as.character(dm.rand.1000\$variable))
 
-#dmc.rand.1000 = data.frame(variable = unique(dm.rand.1000[dm.rand.1000\$value >= 4,]\$variable),x=1)
 if (convwant == \"CH\") {
 	dmc.rand.1000 = myseq[myseq\$value == \"C\" & myseq\$value2 != \"G\",]
 } else if (convwant == \"CG\") {
@@ -1566,7 +1504,6 @@ p.rand.1000.conly = ggplot(dm.rand.1000.conly,aes(x,y)) +
 dm = melt(df,id.vars=c(\"V1\",\"y\"))
 dm\$variable = as.numeric(as.character(dm\$variable))
 
-#dmc = data.frame(variable = unique(dm[dm\$value >= 4,]\$variable),x=1)
 if (convwant == \"CH\") {
 	dmc = myseq[myseq\$value == \"C\" & myseq\$value2 != \"G\",]
 } else if (convwant == \"CG\") {
@@ -1610,8 +1547,6 @@ p.col = c(
 			\"8\"=\"red4\",
 			\"9\"=\"maroon4\"
 )
-#			\"8\"=\"green4\",
-#			\"9\"=\"seagreen4\"
 if (length(cluster_color) > 0) {
 	p.col = c(p.col, cluster_color)
 }
@@ -1630,7 +1565,6 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
    }
    dm.temp = dm[dm\$y >= beg & dm\$y <= end,]
    dm.temp\$y = dm.temp\$y - beg + 1
- #  print(head(dm.temp))
 	p = ggplot(dm.temp,aes(variable,y)) +  
 		 geom_tile(aes(fill=as.factor(value))) + 
 		 theme_void() +
@@ -1642,9 +1576,6 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 		 ggtitle(paste(\"PLOT #\",i,\" (total peak=\",$totpeak,\"; total nopk=\",$totnopk,\")\",sep=\"\"))
 	plot_list[[i]] = p
 
-#dmc = data.frame(variable = unique(dm[dm\$value >= 4,]\$variable),x=1)
-#dmc = dmc[order(dmc\$variable),]
-#dmc\$x= seq(1,dim(dmc)[1])
 
 	dm.conly = dm.temp[dm.temp\$variable \%in\% dmc\$variable,]
 	dm.conly = merge(dm.conly,dmc,by=\"variable\")
@@ -1673,13 +1604,11 @@ for (i in seq(1,as.integer(dim(df)[1] / mywindow) + 1)) {
 # geom text default size = 10
 p.png = p.png + 
 	 geom_rect(data=clust2,aes(fill=as.factor(clust),x=xmin,y=ymin,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax),alpha=0.5,size=0.5*p.png.scale) + # SIZE
-	 #geom_rect(data=clust2,aes(color=as.factor(clust),x=xpos0,y=ymin,xmin=xpos0,xmax=xpos1,ymin=ymin,ymax=ymax),size=0.5*p.png.scale,fill=rgb(1,1,1,alpha=0),lwd=1*p.png.scale) + # SIZE
 	 geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=paste(clust-10,\"(\",id2,\")\",sep=\"\")),hjust=0,size=5*p.png.scale) +
 	 theme(plot.title = element_text(size = 20*p.png.scale))
 
 p.pdf = p.pdf + 
 	 geom_rect(data=clust2,aes(fill=as.factor(clust),x=xmin,y=ymin,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax),alpha=0.5,size=0.5*p.pdf.scale) + # SIZE
-	# geom_rect(data=clust2,aes(color=as.factor(clust),x=xpos0,y=ymin,xmin=xpos0,xmax=xpos1,ymin=ymin,ymax=ymax),size=0.5*p.pdf.scale,fill=rgb(1,1,1,alpha=0),lwd=1*p.pdf.scale) + # SIZE
 	 geom_text(data=clust2,aes(group=as.factor(clust),x=10,y=(ymin+ymax)/2,label=paste(clust-10,\"(\",id2,\")\",sep=\"\")),hjust=0,size=5*p.pdf.scale) +
 	 theme(plot.title = element_text(size = 20*p.pdf.scale))
 
@@ -1792,7 +1721,6 @@ if (convwant == \"CG\") {
 }
 
 # using meanall
-#df2temp = df2temp[df2temp\$C != 0,]
 if (dim(df2temp[df2temp\$meanall > 0,])[1] > 0) {
    df2 = data.frame(x=df2temp\$x,y=df2temp\$meanall,x2=df2temp\$x,y2=df2temp\$meanall)
 } else {
@@ -2015,11 +1943,9 @@ totalheight = max(30,dim(df)[1]) + 31.25
 totalheight2 = max(30,dim(df)[1]) + 31.25 + 26.5625
 totalwidth  = dim(df)[2] * 0.125
 totalratio  = c(ratio1, ratio2)
-#	if (file.exists(\"$curr_cluster_file\") & file.info(\"$curr_cluster_file\")\$size > 0) {
-		totalheight = totalheight + 26.5625
-		totalratio = c(totalratio, ratio3)
-		mynrow = 3
-#	}
+totalheight = totalheight + 26.5625
+totalratio = c(totalratio, ratio3)
+mynrow = 3
 
 # Scaling
 
@@ -2070,7 +1996,6 @@ $R->{PNG_peak_300} = "
 
 ";
 
-#240717
 $R->{PNG} = "
 
 	# PNG
@@ -2125,7 +2050,6 @@ $R->{PNG_nopk} = "
 	totalheight = (dim(df.rand.1000)[1] + 31.25) * myscale
 	print(\"$pngout\")
 	png(\"$pngout\",width=min(30000,totalwidth),height=min(30000,totalheight))
-	#png(type=\"cairo\",\"$pngout\",width=totalwidth,height=min(30000,totalheight))
 	grid.arrange(p.rand.1000.png,p2.rand.1000.png,ncol=1,nrow=mynrow,heights=totalratio)
 	dev.off()
 	
@@ -2133,23 +2057,14 @@ $R->{PNG_nopk} = "
 	totalheight = dim(df.rand.1000)[1] * myscale
 	pngout_heatmap_only = \"$pngoutFolder/HEATMAP/$pngoutFilename.heatmap.png\"
 	print(pngout_heatmap_only)
-	#png(type=\"cairo\",pngout_heatmap_only,width=min(30000,totalwidth),height=totalheight)
 	png(pngout_heatmap_only,width=min(30000,totalwidth),height=min(30000,totalheight))
 	print(p.heatmaponly.rand.1000)
-	dev.off()
-	
-	pngout_heatmaponly2 = \"$pngoutFolder/HEATMAP2/$pngoutFilename.heatmapbox.png\"
-	print(pngout_heatmaponly2)
-	#png(type=\"cairo\",pngout_heatmaponly2,width=min(30000,totalwidth),height=totalheight)
-	png(pngout_heatmaponly2,width=min(30000,totalwidth),height=min(30000,totalheight))
-	print(p.heatmaponly2.rand.1000.png)
 	dev.off()
 	
 	# PNG all Conv
 	pngout_nopk_all_c_conv = \"$pngoutFolder/CONV/$pngoutFilename.c_conv.png\"
 	print(pngout_nopk_all_c_conv)
 	png(pngout_nopk_all_c_conv,width=min(30000,totalwidth),height=31.25*myscale)
-	#png(type=\"cairo\",pngout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
 	grid.arrange(p2.png)
 	dev.off()
 	
@@ -2159,7 +2074,6 @@ $R->{PNG_nopk} = "
 	pngout_nopk_all_conly = \"$pngoutFolder/CONLY/$pngoutFilename.conly.png\"
 	print(pngout_nopk_all_conly)
 	png(pngout_nopk_all_conly,width=min(30000,totalwidth.conly),height=min(30000,totalheight.conly))
-	#png(type=\"cairo\",pngout_nopk_all_conly,width=totalwidth,height=31.25*myscale)
 	grid.arrange(p.rand.1000.conly.png)
 	dev.off()
 
@@ -2170,7 +2084,6 @@ $R->{PNG_nopk_rand_100} = "
 	pngout_nopk_rand_100 = \"$pngoutFolder/ALL/$pngoutFilename.RAND.100.png\"
 	# PNG
 	totalheight = (dim(df.rand.100)[1] + 31.25) * myscale
-	#png(type=\"cairo\",pngout_nopk_rand_100,width=totalwidth,height=totalheight)
 	png(pngout_nopk_rand_100,width=min(30000,totalwidth),height=min(30000,totalheight))
 	grid.arrange(p.rand.100.png,p2.rand.100.png,ncol=1,nrow=mynrow,heights=totalratio)
 	dev.off()
@@ -2178,14 +2091,12 @@ $R->{PNG_nopk_rand_100} = "
 	# PNG HEATMAP ONLY
 	totalheight = dim(df.rand.100)[1] * myscale
 	pngout_heatmap_only = \"$pngoutFolder/ALL/$pngoutFilename.RAND.100.heatmap.png\"
-	#png(type=\"cairo\",pngout_heatmap_only,width=totalwidth,height=totalheight)
 	png(pngout_heatmap_only,width=min(30000,totalwidth),height=min(30000,totalheight))
 	print(p.heatmaponly.rand.100)
 	dev.off()
 	
 	# PNG all Conv
 	pngout_nopk_all_c_conv = \"$pngoutFolder/ALL/$pngoutFilename.RAND.100.c_conv.png\"
-	#png(type=\"cairo\",pngout_nopk_all_c_conv,width=totalwidth,height=31.25*myscale)
 	png(pngout_nopk_all_c_conv,width=min(30000,totalwidth),height=31.25*myscale)
 	grid.arrange(p2.rand.100.png)
 	dev.off()
@@ -2201,15 +2112,11 @@ $R->{PNG_nopk_ALL} = "
 		if (i == max(seq( 1,as.integer(dim(df)[1]/mywindow) + 1 ))) {
 			currtotalheight = totalheight_nopk_last
 			currtotalratio = totalratio_nopk_last
-			#print(paste(i,currtotalheight,currtotalratio))
-	#		png(type=\"cairo\",pngout_nopk,width=totalwidth,height=currtotalheight)
 			png(pngout_nopk,width=min(30000,totalwidth),height=min(30000,currtotalheight))
 			grid.arrange(plot_list[[i]],p2,ncol=1,nrow=mynrow,heights=currtotalratio)
 			dev.off()
 		} else {
 			currtotalheight = totalheight_nopk
-			#print(paste(i,currtotalheight))
-		#	png(type=\"cairo\",pngout_nopk,width=totalwidth,height=currtotalheight)
 			png(pngout_nopk,width=min(30000,totalwidth),height=min(30000,currtotalheight))
 			grid.arrange(plot_list[[i]],ncol=1)
 			dev.off()
@@ -2254,21 +2161,6 @@ $R->{PDF} = "
 	pdf(\"$pdfout\",width=min(30000,currwidth),height=min(30000,currheight))
 	grid.arrange(p.pdf,p2.pdf.mod,p3.CGprof.mod.pdf,ncol=1,nrow=3,heights=totalratio)
 	dev.off()
-	#if (mynrow == 3) {
-	#	grid.arrange(p.pdf,p2.pdf,p3.pdf,ncol=1,nrow=mynrow,heights=totalratio)
-	#} else {
-	#	grid.arrange(p.pdf,p2.pdf,ncol=1,nrow=mynrow,heights=totalratio)
-	#}
-	#dev.off()
-	print(\"HERE\")
-	
-	#pdf(\"$pdfout\",width=min(30000,currwidth),height=min(30000,currheight))
-	#if (mynrow == 3) {
-	#	grid.arrange(p.pdf,p2.pdf,p3.pdf,ncol=1,nrow=mynrow,heights=totalratio)
-	#} else {
-	#	grid.arrange(p.pdf,p2.pdf,ncol=1,nrow=mynrow,heights=totalratio)
-	#}
-	#dev.off()
 	
 	# PDF all Conv
 	pdfout_peak_cgprof = \"$pdfoutFolder/CGPROF/$pdfoutFilename.cgprof.pdf\"

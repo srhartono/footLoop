@@ -16,17 +16,14 @@
 # By downloading or using this software, you agree to the terms and conditions of the license. 
 
 use strict; use warnings; use Getopt::Std; use Time::HiRes; use Benchmark qw(:all); use Benchmark ':hireswallclock'; use Carp; use Thread; use Thread::Queue; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_g $opt_p $opt_d $opt_s $opt_k $opt_K $opt_n $opt_h $opt_t $opt_w $opt_L $opt_l $opt_o $opt_A $opt_G $opt_Z $opt_O $opt_0 $opt_J $opt_F);
-getopts("vg:p:d:s:k:K:n:ht:w:l:A:o:G:L:ZO:0J:F");
+use vars qw($opt_v $opt_g $opt_p $opt_d $opt_s $opt_k $opt_K $opt_n $opt_h $opt_t $opt_w $opt_L $opt_l $opt_o $opt_A $opt_G $opt_Z $opt_O $opt_0 $opt_J $opt_F $opt_1 $opt_f);
+getopts("vg:p:d:s:k:K:n:ht:w:l:A:o:G:L:ZO:0J:F1f");
 
 BEGIN {
    my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
    push(@INC, $libPath);
 	print "\n- Pushed $libPath into perl lib path INC\n";
 
-#   my $softwarePath = dirname(dirname abs_path $0) . '/footLoop/softwares/';
-  # $ENV{PATH} = "$softwarePath/Bismark_v0.20.0/:$softwarePath/bedtools2/bin/:$softwarePath/bowtie2-2.2.6/:
-#$softwarePath/samtools-0.1.19/:$softwarePath/R-3.6.1/bin/:$ENV{PATH}";
 }
 
 use myFootLib;
@@ -44,6 +41,7 @@ $version_small = $version if not defined $version_small;
 # 0. Check Sanity #
 ##################
 
+my $footPeakscript = "$footLoop_script_folder/bin/footPeak_main.pl";
 my $date = getDate();
 my $uuid = getuuid();
 my $numThread = 1;
@@ -89,19 +87,17 @@ LOG($outLog, $usage . "faFile=$seqFile\nindexFile=$indexFile\norigFolder=$origFo
 if (not -d $outDir) {
 	system("mkdir -p $outDir") or LOG($outLog, "Cannot create directory (-n) $outDir: $!\n\n") and die;
 }
-
 my $outsbatchDir = "$outDir/.footPeak_sbatch/";
-system("mkdir -p $outDir/.footPeak_sbatch/");
+system("mkdir -p $outsbatchDir");
 
 # Get Real Coordinate of each Gene
 my $SEQ = parse_indexFile_and_seqFile($indexFile, $seqFile, $outLog);
 
 # Get origFiles from footLoop folder
 my @origFile = <$origFolder/origFiles/*.filtered.gz>;
+	@origFile = <$origFolder/*.filtered.gz> if @origFile == 0;
 LOG($outLog, "Found $LGN" . scalar(@origFile) . "$N *.filtered.gz files!\n");
 
-open (my $outLogAddon, ">", "$outDir/footLoop_addition_logFile.txt") or DIELOG($outLog, "Failed to write to $outDir/footLoop_addition_logFile.txt: $!\n");
-close $outLogAddon;
 my $out;
 my $R;
 my @total_Rscript = <$origFolder/*.R>;
@@ -115,7 +111,6 @@ for (my $i = 0; $i < @origFile; $i++) {
 	$peakFilename = "$label\_gene$peakFilename";
    if (defined $opt_G) {
       if ($peakFilename !~ /$opt_G/i) {
-         #LOG($outLog, date() . "${LPR}footPeak_sbatch.pl$N: $LGN$i/$totalorigFiles$N ${LRD}Skipped$N $LCY$peakFilename$N as it doesn't contain $LGN-G $opt_G$N\n");
          next;
       }
       else {
@@ -130,25 +125,67 @@ for (my $i = 0; $i < @origFile; $i++) {
 	LOG($outLog, "Example: $LCY$origFile[$i]\t$gene\t$strand$N\n\n") if $i eq 0;
 	push(@neworigFiles, $origFile[$i]);
 }
-
 my $totalorigFile = @origFile;
-foreach my $origFile (@origFile) {
-}
-LOG($outLog, "\n\n--------------$YW\n1. footPeak.pl processing $LGN" . scalar(keys %genes) . "$N genes (total file = $LGN" . scalar(@origFile) . "$N)\n\n");
 
-my ($max_parallel_run) = defined $opt_J ? $opt_J : 1;
-#my $cmd = "$footLoop_script_folder/footPeak_sbatch_2.pl $indexFile $seqFile FNINDICE FILENAME $outDir $window $threshold $totalorigFile $label $genewant $minDis $minLen $version_small";
-my $cmd = "$footLoop_script_folder/footPeak_sbatch_3.pl $indexFile $seqFile FNINDICE FILENAME $outDir $window $threshold $totalorigFile $label $genewant $minDis $minLen $version_small";
-my $force_sbatch = $opt_F;
+############# bin/footPeak_2.pl ###########
+LOG($outLog, "\n\n--------------$YW\n1. $footPeakscript processing $LGN" . scalar(keys %genes) . "$N genes (total file = $LGN" . scalar(@origFile) . "$N)\n\n");
 
-#my @origFilesmall = @origFile[0..1];
 makedir("$outDir/PEAKS_GENOME/") if not -d "$outDir/PEAKS_GENOME/";
 makedir("$outDir/PEAKS_LOCAL/") if not -d "$outDir/PEAKS_LOCAL/";
-my $debug; my $mem = 16000;
-footLoop_sbatch_main($cmd, "footPeak", \@neworigFiles, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir, $mem, $debug);
-#sbatch_these($cmd, "footPeak", \@origFile, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir);
 
-LOG($outLog, date() . "${LGN}SUCCESS$N: footPeak ran successfully!\n\n");
+my $cmd = "$footPeakscript $indexFile $seqFile FNINDICE FILENAME $outDir $window $threshold $totalorigFile $label $genewant $minDis $minLen $version_small";
+$cmd .= " 0" if defined $opt_0;
+
+
+my $forcerun = "off";
+   $forcerun = "on" if defined $opt_F;
+   $forcerun = "on" if defined $opt_f;
+LOG($outLog, "forcerun is $YW$forcerun$N\n\n");
+
+if (defined $opt_p) {
+	LOG($outLog, "#Parallel run with slurm enabled (-p)\n\n");
+	if (defined $opt_0) {
+		LOG($outLog, date() . "\n" . "$cmd\n");
+	}
+	my $mem = 16000;
+	my $debug = 1 if defined $opt_0;
+	my ($max_parallel_run) = defined $opt_J ? $opt_J : 1;
+	my $force_sbatch = $opt_F;
+	   $force_sbatch = $opt_f if not defined $opt_F;
+	footLoop_sbatch_main($cmd, "footPeak", \@neworigFiles, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir, $mem, $debug);
+}
+else {
+	LOG($outLog, "#Single run\n\n");
+	for (my $i = 0; $i < @neworigFiles; $i++) {
+		my $neworigFile = $neworigFiles[$i];
+		my ($neworigFilename) = getFilename($neworigFile, "full");
+		my $neworigFileDone = "$outsbatchDir/$neworigFilename.done";
+		my $currcmd = $cmd;
+		my $indice = $i + 1;
+		$currcmd =~ s/FILENAME/$neworigFile/g;
+		$currcmd =~ s/FNINDICE/$indice/g;
+		if (defined $opt_0) {
+         LOG($outLog, date() . "$YW$indice/$totalorigFile$N $LCY$neworigFilename$N\n");
+         LOG($outLog, "\t$LGN$currcmd$N\n");
+		}
+		elsif (not -e $neworigFileDone or defined $opt_F or defined $opt_f) {
+			system($currcmd) == 0 or DIELOG($outLog, "Failed to run cmd: $!\n\n$LCY$currcmd$N\n\n");
+			system("touch $neworigFileDone") if not -e $neworigFileDone;
+		}
+		else {
+			LOG($outLog, date() . "${LPR}footPeak.pl$N: $YW$indice/$totalorigFile$N $LCY$neworigFilename$N: using previously made peaks\n");
+			LOG($outLog, "Done=$LCY$neworigFileDone$N)\n","NA");
+		}
+	}
+}
+
+
+if (defined $opt_0) {
+	LOG($outLog, "\n" . date() . "${LGN}SUCCESS$N: Dry Run footPeak ran successfully!\n\n");
+	exit 0;
+}
+
+LOG($outLog, "\n" . date() . "${LGN}SUCCESS$N: footPeak ran successfully!\n\n");
 
 
 ###############
@@ -213,7 +250,6 @@ footLoop BAMFixedMD5 : $defOpts->{BAMFixedMD5}
 	foreach my $opt (sort keys %{$defOpts}) {
 		next if $opt !~ /^.$/;
 		next if defined $usrOpts2->{$opt};
-		#next if not defined $logs->{$opt}; next if $opt eq "origDir";
 		$optcount ++;
 		$param .= "-$opt : $defOpts->{$opt}\n" if defined $defOpts->{$opt};
 	}
@@ -289,11 +325,6 @@ sub parse_footLoop_logFile {
 			($other->{md5}) = $other->{origDir} =~ /\.0_orig_(\w{32})/;
 			print "Can't parse md5 from outdir (outdir=$defOpts->{origDir})\n" and die if not defined $other->{md5};
 		}
-#		if ($line =~ /geneIndexFile=/) {
-#			($defOpts->{geneIndexFile}) = $line =~ /geneIndexFile=(.+)$/ if $line !~ /,gene=.+,beg=\d+,end=\d+$/;
-#			($defOpts->{geneIndexFile}) = $line =~ /geneIndexFile=(.+),gene=.+,beg=\d+,end=\d+$/ if $line =~ /,gene=.+,beg=\d+,end=\d+$/;
-#			$defOpts->{geneIndexFile} = $footLoopFolder . "/" .  getFilename($defOpts->{geneIndexFile});
-#		}
 		if ($line =~ /^!\w+=/) {
 			my ($param, $value) = $line =~ /^!(\w+)=(.+)$/;
 			my $param2 = defined $param ? $param : "__UNDEF__";
@@ -326,11 +357,10 @@ sub parse_footLoop_logFile {
 		print "Undefined origDir from input=$inputFolder\n" and die if not defined $other->{origDir};
 		print "origDir $other->{origDir} does not exist!\n" and die if not -d $other->{origDir};
 		$defOpts->{origDir} = $other->{origDir};
-		($other->{md5}) = "NA"; #$other->{origDir} =~ /\.0_orig_(\w{32})/;
+		($other->{md5}) = "NA"; 
 	}
 	$defOpts->{o} = $defOpts->{n} if not defined $opt_o;
 	makedir($defOpts->{o}) if not -d $defOpts->{o};
-	#die "opt = $opt_o = $defOpts->{o}\n";
 	open ($outLog, ">", "$defOpts->{o}/footPeak_logFile.txt") or print "Failed to write to $defOpts->{o}/footPeak_logFile.txt: $!\n" and die;
 	if (defined $opt_O) {
 		$defOpts->{origDir} = $opt_O;
@@ -351,7 +381,6 @@ sub parse_footLoop_logFile {
 	
 	record_options($defOpts, $usrOpts, $usrOpts2, $other, $outLog, $logFile, $date, $uuid, $version_small);
 
-#	print "Output = $defOpts->{o}\n";
 	return($defOpts, $outLog);
 }
 
@@ -374,7 +403,7 @@ sub parse_runscript {
 			}
 		}
 		elsif ($i == 0) {
-			next;#print "script = $runscripts[0]\n" and next;
+			next;
 		}
 		else {
 			print "parse_runscript: opt \$opt in footLoop logFile.txt Run Script does not look like a getopt options (not a '-a')!\n" and next;
@@ -400,7 +429,7 @@ sub parse_runscript {
 			$log->{label} = 1;
 			next;
 		}
-		$defOpts->{$opt} = $val;# eq "MYTRUE" ? "MYTRUE" : $val;
+		$defOpts->{$opt} = $val;
 		$log->{$opt} = 1;
 	}
 	my $runscript = "$0";
@@ -408,28 +437,26 @@ sub parse_runscript {
 		next if $opts =~ /^[A-Z]$/;
 		next if not defined $usrOpts->{$opts};
 		next if $defOpts->{$opts} eq "FALSE";
-		$runscript .= " -$opts $defOpts->{$opts}";# if defined $usrOpts->{$opts};
+		$runscript .= " -$opts $defOpts->{$opts}";
 	}
 	foreach my $opts (sort keys %{$defOpts}) {
 		next if $opts !~ /^[A-Z]$/;
 		next if not defined $usrOpts->{$opts};
 		next if $defOpts->{$opts} eq "FALSE";
-		$runscript .= " -$opts $defOpts->{$opts}";# if defined $usrOpts->{$opts};
+		$runscript .= " -$opts $defOpts->{$opts}";
 	}
 	foreach my $opts (sort keys %{$defOpts}) {
 		next if $opts =~ /^[A-Z]$/;
 		next if defined $usrOpts->{$opts};
 		next if $defOpts->{$opts} eq "FALSE";
-		$runscript .= " -$opts $defOpts->{$opts}";# if defined $usrOpts->{$opts};
+		$runscript .= " -$opts $defOpts->{$opts}";
 	}
 	foreach my $opts (sort keys %{$defOpts}) {
 		next if $opts !~ /^[A-Z]$/;
 		next if defined $usrOpts->{$opts};
 		next if $defOpts->{$opts} eq "FALSE";
-		$runscript .= " -$opts $defOpts->{$opts}";# if defined $usrOpts->{$opts};
+		$runscript .= " -$opts $defOpts->{$opts}";
 	}
-#	print $runscript and die;
-#	print "$defOpts->{i}\n";die;
 	return ($defOpts, $runscript);
 }
 
@@ -545,7 +572,7 @@ sub parse_getopt {
 	$print =~ s/,$/\n\t\t);\n/;
 	
 	print "$print";
-	die;
+	exit 0;
 }
 sub parse_indexFile_and_seqFile {
 	my ($indexFile, $seqFile, $outLog) = @_;
@@ -559,7 +586,6 @@ sub parse_indexFile_and_seqFile {
 		my ($chr, $beg, $end, $def, $zero, $strand) = split("\t", $line);
 		$def = uc($def);
 		$SEQ->{$def}{coor} = "$chr\t$beg\t$end\t$def\t$zero\t$strand";
-#		LOG($outLog, "indexFile:\tSEQ -> {gene=$def}{coor} is defined!\n");
 		LOG($outLog, "def=$def, coor=$chr, $beg, $end, $def, $zero, $strand\n","NA");
 	}
 	open (my $in, "<", $seqFile) or DIELOG($outLog, "Failed to read from $LCY$seqFile$N: $!\n");
@@ -679,32 +705,3 @@ ${YW}---------------------$N
 # 7 is CG conv
 # 8 is CH peak
 # 9 is CG peak
-
-
-
-#my ($i, @origFile, $out, $outDir, $window, $threshold, $genewant, $seqFile, $totalorigFile, $label);
-#sbatch_these($bismark_cmd, "bismark", "bam", \@fastqFiles, $max_slurm_job, $outLog);
-=comment
-for (my $i = 0; $i < @origFile; $i++) {
-	my $peakFile = $origFile[$i];
-	LOG($outLog, date() . "$LGN$i$N/$LGN$totalorigFile$N:$LPR footPeak.pl processing$N $YW$peakFile$N\n");
-
-	if (defined $opt_G and $peakFile !~ /$opt_G/i) {
-		LOG($outLog, date() . "-> Skipped $LCY$peakFile$N as it doesn't contain $LGN-G $opt_G$N\n","NA");
-		next;
-	}
-
-	my ($peakFolder, $peakFilename) = getFilename($peakFile, "folderfull");
-	$peakFilename =~ s/.filtered.gz$//;
-	$peakFilename = "$label\_gene$peakFilename";
-	my ($gene, $strand) = $peakFilename =~ /_gene(.+)_(Pos|Neg|Unk)$/; $gene = uc($gene);
-	DIELOG($outLog, "gene=$gene seq->gene{seq} isn't defined!\n") if not defined $SEQ->{$gene} or not defined $SEQ->{$gene}{seq};
-	my $cmd = "footPeak_sbatch_2.pl $indexFile $seqFile $i FILENAME $outDir $window $threshold $totalorigFile $label $genewant $minDis $minLen $version_small";
-	sbatch_these($cmd, "");
-	LOG($outLog, $cmdout);
-	
-	print "DEBUG! last\n" if defined $opt_0;
-	last if defined $opt_0;
-}
-LOG($outLog, date() . "${LGN}SUCCESS$N: footPeak ran successfully!\n\n");
-=cut

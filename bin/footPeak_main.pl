@@ -3,13 +3,10 @@
 use strict; use warnings; use Getopt::Std; use FAlite; use Cwd qw(abs_path); use File::Basename qw(dirname);
 
 BEGIN {
-   my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
+   my $libPath = dirname(dirname abs_path $0) . '/lib';
    push(@INC, $libPath);
    print "\n- Pushed $libPath into perl lib path INC\n";
 
-#   my $softwarePath = dirname(dirname abs_path $0) . '/footLoop/softwares/';
-  # $ENV{PATH} = "$softwarePath/Bismark_v0.20.0/:$softwarePath/bedtools2/bin/:$softwarePath/bowtie2-2.2.6/:
-#$softwarePath/samtools-0.1.19/:$softwarePath/R-3.6.1/bin/:$ENV{PATH}";
 }
 
 
@@ -23,8 +20,8 @@ my $footLoopScriptsFolder = dirname(dirname abs_path $0);
 my ($thisfileName) = getFilename($0, "fullname");
 my ($thismd5) = getMD5_simple($0);
 
-my ($indexFile, $seqFile, $origFileInd, $origFile, $outDir, $window, $threshold, $totalorigFile, $label, $genewant, $minDis, $minLen, $version_small) = @ARGV;
-die "\nUsage: $YW$0$N ${LCY}indexFile$N ${LGN}seqFile$N ${LCY}i$N ${LGN}origFile$N ${LCY}outDir$N ${LGN}window$N ${LCY}threshold$N ${LGN}totalorigFile$N ${LCY}label$N ${LGN}genewant$N ${LCY}minDis$N ${LGN}minLen$N ${LCY}version_small$N\n\n" unless @ARGV == 13;
+my ($indexFile, $seqFile, $origFileInd, $origFile, $outDir, $window, $threshold, $totalorigFile, $label, $genewant, $minDis, $minLen, $version_small, $debug) = @ARGV;
+die "\nUsage: $YW$0$N ${LCY}indexFile$N ${LGN}seqFile$N ${LCY}i$N ${LGN}origFile$N ${LCY}outDir$N ${LGN}window$N ${LCY}threshold$N ${LGN}totalorigFile$N ${LCY}label$N ${LGN}genewant$N ${LCY}minDis$N ${LGN}minLen$N ${LCY}version_small$N\n\n" unless @ARGV >= 13;
 undef $genewant if defined($genewant) and $genewant eq -1;
 
 my ($origFolder, $origFilename) = getFilename($origFile,"folderfull");
@@ -34,10 +31,11 @@ open (my $outLog, ">", $outLogFile) or die "Failed to write to $LCY$outLogFile$N
 
 my $SEQ = parse_indexFile_and_seqFile($indexFile, $seqFile, $outLog);
 
-run_footPeak_old($indexFile, $seqFile, $origFileInd, $origFile, $outDir, $window, $threshold, $totalorigFile, $label, $genewant, $minDis, $minLen, $SEQ, $version_small, $outLog);
-
-#main_2($indexFile, $seqFile, $origFileInd, $origFile, $outDir, $window, $threshold, $totalorigFile, $label, $genewant, $minDis, $minLen, $SEQ, $version_small, $outLog);
-#	my ($input1, $faFile, $mygene, $minDis, $resDir, $minLen, $SEQ, $mygenecount, $totalgenecount, $version_small, $outLog) = @_;
+if (defined $debug) {
+	LOG($outLog, "\n" . date() . "${LGN}SUCCESS!!$N Dry run $0 ran successfully\n\n");
+	exit 0;
+}
+run_footPeak($indexFile, $seqFile, $origFileInd, $origFile, $outDir, $window, $threshold, $totalorigFile, $label, $genewant, $minDis, $minLen, $SEQ, $version_small, $outLog);
 
 LOG($outLog, date() . "Done!\n\n$outLogFile\n\n");
 close $outLog;
@@ -46,19 +44,13 @@ close $outLog;
 # SUBROUTINES #
 ###############
 
-sub run_footPeak_old {
-	#my $Q = new Thread::Queue;
+sub run_footPeak {
 	my ($indexFile, $seqFile, $origFileInd, $origFile, $outDir, $window, $threshold, $totalorigFile, $label, $genewant, $minDis, $minLen, $SEQ, $version_small, $outLog) = @_;
 	my $resDir = $outDir;
 	my $out;
 	my $peakFile = $origFile;
-	LOG($outLog, date() . "$LGN$origFileInd$N/$LGN$totalorigFile$N:$LPR footPeak.pl processing$N $YW$peakFile$N\n");
+	LOG($outLog, date() . "$LGN$origFileInd$N/$LGN$totalorigFile$N:$LPR $0 processing$N $YW$peakFile$N\n");
 
-
-	#if (defined $genewant and $peakFile !~ /$genewant/i) {
-	#	LOG($outLog, date() . "-> Skipped $LCY$peakFile$N as it doesn't contain $LGN-G $genewant$N\n","NA");
-	#	return;
-	#}
 	my ($peakFolder, $peakFilename) = getFilename($peakFile, "folderfull");
 	$peakFilename =~ s/.filtered.gz$//;
 	$peakFilename = "$label\_gene$peakFilename";
@@ -69,14 +61,11 @@ sub run_footPeak_old {
 
 	my ($totalPeak, $linecount, $peakcount, $total, %data, %end, %bad, %final, %group) = (0,0,0, scalar(@{$SEQ->{$gene}{seq}}));
 	
-	#LOG($outLog, date() . "$YW$origFileInd/" . scalar(@origFile) . "$N DEBUG FILENAME=$peakFilename, GENE=$gene\n") if $origFileInd % 10 == 0;
 	DIELOG($outLog, "Died cannot get gene from peakfile $peakFile\n") unless defined $gene;
 	DIELOG($outLog, "Cannot find sequence of gene=$LCY$gene$N in $seqFile!\n") if not defined $SEQ->{$gene};
 	my %pk = ("CH" => 0, "CG" => 0, "GH" => 0, "GC" => 0);
 	my @seq = @{$SEQ->{$gene}{seq}};
-	#next if $size eq 0;
-	#makedir("$resDir/PEAKS_GENOME/") if not -d "$resDir/PEAKS_GENOME/";
-	#makedir("$resDir/PEAKS_LOCAL/") if not -d "$resDir/PEAKS_LOCAL/";
+
 	foreach my $dinuc (sort keys %pk) {
 		open (my $outpeak, ">", "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK") or DIELOG($outLog, "Failed to write to $outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK: $!\n");
 		open (my $outpeakout, ">", "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK.out") or DIELOG($outLog, "Failed to write to $outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK: $!\n");
@@ -96,40 +85,18 @@ sub run_footPeak_old {
 
 
 		my $outPEAK_GENOME = "$resDir/PEAKS_GENOME/$peakFilename\_$window\_$threshold\_$dinuc.PEAK.genome.bed";
-		#my $outNOPK_GENOME = "$resDir/PEAKS_GENOME/$peakFilename\_$window\_$threshold\_$dinuc.NOPK.genome.bed";
 		my $outPEAK_LOCAL = "$resDir/PEAKS_LOCAL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK.local.bed";
-		#my $outNOPK_LOCAL = "$resDir/PEAKS_LOCAL/$peakFilename\_$window\_$threshold\_$dinuc.NOPK.local.bed";
 		open (my $outPEAK_GENOMEout, ">", $outPEAK_GENOME) or LOG($outLog, "\tFailed to write into $outPEAK_GENOME: $!\n")  and exit 1;
-		#open (my $outNOPK_GENOMEout, ">", $outNOPK_GENOME) or LOG($outLog, "\tFailed to write into $outNOPK_GENOME: $!\n")  and exit 1;
 		open (my $outPEAK_LOCALout, ">", $outPEAK_LOCAL) or LOG($outLog, "\tFailed to write into $outPEAK_LOCAL: $!\n")  and exit 1;
-		#open (my $outNOPK_LOCALout, ">", $outNOPK_LOCAL) or LOG($outLog, "\tFailed to write into $outNOPK_LOCAL: $!\n")  and exit 1;
 		close $outPEAK_GENOMEout;
-		#close $outNOPK_GENOMEout;
 		close $outPEAK_LOCALout;
-		#close $outNOPK_LOCALout;
-		#my $outpeak = "PEAK$dinuc";
-		#my $outnopk = "NOPK$dinuc";
-		#open ($out->{$outpeak}, ">", "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK") or DIELOG($outLog, "Failed to write to $outDir/.CALL/$peakFilename\_$window\_$threshold\_CG.PEAK: $!\n");
-		#open ($out->{$outnopk}, ">", "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.NOPK") or DIELOG($outLog, "Failed to write to $outDir/.CALL/$peakFilename\_$window\_$threshold\_CG.NOPK: $!\n");
 		print "PEAKFILE: $LPR$outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK$N\n"
 	}
-	my ($peakFilesize) = -s $peakFile; #zgrep -c ^ $peakFile`; chomp($peakFilesize); # =~ /^(\d+)($|\s+$)/;
+	my ($peakFilesize) = -s $peakFile; 
 	LOG($outLog, "$LGN$origFileInd$N. size=$LGN$peakFilesize$N Gene = $LRD$gene$N total length = $LPR$total$N\n","NA") if $peakFilesize <= 20;
-	#LOG($outLog, "$LGN$origFileInd$N. size=$LGN$peakFilesize$N Gene = $LRD$gene$N total length = $LPR$total$N\n") if $peakFilesize > 20;
-	#next if $peakFilesize <= 20;
 
 	my ($peakFilelinecount) = `zcat $peakFile|wc -l` =~ /^(\d+)$/;
 	LOG($outLog, "$LGN$origFileInd$N/$LGN" . $totalorigFile .  "$N $LGN$peakFilename$N $LGN$peakFilelinecount$N size=$LGN$peakFilesize$N Gene = $LRD$gene$N total length = $LPR$total$N totalread=$LCY$peakFilelinecount$N\n") if $peakFilelinecount >= 5;
-	#next if $peakFilelinecount < 5;
-	#my ($l0, $t0) = (0,Benchmark->new());
-	#foreach my $dinuc (sort keys %pk) {
-	#	my $outpeak = "PEAK$dinuc";
-	#	my $outnopk = "NOPK$dinuc";
-	#	print {$out->{$outpeak}} "$peakFile\tPEAK\t$gene\t$dinuc\t$strand\t" . join("\t", @{$SEQ->{$gene}{seq}}) . "\n";
-	#	print {$out->{$outnopk}} "$peakFile\tNOPK\t$gene\t$dinuc\t$strand\t" . join("\t", @{$SEQ->{$gene}{seq}}) . "\n";
-	#}
-
-
 	my $in1;
 	if ($peakFile =~ /.gz$/) {
 		open ($in1, "zcat $peakFile|") or die "Cannot read from $peakFile: $!\n";
@@ -140,14 +107,14 @@ sub run_footPeak_old {
 
 	while (my $line = <$in1>) {
 		chomp($line);
-		LOG($outLog, date() . "${LPR}footPeak.pl$N: Done $LGN$linecount$N\n") if $linecount % 10 == 0;
+		LOG($outLog, date() . "${LPR}$0$N: Done $LGN$linecount$N\n") if $linecount % 100 == 0;
 		$linecount ++;
 		next if $line =~ /^#/;
 		my ($name, $type, $val) = split("\t", $line);
-		$name = "footPeak.pl.name.UNDEF" if not defined $name or $name eq "" or $name =~ /^[ \t\n\s]*$/;
-		$type = "footPeak.pl.type.UNDEF" if not defined $type or $type eq "" or $type =~ /^[ \t\n\s]*$/;
-		$val = "footPeak.pl.val.UNDEF" if not defined $val or $val eq ""     or $val  =~ /^[ \t\n\s]*$/;
-		if ($name eq "footPeak.pl.name.UNDEF" or $type eq "footPeak.pl.type.UNDEF" or $val eq "footPeak.pl.val.UNDEF") {
+		$name = "$0.name.UNDEF" if not defined $name or $name eq "" or $name =~ /^[ \t\n\s]*$/;
+		$type = "$0.type.UNDEF" if not defined $type or $type eq "" or $type =~ /^[ \t\n\s]*$/;
+		$val = "$0.val.UNDEF" if not defined $val or $val eq ""     or $val  =~ /^[ \t\n\s]*$/;
+		if ($name eq "$0.name.UNDEF" or $type eq "$0.type.UNDEF" or $val eq "$0.val.UNDEF") {
 			LOG($outLog, "\n\n" . date() . "file=$YW$peakFilename$N line number $LGN$linecount$LRD ERROR$N: Skipped line error trying to parse$LCY tab delim$N :LGN\$name=$name $LPR\$type=$type $LCY\$val=$val$N, line:\n\n$line\n\n","NA");
 			next;
 		}
@@ -155,9 +122,7 @@ sub run_footPeak_old {
 		my ($count, $beg, $end) = (0,0,0);
 		my $check = 0;
 
-		if (defined $genewant and $name !~ /$genewant/i) {$check = 1; next;} #genewant
-		#print "$linecount Doing $name $type\n" ;
-		#next unless $name =~ /PBEH2_BCBC0_PLASMIDPFC9NTBSPQI13_DESCNOTXLINEARBSAICOSSB.m84066_240320_204128_s1\/163448324\/ccs/;
+		if (defined $genewant and $name !~ /$genewant/i) {$check = 1; next;} 
 		my @coor = split("\t", $SEQ->{$gene}{coor});
 		my ($chr0, $beg0, $end0, $name0, $val0, $strand0) = @coor;
 
@@ -171,31 +136,18 @@ sub run_footPeak_old {
 
 		my $GAperc = $Gtot == 0 ? 0 : int(1000*$Gcon / $Gtot+0.5)/10;
 		$val = [split("", $val)];
-		#if ($CTperc < 10 and $GAperc < 10) {next;}
-		#print "$name, $type\nCT=$LGN$CTperc$N, GA=$LCY$GAperc$N\n\n";
-#DEBUG
-#		next if $name !~ /(44893433|118491937|178192409)/;
-		#next if $name !~ /(76023227)/;
+
 		my ($pkcurr) = dothis($gene, $strand, $val, $name, $window, $threshold, $minLen, $check);
-#			$pk->{$dinuc}{NOPK}{TOTAL} ++;
-#			$pk->{$dinuc}{NOPK}{CONV} = $peak->{$dinuc}{convfinal};
-#			$pk->{$dinuc}{NOPK}{COOR} = $peak->{$dinuc}{nopkcoor} if defined $peak->{$dinuc}{nopkcoor};
-#$pkcurr->{$conv}{CONV};
-#$pkcurr->{$conv}{COOR};
-#my $out$outDir/.CALL/$peakFilename\_$window\_$threshold\_$type.PEAK") or DIELOG($outLog, "Failed to write to $outDir/.CALL/$peakFilename\_$window\_$threshold\_CG.PEAK: $!\n");
+
 		foreach my $dinuc (sort keys %{$pkcurr}) {
 			$pk{$dinuc} += $pkcurr->{$dinuc}{PEAK}{TOTAL};
 			if ($pkcurr->{$dinuc}{PEAK}{TOTAL} > 0) {
 				open (my $outpeak, ">>", "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK") or DIELOG($outLog, "Failed to write to $outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK: $!\n");
-				#print "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK\n";
 				print $outpeak "$name\t$pkcurr->{$dinuc}{PEAK}{CONV}\n";
-				#print "OUTPEAK $dinuc $pkcurr->{$dinuc}{PEAK}{TOTAL}: $pkcurr->{$dinuc}{PEAK}{CONV}\n";
 				close $outpeak;
 
 				open (my $outpeakconvperc, ">>", "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK.convperc") or DIELOG($outLog, "Failed to write to $outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK.convperc: $!\n");
-				#print "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK\n";
 				print $outpeakconvperc "$name\t$pkcurr->{$dinuc}{PEAK}{CONVPERC}\n";
-				#print "OUTPEAK $dinuc $pkcurr->{$dinuc}{PEAK}{TOTAL}: $pkcurr->{$dinuc}{PEAK}{CONV}\n";
 				close $outpeakconvperc;
 
 				open (my $outpeakout, ">>", "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK.out") or DIELOG($outLog, "Failed to write to $outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK: $!\n");
@@ -208,18 +160,13 @@ sub run_footPeak_old {
 				close $outnopk;
 
 				open (my $outnopkconvperc, ">>", "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.NOPK.convperc") or DIELOG($outLog, "Failed to write to $outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.NOPK.convperc: $!\n");
-				#print "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.NOPK\n";
 				print $outnopkconvperc "$name\t$pkcurr->{$dinuc}{NOPK}{CONVPERC}\n";
-				#print "OUTNOPK $dinuc $pkcurr->{$dinuc}{NOPK}{TOTAL}: $pkcurr->{$dinuc}{NOPK}{CONV}\n";
 				close $outnopkconvperc;
 
 				open (my $outnopkout, ">>", "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.NOPK.out") or DIELOG($outLog, "Failed to write to $outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.NOPK: $!\n");
 				print $outnopkout "$name\t$pkcurr->{$dinuc}{NOPK}{CONV}\n";
 				close $outnopkout;
 			}
-			#print {$out->{$dinuc}} $pkcurr->{$dinuc};
-
-			#foreach my $name (sort keys %{$pk{$file}}) {
 			my ($junk, $readname) = $name =~ /^(\w+)\.(.+)$/;
 			if (defined $pkcurr->{$dinuc}{PEAK}{COOR}) {
 				my $outPEAK_GENOME = "$resDir/PEAKS_GENOME/$peakFilename\_$window\_$threshold\_$dinuc.PEAK.genome.bed";
@@ -232,37 +179,18 @@ sub run_footPeak_old {
 					my $end1 = $end + $beg0;
 					my $beg1 = $beg + $beg0;
 					my $file = "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK";
-					#print "$name\t$beg\t$end\n";
 					print $outPEAK_GENOMEout "$chr0\t$beg1\t$end1\t$name\t$conv\t$strand0\t$file\n";
 					print $outPEAK_LOCALout "$name\t$beg\t$end\t$conv\n";
 				}
 				close $outPEAK_GENOMEout;
 				close $outPEAK_LOCALout;
 			}
-			#if (defined $pkcurr->{$dinuc}{NOPK}{COOR}) {
-				#my $outNOPK_GENOME = "$resDir/PEAKS_GENOME/$peakFilename\_$window\_$threshold\_$dinuc.NOPK.genome.bed";
-				#my $outNOPK_LOCAL = "$resDir/PEAKS_LOCAL/$peakFilename\_$window\_$threshold\_$dinuc.NOPK.local.bed";
-				#open (my $outNOPK_GENOMEout, ">>", $outNOPK_GENOME) or LOG($outLog, "\tFailed to write into $outNOPK_GENOME: $!\n")  and exit 1;
-				#open (my $outNOPK_LOCALout, ">>", $outNOPK_LOCAL) or LOG($outLog, "\tFailed to write into $outNOPK_LOCAL: $!\n")  and exit 1;
-				#foreach my $beg (sort{$a <=> $b} keys %{$pkcurr->{$dinuc}{NOPK}{COOR}}) {
-				#	my $end = $pkcurr->{$dinuc}{NOPK}{COOR}{$beg};
-				#	my $end1 = $end + $beg0;
-				#	my $beg1 = $beg + $beg0;
-				#	my $file = "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.NOPK";
-				#	print $outNOPK_GENOMEout "$chr0\t$beg1\t$end1\t$name\t0\t$strand0\t$file\n";
-				#	print $outNOPK_LOCALout "$name\t$beg\t$end\n";
-				#}
-				#close $outNOPK_GENOMEout;
-				#close $outNOPK_LOCALout;
-			#}
 		}
-		#print "DEBUG GOOD!\n";
-		#exit 0;
 		if (defined $genewant) {
-			last if $name =~ /$genewant/i;#PBEH2_BCBC74_PLASMIDPFC9_DESCSUPERCOIL_TX_RH1_PRIMERFIXED.m84066_240320_204128_s1\/59244965\/ccs/;
+			last if $name =~ /$genewant/i;
 		}
-		#last if $linecount >= 100;
 	}
+	LOG($outLog, date() . "${LPR}$0$N: Parsed $LGN$linecount$N lines\n\n");
 	my $to;
 	foreach my $key (sort keys %pk) {
 		next if $key =~ /NO$/;
@@ -274,8 +202,8 @@ sub run_footPeak_old {
 	foreach my $dinuc (sort keys %pk) {
 		my $peakoutFile = "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK.out";
 		my $nopkoutFile = "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.NOPK.out";
-		my ($totalpeak) = (-e $peakoutFile) ? `wc -l $peakoutFile` : " 0 $peakoutFile"; chomp($totalpeak);# =~ /^(\d+)\s+.+$/;
-		my ($totalnopk) = (-e $nopkoutFile) ? `wc -l $nopkoutFile` : " 0 $nopkoutFile"; chomp($totalnopk);# =~ /^(\d+)\s+.+$/;
+		my ($totalpeak) = (-e $peakoutFile) ? `wc -l $peakoutFile` : " 0 $peakoutFile"; chomp($totalpeak);
+		my ($totalnopk) = (-e $nopkoutFile) ? `wc -l $nopkoutFile` : " 0 $nopkoutFile"; chomp($totalnopk);
 		open (my $outpeakoutwcl, ">", "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK.wcl") or DIELOG($outLog, "Failed to write to $outDir/.CALL/$peakFilename\_$window\_$threshold\_$dinuc.PEAK.wcl: $!\n");
 		print $outpeakoutwcl "$totalpeak\n";
 		close $outpeakoutwcl;
@@ -283,268 +211,7 @@ sub run_footPeak_old {
 		print $outnopkoutwcl "$totalnopk\n";
 		close $outnopkoutwcl;
 	}
-	#foreach my $type (sort keys %pk) {
-	#	my $outpeak = "NOPK$type";
-	#	my $outnopk = "NOPK$type";
-	#	close ($out->{$outpeak});#, ">", "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$type.PEAK") or DIELOG($outLog, "Failed to write to $outDir/.CALL/$peakFilename\_$window\_$threshold\_CG.PEAK: $!\n");
-	#	close ($out->{$outnopk});#, ">", "$outDir/.CALL/$peakFilename\_$window\_$threshold\_$type.NOPK") or DIELOG($outLog, "Failed to write to $outDir/.CALL/$peakFilename\_$window\_$threshold\_CG.NOPK: $!\n");
-	#}
 }
-
-sub main_2 {
-	my ($indexFile, $seqFile, $origFileInd, $origFile, $outDir, $window, $threshold, $totalorigFile, $label, $genewant, $minDis, $minLen, $SEQ, $version_small, $outLog) = @_;
-	my $out;
-	my $peakFile = $origFile;
-	LOG($outLog, date() . "$LGN$origFileInd$N/$LGN$totalorigFile$N:$LPR footPeak.pl processing$N $YW$peakFile$N\n");
-
-	if (defined $genewant and $peakFile !~ /$genewant/i) {
-		LOG($outLog, date() . "-> Skipped $LCY$peakFile$N as it doesn't contain $LGN-G $genewant$N\n","NA");
-		return;
-	}
-
-	my ($peakFolder, $peakFilename) = getFilename($peakFile, "folderfull");
-	$peakFilename =~ s/.filtered.gz$//;
-	$peakFilename = "$label\_gene$peakFilename";
-	my ($gene, $strand) = $peakFilename =~ /_gene(.+)_(Pos|Neg|Unk)$/; $gene = uc($gene);
-	DIELOG($outLog, "gene=$gene seq->gene{seq} isn't defined!\n") if not defined $SEQ->{$gene} or not defined $SEQ->{$gene}{seq};
-
-
-   my $peakFilez = "$outDir/.CALL/$peakFilename\_$window\_$threshold\_CG.PEAK";
-	my $footPeakres = main(($peakFilez, $seqFile, $gene, $minDis, $outDir, $minLen, $SEQ, $origFileInd, $totalorigFile, $version_small, $outLog));
-	DIELOG($outLog, "\n" . date() . "Failed footpeak\n") if defined $footPeakres and $footPeakres eq -1;
-}
-
-sub main {
-
-	# From footPeak.pl: 
-	my ($input1, $faFile, $mygene, $minDis, $resDir, $minLen, $SEQ, $mygenecount, $totalgenecount, $version_small, $outLog) = @_;
-
-#	LOG($outLog, "
-#-----------------
-#$YW $0 $version_small $N
-#---------
-#","NA");
-#
-
-	my ($OUTDIRS, $PEAK, $TEMP, $RCONV, $CPG, $ALL);
-	($OUTDIRS->{FOOTPEAK}, $PEAK, $TEMP, $RCONV, $CPG, $ALL) = makeOutDir($resDir . "/.FOOTPEAK/");
-
-	my @foldershort = split("\/", $resDir);
-	my $foldershort = pop(@foldershort);
-	($input1) = getFullpath($input1);
-	my ($folder, $fileName) = getFilename($input1, "folderfull");
-
-	makedir("$resDir/.CALL") if not -d "$resDir/\.CALL";
-	makedir("$resDir/PEAKS_GENOME") if not -d "$resDir/PEAKS_GENOME";
-	makedir("$resDir/PEAKS_LOCAL") if not -d "$resDir/PEAKS_LOCAL";
-
-	my @coor = split("\t", $SEQ->{$mygene}{coor});
-	my ($chr0, $beg0, $end0, $name0, $val0, $strand0) = @coor;
-	die "Undefined beg or end at coor=\n" . join("\n", @coor) . "\n" if not defined $beg0 or not defined $end0;
-	my $geneStrand = $strand0 eq "+" ? "Pos" : $strand0 eq "-" ? "Neg" : $strand0 =~ /^(Pos|Neg|Unk)$/ ? $strand0 : DIELOG($outLog, "Failed to parse gene strand from strand=$strand0, coor=$SEQ->{$mygene}{coor}\n");
-
-	#LOG($outLog, "$mygenecount/$totalgenecount $mygene\n");
-	my (%pk, %Rscripts, %files);
-	my $total = make_total_hash();
-
-	my $label = "";
-	if (-e "$resDir/.LABEL") {
-	   ($label) = `cat $resDir/.LABEL`;
-	   chomp($label);
-	}
-	else {
-		DIELOG($outLog, "Failed to parse label from .LABEL in $resDir/.LABEL\n");
-	}
-	my $parseName = parseName($fileName);
-	my ($label2, $gene, $readStrand, $window, $thres, $rconvType) = @{$parseName->{array}};
-	my $isPeak = $fileName =~ /\.PEAK/ ? "PEAK" : "NOPK";
-	LOG($outLog, "\n\n-----" . date() . "$YW WARNING$N Inconsistent label in filename $LCY$fileName$N." . date() . " Label from $resDir/.LABEL: $label\nBut from fileName: $label2\n-----\n\n") if $label ne $label2;
-	$label = $label2;
-
-	if (defined $mygene and uc($mygene) ne uc($gene)) {
-		LOG($outLog, date() . "$LRD ERROR$N: footPeakAddon.pm filename=$LCY$fileName$N, mygene=$mygene, input genez=$gene are not the same!\n") and return -1;
-	}
-	else {
-		$mygene = $gene;
-	}
-	
-	my $bad = find_lots_of_C($faFile, $mygene, $outLog) if defined $faFile;
-
-	LOG($outLog, "\n\n------------$YW\n3. Peak calling$N\n","NA");
-	LOG($outLog, date() . "$input1; Undefined mygene=$mygene=, strand=$readStrand=, window=$window=, thres=$thres=, type=$rconvType=, isPeak=$isPeak=\n") and exit 1 if not defined $isPeak or not defined $window;
-	LOG($outLog, date() . "\n\nFolder $YW$folder$N\n","NA");
-	my ($peakPrint, $nopkPrint, $headerPrint, $totalPrint);
-	$headerPrint = "type\tconv\ttotal_read_unique_with_peak\ttotal_read_unique_without_peak\n";
-	my @types = qw(CH CG GH GC);
-	for (my $h = 0; $h < 4; $h++) {
-		my $rconvType = $types[$h];
-		my $peakFile   = "$resDir/.CALL/$label\_gene$mygene\_$readStrand\_$window\_$thres\_$rconvType.PEAK";
-		my $nopkFile   = "$resDir/.CALL/$label\_gene$mygene\_$readStrand\_$window\_$thres\_$rconvType.NOPK";
-		$files{$peakFile} = 1;
-		LOG($outLog, "\n  ${LGN}3.$h$N ($rconvType)\n  - peakFile=$LCY$peakFile$N\n  - nopkFile=$LPR$nopkFile$N\n","NA");
-	
-		my ($folder1, $peakfileName) = getFilename($peakFile, "folderfull");
-		my ($folder2, $nopkfileName) = getFilename($nopkFile, "folderfull");
-
-		my $data;
-		my ($linecount, $totalpeak, $totalnopk, $totalline) = (0,0,0,0);
-		if (-e $nopkFile) {
-			($totalline) = `wc -l $nopkFile` =~ /^\s*(\d+)/;
-			$linecount = 0;
-			open (my $in1, "<", $nopkFile) or LOG($outLog, date() . "Cannot read from $nopkFile: $!\n") and exit 1;
-			LOG($outLog, date . " -> Processing NOPK file ($LGN$totalline$N lines)\n","NA");
-			while (my $line = <$in1>) {
-				chomp($line);
-				$linecount ++;
-				next if $linecount == 1; #header
-				LOG($outLog, date . " --> Done $totalnopk / $totalline\n","NA") if $totalnopk % 500 == 0;
-undef $bad;
-				my ($name, $val, $totalPeak, $peaks) = parse_peak($line, $bad, $minDis, $minLen, $outLog);
-#my %bad = %{$bad};
-#foreach my $key1 (sort keys %bad) {
-#	foreach my $key2 (sort keys %{$bad{$key1}}) {
-#		print "$key1\t$key2\t$bad{$key1}{$key2}\n";
-#	}
-#}
-print "line=$LGN$line$N\nminDis=$minDis, $minLen\n";
-print "\nDEBUG GOOD\n\n";
-exit 0;
-				$val = "$name\t" . join("\t", @{$val});
-				push(@{$data->{peak}}, $val) if $totalPeak > 0;
-				push(@{$data->{nopk}}, $val) if $totalPeak == 0;
-				$totalnopk ++;
-				$pk{$peakFile}{$name} = $peaks if defined $peaks;
-			}
-			close $in1;
-		}
-		my $peakCount = defined $data->{peak} ? @{$data->{peak}} : 0;
-		my $nopkCount = defined $data->{nopk} ? @{$data->{nopk}} : 0;
-		my $currflag;
-		my $flag = getFlag($nopkFile, $geneStrand, $readStrand, $rconvType);
-		$flag =~ s/^NOPK//;
-		$total->{$rconvType}{peak}  += $peakCount;
-		$total->{$rconvType}{nopk}  += $nopkCount;
-		$total->{$rconvType}{total} += $totalnopk;
-		my $currtotalline = $totalline;
-		$nopkPrint .= "from_nopkFile$flag\t$rconvType\t$peakCount\t$nopkCount\t$totalnopk\n";
-
-		if (-e $peakFile) {
-			($totalline) = `wc -l $peakFile` =~ /^\s*(\d+)/;
-			$linecount = 0;
-			open (my $in1, "<", $peakFile) or LOG($outLog, date() . "Cannot read from $peakFile: $!\n") and exit 1;
-			LOG($outLog, date . " -> Processing PEAK file ($LGN$totalline$N lines)\n","NA");
-			while (my $line = <$in1>) {
-				chomp($line);
-				$linecount ++;
-				next if $linecount == 1; #header
-				LOG($outLog, date . " --> Done $totalpeak / $totalline\n","NA") if $totalpeak % 500 == 0;
-				my ($name, $val, $totalPeak, $peaks) = parse_peak($line, $bad, $minDis, $minLen, $outLog);
-				$val = "$name\t" . join("\t", @{$val});
-				push(@{$data->{peak}}, $val) if $totalPeak > 0;
-				push(@{$data->{nopk}}, $val) if $totalPeak == 0;
-				$totalpeak ++;
-				$pk{$peakFile}{$name} = $peaks if defined $peaks;
-				#last if $linecount == 100;
-			}
-			close $in1;
-		}
-		$peakCount = defined $data->{peak} ? @{$data->{peak}} - $peakCount : 0;
-		$nopkCount = defined $data->{nopk} ? @{$data->{nopk}} - $nopkCount : 0;
-
-
-		$total->{$rconvType}{peak}  += $peakCount;
-		$total->{$rconvType}{nopk}  += $nopkCount;
-		$total->{$rconvType}{total} += $totalpeak;
-		$currtotalline += $totalline;
-		$flag = getFlag($peakFile, $geneStrand, $readStrand, $rconvType);
-		$flag =~ s/^PEAK//;
-		$peakPrint  .= "from_peakFile$flag\t$rconvType\t$peakCount\t$nopkCount\n";
-		#$totalPrint .= "PEAK$flag\t$rconvType\t$total->{$rconvType}{peak}\t$total->{$rconvType}{nopk}\n";
-		my $totalread = $total->{$rconvType}{peak} + $total->{$rconvType}{nopk};
-#		$totalPrint .= "${LPR}PEAK$flag$N=$LGN$total->{$rconvType}{peak}$N/$LGN$linecount$N";
-		$totalPrint .= " ${LPR}PEAK$flag$N=$LGN$total->{$rconvType}{peak}$N/$LGN$totalread$N";
-		if (defined $data->{peak}) {
-			die if @{$data->{peak}} != $total->{$rconvType}{peak};
-			LOG($outLog, "HERE! Printing into $LCY$resDir/.CALL/$peakfileName.out$N\n");
-			open (my $out1, ">", "$resDir/.CALL/$peakfileName.out") or LOG($outLog, date() . "Cannot write to $peakfileName.out: $!\n") and exit 1;
-			foreach my $val (sort @{$data->{peak}}) {
-				print $out1 "$val\n";
-			}
-			close $out1;
-		}
-		if (defined $data->{nopk}) {
-			die if @{$data->{nopk}} != $total->{$rconvType}{nopk};
-			LOG($outLog, "HERE! Printing into $LCY$resDir/.CALL/$nopkfileName.out$N\n");
-			open (my $out1, ">", "$resDir/.CALL/$nopkfileName.out") or LOG($outLog, date() . "Cannot write to $nopkfileName.out: $!\n") and exit 1;
-			foreach my $val (sort @{$data->{nopk}}) {
-				print $out1 "$val\n";
-			}
-			close $out1;
-		}		
-		LOG($outLog, "\n","NA");
-	}
-	
-	#LOG($outLog, "\n\n-----------\n$LGN SUCCESS!$N\n\n","NA");
-	LOG($outLog, "- $LRD$readStrand$N: $totalPrint\n");
-	#LOG($outLog, "${YW}Summary of total peaks in gene=$LCY$mygene$N Strand $LRD$readStrand$N:$N\n" . myFootLib::prettyPrint("$headerPrint$totalPrint\n") . "\n\n");
-	#LOG($outLog, "\n\n-----------\n\n");
-	
-
-	foreach my $file (sort keys %pk) {
-		my ($pk_filename) = getFilename($file, 'full');
-		open (my $outPEAKS, ">", "$resDir/PEAKS_GENOME/$pk_filename.genome.bed")   or LOG($outLog, "\tFailed to write into $resDir/PEAKS_GENOME/$pk_filename.genome.bed: $!\n")  and exit 1;
-		open (my $outRPEAKS, ">", "$resDir/PEAKS_LOCAL/$pk_filename.local.bed") or LOG($outLog, "\tFailed to write into $resDir/PEAKS_LOCAL/$pk_filename.local.bed: $!\n") and exit 1;
-		my $currtype = $file =~ /_CH/ ? "CH" : $file =~ /_CG/ ? "CG" : $file =~ /_GH/ ? "GH" : $file =~ /_GC/ ? "GC" : "UNK";
-		LOG($outLog, "\tFailed to determine type (CH/CG/GH/GC) of file=$file.PEAKS: $!\n") if $currtype eq "UNK";
-		foreach my $name (sort keys %{$pk{$file}}) {
-			foreach my $peak (sort @{$pk{$file}{$name}}) {
-				my ($beg, $end) = split("-", $peak);
-				my $end1 = $end + $beg0;
-				my $beg1 = $beg + $beg0;
-				my ($junk, $readname) = $name =~ /^(\w+)\.(.+)$/;
-				print $outPEAKS  "$chr0\t$beg1\t$end1\t$name\t0\t$strand0\t$file\n";
-				print $outRPEAKS "$name\t$beg\t$end\n";
-			}
-		}
-		close $outPEAKS;
-		close $outRPEAKS;
-	}
-	
-	makedir("$resDir/99_FOOTSTATS/") if not -d "$resDir/99_FOOTSTATS/";
-	makedir("$resDir/99_FOOTSTATS/.PEAKSTATSTEMP") if not -d "$resDir/99_FOOTSTATS/.PEAKSTATSTEMP";
-	open (my $outLGENE, ">", "$resDir/99_FOOTSTATS/.PEAKSTATSTEMP/.0_RESULTS\_$label\_gene$mygene\_$readStrand\_$window\_$thres.TXT");
-	print $outLGENE "#folder\tpeak_file\tgene\tread_strand\tread_unique_total\tread_unique_with_peak_total\tread_unique_with_peak_perc\tpeakType\n";
-	for (my $h = 0; $h < 4; $h++) {
-		my $rconvType = $types[$h];
-		my $totalPeak = $total->{$rconvType}{peak};
-		my $totalNopk = $total->{$rconvType}{nopk};
-		$total->{$rconvType}{peak} = $total->{$rconvType}{total} == 0 ? 0 : int(1000 * $total->{$rconvType}{peak} / $total->{$rconvType}{total}+0.5)/10;
-		$total->{$rconvType}{nopk} = $total->{$rconvType}{total} == 0 ? 0 : int(1000 * $total->{$rconvType}{nopk} / $total->{$rconvType}{total}+0.5)/10;
-		my @folder = split("/", $resDir);
-		my $foldershort = $folder[@folder-1];
-		   $foldershort = $folder[@folder-2] if not defined ($foldershort) or (defined $foldershort and $foldershort =~ /^[\s]*$/);
-		my $peakFile    = "$label\_gene$mygene\_$readStrand\_$window\_$thres\_$rconvType.PEAK";
-		my $flag = getFlag($peakFile, $geneStrand, $readStrand, $rconvType);
-		print $outLGENE "$foldershort\t$peakFile\t$mygene\t$rconvType\t$total->{$rconvType}{total}\t$totalPeak\t$total->{$rconvType}{peak}\t$flag\n";
-	}
-	close $outLGENE;
-
-	my $stats = `cat $resDir/99_FOOTSTATS/.PEAKSTATSTEMP/.0_RESULTS\_$label\_gene$mygene\_$readStrand\_$window\_$thres.TXT`;
-	my ($sampleName) = $folder =~ /^.+(PCB[\_\-]*\d+)/i;
-	if ($folder =~ /debarcode/) {
-		my ($temp) = $folder =~ /_ccs_(\w+)/;
-		$sampleName = $sampleName . "_$temp";
-	}
-	if (not defined $sampleName) {
-		$sampleName = $foldershort;
-	}
-	#LOG($outLog, "\n--------- Back to footPeak.pl --------\n\n\n","NA");
-}
-
-###############
-# Subroutines #
-###############
-
 
 sub make_total_hash {
 	my $total;
@@ -562,7 +229,6 @@ sub parse_peak {
 	my ($name, $isPeak, $mygene, $rconvType, $readStrand, @val) = split("\t", $ARG);
 	my %bad = %{$bad} if defined $bad;
 	my $name_want = "DEBUG";
-	#my $name_want = "PFC9.m64069_230413_005848/106890704/ccs";#AIRN_PFC66_FORWARD.16024";#CALM3.m160130_030742_42145_c100934342550000001823210305251633_s1_p0/16024/ccs";
 	shift(@val) if $val[0] eq "";
 	my $peaks;
 	my %peak; $peak{curr} = 0; 
@@ -610,7 +276,7 @@ sub parse_peak {
 			foreach my $begBad (sort keys %{$bad->{$readStrand}}) {
 				my $endBad = $bad->{$readStrand}{$begBad};
 				if ($beg >= $begBad and $beg <= $endBad and $end >= $begBad and $end <= $endBad) {
-					LOG($outLog, date() . "\t\t$LGN YES$N peak=$beg-$end, bad=$begBad-$endBad\n","NA") if $isPeak eq "PEAK";# if $name eq "$name_want");
+					LOG($outLog, date() . "\t\t$LGN YES$N peak=$beg-$end, bad=$begBad-$endBad\n","NA") if $isPeak eq "PEAK";
 					$checkBad = 1; last;
 				}
 			}
@@ -838,11 +504,9 @@ sub dothis {
 	}
 	foreach my $beg (sort keys %{$peak->{GC}{peakcoor}}) {
 		my $end = $peak->{GC}{peakcoor}{$beg};
-		#print "GC $LCY$beg\t$end$N\n";
 	}
 	foreach my $beg (sort keys %{$peak->{GC}{nopkcoor}}) {
 		my $end = $peak->{GC}{nopkcoor}{$beg};
-		#print "GC $LCY$beg\t$end$N\n";
 	}
    my ($pk, $out);
 	foreach my $dinuc (@dinuc[0..@dinuc-1]) {
@@ -851,35 +515,24 @@ sub dothis {
    	for (my $i = 0; $i < @{$SEQ->{$gene}{seq}}; $i++) {
 	  	   die "Undefined i=$LGN$i$N \$val->[\$i]\n" if not defined $val->[$i];
 			$peak->{$dinuc}{convfinal} .= $val->[$i] =~ /^[\-\_]$/ ? "\t0" : (defined $peak->{$dinuc}{conv}[$i] and $peak->{$dinuc}{conv}[$i] !~ /^[\! ]$/) ? "\t" . $peak->{$dinuc}{conv}[$i] : "\t1";
-    	 # $CG .= $val->[$i] =~ /^[\-\_]$/ ? "\t0" : (defined $peak->{CG}{conv}[$i] and $peak->{CG}{conv}[$i] !~ /^[\! ]$/) ? "\t" . $peak->{CG}{conv}[$i] : "\t1";
-    	 # $GH .= $val->[$i] =~ /^[\-\_]$/ ? "\t0" : (defined $peak->{GH}{conv}[$i] and $peak->{GH}{conv}[$i] !~ /^[\! ]$/) ? "\t" . $peak->{GH}{conv}[$i] : "\t1";
-    	 # $GC .= $val->[$i] =~ /^[\-\_]$/ ? "\t0" : (defined $peak->{GC}{conv}[$i] and $peak->{GC}{conv}[$i] !~ /^[\! ]$/) ? "\t" . $peak->{GC}{conv}[$i] : "\t1";
 		}
 		$peak->{$dinuc}{convfinal} =~ s/^\t//;
-		#my $CHshort = $peak->{$dinuc}{convfinal}; $CHshort =~ s/\t//g;
 	   $pk->{$dinuc}{convfinal} = $peak->{$dinuc}{tot} != 0 ? "$name\tPEAK\t$gene\t$dinuc\t$strand\t$peak->{$dinuc}{convfinal}\n" : "$name\tNOPK\t$gene\t$dinuc\t$strand\t$peak->{$dinuc}{convfinal}\n";
 	   if ($peak->{$dinuc}{tot} != 0) {
 			$pk->{$dinuc}{PEAK}{TOTAL} ++;
 			$pk->{$dinuc}{PEAK}{CONVPERCBED} = $peak->{$dinuc}{convpercbed} if defined $peak->{$dinuc}{convpercbed};
 			$pk->{$dinuc}{PEAK}{CONV} = $peak->{$dinuc}{convfinal};
-			#$pk->{$dinuc}{PEAK}{CONVOUT} = "$name\t$peak->{$dinuc}{convfinal}";
 			$pk->{$dinuc}{PEAK}{COOR} = $peak->{$dinuc}{peakcoor} if defined $peak->{$dinuc}{peakcoor};
 			$pk->{$dinuc}{PEAK}{CONVPERC} = $peak->{$dinuc}{convperc};
 		}
 		else {	
 			$pk->{$dinuc}{NOPK}{TOTAL} ++;
 			$pk->{$dinuc}{NOPK}{CONV} = $peak->{$dinuc}{convfinal};
-			#$pk->{$dinuc}{NOPK}{CONVOUT} = "$name\t$peak->{$dinuc}{convfinal}";
 			$pk->{$dinuc}{NOPK}{COOR} = $peak->{$dinuc}{nopkcoor} if defined $peak->{$dinuc}{nopkcoor};
 			$pk->{$dinuc}{NOPK}{CONVPERC} = $peak->{$dinuc}{convperc};
 		}
 	}
-	#$peak->{$dinuc}{convfinal};
-	#$peak->{$dinuc}{coor}{$beg} = $end;
-	#print "peakch/cg/gh/gc=$peakCH, $peakCG, $peakGH, $peakGC\n$CGshort\n$GCshort\n";
-	#print $peakGCz . "\n";
    return($pk);
-   #return 0;
 }
 
 sub getPeak2 {
@@ -922,10 +575,6 @@ sub getPeak2 {
 	$pos{C}{NCHseq}[0] = "";
 	$pos{G}{GHNseq}[0] = "";
 	$pos{G}{NGHseq}[0] = "";
-	#$peak->{C_CH}[0] = "";
-	#$peak->{C_CG}[0] = "";
-	#$peak->{C_GH}[0] = "";
-	#$peak->{C_GC}[0] = "";
 	for (my $i = 0; $i < @refs; $i++) {
 		my $ref0 = $i == 0 ? "N" : $refs[$i-1];
 		my $ref1 = $refs[$i+0];
@@ -1014,14 +663,6 @@ sub getPeak2 {
 	for (my $i = 0; $i < @{$peak->{GH}{Conlyconv}}; $i++) {
 		$peak->{GH}{Conlyconv2}[$i] = $peak->{GH}{Conlyconv}[$i];
 	}
-		#print "$peak->{CG}{Conlyconv}[$i]\n" if $i == 0;
-		#print "$peak->{CG}{Conlyconv2}[$i]\n" if $i == 0;
-	#for (my $i = 0; $i < @{$peak->{GH}{Conlycoor}}; $i++) {
-	#	$peak->{CG}{Conlycoor2}[$i] = $peak->{CG}{Conlycoor}[$i];
-	#}
-	#for (my $i = 0; $i < @{$peak->{GH}{convperc}}; $i++) {
-	#	$peak->{CG}{convperc2}[$i] = $peak->{CG}{convperc}[$i];
-	#}
 	($peak->{CG}{Conlyconv}, $peak->{CG}{Conlycoor}, $peak->{CG}{convperc}) = get_peak_conly($peak->{CG}{Conlyconv}, $window, $threshold);
 	($peak->{CG}{Conlyconv2}, $peak->{CG}{Conlycoor2}, $peak->{CG}{convperc2}) = get_peak_conly($peak->{CG}{Conlyconv2}, $window, 0.5);
 	($peak->{GC}{Conlyconv}, $peak->{GC}{Conlycoor}, $peak->{GC}{convperc}) = get_peak_conly($peak->{GC}{Conlyconv}, $window, $threshold);
@@ -1030,32 +671,115 @@ sub getPeak2 {
 	($peak->{CH}{Conlyconv2}, $peak->{CH}{Conlycoor2}, $peak->{CH}{convperc2}) = get_peak_conly($peak->{CH}{Conlyconv2}, $window, 0.5);
 	($peak->{GH}{Conlyconv}, $peak->{GH}{Conlycoor}, $peak->{GH}{convperc}) = get_peak_conly($peak->{GH}{Conlyconv}, $window, $threshold);
 	($peak->{GH}{Conlyconv2}, $peak->{GH}{Conlycoor2}, $peak->{GH}{convperc2}) = get_peak_conly($peak->{GH}{Conlyconv2}, $window, 0.5);
-my $mergecoorprint;# = 1;
-print "$name\n" if defined $mergecoorprint;
-print " CG\n" if defined $mergecoorprint;
+	my $mergecoorprint;
+	print "$name\n" if defined $mergecoorprint;
+	print " CG\n" if defined $mergecoorprint;
 	($peak->{CG}{Conlycoor}, $peak->{CG}{Conlyconvpercbed}) = mergecoor(
-$peak->{CG}{Conlycoor}, $peak->{CG}{Conlycoor2}, 
-$peak->{CG}{convperc}, $peak->{CG}{convperc2}, 
-\@{$pos{C}{CGN}}, $window, $minLen,$mergecoorprint);
-print " GC\n" if defined $mergecoorprint;
-
+	 $peak->{CG}{Conlycoor}, $peak->{CG}{Conlycoor2}, 
+	 $peak->{CG}{convperc}, $peak->{CG}{convperc2}, 
+	 \@{$pos{C}{CGN}}, $window, $minLen,$mergecoorprint
+	);
+	print " GC\n" if defined $mergecoorprint;
+	
 	($peak->{GC}{Conlycoor}, $peak->{GC}{Conlyconvpercbed}) = mergecoor(
-$peak->{GC}{Conlycoor}, $peak->{GC}{Conlycoor2}, 
-$peak->{GC}{convperc}, $peak->{GC}{convperc2}, 
-\@{$pos{G}{GCN}}, $window, $minLen,$mergecoorprint);
-
-print " CH\n" if defined $mergecoorprint;
+	 $peak->{GC}{Conlycoor}, $peak->{GC}{Conlycoor2}, 
+	 $peak->{GC}{convperc}, $peak->{GC}{convperc2}, 
+	 \@{$pos{G}{GCN}}, $window, $minLen,$mergecoorprint
+	);
+	
+	print " CH\n" if defined $mergecoorprint;
 	($peak->{CH}{Conlycoor}, $peak->{CH}{Conlyconvpercbed}) = mergecoor(
-$peak->{CH}{Conlycoor}, $peak->{CH}{Conlycoor2}, 
-$peak->{CH}{convperc}, $peak->{CH}{convperc2}, 
-\@{$pos{C}{CHN}}, $window, $minLen,$mergecoorprint);
-
-print " GH\n" if defined $mergecoorprint;
+	 $peak->{CH}{Conlycoor}, $peak->{CH}{Conlycoor2}, 
+	 $peak->{CH}{convperc}, $peak->{CH}{convperc2}, 
+	 \@{$pos{C}{CHN}}, $window, $minLen,$mergecoorprint
+	);
+	
+	print " GH\n" if defined $mergecoorprint;
 	($peak->{GH}{Conlycoor}, $peak->{GH}{Conlyconvpercbed}) = mergecoor(
-$peak->{GH}{Conlycoor}, $peak->{GH}{Conlycoor2}, 
-$peak->{GH}{convperc}, $peak->{GH}{convperc2}, 
-\@{$pos{G}{GHN}}, $window, $minLen,$mergecoorprint);
+	 $peak->{GH}{Conlycoor}, $peak->{GH}{Conlycoor2}, 
+	 $peak->{GH}{convperc}, $peak->{GH}{convperc2}, 
+	 \@{$pos{G}{GHN}}, $window, $minLen,$mergecoorprint
+	);
 
+	my @peakCH = (".")x@NCHseq;
+	my @peakCG = (".")x@NCGseq;
+	my @peakGH = (".")x@NGHseq;
+	my @peakGC = (".")x@NGCseq;
+	$peak->{CH}{tot} = 0;
+	$peak->{GH}{tot} = 0;
+	$peak->{CG}{tot} = 0;
+	$peak->{GC}{tot} = 0;
+
+	foreach my $begC (sort {$a <=> $b} keys %{$peak->{CG}{Conlycoor}}) {
+		my $endC = $peak->{CG}{Conlycoor}{$begC};
+		my $beg = $pos{C}{CGN}[$begC+1];
+		my $end = $pos{C}{CGN}[$endC+1];
+
+		$peak->{CG}{peakcoor}{$beg} = $end;
+		$peak->{CG}{convpercbed}{$beg} = $peak->{CG}{Conlyconvpercbed}{$begC};
+		$peak->{CG}{tot} ++;
+
+		for (my $i = $beg; $i < $end; $i++) {
+			$peakCG[$i] = $peak->{CG}{tot};
+			$peak->{CG}{conv}[$i] =~ tr/67/89/;
+		}
+	}
+
+	foreach my $begC (sort {$a <=> $b} keys %{$peak->{CH}{Conlycoor}}) {
+		my $endC = $peak->{CH}{Conlycoor}{$begC};
+		my $beg = $pos{C}{CHN}[$begC+1];
+		my $end = $pos{C}{CHN}[$endC+1];
+
+		$peak->{CH}{peakcoor}{$beg} = $end;
+		$peak->{CH}{convpercbed}{$beg} = $peak->{CH}{Conlyconvpercbed}{$begC};
+		$peak->{CH}{tot} ++;
+		for (my $i = $beg; $i < $end; $i++) {
+			$peakCH[$i] = $peak->{CH}{tot};
+			$peak->{CH}{conv}[$i] =~ tr/57/11/;
+			$peak->{CH}{conv}[$i] =~ tr/6/8/;
+		}
+	}
+
+	my @peakG = (".")x@NGCseq;
+	foreach my $begG (sort {$a <=> $b} keys %{$peak->{GC}{Conlycoor}}) {
+		my $endG = $peak->{GC}{Conlycoor}{$begG};
+		my $beg = $pos{G}{GCN}[$begG+1];
+		my $end = $pos{G}{GCN}[$endG+1];
+
+		$peak->{GC}{peakcoor}{$beg} = $end;
+		$peak->{GC}{convpercbed}{$beg} = $peak->{GC}{Conlyconvpercbed}{$begG};
+		$peak->{GC}{tot} ++;
+		for (my $i = $beg; $i < $end; $i++) {
+			$peakGC[$i] = $peak->{GC}{tot};
+			$peak->{GC}{conv}[$i] =~ tr/67/89/;
+		}
+	}
+	foreach my $beg (sort keys %{$peak->{GC}{coor}}) {
+		my $end = $peak->{GC}{coor}{$beg};
+	}
+
+	foreach my $begG (sort {$a <=> $b} keys %{$peak->{GH}{Conlycoor}}) {
+		$peakGH ++;
+		my $endG = $peak->{GH}{Conlycoor}{$begG};
+		my $beg = $pos{G}{GHN}[$begG+1];
+		my $end = $pos{G}{GHN}[$endG+1];
+
+		$peak->{GH}{peakcoor}{$beg} = $end;
+		$peak->{GH}{convpercbed}{$beg} = $peak->{GH}{Conlyconvpercbed}{$begG};
+		$peak->{GH}{tot} ++;
+		for (my $i = $beg; $i < $end; $i++) {
+			$peakGH[$i] = $peak->{GH}{tot};
+			$peak->{GH}{conv}[$i] =~ tr/57/11/;
+			$peak->{GH}{conv}[$i] =~ tr/6/8/;
+		}
+	}
+	@peakCH = @{$peak->{CH}{conv}};
+	@peakCG = @{$peak->{CG}{conv}};
+	@peakGH = @{$peak->{GH}{conv}};
+	@peakGC = @{$peak->{GC}{conv}};
+	
+	return ($peak);
+}
 sub mergecoor {
 	my ($coorhash1, $coorhash2, $convperc1, $convperc2, $posarr, $window, $minLen, $print) = @_;
 	
@@ -1068,7 +792,6 @@ sub mergecoor {
 		my $convperc1 = $convperc1[$beg1C];
 		print "C:$LCY$beg1C\t$end1C$N\tN:$beg1\t$end1\t$convperc1[$beg1C]\tcoorhash1\t+\n" if defined $print;
 	}
-	#print "\n" if defined $print;
 	foreach my $beg2C (sort {$a <=> $b} keys %{$coorhash2}) {
 		my $end2C = $coorhash2->{$beg2C};
 		my $beg2 = $posarr->[$beg2C+1];
@@ -1076,7 +799,6 @@ sub mergecoor {
 		my $convperc2 = $convperc2[$beg2C];
 		print "C:$LCY$beg2C\t$end2C$N\tN:$beg2\t$end2\t$convperc2[$beg2C]\tcoorhash2\t+\n" if defined $print;
 	}
-	#print "\n" if defined $print;
 	foreach my $beg2C (sort {$a <=> $b} keys %{$coorhash2}) {
 		my $end2C = $coorhash2->{$beg2C};
 		my $beg2 = $posarr->[$beg2C+1];
@@ -1093,12 +815,10 @@ sub mergecoor {
 			print "C:$LCY$beg2C\t$end2C$N\tN:$beg2\t$end2\t$convperc1[$beg2C]\tcoorhash2\t+ ${LGN}combined$N\n" if defined $print;
 		}
 	}
-	#print "\n" if defined $print;
-	my ($coorhash3, $convpercarr3) = mergepeakcoor($coorhash1, $convperc1);#,1);#$print);
+	my ($coorhash3, $convpercarr3) = mergepeakcoor($coorhash1, $convperc1);
 	
 	my $coorhash4;
 	my $convhash4;
-	#print "\n" if defined $print;
 	foreach my $beg3C (sort {$a <=> $b} keys %{$coorhash3}) {
 		my $end3C = $coorhash3->{$beg3C};
 		my $beg3 = $posarr->[$beg3C+1];
@@ -1117,176 +837,16 @@ sub mergecoor {
 	print "\n" if defined $print;
 	return($coorhash4, $convhash4);
 }
-
-	#@peakCH = @{$peak->{CH}{conv}};
-	#@peakCG = @{$peak->{CG}{conv}};
-	#@peakGH = @{$peak->{GH}{conv}};
-	#@peakGC = @{$peak->{GC}{conv}};
-	my @peakCH = (".")x@NCHseq;
-	my @peakCG = (".")x@NCGseq;
-	my @peakGH = (".")x@NGHseq;
-	my @peakGC = (".")x@NGCseq;
-	$peak->{CH}{tot} = 0;
-	$peak->{GH}{tot} = 0;
-	$peak->{CG}{tot} = 0;
-	$peak->{GC}{tot} = 0;
-	#foreach my $begC (sort {$a <=> $b} keys %{$peak->{CG}{Conlycoor2}}) {
-	#	my $endC = $peak->{CG}{Conlycoor2}{$begC};
-	#	my $beg = $pos{C}{CGN}[$begC+1];
-	#	my $end = $pos{C}{CGN}[$endC+1];
-	#	#if (($end - $beg >= 10 and $peak-{CG}{Conlyconv} >= 0.50) or 
-	#	if ($end - $beg >= $minLen) {
-	#		$peak->{CG}{peakcoor2}{$beg} = $end;
-	#		$peak->{CG}{tot} ++;
-	#		for (my $i = $beg; $i < $end; $i++) {
-	#			$peakCG[$i] = $peak->{CG}{tot};
-	#			$peak->{CG}{conv}[$i] =~ tr/67/89/;
-	#		}
-	#	}
-	#	#else {
-	#	#	$peak->{CG}{nopkcoor}{$beg} = $end;
-	#	#}
-	#	#print "$name\t$begC\t$endC\t$beg\t$end\t0.5\n" if $name =~ /(44893433|118491937|178192409)/;
-	#}
-	#print "$name\n";
-
-	foreach my $begC (sort {$a <=> $b} keys %{$peak->{CG}{Conlycoor}}) {
-		my $endC = $peak->{CG}{Conlycoor}{$begC};
-		my $beg = $pos{C}{CGN}[$begC+1];
-		my $end = $pos{C}{CGN}[$endC+1];
-		#if (($end - $beg >= 10 and $peak-{CG}{Conlyconv} >= 0.50) or 
-		#if ($end - $beg >= $minLen) {
-			$peak->{CG}{peakcoor}{$beg} = $end;
-			$peak->{CG}{convpercbed}{$beg} = $peak->{CG}{Conlyconvpercbed}{$begC};
-			$peak->{CG}{tot} ++;
-			for (my $i = $beg; $i < $end; $i++) {
-				$peakCG[$i] = $peak->{CG}{tot};
-				$peak->{CG}{conv}[$i] =~ tr/67/89/;
-			}
-		#}
-		#else {
-		#	$peak->{CG}{nopkcoor}{$beg} = $end;
-		#}
-		#print "$begC\t$endC\t$beg\t$end\n";
-	}
-
-	foreach my $begC (sort {$a <=> $b} keys %{$peak->{CH}{Conlycoor}}) {
-		my $endC = $peak->{CH}{Conlycoor}{$begC};
-		my $beg = $pos{C}{CHN}[$begC+1];
-		my $end = $pos{C}{CHN}[$endC+1];
-		#if ($end - $beg >= $minLen) {
-			$peak->{CH}{peakcoor}{$beg} = $end;
-			$peak->{CH}{convpercbed}{$beg} = $peak->{CH}{Conlyconvpercbed}{$begC};
-			$peak->{CH}{tot} ++;
-			for (my $i = $beg; $i < $end; $i++) {
-				$peakCH[$i] = $peak->{CH}{tot};
-				$peak->{CH}{conv}[$i] =~ tr/57/11/;
-				$peak->{CH}{conv}[$i] =~ tr/6/8/;
-			}
-		#}
-		#else {
-		#	$peak->{CH}{nopkcoor}{$beg} = $end;
-		#}
-		#print "$begC\t$endC\t$beg\t$end\n";
-	}
-
-	my @peakG = (".")x@NGCseq;
-	foreach my $begG (sort {$a <=> $b} keys %{$peak->{GC}{Conlycoor}}) {
-		my $endG = $peak->{GC}{Conlycoor}{$begG};
-		my $beg = $pos{G}{GCN}[$begG+1];
-		my $end = $pos{G}{GCN}[$endG+1];
-		#if ($end - $beg >= $minLen) {
-			$peak->{GC}{peakcoor}{$beg} = $end;
-			$peak->{GC}{convpercbed}{$beg} = $peak->{GC}{Conlyconvpercbed}{$begG};
-			$peak->{GC}{tot} ++;
-			for (my $i = $beg; $i < $end; $i++) {
-				$peakGC[$i] = $peak->{GC}{tot};
-				$peak->{GC}{conv}[$i] =~ tr/67/89/;
-			}
-		#}
-		#else {
-		#	$peak->{GC}{nopkcoor}{$beg} = $end;
-		#}
-		#print "$begG\t$endG\t$beg\t$end\n";
-	}
-	foreach my $beg (sort keys %{$peak->{GC}{coor}}) {
-		my $end = $peak->{GC}{coor}{$beg};
-		#print "$peak->{GC}{tot} GC $beg $end\n";	
-
-	}
-
-	foreach my $begG (sort {$a <=> $b} keys %{$peak->{GH}{Conlycoor}}) {
-		$peakGH ++;
-		my $endG = $peak->{GH}{Conlycoor}{$begG};
-		my $beg = $pos{G}{GHN}[$begG+1];
-		my $end = $pos{G}{GHN}[$endG+1];
-		#if ($end - $beg >= $minLen) {
-			$peak->{GH}{peakcoor}{$beg} = $end;
-			$peak->{GH}{convpercbed}{$beg} = $peak->{GH}{Conlyconvpercbed}{$begG};
-			$peak->{GH}{tot} ++;
-			for (my $i = $beg; $i < $end; $i++) {
-				$peakGH[$i] = $peak->{GH}{tot};
-				$peak->{GH}{conv}[$i] =~ tr/57/11/;
-				$peak->{GH}{conv}[$i] =~ tr/6/8/;
-			}
-		#}
-		#else {
-		#	$peak->{GH}{nopkcoor}{$beg} = $end;
-		#}
-		#print "$begG\t$endG\t$beg\t$end\n";
-	}
-	@peakCH = @{$peak->{CH}{conv}};
-	@peakCG = @{$peak->{CG}{conv}};
-	@peakGH = @{$peak->{GH}{conv}};
-	@peakGC = @{$peak->{GC}{conv}};
-	
-	#print "totalseqpos=$totalseqpos vs $totalseqneg\n";
-	#print "vl       " .  join("", @vals[0..@vals-1]) . "\n";
-	#print "rf       " .  join("", @refs[0..@refs-1]) . "\n";
-	#print "NCG       " .  join("", @NCGseq[0..@NCGseq-1]) . "\n";
-	#print "pC       " .  join("", @peakC[0..@peakC-1]) . "\n";
-	#print "NGC       " .  join("", @NGCseq[0..@NGCseq-1]) . "\n";
-	#print "pG       " .  join("", @peakG[0..@peakG-1]) . "\n";
-	#print "CH       " .  join("", @peakCH[0..@peakCH-1]) . "\n";
-	#print "CG       " .  join("", @peakCG[0..@peakCG-1]) . "\n";
-	#print "GH       " .  join("", @peakGH[0..@peakGH-1]) . "\n";
-	#print "GC       " .  join("", @peakGC[0..@peakGC-1]) . "\n";
-	#print "\n";
-	#print "          " . join("", @CHseq[0..@CHseq-1]) . "\n";
-	#print "Conly CH: " . join("", @CpeakCH[0..@CpeakCH-1]) . "\n";
-	#print "\n";
-	#print "          " . join("", @CGNseq[0..@CGNseq-1]) . "\n";
-	#print "Conly CG: " . join("", @CpeakCG[0..@CpeakCG-1]) . "\n";
-	#print "Conly CG: " . join("", @{$peak->{CG}{Conlyconv}}) . "\n";
-	#print "\n";
-	#print "          " . join("", @GHseq[0..@GHseq-1]) . "\n";
-	#print "Gonly GH: " . join("", @CpeakGH[0..@CpeakGH-1]) . "\n";
-	#print "\n";
-	#print "          " . join("", @GCNseq[0..@GCNseq-1]) . "\n";
-	#print "Gonly GC: " . join("", @CpeakGC[0..@CpeakGC-1]) . "\n";
-	#print "Gonly GC: " . join("", @{$peak->{GC}{Conlyconv}}) . "\n";
-	#print "name=$name has bad region\n" if join("", @vals) =~ /[123]/;
-   #my ($peak, $nuc, $type, $pos) = @_; # type CH, 
-	return ($peak);
-}
 sub get_peak_conly {
 	my ($convarr, $window, $threshold) = @_;
-	#$convarr =~ s/[ 0123]//g;
-	#print "window=$window, thres=$threshold\n";
 	my @conv = @{$convarr};
 	my @peak;
 	my %peakcoor;
 	my $is_peak = 0;
 	my %conv;
 	my @convperc;
-	#print join("", @conv) . "\n";
 	my $convwindow = @conv - $window;
-	#print "convwindow=$convwindow\n";
-	#my %goodcoor;
 	for (my $i = 0; $i < @conv-$window; $i++) {
-		#for (my $j = $i; $j < $i+$window; $j++) {
-		#	print "i=$j is not numeric!\n" if $conv[$j] !~ /^\d+$/;
-		#}
 		my $chunk = join("", @conv[$i..($i+$window-1)]);
 		my $conv = $chunk =~ tr/67/67/;
 		my $perc = int(1000*$conv / $window+0.5)/1000;
@@ -1295,17 +855,12 @@ sub get_peak_conly {
 		my ($beg, $end, $beg50, $end50);
 		my $j0 = $i;
 		my $j1 = $i + $window;
-		for (my $j = $j0; $j < $j1; $j++) { #i=10, j=5/20: 10 - 20
+		for (my $j = $j0; $j < $j1; $j++) { 
 			my $conv2 = $conv[$j];
 			if ($perc >= $threshold and $conv2 =~ /[67]/) {
 				$beg = $j if not defined $beg;
 				$end = $j;
-				#print "i=$i, i=$j0-$j1 j=$j: $beg\t$end\t$perc >= $threshold\n";
 			}
-		#	if ($perc >= 50 and $conv2 =~ /[67]/) {
-		#		$beg50 = $j if not defined $beg50;
-		#		$end50 = $j;
-		#	}
 			$conv2 =~ tr/67/89/ if $perc >= $threshold;
 			$peak[$j] = $conv2 if not defined $peak[$j];
 			if ($peak[$j] !~ /(89)/) {
@@ -1314,35 +869,25 @@ sub get_peak_conly {
 		}
 		if (defined $beg) {
 			if (not defined $peakcoor{$beg}) {
-				#print "beg=$beg\tend0=$end (INIT)\n\n";
 				$peakcoor{$beg} = $end;
 			}
 			elsif ($peakcoor{$beg} < $end) {
-				#print "beg=$beg\tend0=$peakcoor{$beg}, end1=$end\n\n";
 				$peakcoor{$beg} = $end;
 			}
 			else {
-				#print "beg=$beg\tend0=$peakcoor{$beg}, end1=$end (unchanged)\n\n";
 			}
-			#print "$i\t$beg\t$peakcoor{$beg}\n\n";
 		}
-		#last if $perc >= $threshold;
-		#$goodcoor{$beg50} = $end50 if defined $beg50;
 	}
 	my $convperc = join("\t", @convperc);
 	my ($peakcoor2hash, $junk) = mergepeakcoor(\%peakcoor, \@convperc);
 	my %peakcoor2;
 	%peakcoor2 = %{$peakcoor2hash} if defined $peakcoor2hash;
-	#print "\nFINAL PEAKCOOR2:\n";
 	foreach my $beg (sort keys %peakcoor) {
 		my $end = $peakcoor{$beg};
-		#print "$LCY$beg\t$end$N\tPEAKCOOR1\t$threshold\n";
 	}
 	foreach my $beg (sort keys %peakcoor2) {
 		my $end = $peakcoor2{$beg};
-		#print "$LCY$beg\t$end$N\tPEAKCOORFINAL\t$threshold\n\n";
 	}
-	#print "\nHERE----\n\n";
 	return(\@peak, \%peakcoor2, $convperc);
 }
 
@@ -1354,7 +899,6 @@ sub mergepeakcoor {
 	my %peakcoor2;
 	my @convperc = $convpercarr =~ /ARRAY/ ? @{$convpercarr} : split("\t", $convpercarr);
 	my @convperc2;
-	#print "\nHERE PEAKCOOR:\n\n";
 	foreach my $beg (sort {$a <=> $b} keys %peakcoor) {
 		my $end = $peakcoor{$beg};
 		if (not defined $lastbeg) {
@@ -1375,11 +919,6 @@ sub mergepeakcoor {
 			}
 			print "1  $LGN$beg-$end$N: not defined lastbeg so lastbeg is $LGN$lastbeg-$lastend$N $convperc2[$lastbeg]\n" if defined $print;
 		}
-		#elsif (($end >= $lastend and $beg >= $lastbeg and $beg <= $lastend)) {
-		#	print "2a $LGN$beg-$end$N: end $end >= $lastend and $lastbeg <= beg $beg <= $lastend, so lastend = end ($end)" if defined $print;
-		#	$lastend = $end;
-		#	print " so $LGN$lastbeg-$lastend$N\n" if defined $print;
-		#}
 		elsif (($beg <= $lastend and $beg >= $lastbeg) or ($end <= $lastend and $end >= $lastbeg)) {
 			print "2a $LGN$beg-$end$N: end $end >= $lastend and $lastbeg <= beg $beg <= $lastend, so lastend = end ($end)" if defined $print;
 			$lastend = $end if $end >= $lastend;
@@ -1411,16 +950,14 @@ sub mergepeakcoor {
 	}
 	if (defined $lastbeg) {
 		print "5  endline and defined lastbeg so $LGN$lastbeg-$lastend$N\n" if defined $print;
-		#$convperc2[$lastbeg] = $convperc[$beg] if $convperc2[$lastbeg] < $convperc[$beg];
 		$peakcoor2{$lastbeg} = $lastend;
 	}
 	return(\%peakcoor2, \@convperc2);
 }
 
-sub det_peak2 { # time= 10 line/s per strand (49 l/s -> 39 l/s)
+sub det_peak2 { 
    my ($peak, $nuc, $type, $pos) = @_;
    $pos = "NA" if not defined $pos;
-#  return 1; #debug
    return $peak if $peak ne '!';
    my @N =  $type eq 'CH' ? ('0', '0'   , 'cd', 'CDMNPQ', '12' , 'B\-' ) :
             $type eq 'CG' ? ('e', 'EQR' , 'cd', 'CDMNPQ', '123', 'BF\-') :
@@ -1467,7 +1004,6 @@ sub getPeak {
 	my $totalseqneg = (keys %{$SEQ->{$gene}{loc}{neg1}});
 	my $max = $totalseqpos > $totalseqneg ? $totalseqpos : $totalseqneg;
 	# initialize
-#  return($peak,0,0,0,0); #debug
 	for (my $i = 0; $i < $max; $i++) {
       my ($jmin, $jmax) = $i == 0 ? (0, $window) : ($i, $i+1);
       for (my $j = $jmin; $j < $jmax; $j++) {
@@ -1477,8 +1013,7 @@ sub getPeak {
                $con = det_CG_con($con, $nucpos1, 1);
                LOG($outLog, "i=$i, j=$j: nuc.i=$LCY$nucpos1$N, nuc.j(nucpos1)=$nucpos1: file.filtered.gz value isn't one of the listed at $LGN" . __LINE__ . "$N\n") if $nucpos1 !~ /^[BCDcdMNFEeOJGHghUVKIiW\-_\.TA123PQR456XYZ]$/;
                $peak->{CH}[$SEQ->{$gene}{loc}{pos1}{$j}] = det_peak($peak->{CH}[$SEQ->{$gene}{loc}{pos1}{$j}], $nucpos1, "CH");
-#              $peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j}] = det_peak($peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j}], $nucpos1, "CG");
-               $peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j}] = det_peak($peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j}], $nucpos1, "CG", $SEQ->{$gene}{loc}{pos1}{$j});
+               $peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j}] = det_peak($peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j}], $nucpos1, "CG");#, $SEQ->{$gene}{loc}{pos1}{$j});
             }
             else {
                my ($nucpos0, $nucpos2) = ($nuc->[$SEQ->{$gene}{loc}{pos1}{$j-1}], $nuc->[$SEQ->{$gene}{loc}{pos1}{$j+$window-1}]);
@@ -1486,7 +1021,6 @@ sub getPeak {
                $peak->{CH}[$SEQ->{$gene}{loc}{pos1}{$j+$window-1}] = det_peak($peak->{CH}[$SEQ->{$gene}{loc}{pos1}{$j+$window-1}], $nucpos2, "CH");
                $peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j+$window-1}] = det_peak($peak->{CG}[$SEQ->{$gene}{loc}{pos1}{$j+$window-1}], $nucpos2, "CG",$SEQ->{$gene}{loc}{pos1}{$j+$window-1});
             }
-#           $chunkC .= $nucpos1;
          }
          if ($j < $totalseqneg - $window) {
             if ($i == 0) {
@@ -1502,13 +1036,8 @@ sub getPeak {
                $peak->{GH}[$SEQ->{$gene}{loc}{neg1}{$j+$window-1}] = det_peak($peak->{GH}[$SEQ->{$gene}{loc}{neg1}{$j+$window-1}], $nucneg2, "GH");
                $peak->{GC}[$SEQ->{$gene}{loc}{neg1}{$j+$window-1}] = det_peak($peak->{GC}[$SEQ->{$gene}{loc}{neg1}{$j+$window-1}], $nucneg2, "GC");
             }
-#           $chunkG .= $nucneg1;
          }
-#=cut
       }
-      #if ($i == 0 and defined $check) {
-			#print "i=$i, gene=$gene " . join("", @{$peak->{CH}}[0..$window]) . "\n" if $name =~ /PBEH2_BCBC0_PLASMIDPFC9NTBSPQI13_DESCNOTXLINEARBSAICOSSB.m84066_240320_204128_s1\/163448324\/ccs/;
-      #}
       my ($CG, $CH, $GC, $GH) = (0,0,0,0);
       ($peak, $CG, $CH, $GC, $GH) = isPeak($i, $con, $peak, $window, $threshold, $SEQ->{$gene}, $totalseqpos, $totalseqneg, $check);
       $peakCH += $CH;
@@ -1516,25 +1045,13 @@ sub getPeak {
       $peakGC += $GC;
       $peakGH += $GH;
    }
-	#print "peakCH=$peakCH\n" . 
-	#print "\n" . join("", @{$nuc}) . "\n" if $name eq $genewant;
-	#print join("", @{$peak->{CH}}[0..@{$peak->{CH}}-1]) . "\n" if $name eq $genewant;
-	#print join("", @{$peak->{CG}}[0..@{$peak->{CG}}-1]) . "\n" if $name eq $genewant;
-	#print "-UU.....Z.Z......Z.H...............H......Z.....Z....UH.H....X.......ZX.....HHH.......H......H....XH.H.....X....ZX...H....X.HH...H..X..H.H..Z....X....Z..HH......X...Z...Z....HHHH.Z.Z..........Z.........X.HH.H..Z.Z...XH.......H.ZXh.h...x.zx.hhh..hhh.zx.Hh.h...xhh.h...h.ZXhh.....z..X.Hhh...hhh....hhH.Hh.hh.Hhh.......Xhh.h...h..X....Z.h.hh.z.hhH...Z.HHHHHH....X.H....HHH......HH.ZX.HH..HH......HH.H.H...H.HH.ZXhH.z..hh...Z.H..H.H...ZX......HHHhh.H..H.H.Z..XH..HH.H.......H.H......X.Z.HH.HH.H..XHH...Z.HHHH.Z...xhHhhhHH.....Z..Z..X.H...Z.HH.Z.HH.HH....hH..X.HH....XHHHH..H.H..ZX.H.H...X.HH.HHhhH..H.H..HH.HH..Z.ZX.Z.ZXHH.h.H...Z..HH..H.HH..XHh.HH..HHHHH..HH.ZX.z...X.HHH....HH.ZX.ZX.HHH....HH..X.ZXH..HH...HH.ZX.HH.HH.....HH.ZX.ZX..HH...HH.ZX.ZX.HHH...HH...HH.HH.ZX.hHh...HH.ZX..Z.ZXH...X..Z..X...ZX.H.H.....HHH..Z..X...H...H..X.H..H.Hh.HHHHH.....X..HHHH..X..H....X...Z..X..............X.H....X.Z..HH......XH...H......X.HH.HH.HH.H................X.Z....H........X..Z...UHHH..X..X....H.Z.HH.....Z.......u.HHhhHHh.....UU.....X.....H.........H.H.HHH.........H.H...H...X.......h....ZX.....Z.Z.ZXHH.H.HH.ZX...H.Z....HHH.Z.......Z.......Z......X....Z..X.Z...ZX..Z...ZX..X.ZX.Z.H.ZX.....X..........HH.ZX......ZX.........X....zXHH.....Z..XH...H.....H.H.H.....HH...X.....HH...Xh....Z......Hh..Z.Z..h..XH.Z..........HH....X.......X..Z.H.............Z..Z.....H...X.HH.HH.Z......Z...XH........H......XH.Z.........XH..H.......Z.H.Z.......X....Z.....X..Z......ZX......X...Z..............UUh..H.Z.HH.Z..........H.....Z..X..HH.......X...ZX.H..HH..Z...Z......H..XHH..X.H.H...Z.......Z....X...Z...Z..X.Z........ZX........Z....H.H........ZX...H....Z.......z....XH..X..X.....XH.....XH....H..X.H.Z.HH...H..HH.ZX.H.....X.H.....H..H.HH.HH.........ZX........H..Hh...X.....HH.....X.Z....X..X..H...X........ZX.....H.H..HH..H.....H....ZX.............Z..XH..H.ZX.HH.......H...H...H..X..X.....Z.Z..X.......HH.......H..H.......H...........ZXHH...X..Z....X.HH...Z.........Z....HHH.....HH....H.H..H....Z..H......Z.H.Z.Z...H--\n";
-	#print "\n" . join("", @{$nuc}) . "\n" if $name eq $genewant;
-#	print join("", @{$peak->{GH}}[0..@{$peak->{GH}}-1]) . "\n" if $name eq $genewant;
-	#print join("", @{$peak->{GC}}[0..@{$peak->{GC}}-1]) . "\n" if $name eq $genewant;
-	#print "-UU.....Z.Z......Z.H...............H......Z.....Z....UH.H....X.......ZX.....HHH.......H......H....XH.H.....X....ZX...H....X.HH...H..X..H.H..Z....X....Z..HH......X...Z...Z....HHHH.Z.Z..........Z.........X.HH.H..Z.Z...XH.......H.ZXh.h...x.zx.hhh..hhh.zx.Hh.h...xhh.h...h.ZXhh.....z..X.Hhh...hhh....hhH.Hh.hh.Hhh.......Xhh.h...h..X....Z.h.hh.z.hhH...Z.HHHHHH....X.H....HHH......HH.ZX.HH..HH......HH.H.H...H.HH.ZXhH.z..hh...Z.H..H.H...ZX......HHHhh.H..H.H.Z..XH..HH.H.......H.H......X.Z.HH.HH.H..XHH...Z.HHHH.Z...xhHhhhHH.....Z..Z..X.H...Z.HH.Z.HH.HH....hH..X.HH....XHHHH..H.H..ZX.H.H...X.HH.HHhhH..H.H..HH.HH..Z.ZX.Z.ZXHH.h.H...Z..HH..H.HH..XHh.HH..HHHHH..HH.ZX.z...X.HHH....HH.ZX.ZX.HHH....HH..X.ZXH..HH...HH.ZX.HH.HH.....HH.ZX.ZX..HH...HH.ZX.ZX.HHH...HH...HH.HH.ZX.hHh...HH.ZX..Z.ZXH...X..Z..X...ZX.H.H.....HHH..Z..X...H...H..X.H..H.Hh.HHHHH.....X..HHHH..X..H....X...Z..X..............X.H....X.Z..HH......XH...H......X.HH.HH.HH.H................X.Z....H........X..Z...UHHH..X..X....H.Z.HH.....Z.......u.HHhhHHh.....UU.....X.....H.........H.H.HHH.........H.H...H...X.......h....ZX.....Z.Z.ZXHH.H.HH.ZX...H.Z....HHH.Z.......Z.......Z......X....Z..X.Z...ZX..Z...ZX..X.ZX.Z.H.ZX.....X..........HH.ZX......ZX.........X....zXHH.....Z..XH...H.....H.H.H.....HH...X.....HH...Xh....Z......Hh..Z.Z..h..XH.Z..........HH....X.......X..Z.H.............Z..Z.....H...X.HH.HH.Z......Z...XH........H......XH.Z.........XH..H.......Z.H.Z.......X....Z.....X..Z......ZX......X...Z..............UUh..H.Z.HH.Z..........H.....Z..X..HH.......X...ZX.H..HH..Z...Z......H..XHH..X.H.H...Z.......Z....X...Z...Z..X.Z........ZX........Z....H.H........ZX...H....Z.......z....XH..X..X.....XH.....XH....H..X.H.Z.HH...H..HH.ZX.H.....X.H.....H..H.HH.HH.........ZX........H..Hh...X.....HH.....X.Z....X..X..H...X........ZX.....H.H..HH..H.....H....ZX.............Z..XH..H.ZX.HH.......H...H...H..X..X.....Z.Z..X.......HH.......H..H.......H...........ZXHH...X..Z....X.HH...Z.........Z....HHH.....HH....H.H..H....Z..H......Z.H.Z.Z...H--\n";
-#	print "peakCG=$peakCG\n" . join("", @{$peak->{CG}}[0..@{$peak->{CG}}-1]) . "\n" if $name eq $genewant;
-#	print "peakGH=$peakGH\n" . join("", @{$peak->{GH}}[0..@{$peak->{GH}}-1]) . "\n" if $name eq $genewant;
-#	print "peakGC=$peakGC\n" . join("", @{$peak->{GC}}[0..@{$peak->{GC}}-1]) . "\n" if $name eq $genewant; #=~ /PBEH2_BCBC0_PLASMIDPFC9NTBSPQI13_DESCNOTXLINEARBSAICOSSB.m84066_240320_204128_s1\/163448324\/ccs/;
    return ($peak, $peakCH, $peakCG, $peakGH, $peakGC);
 }
 
-sub det_peak { # time= 10 line/s per strand (49 l/s -> 39 l/s)
+sub det_peak { 
    my ($peak, $nuc, $type, $pos) = @_;
    $pos = "NA" if not defined $pos;
-#  return 1; #debug
+
    return $peak if $peak ne '!';
    my @N =  $type eq 'CH' ? ('0', '0'   , 'cd', 'CDMNPQ', '12' , 'B\-' ) :
             $type eq 'CG' ? ('e', 'EQR' , 'cd', 'CDMNPQ', '123', 'BF\-') :
@@ -1558,7 +1075,7 @@ sub det_peak { # time= 10 line/s per strand (49 l/s -> 39 l/s)
 # 9 is CG peak
 }
 
-sub det_CG_con { # time= 5 line/s (57 l/s -> 52 l/s)
+sub det_CG_con { 
    my ($con, @cons) = @_;
    for (my $i = 0; $i < @cons; $i+= 2) {
       my ($type, $val) = ($cons[$i], $cons[$i+1]);
@@ -1566,7 +1083,6 @@ sub det_CG_con { # time= 5 line/s (57 l/s -> 52 l/s)
       ($con->{GC}{con} += $val and $con->{GC}{tot} += $val and next) if $type eq "i";
       ($con->{CH}{con} += $val and $con->{CH}{tot} += $val and next) if $type eq "c" or $type eq "d";
       ($con->{GH}{con} += $val and $con->{GH}{tot} += $val and next) if $type eq "g" or $type eq "h";
-#     ($con->{CG}{tot} += $val and next) if $type eq "F" or $type eq "E" or $type eq "e" or $type eq "O" or $type eq "3" or $type eq "R";
       ($con->{CG}{tot} += $val and next) if $type =~ /[FEeO3R]/;
       ($con->{GC}{tot} += $val and next) if $type =~ /[KIiW6Z]/;
       ($con->{CH}{tot} += $val and next) if $type =~ /[BCDcdMN12PQ]/;
@@ -1600,12 +1116,10 @@ sub isPeak {
    my $GHtot = $con->{GH}{tot};
 
    my $Ctotmin = 5;#$window;
-   #instead of 5, becomes 2
    my $peakCG = ($CGtot >= $Ctotmin and ($CGcon / $CGtot) > $threshold) ? 1 : 0;
    my $peakCH = ($CHtot >= $Ctotmin and ($CHcon / $CHtot) > $threshold) ? 1 : 0;
    my $peakGC = ($GCtot >= $Ctotmin and ($GCcon / $GCtot) > $threshold) ? 1 : 0;
    my $peakGH = ($GHtot >= $Ctotmin and ($GHcon / $GHtot) > $threshold) ? 1 : 0;
-	#print "window=$window Ctotmin = $Ctotmin, GHtot=$GHtot, GHcon/GHtot = $GHcon/$GHtot > $threshold\n" if ($GHtot >= $Ctotmin and $GHcon / $GHtot > $threshold);
    if ($i < $totalseqpos - $window) {
       my $temp;
       my $min = $seq->{loc}{pos1}{$i};
@@ -1617,11 +1131,9 @@ sub isPeak {
             $temp =~ s/8$/2/;
          }
          else {
-            $temp =~ s/8([01345679A-Z\! ]+)$/2$1/i;# if $temp =~ /8([012345679A-Z\! ]+)$/i;
+            $temp =~ s/8([01345679A-Z\! ]+)$/2$1/i;
          }
          @{$peak->{CH}}[$min..$max] = split("", $temp);
-         #die "$temp\n" if $peakCH eq 1;
-   #     print "$i: $temp\n" if defined $check;
       }
       if ($peakCG eq 1) {
          my $temp = join("", @{$peak->{CG}}[$min..$max]);
@@ -1640,7 +1152,6 @@ sub isPeak {
          }
          @{$peak->{CG}}[$min..$max] = split("", $temp);
       }
-     #print "i=$i, min=$min, max=$max, CHcon=$LGN$CHcon$N, CHtot=$LPR$CHtot$N, " . join("", @{$peak->{CH}}[$min..$max]) . "\n" if defined $check and $check eq 1;# and $peakCH eq 1;
    }
    if ($i < $totalseqneg - $window) {
       my $temp;
@@ -1653,7 +1164,7 @@ sub isPeak {
             $temp =~ s/8$/2/;
          }
          else {
-            $temp =~ s/8([012345679A-Z\! \.]+)$/2$1/i;# if $temp =~ /8([012345679A-Z\! ]+)$/i;
+            $temp =~ s/8([012345679A-Z\! \.]+)$/2$1/i;
          }
          @{$peak->{GH}}[$min..$max] = split("", $temp);
       }
@@ -1675,7 +1186,6 @@ sub isPeak {
          @{$peak->{GC}}[$min..$max] = split("", $temp);
       }
    }
-#  return ($peak, 0,0,0,0);
    return ($peak, $peakCG, $peakCH, $peakGC, $peakGH);
 }
 sub mydefined {

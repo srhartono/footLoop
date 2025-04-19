@@ -17,18 +17,11 @@ my $homedir = $ENV{"HOME"};
 my $footLoopScriptsFolder = dirname(dirname abs_path $0);
 my $version = "v3.8";
 my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
-#my @version = `$footLoopScriptsFolder/check_software.pl 2>&1 | tail -n 12`;
-#my ($footLoop_script_folder, $version, $md5script) = check_software();
-my $version_small = $version; #"vUNKNOWN";
-#my $version = join("", @version);
+my $version_small = $version; 
 if (defined $opt_v) {
    print "$version\n";
 	 exit;
 }
-#my ($version_small) = "vUNKN/CGCGAATGWN";
-#foreach my $versionz (@version[0..@version-1]) {
-#   ($version_small) = $versionz =~ /^(v?\d+\.\d+\w*)$/ if $versionz =~ /^v?\d+\.\d+\w*$/;
-#}
 
 my $usage = "
 
@@ -44,7 +37,6 @@ Usage: $YW$0$N -n $CY<folder of -n footLop.pl>$N -o $LGN<output dir>$N
 ";
 
 (print "\nfootLoop_2_filterBAMFile.pl: $usage\n" and exit 1) unless ex([$opt_b,$opt_i,$opt_g]) == 1 or ex($opt_n) == 1;
-#ex([$opt_s,$opt_S,$opt_i,$opt_g]) == 1 or ex($opt_n) == 1;
 (print "\nfootLoop_2_filterBAMFile.pl: please define output (-o)\n" and exit 1) if not defined $opt_o;
 
 my ($footLoop_2_filterBAMFile_outDir) = $opt_o;
@@ -55,18 +47,12 @@ open (my $outLog, ">", $footLoop_2_filterBAMFile_logFile) or die "Failed to writ
 
 my ($BAMFile, $seqFile, $genez);
 if (defined $opt_n) {
-	#my ($footLoop_2_filterBAMFile_outDir, $outLog) = @_;
 	($BAMFile, $seqFile, $genez) = parse_footLoop_logFile($opt_n, $outLog);
 }
 else {
 	($BAMFile, $seqFile) = ($opt_b, $opt_g);
 	$genez = parse_bedFile($opt_i, $outLog);
 }
-
-#foreach my $gene (sort keys %{$genez}) {
-#	print "$LCY$gene$N: $genez->{$gene}\n";
-#}
-
 
 # check BAM file
 LOG($outLog, "\n" . date() . "$YW$0$N Checking files:\n");
@@ -77,7 +63,6 @@ check_file($BAMFile, "BAM", $outLog);
 LOG($outLog, date() . "Checking genomeFile ($LCY$seqFile$N)\n");
 check_file($seqFile, "seq", $outLog); 
 
-#DIELOG($outLog, "DEBUG Exit before parse_footLoop_logFile\n");
 # parse seq file and get chr etc
 LOG($outLog, date() . "Parsing genomeFile ($LCY$seqFile$N)\n");
 my %refs = %{parse_seqFile($seqFile)}; 
@@ -86,20 +71,17 @@ foreach my $chr (sort keys %refs) {
 }
 
 
-#DIELOG($outLog, "DEBUG Exit before pasing BAM\n");
 my %out;
 my %data; my $cons; my %strand;
 my $linecount = 0;
 my ($BAMFolder, $BAMName) = getFilename($BAMFile, "folderfull");
-#my $debugFile = "$footLoop_2_filterBAMFile_outDir/debug.txt";
 my $outFixedfile = "$footLoop_2_filterBAMFile_outDir/$BAMName.fixed.gz";
 my $outFixed;
 my $outdebug;
 if (not defined $opt_0) {
 	open ($outFixed, "| gzip > $outFixedfile") or die "Cannot write to $outFixedfile: $!\n";
-#	open ($outdebug, ">", "$debugFile") or die "Cannot write to $debugFile: $!\n";
 }
-my ($total_read) = 0;#`awk '\$2 == 0|| \$2 == 16 {print}' $BAMFile | wc -l` =~ /^\s*(\d+)$/;
+my ($total_read) = 0;
 $linecount = 0;
 my $in1;
 if ($BAMFile =~ /.bam$/) {
@@ -120,24 +102,13 @@ while (my $line = <$in1>) {
 	my @arr = split("\t", $line);
 	next if @arr < 6;
 	$linecount ++;
-	#last if $linecount == 500;
 	DIELOG($outLog, "DEBUG (-0): Exit at linecount 20\n") if defined $opt_0 and $linecount > 1000;
 
 	LOG($outLog, date() . "\t$0: Parsed $LGN$linecount$N / $LCY$total_read$N\n") if $linecount % 100 == 0;
 	my ($read, $strand, $chr, $pos, $mapq, $cigar, $junk1, $junk2, $junk3, $seqs, $qual, $junk4, $junk5, $converted, @others) = @arr;
 	
-	#if ($cigar =~ /([A-Z])(\d+)([A-Z])(\d\d+)I(\d)M$/) {
-	#	my ($alp1, $num2, $alp2, $mat1, $mat2) = $cigar =~ /([A-Z])(\d+)([A-Z])(\d+)I(\d)M$/;
-	#	my $matfix = $mat1+$mat2;
-	#	$matfix += $num2 if $alp2 eq "M";
-	#	$matfix = $alp2 eq "M" ? "$alp1${matfix}M" : "$alp1$num2$alp2${matfix}M";
-	#	#print "cigar=$cigar\n";
-	#	$cigar  =~ s/([A-Z])(\d+)([A-Z])(\d+)I(\d)M$/$matfix/;
-	#	#die "cigar=$cigar\n";
-	#}
 	LOG($outLog, "$read,cigar1,$cigar\n","NA");
-	#next if $read !~ /m84066_240320_204128_s1\/242684031\/ccs/;
-	#die "$read\n";
+
 	$chr = uc($chr);
 	my $others = join("\t", @others); $others = @others == 0 ? "" : "\t$others";
 	my @ref1 = defined $refs{$chr} ? @{$refs{$chr}} : die "Can't find gene $chr in $seqFile!\n";
@@ -149,9 +120,7 @@ while (my $line = <$in1>) {
 	my ($ref2, $seq2, $poz, $seqborder0, $seqborder1) = parse_BAMline($line, \@ref1, $outLog);
 	
 	my %poz = %{$poz};
-	#DONT MASK INDEL REGIONS!
 	my %bad;
-	#my %bad = %{mask_indel_region($ref2, $seq2, $seqborder0, $seqborder1)};
 
 	# mask indel region:
 	# GGTAGAG
@@ -167,15 +136,12 @@ while (my $line = <$in1>) {
 		if ($i >= $seqborder0 and $i < $seqborder1) {
 			$ins ++ if $ref2->[$i] eq "-";
 			$del ++ if $seq2->[$i] eq "-";
-			#if ($ref2->[$i] ne "-" and $seq2->[$i] ne "-") {
 			my $ref2nuc = $ref2->[$i];
 			my $seq2nuc = $seq2->[$i];
 			$count{$ref2nuc}{$seq2nuc} ++;
-			#}
-			$total ++; # if $ref2->[$i] ne "-";
+			$total ++; 
 		}
 		my $badnuc2 = ($i < $seqborder0 or $i >= $seqborder1) ? " " : defined $bad{$i} ? "!" : " ";
-		#}? "." : defined $bad{$i} ? "B" : ".";
 		push(@{$bad2}, $badnuc2);
 		if ($ref2->[$i] ne "-") {
 			push(@{$ref3}, $ref2->[$i]);
@@ -215,21 +181,16 @@ while (my $line = <$in1>) {
 	if ($printed <= 1000) {
 		my @ref1print = @ref1 < 10000 ? @ref1 : @ref1[0..10000];
 		my @seq1print = @seq1 < 10000 ? @seq1 : @seq1[0..10000];
-		#my $ref1print = join("", @ref1print);
-		#my $seq1print = join("", @seq1print);
 		my ($ref1print,$seq1print) = (join("", @ref1print),join("", @seq1print));
-		#my ($ref1print, $seq1print) = colorconv(\@ref1print, \@seq1print);
 		
 		my $NA = $printed < 5 ? "" : "NA";
 		my $toprint = "";
-		#LOG($outLog, "$read,$chr,$pos,$LGN$ins/$total$N ($LGN$insperc$N %), del=$LGN$del/$total$N ($LGN$delperc$N %)\n\n";
 		$toprint .= "$read,GOOD,$linecount,ref,seq1,$chr,$ref1print\n";
 		$toprint .= "$read,GOOD,$linecount,que,seq1,$chr,$seq1print\n";
 
 		my @ref2print = @{$ref2} < 10000 ? @{$ref2} : @{$ref2}[0..10000];
 		my @seq2print = @{$seq2} < 10000 ? @{$seq2} : @{$seq2}[0..10000];
 		my @bad2print = @{$bad2} < 10000 ? @{$bad2} : @{$bad2}[0..10000];
-		#my ($ref2print, $seq2print) = colorconv(\@ref2print, \@seq2print);
 		my ($ref2print,$seq2print) = (join("", @ref2print),join("", @seq2print));
 		my $bad2print = join("", @bad2print);
 		$toprint .= "$read,GOOD,$linecount,ref,seq2,$chr,$ref2print\n";
@@ -240,7 +201,6 @@ while (my $line = <$in1>) {
 		my @seq3print = @{$seq3} < 10000 ? @{$seq3} : @{$seq3}[0..10000];
 		my @bad3print = @{$bad3} < 10000 ? @{$bad3} : @{$bad3}[0..10000];
 		my ($ref3print,$seq3print) = (join("", @ref3print),join("", @seq3print));
-		#my ($ref3print, $seq3print) = colorconv(\@ref3print, \@seq3print);
 		my $bad3print = join("", @bad3print);
 		
 		$toprint .= "$read,GOOD,$linecount,ref,seq3,$chr,$ref3print\n";
@@ -253,13 +213,10 @@ while (my $line = <$in1>) {
 		($VRmetpos, $VRmetneg, $VRmatperc, $VRmisperc, $VRinsperc, $VRdelperc, $VRseqlength, $toprint)	 = check_VR($read, $linecount, \@{$ref2}, \@{$seq2}, \@{$ref3}, \@{$seq3}, $outLog, $NA, $toprint);
 		my $VRinstotal = int($VRinsperc/100 * $VRseqlength+0.5);
 		my $VRdeltotal = int($VRdelperc/100 * $VRseqlength+0.5);
-		#if ($VRseqlength ne -1) {
-		#LOG($outLog, "$LGN$read$N ($LCY$chr $LGN$pos$N) (ins=$LGN$ins/$total$N ($LGN$insperc$N %), del=$LGN$del/$total$N ($LGN$delperc$N %), VRmetpos=$YW$VRmetpos$N, VRmetneg=$YW$VRmetneg$N, VRmat=$LGN$VRmatperc$N,VRmis=$LCY$VRmisperc$N,VRins=$LPR$VRinsperc ($VRinstotal)$N,VRdel=$LBU$VRdelperc ($VRdeltotal)$N,VRlen=$LGN$VRseqlength$N\n\n",$NA);
 		$toprint = "$read,GOOD,$linecount,all,info,$chr,$pos,$ins,$del,$total,$insperc,$delperc\n" . $toprint . "\n";
 		if ($toprint =~ /,big,/) {
 			$toprint =~ s/,GOOD,/,BIGINDEL,/g;
 		}
-		#LOG($outLog, $toprint,"NA");
 		DIELOG($outLog, "GOOD DEBUG\n") if $printed > 10 and defined $opt_0;
 	}
 
@@ -309,19 +266,6 @@ while (my $line = <$in1>) {
 	}
 	LOG($outLog, date() . "file=$LCY$BAMFile$N, linecount=$linecount, read=$read, die coz no info\n") if not defined $GG1;
 
-	## 3f. Below is for debug printing
-	#print $outdebug ">$read,$type,OldStrand=$strand,NewStrand=$newstrand,$chr,CT0=$CT0,CC0=$CC0,GA0=$GA0,GG0=$GG0,CT1=$CT1,CC1=$CC1,GA1=$GA1,GG1=$GG1\n";
-	#print $outdebug "$refPrint\n";
-	#print $outdebug "$seqPrint\n";
-	#print $outdebug "$CTPrint\n";
-	#print $outdebug "$read\t$chr\tstrand=$strand, new=$newstrand\n" . join("", @{$ref3}) . "\n";
-	#print $outdebug "CC = $CC1 / $CC0\n";
-	#print $outdebug "CT = $CT1 / $CT0\n";
-	#print $outdebug "GG = $GG1 / $GG0\n";
-	#print $outdebug "GA = $GA1 / $GA0\n";
-	#print $outdebug "REF: $refPrint\n";
-	#print $outdebug "SEQ: $seqPrint\n";
-	#print $outdebug "CON: " . join("", @{$CTcons}) . "\n";
 }
 if (not defined $opt_0) {
 	close $outFixed;
@@ -349,7 +293,6 @@ foreach my $ref2nuc (sort keys %allcount) {
 	}
 }
 
-#DIELOG($outLog, "DEBUG Exit before printing\n","NA");
 foreach my $strand (sort keys %strand) {
 	my @types = ("BAMe","diff");
 	if (not defined $opt_0) {
@@ -429,29 +372,13 @@ sub check_VR {
 			$dict{ref3toref2}{$ref3Ind} = $ref2Ind;
 		}
 		$dict{ref2toref3}{$ref2Ind} = $ref3Ind;
-		#if ($ref2Ind > 40 and $ref2Ind < 70) {
-		#	LOG($outLog, "$ref2[$ref2Ind],$ref3[$ref3Ind],$ref2Ind,$ref3Ind\n","NA");
-		#}
 		$ref3Ind ++ if $ref2[$ref2Ind] ne "-";
 	}
 	$dict{ref3toref2}{length($ref3)} = length($ref2);
 	$dict{ref2toref3}{length($ref2)} = length($ref3);
-	#foreach my $ref3Ind (sort {$a <=> $b} keys %{$dict{ref3toref2}}) {
-	#	print "$LGN$ref3Ind$N=$LCY$dict{ref3toref2}{$ref3Ind}$N\n";
-	#}
-	#print "\n";
-	#
-	#foreach my $ref2Ind (sort {$a <=> $b} keys %{$dict{ref2toref3}}) {
-	#	print "$LGN$ref2Ind$N=$LCY$dict{ref2toref3}{$ref2Ind}$N\n";
-	#}
-	#print "\n";
-	#die "\n\n";
 
 	# PRIMER
 	if (length($ref2) > 200) {
-		#primer
-
-
 		my $FWrefseq3pos1 = 0;
 		my $FWrefseq3pos2 = 100;
 		my $RVrefseq3pos1 = length($ref3)-100;
@@ -518,24 +445,6 @@ sub check_VR {
 		$toprint .= "$read,GOOD,$linecount,bad,RVprimerseq3,$RVprimerbadseq3\n";
 
 
-		#my ($FWqueseq2, $RVqueseq2) = $que2 =~ /^(.{100})(.+)(.{100})$/;
-		#my ($FWqueseq3, $RVqueseq3) = $que3 =~ /^(.{100})(.+)(.{100})$/;
-		#my $FWrefseq3pos1 = 0;
-		#my $FWqueseq3pos2 = 100;
-		#my $RVqueseq3pos1 = length($que3)-100;
-		#my $RVqueseq3pos2 = length($que3);
-		#my $FWqueseq2pos1 = $dict{ref3toref2}{$FWqueseq3pos1};
-		#my $FWqueseq2pos2 = $dict{ref3toref2}{$FWqueseq3pos2};
-		#my $RVqueseq2pos1 = $dict{ref3toref2}{$RVqueseq3pos1};
-		#my $RVqueseq2pos2 = defined $dict{ref3toref2}{$RVqueseq3pos2} ? $dict{ref3toref2}{$RVqueseq3pos2} : length($que2);
-
-		#$toprint .= "$read,GOOD,$linecount,all,primerpos2,$FWrefseq2pos1,$FWrefseq2pos2,$RVrefseq2pos1,$RVrefseq2pos2\n";#,$FWprimermetpos2,$FWprimermetneg2,$FWprimermatperc2,$FWprimermisperc2,$FWprimerinsperc2,$FWprimerdelperc2,$FWprimerseqlength2,$RVprimermetpos2,$RVprimermetneg2,$RVprimermatperc2,$RVprimermisperc2,$RVprimerinsperc2,$RVprimerdelperc2,$RVprimerseqlength2\n";
-		#$toprint .= "$read,GOOD,$linecount,ref,primerseq2," . substr($ref2,$FWrefseq2pos1,100) . "," . substr($ref2,$RVrefseq2pos1,100) . "\n";
-		#$toprint .= "$read,GOOD,$linecount,que,primerseq2," . substr($que2,$FWqueseq2pos1,100) . "," . substr($que2,$RVqueseq2pos1,100) . "\n";
-
-		#$toprint .= "$read,GOOD,$linecount,all,primerpos3,$FWrefseq3pos1,$FWrefseq3pos2,$RVrefseq3pos1,$RVrefseq3pos2\n";#,$FWprimermetpos3,$FWprimermetneg3,$FWprimermatperc3,$FWprimermisperc3,$FWprimerinsperc3,$FWprimerdelperc3,$FWprimerseqlength3,$RVprimermetpos3,$RVprimermetneg3,$RVprimermatperc3,$RVprimermisperc3,$RVprimerinsperc3,$RVprimerdelperc3,$RVprimerseqlength3\n";
-		#$toprint .= "$read,GOOD,$linecount,ref,primerseq3," . substr($ref3,$FWrefseq3pos1,100) . "," . substr($ref3,$RVrefseq3pos1,100) . "\n";
-		#$toprint .= "$read,GOOD,$linecount,que,primerseq3," . substr($que3,$FWqueseq3pos1,100) . "," . substr($que3,$RVqueseq3pos1,100) . "\n";
 	}
 
 	if ($ref3 =~ /$VRrefseq0rev.+$VRrefseq1rev/) {
@@ -547,9 +456,7 @@ sub check_VR {
 		my $VRpos30  = length($leftrefseq);
 		my $VRrefseqlength  = length($VRrefseq3);
 		my $VRpos31 = length($rightrefseq);
-		#print "leftrefseq=$leftrefseq\nVRrefseq3=$VRrefseq3\nrightrefseq=$rightrefseq\n\n";
 		($leftqueseq, $VRqueseq3, $rightqueseq) = $que3 =~ /^(.{${VRpos30}})(.+)(.{${VRpos31}})$/;
-		#print "\nleftqueseq=$leftqueseq\nVRqueseq3=$VRqueseq3\nrightqueseq=$rightqueseq\n\n";
 
 		$ref3Ind = 0;
 		my ($VRpos20, $VRpos21) = (0,0);
@@ -570,8 +477,8 @@ sub check_VR {
 		my ($VRbadseq3, $VRins3, $VRdel3, $VRmat3, $VRmis3, $VRmetpos3, $VRmetneg3, $VRseqlength3) = get_seq_indel_stat($VRrefseq3, $VRqueseq3);
 		my ($VRbadseq2, $VRins2, $VRdel2, $VRmat2, $VRmis2, $VRmetpos2, $VRmetneg2, $VRseqlength2) = get_seq_indel_stat($VRrefseq2, $VRqueseq2);
 
-		my ($VRrefseqprint2, $VRqueseqprint2) = ($VRrefseq2, $VRqueseq2);#join("", @VRrefseqs),join("", @VRqueseqs));
-		my ($VRrefseqprint3, $VRqueseqprint3) = ($VRrefseq3, $VRqueseq3);#join("", @VRrefseqs),join("", @VRqueseqs));
+		my ($VRrefseqprint2, $VRqueseqprint2) = ($VRrefseq2, $VRqueseq2);
+		my ($VRrefseqprint3, $VRqueseqprint3) = ($VRrefseq3, $VRqueseq3);
 
 		my $VRmatperc2 = int(1000*$VRmat2 / $VRseqlength2+0.5)/10;
 		my $VRmisperc2 = int(1000*$VRmis2 / $VRseqlength2+0.5)/10;
@@ -594,21 +501,6 @@ sub check_VR {
 		$toprint .= "$read,GOOD,$linecount,bad,VRseq3,$VRbadseq3\n";
 
 		@return = ($VRmetpos2, $VRmetneg2, $VRmatperc2, $VRmisperc2, $VRinsperc2, $VRdelperc2, $VRseqlength2, $toprint);
-#		my $ref2join = $VRrefseq2;
-#		my $que2join = $VRqueseq2;
-#		if ($ref2join =~ /[A-Z][\-]{4,999}[A-Z]/) {
-#			my ($posins0, $bigins) = $ref2join =~ /^([A-Z]+)([\-]{4,999})[A-Z]/;
-#			my $inslen = length($bigins);
-#			my $posins1 = $posins0 + $inslen;
-#			$toprint .= "$read\tbigins\t$posins0\t$posins1\t$inslen\n","NA");
-#		}
-#		if ($que2join =~ /[A-Z][\-]{4,999}[A-Z]/) {
-#			my ($posdel0, $bigdel) = $que2join =~ /^([A-Z]+)([\-]{4,999})[A-Z]/;
-#			my $dellen = length($bigdel);
-#			my $posdel1 = $posdel0 + $dellen;
-#			$toprint .= "$read\tbigdel\t$posdel0\t$posdel1\t$dellen\n","NA");
-#		}
-		#print "$matperc\t$misperc\t$insperc\t$delperc\t$VRrefseqlength\n";
 
 		my $ref2join = $VRrefseq2;
 		my $que2join = $VRqueseq2;
@@ -683,15 +575,11 @@ sub check_VR {
 			my $pos20 = length($prev);
 			my $inslen = length($curr);
 			my $pos21 = $pos20 + $inslen;
-			#$pos20 = $VRpos21 + 1 if ($pos20 <= $VRpos21 and $pos21 >  $VRpos21);
-			#$pos21 = $VRpos20 - 0 if ($pos20 <  $VRpos20 and $pos21 >= $VRpos20) 
-			#next if $pos20 >= $VRpos20 and $pos20 <= $VRpos21 and $pos21 >= $VRpos20 and $pos21 <= $VRpos21;
 			my $pos30 = $dict{ref2toref3}{$pos20};
 			my $pos31 = $dict{ref2toref3}{$pos21};
 			$pos30 = @ref3 if not defined $pos30;
 			$pos31 = @ref3 if not defined $pos31;
 			my $regiontype = $pos30 < 60 ? "FWprimer" : $pos30 > @ref3 - 60 ? "RVprimer" : "NOTVR";
-#			$toprint .= "$read,GOOD,$linecount,big,ins,$regiontype,$pos20,$pos21,$inslen,$pos30,$pos31\n";
 			$toprint .= "$read,GOOD,$linecount,big,ins,$regiontype,$pos20,$pos21,$ref2length,$inslen,$pos30,$pos31,$ref3length\n";
 		}
 		while ($que2join =~ /[\-]{4,999}/g) {
@@ -699,31 +587,16 @@ sub check_VR {
 			my $pos20 = length($prev);
 			my $dellen = length($curr);
 			my $pos21 = $pos20 + $dellen;
-			#$pos20 = $VRpos21 + 1 if ($pos20 <= $VRpos21 and $pos21 >  $VRpos21);
-			#$pos21 = $VRpos20 - 0 if ($pos20 <  $VRpos20 and $pos21 >= $VRpos20) 
-			#next if $pos20 >= $VRpos20 and $pos20 <= $VRpos21 and $pos21 >= $VRpos20 and $pos21 <= $VRpos21;
 			my $pos30 = $dict{ref2toref3}{$pos20};
 			my $pos31 = $dict{ref2toref3}{$pos21};
 			$pos30 = @ref3 if not defined $pos30;
 			$pos31 = @ref3 if not defined $pos31;
 			my $regiontype = $pos30 < 60 ? "FWprimer" : $pos30 > @ref3 - 60 ? "RVprimer" : "NOTVR";
 			$toprint .= "$read,GOOD,$linecount,big,del,$regiontype,$pos20,$pos21,$ref2length,$dellen,$pos30,$pos31,$ref3length\n";
-#			$toprint .= "$read,GOOD,$linecount,big,del,$regiontype,$pos20,$pos21,$dellen,$pos30,$pos31\n";
 		}
-#		my $ref2join = join("", @{$ref2});
-#		my $seq2join = join("", @{$seq2});
-#		if ($ref2join =~ /[A-Z][\-]{4,999}[A-Z]/) {
-#			my ($bigins) = $ref2join =~ /[A-Z]([\-]{4,999})[A-Z]/;
-#			$toprint .= "$read\tNOTVR\tbigins\t$bigins\n","NA");
-#		}
-#		if ($seq2join =~ /[A-Z][\-]{4,999}[A-Z]/) {
-#			my ($bigdel) = $seq2join =~ /[A-Z]([\-]{4,999})[A-Z]/;
-#			$toprint .= "$read\tNOTVR\tbigdel\t$bigdel\n","NA");
-#		}
 		@return = (-1,-1,-1,-1,-1,-1,-1, $toprint);
 	}
 	return(@return);
-	#exit 0;
 }
 
 
@@ -789,7 +662,7 @@ sub check_file {
 	my $filetype = `file -b --mime-type $file`; chomp($filetype);
 	my $cmd = ($file =~ /\.(rmdup|bam)$/ or $filetype =~ /(gzip|binary)/) ? "samtools view $file|" : "$file";
 	my ($linecount, $check) = (0,0);
-	my $currseq; #seq only
+	my $currseq; 
 
 	my $total_line = 0;
 	my $checkfileIn;
@@ -862,31 +735,21 @@ sub parse_seqFile {
 	return(\%ref);
 }
 
-sub parse_footLoop_logFile {
-	my ($footLoop_folder, $outLog) = @_;
-	$footLoop_folder = "footLoop_folder_unknown" if not defined $opt_n;
-#	my $footLoop_folder_forLog = $footLoop_folder;
-#	$footLoop_folder_forLog =~ s/\/+/_/g;
-#	$footLoop_folder_forLog =~ s/^\/+/SLASH_/;
-#my $tempLog = "./.$footLoop_folder_forLog\_TEMPOUTLOG.txt";
-#system("touch $tempLog") == 0 or print "Failed to write to $tempLog!\n";
-#open (my $tempLogOut, ">", $tempLog) or print "Failed to write to $tempLog: $!\n";
-#DIELOG($tempLogOut, "\nTEMPLOG:\n$tempLog\n$footLoop_folder: footLoop_2_filterBAMFile.pl: $usage") unless ex([$opt_s,$opt_S,$opt_i,$opt_g]) == 1 or ex($opt_n) == 1 and -e $tempLog;
-#DIELOG($tempLogOut, "\nTEMPLOG:\n$tempLog\n$footLoop_folder: footLoop_2_filterBAMFile.pl: please define output (-o)\n") if not defined $opt_o and -e $tempLog;
-
-
 ###########
 # LOGFILE #
 ###########
 
-# log file
-my $footLoop_logFile = "$footLoop_folder/logFile.txt";
+sub parse_footLoop_logFile {
+	my ($footLoop_folder, $outLog) = @_;
+	$footLoop_folder = "footLoop_folder_unknown" if not defined $opt_n;
+
+
+	# log file
+	my $footLoop_logFile = "$footLoop_folder/logFile.txt";
 	LOG($outLog, date() . "Logfile = $LRD$footLoop_logFile$N\n"); 
 
-# parse footLoop logfile
-
+	# parse footLoop logfile
 	DIELOG($outLog, "footLoop_2_filterBAMFile.pl: \n\nCan't find $footLoop_logFile! Please run footLoop.pl first before running this!\n\n") if not -e $footLoop_logFile;
-#ADD
 	$footLoop_logFile = "$footLoop_folder/.PARAMS";
 	LOG($outLog, date() . "\t$YW$0$N: LOGFILE=$footLoop_logFile\n");
 	my ($BAMFile, $seqFile, $genez);
@@ -912,20 +775,6 @@ my $footLoop_logFile = "$footLoop_folder/logFile.txt";
 					LOG($outLog, "\t$YW\$0${N}::${LGN}parse_footLoop_logFile$N: gene $gene = $length bp\n");
 				}
 			}
-			
-#			if ($line =~ /^!BAMFile=/) {
-#				($BAMFile) = $line =~ /^!BAMFile=(.+)$/;
-#			}
-#			if ($line =~ /^!seqFile=/) {
-#				($seqFile) = $line =~ /^!seqFile=(.+)$/;
-#			}
-#			if ($line =~ /gene=.+length=/) {
-#				my ($gene, $length) = $line =~ /^.+gene=(.+) length=(\d+)$/;
-#				die if not defined $gene or not defined $length;
-#				$genez->{$gene} = $length;
-#				print "gene $gene = $length bp\n";
-#			}
-#			last if $line =~ /footLoop_2_filterBAMFile.pl/;
 		}
 	}
 	return($BAMFile, $seqFile, $genez);
@@ -998,16 +847,6 @@ sub parse_BAMline {
 	my @refs = @{$refs};
 	my ($read, $strand, $chr, $pos, $mapq, $cigar, $junk1, $junk2, $junk3, $seqs, $qual, $junk4, $junk5, $converted) = split("\t", $line);
 	my @seq = split("",$seqs);
-	#if ($cigar =~ /([A-Z])(\d+)([A-Z])(\d\d+)I(\d)M$/) {
-	#	my ($alp1, $num2, $alp2, $mat1, $mat2) = $cigar =~ /([A-Z])(\d+)([A-Z])(\d+)I(\d)M$/;
-	#	my $matfix = $mat1+$mat2;
-	#	$matfix += $num2 if $alp2 eq "M";
-	#	$matfix = $alp2 eq "M" ? "$alp1${matfix}M" : "$alp1$num2$alp2${matfix}M";
-	#	#print "cigar=$cigar\n";
-	#	$cigar  =~ s/([A-Z])(\d+)([A-Z])(\d+)I(\d)M$/$matfix/;
-	#	#die "cigar=$cigar\n";
-	#}
-	#LOG($outLog, "$read,cigar2,$cigar\n","NA");
 
 	my ($num, $alp, $lengthseq) = parse_cigar($cigar); die if not defined $num;
 	my @num  = @{$num}; my @alp = @{$alp};

@@ -4,24 +4,10 @@
 use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
 
 BEGIN {
-   my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
+   my $libPath = dirname(dirname abs_path $0) . 'lib';
    push(@INC, $libPath);
    print "\n- Pushed $libPath into perl lib path INC\n";
 }
-#BEGIN {
-#	my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
-#	my $exist = 0;
-#	for (my $incInd = 0; $incInd < @INC; $incInd++) {
-#		$exist = 1 if $INC[$incInd] eq $libPath;
-#		last if $exist eq 1;
-#	}
-#	if ($exist eq 0) {
-#		push(@INC, $libPath);
-#	}
-#	else {
-#		print "Exist = $exist\n";
-#	}
-#}
 
 use myFootLib; use FAlite;
 my ($nocolor) = @ARGV;

@@ -27,6 +27,7 @@ our $DIES   ="$LRD!!!\t$N";
 our @EXPORT = qw(
 check_software
 parse_readName
+parse_footLoop_logFile
 parse_footPeak_logFile
 parse_indexFile
 myformat
@@ -98,7 +99,7 @@ my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 sub check_software {
 	#my ($debug) = @_;# debug
 	my ($footLoop_script_folder, $version, $md5script);
-	my @check_software = `check_software.pl 2>&1`;
+	my @check_software = `bin/check_software.pl 2>&1`;
 	foreach my $check_software_line (@check_software[0..@check_software-1]) {
 		chomp($check_software_line);
 		next if $check_software_line !~ /\=/;
@@ -1026,6 +1027,19 @@ sub colorconv {
       $res2 .= $dinuc eq "CT" ? "${LPR}T$N" : $dinuc eq "GA" ? "${LPR}A$N" : ($seq2temp =~ /^(C|G)$/ and $seq2temp ne $seq1temp) ? "${YW}$seq2temp$N" : colorCG($seq2temp);
    }
    return($res1, $res2);
+}
+
+sub parse_footLoop_logFile {
+   my ($logFile, $date, $uuid, $footFolder, $version) = @_;
+   my $paramsFile = "$footFolder/.PARAMS";
+   my $geneIndexFile;
+   my @parline = `cat $paramsFile`;
+   foreach my $parline (@parline) {
+      if ($parline =~ /footLoop.pl,geneIndexFile,/) {
+         ($geneIndexFile) = $parline =~ /geneIndexFile,(.+)$/;
+      }
+   }
+   return($geneIndexFile);
 }
 
 sub parse_footPeak_logFile {

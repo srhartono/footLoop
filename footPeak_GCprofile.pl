@@ -14,25 +14,16 @@ BEGIN {
 	print "- Pushed $libPath into perl lib path INC\n\n";
 
    my $softwarePath = dirname(dirname abs_path $0) . '/footLoop/softwares/';
-   $ENV{PATH} = "$softwarePath/Bismark_v0.20.0/:$softwarePath/bedtools2/bin/:$softwarePath/bowtie2-2.2.6/:
-$softwarePath/samtools-0.1.19/:$softwarePath/R-3.6.1/bin/:$ENV{PATH}";
 }
 
 use myFootLib; use FAlite;
+use footLoop_sbatch;
 
-my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 my $homedir = $ENV{"HOME"};
-my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
-my @version = `$footLoopScriptsFolder/check_software.pl | tail -n 12`;
-my $version = join("", @version);
-if (defined $opt_v) {
-   print "$version\n";
-   exit;
-}
-my ($version_small) = "vUNKNOWN";
-foreach my $versionz (@version[0..@version-1]) {
-   ($version_small) = $versionz =~ /^(v?\d+\.\d+\w*)$/ if $versionz =~ /^v?\d+\.\d+\w*$/;
-}
+
+my ($footLoop_script_folder, $version, $md5script) = check_software();
+my ($version_small) = $version =~ /^([vV]\d+\.\d+)[a-zA-Z_]*.*$/;
+$version_small = $version if not defined $version_small;
 
 my $DEBUG = "NA" if not defined $opt_D;
 my @treats = qw(gccont gcwskew purineskew atwskew);
@@ -57,19 +48,13 @@ ${LGN}Options:$N
 
 die $usage unless defined $opt_n and defined $opt_i and -e $opt_i and -d $opt_n;
 
-my ($indexFile, $footPeakFolder) = ($opt_i, $opt_n);
-my ($genewant) = $opt_G if defined $opt_G;
-
-# sanity check -n footPeakFolder
-
-#($footPeakFolder) = getFullpath($footPeakFolder);
-$footPeakFolder =~ s/\/$//;
-my $footClustFolder = "$footPeakFolder/FOOTCLUST";
-my $footKmerFolder  = "$footPeakFolder/KMER";
+# parse footLoop log file
+my ($footPeakFolder) = ($opt_n);
+($footPeakFolder) = getFullpath($footPeakFolder);
+my ($footPeak_logFile) = "$footPeakFolder/footPeak_logFile.txt";
+my ($footLoopFolder);
 my $uuid = getuuid();
-my ($user) = $homedir =~ /home\/(\w+)/;
 my $date = date();
-
 
 ############
 # LOG FILE #
@@ -80,21 +65,53 @@ LOG($outLog, ">UUID: $uuid\n", $DEBUG);
 LOG($outLog, ">Date: $date\n", $DEBUG);
 LOG($outLog, ">Run script: $0 -i $opt_i -n $opt_n\n", $DEBUG);
 
+my ($geneIndexFile);
+open (my $infootPeak_logFile, "<", $footPeak_logFile) or DIELOG($outLog, "Failed to read from $footPeak_logFile: $!\n");
+while (my $line = <$infootPeak_logFile>) {
+   chomp($line);
+      #>Options from footLoop.pl logfile=PCB9/0_Fastq/170804_pcb09_BSCset2_ccs_3minFP.fastq.gz.rmdup.fq.gz_MAP85pBUF100/logFile.txt
+   if ($line =~ /^Run script full/) {
+      my @runscriptfull = split(" ", $line);
+      for (my $i = 0; $i < @runscriptfull; $i++) {
+         if ($runscriptfull[$i] eq "-n") {
+            ($footLoopFolder) = $runscriptfull[$i+1];
+            last;
+
+         }
+      }
+      last;
+   }
+}
+my $footLoopFolderPrint = defined $footLoopFolder ? $footLoopFolder : "UNDEFINED";
+die "Cannot find footLoop Folder $LCY$footLoopFolderPrint$N from logfile $footPeak_logFile\n" unless defined $footLoopFolder and -d $footLoopFolder;
+close $infootPeak_logFile;
+my $footLoop_logFile = $footLoopFolder . "/logFile.txt";
+
+
+# sanity check -n footPeakFolder
+
+#($footPeakFolder) = getFullpath($footPeakFolder);
+$footPeakFolder =~ s/\/$//;
+my $footClustFolder = "$footPeakFolder/FOOTCLUST";
+
+($geneIndexFile) = parse_footLoop_logFile($footLoop_logFile, $date, $uuid, $footLoopFolder);
+my ($genewant) = $opt_G if defined $opt_G;
+
 
 ##########
 # OUTDIR #
 ##########
-my $resDir = "$footPeakFolder/GCPROFILE";
-my ($resDirFullpath) = getFullpath($resDir);
+my $outDir = "$footPeakFolder/GCPROFILE";
+my ($outDirFullpath) = getFullpath($outDir);
 
-makedir($resDir) if not -d $resDir;
-makedir("$resDir/.TEMP") if not -d "$resDir/.TEMP";
-makedir("$resDir/.TSV") if not -d "$resDir/.TSV";
+makedir($outDir) if not -d $outDir;
+makedir("$outDir/.TEMP") if not -d "$outDir/.TEMP";
+makedir("$outDir/.TSV") if not -d "$outDir/.TSV";
 
 my $OUTDIRS;
-($OUTDIRS->{PDF}) = makeOutDir($resDirFullpath . "/PDF/");
+($OUTDIRS->{PDF}) = makeOutDir($outDirFullpath . "/PDF/");
 foreach my $OUTDIR (keys %{$OUTDIRS->{PDF}}) {
-	my $DIR = "$resDir/PDF/$OUTDIR/";
+	my $DIR = "$outDir/PDF/$OUTDIR/";
 	next if not -d $DIR;
 	my @pdf = <$DIR/*.pdf>;
 	system("rm $DIR/*.pdf") if @pdf != 0;
@@ -107,7 +124,7 @@ foreach my $OUTDIR (keys %{$OUTDIRS->{PDF}}) {
 ##############
 
 my %gene;
-my @line = `cat $indexFile`;
+my @line = `cat $geneIndexFile`;
 foreach my $line (@line) {
 	chomp($line);
 	my ($chr, $beg, $end, $gene, $zero, $strand, $feature) = split("\t", $line);
@@ -121,7 +138,6 @@ foreach my $line (@line) {
 # PARSE FOOTPEAK LOGFILE #
 ##########################
 
-my ($footPeak_logFile) = "$footPeakFolder/footPeak_logFile.txt";
 my $footLoop_run_script = `grep -iP "footLoop Run script\\s*:.+-g .+.fa" $footPeak_logFile`;
 DIELOG($outLog, "Cannot find footLoop_run_script from footPeak logfile $footPeak_logFile\n") if not defined $footLoop_run_script or (defined $footLoop_run_script and $footLoop_run_script !~ /\w+/);
 my @footLoop_run_script = split(" ", $footLoop_run_script);
@@ -183,7 +199,7 @@ foreach my $bedFile (sort @bedFiles) {
 LOG($outLog, "\n\n" . date() . "2. Calculating Sequence profile (might take a couple minutes)\n\n");
 if (not defined ($opt_S)) {
 	my $res1 = ""; my $res2 = "";
-	my @bedFiles = <$resDir/.TEMP/*_[ABCDEFW].temp>;
+	my @bedFiles = <$outDir/.TEMP/*_[ABCDEFW].temp>;
 	my $fileCount = 0;
 	foreach my $bedFile (@bedFiles[0..@bedFiles-1]) {
 		$fileCount ++;
@@ -193,14 +209,14 @@ if (not defined ($opt_S)) {
 		LOG($outLog, date() . "\t- $cmd\n","NA");
 		$res1 .= `$cmd`;
 
-		$cmd = "$footLoopScriptsFolder/lib/counter_cpg_indiv.pl -w 200 -s 1 -o $resDir/.TSV/ -A $bedFolder/$bedFilename.fa";
+		$cmd = "$footLoop_script_folder/lib/counter_cpg_indiv.pl -w 200 -s 1 -o $outDir/.TSV/ -A $bedFolder/$bedFilename.fa";
 		LOG($outLog, date() . "\t- $cmd\n","NA");
 		$res2 .= `$cmd`;
 	}
-	open (my $outRes1, ">", "$resDir/.TEMP/fastaFromBed.LOG") or LOG($outLog, "Cannot write to $resDir/.TEMP/fastaFromBed.LOG: $!\n");
+	open (my $outRes1, ">", "$outDir/.TEMP/fastaFromBed.LOG") or LOG($outLog, "Cannot write to $outDir/.TEMP/fastaFromBed.LOG: $!\n");
 	print $outRes1 "$res1\n";
 	close $outRes1;
-	open (my $outRes2, ">", "$resDir/.TEMP/counter_cpg_indiv.LOG") or LOG($outLog, "Cannot write to $resDir/.TEMP/counter_cpg_indiv.LOG: $!\n");
+	open (my $outRes2, ">", "$outDir/.TEMP/counter_cpg_indiv.LOG") or LOG($outLog, "Cannot write to $outDir/.TEMP/counter_cpg_indiv.LOG: $!\n");
 	print $outRes2 "$res2\n";
 	close $outRes2;
 }
@@ -210,9 +226,9 @@ if (not defined ($opt_S)) {
 ######################
 
 
-LOG($outLog, "\n\n" . date() . "3. Processing " . scalar(@files) . " files in $LCY$resDir$N\n");
+LOG($outLog, "\n\n" . date() . "3. Processing " . scalar(@files) . " files in $LCY$outDir$N\n");
 my @header = ("wind2", "sample", "type");
-print "\n\nThere i no file with .tsv in $LCY$resDir/$N!\n" and exit if (@files == 0);
+print "\n\nThere i no file with .tsv in $LCY$outDir/$N!\n" and exit if (@files == 0);
 foreach my $tsvFile (sort @files) {
 	LOG($outLog, "- Doing $LGN$tsvFile$N\n");
 	my ($coreOutFile) = $coreFile{$tsvFile};#$tsvFile =~ /^(.+)_100_.\.temp.fa.\w+.tsv$/;
@@ -259,7 +275,7 @@ foreach my $tsvFile (sort @files) {
 	}	
 	close $in1;
 }
-open (my $out1, ">", "$resDir/RESULT.TSV") or DIELOG($outLog, date() . "Cannot write to $resDir/RESULT.TSV: $!\n");
+open (my $out1, ">", "$outDir/RESULT.TSV") or DIELOG($outLog, date() . "Cannot write to $outDir/RESULT.TSV: $!\n");
 foreach my $outName (sort keys %{$data{input}}) {
 	my $WINDOW = $data{data}{$outName}{wind2};
 	my $CALCTYPE = $data{data}{$outName}{calctype};
@@ -287,7 +303,7 @@ foreach my $outName (sort keys %{$data{read}}) {
 	my $geneStrand = $gene{$GENE}{strand};
 	$feature = "FEATURE_UNKNOWN" if not defined $feature;
  	my $flag = getFlag($outName, $geneStrand, $readStrand, $rconvType);
-	my $sampleoutDir = $resDirFullpath . "/PDF/$flag/";
+	my $sampleoutDir = $outDirFullpath . "/PDF/$flag/";
 	#print "$outName: gene=$GENE feature=$feature readStrand=$readStrand geneStrand=$geneStrand rconvtype=$rconvType $LCY$sampleoutDir$N\n";
 	foreach my $read (sort keys %{$data{read}{$outName}}) {
 		my $curr_cluster = $data{cluster}{$outName}{$read};
@@ -304,16 +320,16 @@ foreach my $outName (sort keys %{$data{read}}) {
 	}
 }
 
-GCprofile_Rscript($resDir, $outLog);
+GCprofile_Rscript($outDir, $outLog);
 
 sub GCprofile_Rscript {
-	my ($resDir, $outLog) = @_;
-my $resDirFullpath = getFullpath($resDir);
+	my ($outDir, $outLog) = @_;
+my $outDirFullpath = getFullpath($outDir);
 
-my $RESULT = $resDir . "/RESULT.TSV";
-my $LABEL = `cat $resDir/../.LABEL`; DIELOG($outLog, "Cannot find $resDir/../.LABEL!\n") if not defined $LABEL; chomp($LABEL);
+my $RESULT = $outDir . "/RESULT.TSV";
+my $LABEL = `cat $outDir/../.LABEL`; DIELOG($outLog, "Cannot find $outDir/../.LABEL!\n") if not defined $LABEL; chomp($LABEL);
 my $LABEL2 = $LABEL;
-$LABEL = $resDirFullpath . "/$LABEL";
+$LABEL = $outDirFullpath . "/$LABEL";
 
 LOG($outLog, "
 
@@ -519,18 +535,18 @@ outfile=paste(outfile,\".pdf\",sep=\"\")
 }
 ";
 
-LOG($outLog, date() . "4. $YW Running R script $LCY$resDir/RESULT.R$N\n");
-open (my $outR, ">", "$resDir/RESULT.R") or DIELOG($outLog, date() . " Failed to write to $LCY$resDir/RESULT.R$N: $!\n");
+LOG($outLog, date() . "4. $YW Running R script $LCY$outDir/RESULT.R$N\n");
+open (my $outR, ">", "$outDir/RESULT.R") or DIELOG($outLog, date() . " Failed to write to $LCY$outDir/RESULT.R$N: $!\n");
 print $outR $Rscript;
 close $outR;
-system("R --vanilla --no-save < $resDir/RESULT.R > $resDir/RESULT.R.LOG 2>&1") == 0 or DIELOG($outLog, date() . " Failed to run $LCY$resDir/RESULT.R$N: $!\n");
-my $tailR = `tail $resDir/RESULT.R.LOG`;
+system("R --vanilla --no-save < $outDir/RESULT.R > $outDir/RESULT.R.LOG 2>&1") == 0 or DIELOG($outLog, date() . " Failed to run $LCY$outDir/RESULT.R$N: $!\n");
+my $tailR = `tail $outDir/RESULT.R.LOG`;
 
-LOG($outLog, "\n\n" . date() . " ${LGN}SUCCESS on running $LCY$resDir/RESULT.R$YW.\nLast 5 rows of log message:$N\n$N$tailR
+LOG($outLog, "\n\n" . date() . " ${LGN}SUCCESS on running $LCY$outDir/RESULT.R$YW.\nLast 5 rows of log message:$N\n$N$tailR
 
 
 ${YW}To Run R script manually, do:$N
-R --vanilla --no-save < $resDir/RESULT.R
+R --vanilla --no-save < $outDir/RESULT.R
 ");
 }
 
@@ -583,7 +599,7 @@ sub preprocess_bed {
 	my $window = 100;
 	my $window2 = 200;
 
-	my $bedFileChanged = "$resDir/.TEMP/$bedFilename.BED";
+	my $bedFileChanged = "$outDir/.TEMP/$bedFilename.BED";
 
 	my %bed;
 	open (my $bedIn, "<", $bedFile) or DIELOG($outLog, date() . "Failed to read from $bedFile: $!\n");
@@ -613,22 +629,22 @@ sub preprocess_bed {
 		}
 	}
 	close $bedOut;
-	my $outputA = "$resDir/.TEMP/$bedFilename\_$window\_A.temp";
-	my $outputB = "$resDir/.TEMP/$bedFilename\_$window\_B.temp";
-	my $outputC = "$resDir/.TEMP/$bedFilename\_$window\_C.temp";
-	my $outputD = "$resDir/.TEMP/$bedFilename\_$window\_D.temp";
-	my $outputE = "$resDir/.TEMP/$bedFilename\_$window\_E.temp";
-	my $outputF = "$resDir/.TEMP/$bedFilename\_$window\_F.temp";
-	my $outputW = "$resDir/.TEMP/$bedFilename\_$window\_W.temp";
+	my $outputA = "$outDir/.TEMP/$bedFilename\_$window\_A.temp";
+	my $outputB = "$outDir/.TEMP/$bedFilename\_$window\_B.temp";
+	my $outputC = "$outDir/.TEMP/$bedFilename\_$window\_C.temp";
+	my $outputD = "$outDir/.TEMP/$bedFilename\_$window\_D.temp";
+	my $outputE = "$outDir/.TEMP/$bedFilename\_$window\_E.temp";
+	my $outputF = "$outDir/.TEMP/$bedFilename\_$window\_F.temp";
+	my $outputW = "$outDir/.TEMP/$bedFilename\_$window\_W.temp";
 
-	print "$footLoopScriptsFolder/lib/bedtools_bed_change.pl -a -x -$window2 -y 0 -i $bedFileChanged -o $outputA > $outputA.LOG 2>&1\n";
-	system("$footLoopScriptsFolder/lib/bedtools_bed_change.pl -a -x -$window2 -y 0 -i $bedFileChanged -o $outputA > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoopScriptsFolder/lib/bedtools_bed_change.pl: $!\n");
-	system("$footLoopScriptsFolder/lib/bedtools_bed_change.pl -a -x -$window -y $window -i $bedFileChanged -o $outputB > $outputB.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoopScriptsFolder/lib/bedtools_bed_change.pl: $!\n");
-	system("$footLoopScriptsFolder/lib/bedtools_bed_change.pl -a -x 0 -y $window2 -i $bedFileChanged -o $outputC > $outputC.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoopScriptsFolder/lib/bedtools_bed_change.pl: $!\n");
-	system("$footLoopScriptsFolder/lib/bedtools_bed_change.pl -x 0 -y 0 -i $bedFileChanged -o $outputW > $outputW.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoopScriptsFolder/lib/bedtools_bed_change.pl: $!\n");
-	system("$footLoopScriptsFolder/lib/bedtools_bed_change.pl -b -x -$window2 -y 0 -i $bedFileChanged -o $outputD > $outputD.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoopScriptsFolder/lib/bedtools_bed_change.pl: $!\n");
-	system("$footLoopScriptsFolder/lib/bedtools_bed_change.pl -b -x -$window -y $window -i $bedFileChanged -o $outputE > $outputE.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoopScriptsFolder/lib/bedtools_bed_change.pl: $!\n");
-	system("$footLoopScriptsFolder/lib/bedtools_bed_change.pl -b -x 0 -y $window2 -i $bedFileChanged -o $outputF > $outputF.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoopScriptsFolder/lib/bedtools_bed_change.pl: $!\n");
+	print "$footLoop_script_folder/lib/bedtools_bed_change.pl -a -x -$window2 -y 0 -i $bedFileChanged -o $outputA > $outputA.LOG 2>&1\n";
+	system("$footLoop_script_folder/lib/bedtools_bed_change.pl -a -x -$window2 -y 0 -i $bedFileChanged -o $outputA > $outputA.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoop_script_folder/lib/bedtools_bed_change.pl: $!\n");
+	system("$footLoop_script_folder/lib/bedtools_bed_change.pl -a -x -$window -y $window -i $bedFileChanged -o $outputB > $outputB.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoop_script_folder/lib/bedtools_bed_change.pl: $!\n");
+	system("$footLoop_script_folder/lib/bedtools_bed_change.pl -a -x 0 -y $window2 -i $bedFileChanged -o $outputC > $outputC.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoop_script_folder/lib/bedtools_bed_change.pl: $!\n");
+	system("$footLoop_script_folder/lib/bedtools_bed_change.pl -x 0 -y 0 -i $bedFileChanged -o $outputW > $outputW.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoop_script_folder/lib/bedtools_bed_change.pl: $!\n");
+	system("$footLoop_script_folder/lib/bedtools_bed_change.pl -b -x -$window2 -y 0 -i $bedFileChanged -o $outputD > $outputD.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoop_script_folder/lib/bedtools_bed_change.pl: $!\n");
+	system("$footLoop_script_folder/lib/bedtools_bed_change.pl -b -x -$window -y $window -i $bedFileChanged -o $outputE > $outputE.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoop_script_folder/lib/bedtools_bed_change.pl: $!\n");
+	system("$footLoop_script_folder/lib/bedtools_bed_change.pl -b -x 0 -y $window2 -i $bedFileChanged -o $outputF > $outputF.LOG 2>&1") == 0 or DIELOG($outLog, "Failed to run $footLoop_script_folder/lib/bedtools_bed_change.pl: $!\n");
 }
 
 

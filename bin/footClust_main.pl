@@ -1,15 +1,15 @@
 #!/usr/bin/perl
 	
 use strict; use warnings FATAL=>'all'; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
-use vars qw($opt_v $opt_d $opt_n $opt_G $opt_t $opt_R $opt_D $opt_0 $opt_J $opt_F);
-getopts("vd:n:G:t:RD:0J:F");
+use vars qw($opt_v $opt_d $opt_n $opt_G $opt_t $opt_R $opt_D $opt_0 $opt_J $opt_F $opt_f);
+getopts("vd:n:G:t:RD:0J:Ff");
 
 BEGIN {
-   my $libPath = dirname(dirname abs_path $0) . '/footLoop/lib';
+   my $libPath = dirname(dirname abs_path $0) . '/lib/';
    push(@INC, $libPath);
    print "\n- Pushed $libPath into perl lib path INC\n";
 
-   my $softwarePath = dirname(dirname abs_path $0) . '/footLoop/softwares/';
+   my $softwarePath = dirname(dirname abs_path $0) . '/softwares/';
 }
 
 use myFootLib;
@@ -18,9 +18,9 @@ use FAlite;
 my $homedir = $ENV{"HOME"};
 my $usage = "\n$YW$0$N -n $LCY<footPeakFolder>$N\n\n";
 
-my ($peakFile, $faFile, $label, $footLoopFolder, $geneIndexFile, $totalpeakFiles) = @ARGV;
+my ($peakFile, $faFile, $label, $footLoopFolder, $geneIndexFile, $totalpeakFiles, $forcerun) = @ARGV;
 my ($footPeakFolder, $max_parallel_run, $clustThreshold, $windowDiv, $dist) = ($opt_n, $opt_J, $opt_t, $opt_D, $opt_d);
-die $usage  unless @ARGV == 6 and defined $opt_n and -e $opt_n;
+die $usage  unless @ARGV >= 6 and defined $opt_n and -e $opt_n;
 
 my @footPeakFolderShort = split("/", $footPeakFolder);
 my ($footPeakFolderShort) = @footPeakFolderShort[@footPeakFolderShort-1];
@@ -87,14 +87,6 @@ LOG($outLog, "\n\n");
 
 my @local_peak_files = ($peakFile);
 
-#my $sbatch_these_cmd = "Rscript FILENAME";
-#my $force_sbatch = 1 if defined $opt_F;
-#my $outsbatchDir = "$outDir/.footClust_sbatch/";
-#system("mkdir -p $outsbatchDir") if not -d $outsbatchDir;
-#sbatch_these($sbatch_these_cmd, "footClust", \@Rscript, $max_parallel_run, $outLog, $force_sbatch, $outsbatchDir);
-
-
-
 ####################
 # Processing Input #
 ####################
@@ -103,13 +95,11 @@ my $local_peak_file_count = -1;
 my $curr_gene = -1;
 my $type_count = -1;
 my @Rscript;
+
 for (my $i = 0; $i < @local_peak_files; $i++) {
 	my $local_peak_file = $local_peak_files[$i];
-#DEBUG
 	if (defined $opt_G) {
 		if ($local_peak_file !~ /$opt_G/i) {
-			#LOG($outLog, date() . " Skipped $LCY$local_peak_file$N as it doesn't contain $LGN-G $opt_G$N\n");
-			#LOG($outLog, date() . "${LPR}footClust_sbatch_2.pl$N: $LGN$i$N ${LRD}Skipped$N $LCY$local_peak_file$N as it doesn't contain $LGN-G $opt_G$N\n");
 			next;
 		}
 		else {
@@ -128,15 +118,12 @@ for (my $i = 0; $i < @local_peak_files; $i++) {
 	# get gene and strand from file name
 	my $parseName = parseName($fileName1);
    my ($label2, $gene, $strand, $window, $thres, $type) = @{$parseName->{array}};
-	#die "fileName1=$LCY$fileName1, label=$label2 gene=$gene strand=$strand window=$window thres=$thres type=$type\n";
    LOG($outLog, "\n------------- $YW WARNING!!! $N -------------\n\nUsing label=$label2. Inconsistent label in filename $LCY$fileName1$N\nLabel from $footPeakFolder/.LABEL: $label\nBut from fileName: $label2\n\n--------------- $YW WARNING!!! $N ---------------\n\n") if $label ne $label2;
    $label = $label2;
 	my ($coorCHR, $coorBEG, $coorEND, $coorSTRAND) = ($coor{uc($gene)}{chr}, $coor{uc($gene)}{beg}, $coor{uc($gene)}{end}, $coor{uc($gene)}{strand});
 	LOG($outLog, "gene=$LCY$gene$N\n");
 	DIELOG($outLog, date() . "Fatal error at footClust.pl file=$local_peak_file, gene=$LCY$gene$N main gene index strand (\$coorSTRAND) is $coorSTRAND (has to be + or -)\n") if $coorSTRAND !~ /^[\+\-]$/;
-	my $Rstrand = $coorSTRAND eq "+" ? "Pos" : "Neg";#$coorSTRAND eq "-" ? "Neg" : "Pos";
-#	my ($label2, $gene, $strand, $window, $thres, $type) = $fileName1 =~ /^(.+)\_gene(.+)_(Pos|Neg|Unk)_(\d+)_(\d+\.?\d*)_(GH|GC|CG|CH).PEAK/;
-#	LOG($outLog, date() . "Cannot parse gene name from file=$LCY$local_peak_file$N\n") unless defined $gene and defined $strand and defined $window and defined $thres and defined $type;
+	my $Rstrand = $coorSTRAND eq "+" ? "Pos" : "Neg";
 
 	$thres *= 100 if $thres < 1;
 	$gene   = uc($gene);
@@ -149,14 +136,9 @@ for (my $i = 0; $i < @local_peak_files; $i++) {
 	$type_count ++;
 	$curr_gene = $gene;
 	$strand = $strand eq "Neg" ? "-" : "+";
-	# check peak file. Skip if there's less than 10 peaks
+
+	# check number of peak
 	my ($total_line) = `wc -l $local_peak_file` =~ /^(\d+)/;
-	#if ($total_line <= 10) {
-	#	LOG($outLog, "\n--------------\n\n$LGN$local_peak_file_count$N. ${LRD}NEXTED $N: $local_peak_file ${LCY}because total peaks is less than 10 $N($LGN$total_line$N)\n\n");
-	#	$files_log .= "$label\t$gene\t$strand\t$window\t$thres\t$type\t${LRD}Skip$N\ttotal_peak_all=$total_line\ttotal_read_unique=-1\ttotal_peak_used=-1\tPEAKS_LOCAL=PEAKS_LOCAL/$fullName1\tPEAK_FILE=NA\n";
-	#	next;
-	#}
-	#$files_log .= "$label\t$gene\t$strand\t$window\t$thres\t$type\t${LGN}Ran$N\ttotal_peak_all=$total_line";
 
 	# Actual parse of peak file
 	my ($linecount, $total_peak_used, $total_peak_all, %data) = (0,0,0);
@@ -169,7 +151,7 @@ for (my $i = 0; $i < @local_peak_files; $i++) {
 		chomp($line);
 		$linecount ++;
 		my ($read, $beg, $end) = split("\t", $line);
-		my ($id) = parse_readName($read, $outLog);#, $read =~ /^.*\.?m(\d+_\d+).+\/(\d+)\/(ccs|\d+_\d+)/;
+		my ($id) = parse_readName($read, $outLog);
 		DIELOG($outLog, "\n\nERROR AT PARSING NUMBERS from read=$LGN$read$N\n\n") if not defined $id;
 
 		LOG($outLog, date() . "$LRD\tERROR$N:$LCY Read must end in this format$N: <anything>/<hole number>/ccs\n\n$read\n\n") and die if not defined $id;
@@ -205,7 +187,6 @@ for (my $i = 0; $i < @local_peak_files; $i++) {
 	die "Cannot get filenameshort of $local_peak_file ($LCY$fullName1$N)\n" unless defined $fileNameShort;
 	my $peakFile = "$footPeakFolder/.CALL/$fileNameShort.PEAK.out";
 	die "Cannot find PEAK file of $local_peak_file ($LCY$peakFile$N)\n" unless -e $peakFile;
-	#$files_log .= "\ttotal_read_unique=$total_read_unique\ttotal_peak_used=$total_peak_used\tPEAKS_LOCAL=PEAKS_LOCAL/$fullName1\tPEAK_FILE=$peakFile\tCLUSTER_FILE=FOOTCLUST/.TEMP/$fullName1.clust\n";
 
 	# Calculate average beg/mid/end and write a temp bed file for each peak
 	LOG($outLog, date() . "$LCY\tInfo 2$N: total_peak_all=$LGN$total_peak_all$N,total_read_unique=$LGN$total_read_unique$N,total_peak_used=$LGN$total_peak_used$N\n");
@@ -249,8 +230,6 @@ print(.libPaths())
 
 	last_cluster = 0
 
-	#df = df.main
-	#added 24/6/9
    dftemp = df.main
    dftemp\$len = dftemp\$xend - dftemp\$xbeg
    dftemp2 = aggregate(dftemp\$len, by=list(dftemp\$id), max)
@@ -338,7 +317,6 @@ print(.libPaths())
 	df\$ybeg = seq(1,dim(df)[1])
 	df\$yend = seq(2,dim(df)[1]+1)
 	write.table(df,\"$tempFile2_Clust\",quote=F,row.names=F,col.names=T,sep=\"\\t\")
-	#png(type=\"cairo\",\"$tempFile2_PNG\",height=(dim(df)[1])*5,width=max(df\$xend)+10)
 	png(\"$tempFile2_PNG\",height=min(20000,(dim(df)[1])*5),width=max(df\$xend)+10)
 	ggplot(df, aes(xbeg,ybeg)) + geom_rect(aes(xmin=xbeg,ymin=ybeg,xmax=xend,ymax=yend,fill=as.factor(clust))) + theme_bw() + 
 	theme(panel.grid=element_blank()) + coord_fixed(ratio=10)
@@ -349,18 +327,10 @@ print(.libPaths())
 	open (my $outR, ">", "$tempFile1_Peak.R") or DIELOG($outLog, date() . __LINE__ . "Failed to write to $tempFile1_Peak.R: $!\n");
 	print $outR $Rscript;
 	close $outR;
-	#push(@Rscript, "$tempFile1_Peak.R");
-	if (not -e "$tempFile2_Clust" or defined $opt_F) {
+	if (not -e "$tempFile2_Clust" or defined $opt_F or defined $opt_f) {
 		system("Rscript $tempFile1_Peak.R") == 0 or DIELOG($outLog, date() . __LINE__ . "Failed to run Rscript $tempFile1_Peak.R: $!\n") and exit 1;
 	}
-	#if (not -e "$tempFile1_Peak.R.log") { #FORCE
-		#system("Rscript $tempFile1_Peak.R > $tempFile1_Peak.R.log 2>&1");
-	#}
-	#my @Rlog = `tail -n 3 $tempFile1_Peak.R.log`;
-	#LOG($outLog, date() . "$LCY\tR logs$N:\n\t\t\t\t" . join("\t\t\t\t", @Rlog) . "\n");
 
-
-###HERE
 	my ($ampliconLength) = $genes{uc($gene)};
 	DIELOG($outLog, date() . " Failed to get amplicon length frmo gene=" . uc($gene) . ": $!\n") if not defined $ampliconLength;
 
@@ -373,13 +343,14 @@ print(.libPaths())
 	my $outlocalBedFile  = "$outDir/CLUST_LOCAL/$fullName1.clust";
 	my $outgenomeBedFile  = "$outDir/CLUST_GENOME/$fullName1.clust";
 	$outgenomeBedFile =~ s/\.local/.genome/i;
+
 	# process clust
 	my %clust0;
 	open (my $clustIn0, "<", $tempFile2_Clust) or DIELOG($outLog, date() . __LINE__ . "\tFailed to read form $tempFile2_Clust: $!\n");
 	while (my $line = <$clustIn0>) {
 		chomp($line);
 		if ($line =~ /xbeg\txend/) {next;}
-		my ($id, $xbeg, $xend, $ybeg, $yend, $clust, $id2) = split("\t", $line);#, $total_peaks) = split("\t", $line);
+		my ($id, $xbeg, $xend, $ybeg, $yend, $clust, $id2) = split("\t", $line);
 		@{$clust0{$id}{clustarr}} = defined $clust0{$id} ? (@{$clust0{$id}{clustarr}},$clust) : ($clust);
 		$clust0{$id}{total_peak} ++;
 		push(@{$clust0{$id}{line}}, "$id\t$xbeg\t$xend");
@@ -397,26 +368,20 @@ print(.libPaths())
 		}
 	}
 
-#	if (Rstrand == \"Neg\" & toggleRstrand == \"Yes\") {
-#		df = df[order(-df\$clust, -as.integer(df\$xend/mylen), -as.integer(df\$xbeg/mylen)),]
-#	} else {
-#		df = df[order(df\$clust, as.integer(df\$xbeg/mylen), as.integer(df\$xend/mylen)),]
-#	}
-
 	my ($ybeg, $yend) = (1,2);
 	my $clust = 0; my $lastClustText = "NA";
 	open (my $outClust0, ">", $tempFile2_Clust) or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $tempFile2_Clust: $!\n");
 
 	if ($Rstrand eq "Neg" and $toggleRstrand eq "Yes") {
 		foreach my $id (sort {$clust0{$b}{total_peak} <=> $clust0{$a}{total_peak} || $clust0{$b}{clust} <=> $clust0{$a}{clust} || $clust0{$b}{end} <=> $clust0{$a}{end} || $clust0{$b}{beg} <=> $clust0{$a}{beg} } keys %clust0) {
-			my $clustText = join(",", @{$clust0{$id}{clustarr}});# . " (" . $clust0{$id}{total_peak} . ")";
+			my $clustText = join(",", @{$clust0{$id}{clustarr}});
 			$clust ++ if $lastClustText ne $clustText;
 			$lastClustText = $clustText;
 		}
 		$clust ++;
 		$lastClustText = "NA";
 		foreach my $id (sort {$clust0{$b}{total_peak} <=> $clust0{$a}{total_peak} || $clust0{$b}{clust} <=> $clust0{$a}{clust} || $clust0{$b}{end} <=> $clust0{$a}{end} || $clust0{$b}{beg} <=> $clust0{$a}{beg} } keys %clust0) {
-			my $clustText = join(",", @{$clust0{$id}{clustarr}});# . " (" . $clust0{$id}{total_peak} . ")";
+			my $clustText = join(",", @{$clust0{$id}{clustarr}});
 			$clust -- if $lastClustText ne $clustText;
 			foreach my $line (@{$clust0{$id}{line}}[0..(@{$clust0{$id}{line}}-1)]) {
 				print $outClust0 "$line\t$ybeg\t$yend\t$clust\t$clustText\n";
@@ -428,7 +393,7 @@ print(.libPaths())
 	}
 	else {
 		foreach my $id (sort {$clust0{$a}{total_peak} <=> $clust0{$b}{total_peak} || $clust0{$a}{clust} <=> $clust0{$b}{clust} || $clust0{$a}{end} <=> $clust0{$b}{end} || $clust0{$a}{beg} <=> $clust0{$b}{beg} } keys %clust0) {
-			my $clustText = join(",", @{$clust0{$id}{clustarr}});# . " (" . $clust0{$id}{total_peak} . ")";
+			my $clustText = join(",", @{$clust0{$id}{clustarr}});
 			$clust ++ if $lastClustText ne $clustText;
 			foreach my $line (@{$clust0{$id}{line}}[0..(@{$clust0{$id}{line}}-1)]) {
 				print $outClust0 "$line\t$ybeg\t$yend\t$clust\t$clustText\n";
@@ -468,13 +433,6 @@ print(.libPaths())
 		$cl{$clust}{total_read_unique} ++ if not defined $used{$id};
 		$used{$id} = 1;
 	}
-	#=commentcut2
-	#open (my $outz2, ">", "$outDir/.TEMP/$fullName1.clust") or DIELOG($outLog, date() . __LINE__ . "\tFailed to write to $outDir/.TEMP/$fullName1.clust: $!\n");
-	#print $outz2 "$clustheader\n";
-	#foreach my $num (@clust[0..@clust-1]) {
-	#	print $outz2 "$clust{$num}\n";
-	#}
-	#close $outz2;
 
 	my $tempFile3_Bed = $tempFile2_Clust . ".bed";
 	my $tempFile4_Fa  = $tempFile3_Bed . ".fa";
@@ -482,7 +440,6 @@ print(.libPaths())
 	open (my $outlocalBed, ">", $outlocalBedFile) or DIELOG($outLog, date() . __LINE__ . "\tFailed to read form $outlocalBedFile: $!\n");
 	open (my $outgenomeBed, ">", $outgenomeBedFile) or DIELOG($outLog, date() . __LINE__ . "\tFailed to read form $outgenomeBedFile: $!\n");
 	print $out2 "#gene\tbeg\tend\tcluster\ttotal_peak\tstrand\n";
-	#my ($coorCHR, $coorBEG, $coorEND, $coorSTRAND) = ($coor{uc($gene)}{chr}, $coor{uc($gene)}{beg}, $coor{uc($gene)}{end}, $coor{uc($gene)}{strand});
 	DIELOG($outLog, date() . "\tFailed to get coordinate for gene=" . uc($gene) . ", chr=$coorCHR beg=$coorBEG end=$coorEND strand=$coorSTRAND\n") if not defined $coorCHR or not defined $coorBEG or not defined $coorEND or not defined $coorSTRAND;
 	foreach my $clust (sort {$a <=> $b} keys %cl) {
 		my $BEG   = int(tmm(@{$cl{$clust}{beg}})+0.5);
@@ -506,7 +463,6 @@ print(.libPaths())
 		($endOfEND) = $ampliconLength if $endOfEND > $ampliconLength;
 		($begOfALL) = 1 if $begOfALL < 1;
 		($endOfALL) = $ampliconLength if $endOfALL > $ampliconLength;
-#		my $total = @{$cl{$clust}{beg}};
 		my $total_read = $cl{$clust}{total_read};
 		my $total_read_unique = $cl{$clust}{total_read_unique};
 		my $begGENOME = $coorBEG + $begOfALL;
@@ -555,182 +511,3 @@ print(.libPaths())
 	LOG($outLog, "\n" . date() . "${LGN}SUCCESS!!!$N ${YW}footClust_sbatch_2.pl$N on $LCY$footPeakFolderShort$N\n\n");
 }	
 close $outLog;
-#open (my $outz, ">", "$outDir/.0_LOG_FILESRAN") or DIELOG($outLog, "Failed tow rite to $outDir/.0_LOG_FILESRAN:$!\n");
-#print $outz $files_log;
-#close $outz;
-
-
-#LOG($outLog, "\n$YW ----------- FILES RAN ---------- $N\n\n" . date() . "$LCY\tSummary of run$N: $outDir/.0_LOG_FILESRAN\n\n$files_log\n\n");
-
-
-sub parse_footLoop_logFile {
-   my ($logFile, $date, $uuid, $footFolder, $version) = @_;
-   #my @line = `cat $logFile`;
-   my $paramsFile = "$footFolder/.PARAMS";
- #  my $inputFolder = $defOpts->{n};
-	my $geneIndexFile;
-   my @parline = `cat $paramsFile`;
-   foreach my $parline (@parline) {
-      if ($parline =~ /footLoop.pl,geneIndexFile,/) {
-         ($geneIndexFile) = $parline =~ /geneIndexFile,(.+)$/;
-      }
-	}
-	return($geneIndexFile);
-}
-
-sub sbatch_these {
-   #my ($cmd, $suffix, $ext, $filesARRAY, $max_parallel_run, $outLog, $force_sbatch, $folderwant) = @_;
-   my ($cmd, $suffix, $filesARRAY, $max_parallel_run, $outLog, $force_sbatch, $folderwant) = @_;
-
-   my %force;
-
-   # - suffix : $file\_$suffix.sbatch/sbout/folder
-   # - ext    : determine donefile (<$file\_$suffix/*.$ext>)
-
-   my $jobidhash;
-   my $totalfiles = scalar(@{$filesARRAY});
-   for (my $i = 0; $i < @{$filesARRAY}; $i++) {
-
-      my $file = $filesARRAY->[$i];
-      my ($folder, $filename) = getFilename($file, "folderfull");
-      $folderwant = $folder if not defined $folderwant;
-      my $sbatchfile = "$folderwant/$filename\_$suffix.sbatch";
-      my $sboutfile  = "$folderwant/$filename\_$suffix.sbout";
-      my $donefile   = "$folderwant/$filename\_$suffix.done";
-
-      my $cmdcopy = $cmd;
-         $cmdcopy =~ s/FILENAME/$file/g;
-
-      if ($cmdcopy !~ /FOLDER/) {
-         system("mkdir -p $folderwant/$filename\_$suffix") if not -e "$folderwant/$filename\_$suffix";
-      }
-      else {
-         $cmdcopy =~ s/FOLDER/$folderwant/g;
-      }
-      if ($i == 0) {
-         print_cmd($cmdcopy, $outLog);
-      }
-
-      if ($cmd =~ /FNINDICE/) {
-         $cmdcopy =~ s/FNINDICE/$i/g;
-      }
-
-      $sboutfile =~ s/\/+/\//g;
-      my $sbatchprint = "";
-         $sbatchprint .= "#!/bin/bash -l\n";
-         $sbatchprint .= "#SBATCH -n 2 -N 1 -p high --mem 8000 -t 999:99:99\n";
-         $sbatchprint .= "#SBATCH --job-name \"$filename\_$suffix\"\n";
-         $sbatchprint .= "#SBATCH --output \"$sboutfile\"\n\n";
-         $sbatchprint .= "conda activate footLoop2\n";
-         $sbatchprint .= "$cmdcopy && echo \"Done!\" > $donefile\n\n";
-
-      #"sbatchFile=\n$LCY$sbatchfile$N\n\n" if defined $opt_0;
-      open (my $out, ">", $sbatchfile) or die "Can't write to $LCY$sbatchfile$N: $!\n";
-      print $out $sbatchprint;
-      close $out;
-
-		my $iprint = $i + 1;
-      if (not defined $force{0} and not defined $force_sbatch and -e $donefile) {
-         LOG($outLog, "\n" . date() . "${LPR}$iprint/$totalfiles sbatch_these $suffix$N: sbatch $LCY$sbatchfile$N # ${LGN}DONE$N\n");
-         next;
-      }
-      else {
-         LOG($outLog, "\n" . date() . "${LPR}$iprint/$totalfiles sbatch_these $suffix$N: sbatch: $LCY$sbatchfile$N\n");
-      }
-
-      if (defined $opt_0) { # Debug
-         next;
-      }
-
-      if ($i != 0) {
-         my $sleep = 0;
-         while (1) {
-            last if $i < $max_parallel_run;
-            my ($job_left) = squeue_check($jobidhash);
-            LOG($outLog, "\n" . date() . "$job_left jobs left!\n") if $sleep % 12 == 0;
-            last if ($job_left < $max_parallel_run);
-            $sleep ++;
-            sleep 5;
-         }
-      }
-      my ($jobid) = `sbatch $sbatchfile`;
-      chomp($jobid);
-      ($jobid) = $jobid =~ /^Submi.+job (\d+)$/;
-      next if not defined $jobid;
-      $jobidhash->{$jobid} = 1;
-      LOG($outLog, "$YW$i$N $LCY$filename$N $LGN$jobid$N\n");
-      #system("touch $file.done") == 0 or die "failed to touch $file.done: $!\n";
-   }
-   my $sleep = 0;
-   #while (1) {
-   #  my ($job_left) = squeue_check($jobidhash);
-   #  LOG($outLog, "\n" . date() . "$job_left jobs left!\n") if $sleep % 60 == 0;
-   #  last if ($job_left < $max_parallel_run);
-   #  $sleep ++;
-   #  sleep 1;
-   #}
-   #$sleep = 0;
-   while (1) {
-      my ($job_left) = squeue_check($jobidhash);
-      LOG($outLog, "\n" . date() . "$job_left jobs left!\n") if $sleep % 12 == 0;
-      last if $job_left == 0;
-      $sleep ++;
-      sleep 5;
-   }
-   LOG($outLog, "\n" . date() . "All have been run!\n\n");
-   return(0);
-}
-
-sub squeue_check {
-   my ($jobidhash, $outLog) = @_;
-   my @squeue = `squeue`;
-   my $squeuehash;
-   foreach my $line (@squeue) {
-      next if $line =~ /JOBID\s+PARTITION.+/;
-      my ($jobid) = $line =~ /^\s*(\d+)\s+/;
-      if (not defined $jobid) {
-         LOG($outLog, "Can't parse jobid from line=$LCY$line$N\n");
-         next; # just next so we don't kill the script...
-      }
-      next if not defined $jobidhash->{$jobid};
-      $squeuehash->{$jobid} = 1;
-   }
-   foreach my $jobid (keys %{$jobidhash}) {
-      next if defined $squeuehash->{$jobid};
-      undef $jobidhash->{$jobid};
-      delete $jobidhash->{$jobid};
-   }
-   my ($total) = scalar(keys %{$jobidhash});
-   return ($total);
-}
-
-sub print_cmd {
-   my ($cmd, $outLog) = @_;
-   #LOG($outBigCMD, "\n$cmd\n","NA");
-   if ($cmd !~ /^#/) {
-      $cmd =~ s/^/    /;
-      $cmd =~ s/ \-/ \\\n      \-/g;
-   }
-   else {
-      $cmd =~ s/^#/   # /;
-      $cmd =~ s/ \-/ \\\n     # \-/g;
-   }
-   LOG($outLog, "$LGN\n$cmd\n$N\n");
-   #LOG($outBigCMD, "\n$cmd\n","NA");
-}
-
-__END__
-=comment
-my $usage = "
-
------------------
-$YW $0 $version_small $N
------------------
-
-Usage: $YW$0$N $LGN-g gene$N $CY-n <footPeak's output folder (footPeak's -o)>$N
-
--D: tightness of read placement in each cluster (default: 200)
--R: toggle to order reads reversely (good foor in vitro REVERSE_ genes)
-
-";
-=cut
