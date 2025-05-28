@@ -31,7 +31,6 @@ use FAlite;
 ##################
 # 0. Check Sanity #
 ##################
-
 my %OPTS  = ('r' => $opt_r, 'g' => $opt_g, 'i' => $opt_i, 'n' => $opt_n, 'G' => $opt_G,
 				 'L' => $opt_L, 'x' => $opt_x, 'y' => $opt_y, 'p' => $opt_p, 'J' => $opt_J,
 				 'q' => $opt_q, 'F' => 'NONE', 'Z' => 'NONE', 'o' => $opt_o, '0' => $opt_0,
@@ -44,8 +43,9 @@ my $filterBAMFile_script = "$footLoop_script_folder/bin/footLoop_3_filterBAMFile
 
 my $version = "unk";
 my $md5script = "unk";
-check_sanity(\%OPTS, \%OPTS2);
 ($footLoop_script_folder, $version, $md5script) = check_software();
+check_sanity(\%OPTS, \%OPTS2);
+
 
 print "version $YW$version$N\n";
 $opt_F = "1,2,3,4,5,6,7,8,9" if defined $opt_f;

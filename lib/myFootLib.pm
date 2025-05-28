@@ -1,5 +1,6 @@
 package myFootLib;
 
+use Cwd qw(abs_path); use File::Basename qw(dirname);
 use strict; use warnings;
 use vars qw(@EXPORT);
 use parent "Exporter";
@@ -99,7 +100,11 @@ my $md5script = `which md5` =~ /md5/ ? "md5" : "md5sum";
 sub check_software {
 	#my ($debug) = @_;# debug
 	my ($footLoop_script_folder, $version, $md5script);
-	my @check_software = `bin/check_software.pl 2>&1`;
+   $footLoop_script_folder = dirname(dirname abs_path $0) . '/footLoop/';
+	my @check_software = `$footLoop_script_folder/bin/check_software.pl 2>&1`;
+	
+	#print "\n$LPR>>" . join("\n", @check_software) . "<<<$N\n\n";
+	#exit 1;
 	foreach my $check_software_line (@check_software[0..@check_software-1]) {
 		chomp($check_software_line);
 		next if $check_software_line !~ /\=/;

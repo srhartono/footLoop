@@ -4,7 +4,7 @@
 use warnings; use strict; use Getopt::Std; use Cwd qw(abs_path); use File::Basename qw(dirname);
 
 BEGIN {
-   my $libPath = dirname(dirname abs_path $0) . 'lib';
+   my $libPath = dirname(dirname abs_path $0) . '/lib';
    push(@INC, $libPath);
    print "\n- Pushed $libPath into perl lib path INC\n";
 }
@@ -40,8 +40,12 @@ chomp($md5script);
 
 # Home Dir
 my $homedir = $ENV{"HOME"};
-my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "/footLoop";
-die "Can't find footLoop folder $LCY$footLoopScriptsFolder\n" if not -d $footLoopScriptsFolder;
+my $footLoopScriptsFolder = dirname(dirname abs_path $0) . "";
+
+if (not -d $footLoopScriptsFolder) {
+	print "check_software.pl: Can't find footLoop folder at dirname $footLoopScriptsFolder\n";
+	exit 1;
+}
 
 # FootLoop Version
 my @version = `cd $footLoopScriptsFolder && git log`;

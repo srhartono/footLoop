@@ -41,7 +41,7 @@ $version_small = $version if not defined $version_small;
 # 0. Check Sanity #
 ##################
 
-my $footPeakscript = "$footLoop_script_folder/bin/footPeak_main.pl";
+my $footPeakscript = "$footLoop_script_folder/bin/footPeak.pl";
 my $date = getDate();
 my $uuid = getuuid();
 my $numThread = 1;
@@ -49,7 +49,7 @@ my ($footLoopFolder) = $opt_n;
 my ($usage) = check_sanity($footLoopFolder);
 my $logFile = "$footLoopFolder/logFile.txt";
 print "\nfootLooplogFile:\n$LCY$logFile$N\n\n";
-my ($opts, $outLog) = parse_footLoop_logFile($logFile, $date, $uuid, $footLoopFolder, $version_small);
+my ($opts, $outLog) = parse_footLoop_logFile_this($logFile, $date, $uuid, $footLoopFolder, $version_small);
 $opts->{label}    = defined $opt_L ? $opt_L : $opts->{label};
 my $label         = $opts->{label};
 my $seqFile       = $opts->{seqFile};
@@ -258,7 +258,7 @@ footLoop BAMFixedMD5 : $defOpts->{BAMFixedMD5}
 	LOG($outLog, $param);
 }
 
-sub parse_footLoop_logFile {
+sub parse_footLoop_logFile_this {
 	my ($logFile, $date, $uuid, $footLoopFolder, $version_small) = @_;
 	my @line = `cat $logFile`;
 	my $paramsFile = "$footLoopFolder/.PARAMS";
